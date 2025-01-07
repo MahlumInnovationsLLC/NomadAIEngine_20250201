@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import multer from "multer";
 import { db } from "@db";
-import { documents, documentCollaborators, documentWorkflows, chats, equipment, floorPlans, equipmentTypes } from "@db/schema";
+import { documents, documentCollaborators, documentWorkflows, chats, equipment, floorPlans, equipmentTypes, messages } from "@db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import * as cosmosService from "./services/azure/cosmos_service";
 import * as blobService from "./services/azure/blob_service";
@@ -744,8 +744,10 @@ Provide the prediction as a JSON array with hourly/daily predictions including c
         return res.status(400).json({ error: "No equipment found" });
       }
 
-      // Generate insights using OpenAI
-      const prompt = `Analyze the following fitness equipment performance data and provide insights:
+      let analysis;
+      try {
+        // Try to generate AI insights
+        const prompt = `Analyze the following fitness equipment performance data and provide insights:
 ${reportEquipment.map(eq => `
 Equipment: ${eq.name}
 Type: ${eq.type?.name || 'Unknown'}
@@ -761,22 +763,44 @@ Please provide a detailed analysis in JSON format with the following sections:
 3. usageOptimization: Array of tips to optimize equipment usage
 4. riskAssessment: Array of potential risks and mitigation strategies`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are an AI expert in fitness equipment performance analysis and maintenance optimization." 
-          },
-          { 
-            role: "user", 
-            content: prompt 
-          }
-        ],
-        response_format: { type: "json_object" }
-      });
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            { 
+              role: "system", 
+              content: "You are an AI expert in fitness equipment performance analysis and maintenance optimization." 
+            },
+            { 
+              role: "user", 
+              content: prompt 
+            }
+          ],
+          response_format: { type: "json_object" }
+        });
 
-      const analysis = JSON.parse(completion.choices[0].message.content || '{"performanceAnalysis":[],"maintenanceRecommendations":[],"usageOptimization":[],"riskAssessment":[]}');
+        analysis = JSON.parse(completion.choices[0].message.content);
+      } catch (error) {
+        console.error('Error generating AI analysis:', error);
+        // Fallback content if AI analysis fails
+        analysis = {
+          performanceAnalysis: [
+            `Equipment health score is ${reportEquipment[0].healthScore}%`,
+            "Regular maintenance is recommended to maintain optimal performance"
+          ],
+          maintenanceRecommendations: [
+            "Schedule routine maintenance checks",
+            "Monitor equipment performance regularly"
+          ],
+          usageOptimization: [
+            "Follow manufacturer guidelines for usage",
+            "Train staff on proper equipment operation"
+          ],
+          riskAssessment: [
+            "Monitor equipment status regularly",
+            "Address maintenance needs promptly"
+          ]
+        };
+      }
 
       // Compose the final report
       const report = {

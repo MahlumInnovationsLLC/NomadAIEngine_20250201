@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Activity, Calendar, CheckCircle2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 
 export function EquipmentHealthDashboard() {
   const { data: equipment = [], isLoading } = useQuery<Equipment[]>({
@@ -16,17 +17,17 @@ export function EquipmentHealthDashboard() {
   }
 
   const getHealthStatus = (score: number) => {
-    if (score >= 80) return { label: "Good", color: "text-green-500" };
-    if (score >= 60) return { label: "Fair", color: "text-yellow-500" };
-    return { label: "Poor", color: "text-red-500" };
+    if (score >= 80) return { label: "Good", color: "text-green-500", bgColor: "bg-green-500/10" };
+    if (score >= 60) return { label: "Fair", color: "text-yellow-500", bgColor: "bg-yellow-500/10" };
+    return { label: "Poor", color: "text-red-500", bgColor: "bg-red-500/10" };
   };
 
   const getPredictedMaintenanceDate = (equipment: Equipment) => {
     const lastMaintenance = equipment.lastMaintenance ? new Date(equipment.lastMaintenance) : null;
     const healthScore = Number(equipment.healthScore);
-    
+
     if (!lastMaintenance) return new Date();
-    
+
     // Simple prediction logic based on health score
     const daysToAdd = healthScore >= 80 ? 90 : healthScore >= 60 ? 45 : 15;
     const predictedDate = new Date(lastMaintenance);
@@ -37,6 +38,12 @@ export function EquipmentHealthDashboard() {
   const requiresAttention = equipment.filter(
     eq => Number(eq.healthScore) < 70 || eq.status === 'maintenance'
   );
+
+  const calculateRiskLevel = (score: number) => {
+    if (score >= 80) return { level: 'Low', color: 'emerald' };
+    if (score >= 60) return { level: 'Medium', color: 'yellow' };
+    return { level: 'High', color: 'red' };
+  };
 
   return (
     <div className="space-y-6">
@@ -99,6 +106,72 @@ export function EquipmentHealthDashboard() {
         </Card>
       </div>
 
+      {/* Risk Visualization */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Maintenance Risk Analysis</CardTitle>
+          <CardDescription>
+            Real-time visualization of equipment risk levels
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            {equipment.map((eq) => {
+              const riskInfo = calculateRiskLevel(Number(eq.maintenanceScore || eq.healthScore));
+              const pulseAnimation = riskInfo.level === 'High' ? {
+                scale: [1, 1.02, 1],
+                opacity: [0.8, 1, 0.8],
+              } : {};
+
+              return (
+                <motion.div
+                  key={eq.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ 
+                    opacity: 1, 
+                    y: 0,
+                    ...pulseAnimation
+                  }}
+                  transition={{ 
+                    duration: 0.5,
+                    repeat: riskInfo.level === 'High' ? Infinity : 0,
+                    repeatType: "reverse"
+                  }}
+                  className={`p-4 rounded-lg bg-${riskInfo.color}-50 border border-${riskInfo.color}-200`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium">{eq.name}</h3>
+                    <Badge variant={riskInfo.level === 'High' ? 'destructive' : 'outline'}>
+                      {riskInfo.level} Risk
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Maintenance Score</span>
+                      <span className={`text-${riskInfo.color}-600 font-medium`}>
+                        {Math.round(Number(eq.maintenanceScore || eq.healthScore))}%
+                      </span>
+                    </div>
+                    <Progress 
+                      value={Number(eq.maintenanceScore || eq.healthScore)} 
+                      className={`h-2 bg-${riskInfo.color}-100`}
+                    />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                      <Calendar className="h-3 w-3" />
+                      Next maintenance: {
+                        eq.nextMaintenance 
+                          ? new Date(eq.nextMaintenance).toLocaleDateString()
+                          : 'Not scheduled'
+                      }
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Equipment Health Details */}
       <Card>
         <CardHeader>
@@ -115,7 +188,13 @@ export function EquipmentHealthDashboard() {
               const needsMaintenance = predictedMaintenance < new Date();
 
               return (
-                <div key={eq.id} className="space-y-2">
+                <motion.div 
+                  key={eq.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-2"
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium">{eq.name}</h4>
@@ -135,7 +214,7 @@ export function EquipmentHealthDashboard() {
                       Next predicted maintenance: {predictedMaintenance.toLocaleDateString()}
                     </span>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -147,16 +226,23 @@ export function EquipmentHealthDashboard() {
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Maintenance Alerts</h3>
           {requiresAttention.map((eq) => (
-            <Alert key={eq.id} variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Maintenance Required</AlertTitle>
-              <AlertDescription>
-                {eq.name} needs attention. Current health score: {eq.healthScore}%.
-                {eq.maintenanceNotes && (
-                  <p className="mt-2 text-sm">Note: {eq.maintenanceNotes}</p>
-                )}
-              </AlertDescription>
-            </Alert>
+            <motion.div
+              key={eq.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Maintenance Required</AlertTitle>
+                <AlertDescription>
+                  {eq.name} needs attention. Current health score: {eq.healthScore}%.
+                  {eq.maintenanceNotes && (
+                    <p className="mt-2 text-sm">Note: {eq.maintenanceNotes}</p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            </motion.div>
           ))}
         </div>
       )}
