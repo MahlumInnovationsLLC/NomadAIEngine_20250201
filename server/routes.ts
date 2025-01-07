@@ -3,8 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import multer from "multer";
 import { db } from "@db";
-import { chats, messages, files, documents, documentCollaborators, documentEmbeddings } from "@db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { chats, messages, files, documents, documentCollaborators, documentEmbeddings, documentWorkflows } from "@db/schema";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { semanticSearch, indexDocument } from "./services/search";
 
 const upload = multer({ dest: 'uploads/' });
@@ -218,6 +218,79 @@ export function registerRoutes(app: Express): Server {
     res.json(result[0]);
   });
 
+
+  // Dashboard endpoints
+  app.get("/api/dashboard/stats", async (req, res) => {
+    const stats = await db.transaction(async (tx) => {
+      const [
+        totalDocuments,
+        activeChats,
+        collaborators,
+        activeWorkflows
+      ] = await Promise.all([
+        tx.select({ count: sql<number>`count(*)` }).from(documents),
+        tx.select({ count: sql<number>`count(*)` }).from(chats),
+        tx.select({ count: sql<number>`count(distinct user_id)` }).from(documentCollaborators),
+        tx.select({ count: sql<number>`count(*)` })
+          .from(documentWorkflows)
+          .where(eq(documentWorkflows.status, 'active')),
+      ]);
+
+      return {
+        totalDocuments: totalDocuments[0].count,
+        activeChats: activeChats[0].count,
+        collaborators: collaborators[0].count,
+        activeWorkflows: activeWorkflows[0].count,
+      };
+    });
+
+    res.json(stats);
+  });
+
+  app.get("/api/documents/recent", async (req, res) => {
+    const recentDocs = await db.query.documents.findMany({
+      orderBy: [desc(documents.updatedAt)],
+      limit: 5,
+    });
+    res.json(recentDocs);
+  });
+
+  app.get("/api/dashboard/activity", async (req, res) => {
+    const activities = [];
+
+    // Get recent document updates
+    const recentDocuments = await db.query.documents.findMany({
+      orderBy: [desc(documents.updatedAt)],
+      limit: 3,
+    });
+
+    activities.push(...recentDocuments.map(doc => ({
+      id: `doc-${doc.id}`,
+      type: 'document',
+      description: `Updated document: ${doc.title}`,
+      timestamp: doc.updatedAt,
+    })));
+
+    // Get recent messages
+    const recentMessages = await db.query.messages.findMany({
+      orderBy: [desc(messages.createdAt)],
+      limit: 3,
+    });
+
+    activities.push(...recentMessages.map(msg => ({
+      id: `msg-${msg.id}`,
+      type: 'message',
+      description: `New message in chat #${msg.chatId}`,
+      timestamp: msg.createdAt,
+    })));
+
+    // Sort all activities by timestamp
+    activities.sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    res.json(activities.slice(0, 5));
+  });
 
   return httpServer;
 }

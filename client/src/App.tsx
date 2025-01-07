@@ -3,6 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
 import DocumentControl from "@/pages/DocumentControl";
+import DashboardPage from "@/pages/DashboardPage";
 import Navbar from "@/components/layout/Navbar";
 import PageTransition from "@/components/layout/PageTransition";
 import { Toaster } from "@/components/ui/toaster";
@@ -22,6 +23,13 @@ function App() {
               <Route path="/">
                 <PageTransition>
                   <Home />
+                </PageTransition>
+              </Route>
+              <Route path="/dashboard">
+                <PageTransition>
+                  <div data-tour="dashboard-section">
+                    <DashboardPage />
+                  </div>
                 </PageTransition>
               </Route>
               <Route path="/chat/:id?">

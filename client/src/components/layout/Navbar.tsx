@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, Settings, Share2, LogOut, MoonIcon, SunIcon } from "lucide-react";
+import { Menu, X, Settings, Share2, LogOut, MoonIcon, SunIcon, LayoutDashboard } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -34,6 +34,13 @@ export default function Navbar() {
 
         <NavigationMenu className="flex-1">
           <NavigationMenuList>
+            <NavigationMenuItem>
+              <Link href="/dashboard">
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  Dashboard
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
             <NavigationMenuItem>
               <Link href="/chat">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
