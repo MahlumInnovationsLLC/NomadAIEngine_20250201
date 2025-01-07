@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Equipment, FloorPlan } from "@db/schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,8 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
 
   const updateFloorPlanMutation = useMutation({
     mutationFn: async (updates: Partial<FloorPlan>) => {
-      const response = await fetch(`/api/floor-plans/${floorPlan?.id}`, {
+      if (!floorPlan?.id) throw new Error('No floor plan to update');
+      const response = await fetch(`/api/floor-plans/${floorPlan.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -48,7 +49,7 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
 
   const updateEquipmentPositionMutation = useMutation({
     mutationFn: async ({ id, position }: { id: number; position: { x: number; y: number } }) => {
-      const response = await fetch(`/api/equipment/${id}/position`, {
+      const response = await fetch(`/api/equipment/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ position }),
@@ -224,7 +225,7 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
             {/* Example room layouts */}
             <div className="absolute inset-0 pointer-events-none">
               <svg width={dimensions.width} height={dimensions.height}>
-                {/* Example room outlines */}
+                {/* Room outlines */}
                 <rect x="50" y="50" width="200" height="150" 
                   fill="none" stroke="currentColor" strokeOpacity={0.2} />
                 <rect x="300" y="50" width="250" height="200" 

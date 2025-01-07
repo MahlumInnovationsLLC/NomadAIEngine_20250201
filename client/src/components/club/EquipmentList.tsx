@@ -16,8 +16,12 @@ import { MaintenanceScheduler } from "./MaintenanceScheduler";
 import { EquipmentEditDialog } from "./EquipmentEditDialog";
 import { EquipmentQuickAdd } from "./EquipmentQuickAdd";
 import { EquipmentHealthDashboard } from "./EquipmentHealthDashboard";
-import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface EquipmentListProps {
+  equipment: Equipment[];
+  onEquipmentSelect?: (equipmentId: number) => void;
+}
 
 const statusColors: Record<string, string> = {
   active: "bg-green-500",
@@ -45,23 +49,17 @@ const getConnectionStatusColor = (status: string) => {
   }
 };
 
-export default function EquipmentList() {
+export default function EquipmentList({ equipment, onEquipmentSelect }: EquipmentListProps) {
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [maintenanceEquipment, setMaintenanceEquipment] = useState<Equipment | null>(null);
   const [editEquipment, setEditEquipment] = useState<Equipment | null>(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
 
-  const { data: equipment = [], isLoading, error } = useQuery<Equipment[]>({
-    queryKey: ['/api/equipment'],
-  });
-
-  if (isLoading) {
-    return <div className="p-4">Loading equipment data...</div>;
-  }
-
-  if (error) {
-    return <div className="p-4 text-red-500">Error loading equipment data</div>;
-  }
+  const handleRowClick = (item: Equipment) => {
+    if (onEquipmentSelect) {
+      onEquipmentSelect(item.id);
+    }
+  };
 
   return (
     <div className="space-y-4 p-4">
@@ -99,7 +97,11 @@ export default function EquipmentList() {
             </TableHeader>
             <TableBody>
               {equipment.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow 
+                  key={item.id}
+                  className="cursor-pointer hover:bg-accent/50"
+                  onClick={() => handleRowClick(item)}
+                >
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -140,7 +142,10 @@ export default function EquipmentList() {
                         variant="secondary"
                         size="sm"
                         className="flex items-center gap-2"
-                        onClick={() => setMaintenanceEquipment(item)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMaintenanceEquipment(item);
+                        }}
                       >
                         <Settings className="h-4 w-4" />
                         Schedule
@@ -148,14 +153,20 @@ export default function EquipmentList() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setEditEquipment(item)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditEquipment(item);
+                        }}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setSelectedEquipment(item)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEquipment(item);
+                        }}
                       >
                         <AlertCircle className="h-4 w-4" />
                       </Button>
