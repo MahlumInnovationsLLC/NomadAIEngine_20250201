@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UsagePrediction {
   equipment_id: number;
@@ -20,8 +21,17 @@ interface EquipmentUsagePredictionProps {
 export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsagePredictionProps) {
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
 
-  const { data: predictions, isLoading, isError } = useQuery<UsagePrediction[]>({
+  const { data: predictions, isLoading, isError, error } = useQuery<UsagePrediction[]>({
     queryKey: ['/api/equipment/predictions', equipmentId, timeRange],
+    queryFn: async () => {
+      const response = await fetch(`/api/equipment/${equipmentId}/predictions?timeRange=${timeRange}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch predictions');
+      }
+      return response.json();
+    }
   });
 
   const generatePredictionMutation = useMutation({
@@ -30,6 +40,7 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timeRange }),
+        credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to generate prediction');
       return response.json();
@@ -56,7 +67,11 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
           <CardTitle>Usage Prediction</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-destructive">Error loading predictions</p>
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error instanceof Error ? error.message : 'Error loading predictions'}
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
@@ -64,8 +79,8 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
 
   const formattedData = predictions?.map(pred => ({
     timestamp: new Date(pred.timestamp).toLocaleDateString(),
-    usage: pred.predicted_usage,
-    confidence: pred.confidence,
+    usage: Math.round(pred.predicted_usage),
+    confidence: Math.round(pred.confidence * 100)
   }));
 
   return (
@@ -120,14 +135,15 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
                 type="monotone"
                 dataKey="usage"
                 stroke="hsl(var(--primary))"
-                name="Predicted Usage"
+                strokeWidth={2}
+                name="Predicted Usage (%)"
               />
               <Line
                 type="monotone"
                 dataKey="confidence"
                 stroke="hsl(var(--muted-foreground))"
                 strokeDasharray="5 5"
-                name="Confidence"
+                name="Confidence (%)"
               />
             </LineChart>
           </ResponsiveContainer>
