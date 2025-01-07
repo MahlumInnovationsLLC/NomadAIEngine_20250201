@@ -39,7 +39,7 @@ interface EquipmentIconProps {
   isDragging?: boolean;
   onRequestSuggestion?: () => void;
   index: number;
-  onDragStart: (e: any, index: number) => void;
+  onDragStart: (e: React.DragEvent, index: number) => void;
   onDragEnter: (index: number) => void;
 }
 
@@ -128,17 +128,18 @@ const EquipmentIcon = ({
       }}
       exit={{ opacity: 0, scale: 0.8 }}
       whileHover={{ scale: 1.05 }}
+      transition={{ duration: 0.2 }}
       className={cn(
-        "relative bg-background rounded-lg border cursor-grab active:cursor-grabbing w-[140px] h-[140px]",
-        "flex flex-col items-center justify-center p-4",
-        "hover:bg-accent/50 transition-colors",
-        isDragging && "shadow-lg ring-2 ring-primary opacity-50"
+        "bg-background rounded-lg border cursor-grab active:cursor-grabbing",
+        "w-[120px] h-[120px] flex flex-col items-center justify-center p-3",
+        "hover:bg-accent/50 transition-colors relative",
+        isDragging ? "shadow-lg ring-2 ring-primary opacity-70" : "opacity-100"
       )}
     >
       <StatusIndicator status={equipment.status} />
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-2">
         <div className="p-2 rounded-md bg-muted">
-          <Icon className="w-6 h-6" />
+          <Icon className="w-5 h-5" />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
@@ -146,20 +147,20 @@ const EquipmentIcon = ({
         <Badge variant="outline" className="text-xs">
           {equipment.deviceType || "Unknown"}
         </Badge>
-        {onRequestSuggestion && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRequestSuggestion();
-            }}
-          >
-            <Wand2 className="w-4 h-4" />
-          </Button>
-        )}
       </div>
+      {onRequestSuggestion && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRequestSuggestion();
+          }}
+        >
+          <Wand2 className="w-4 h-4" />
+        </Button>
+      )}
     </motion.div>
   );
 };
@@ -196,7 +197,7 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
     }
   };
 
-  const handleDragStart = (e: DragEvent, index: number) => {
+  const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIdx(index);
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = 'move';
@@ -209,6 +210,8 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
 
     const newItems = [...items];
     const draggedItem = newItems[draggedIdx];
+
+    // Update positions while maintaining grid layout
     newItems.splice(draggedIdx, 1);
     newItems.splice(index, 0, draggedItem);
 
@@ -232,27 +235,37 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[400px]">
-          <AnimatePresence>
-            <motion.div
-              layout
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 p-4"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDragEnd}
-            >
+        <ScrollArea className="h-[400px] px-1">
+          <div
+            className="grid auto-rows-auto gap-6 p-4"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDragEnd}
+          >
+            <AnimatePresence>
               {items.map((item, index) => (
-                <EquipmentIcon
+                <div
                   key={item.id}
-                  equipment={item}
-                  isDragging={draggedIdx === index}
-                  onRequestSuggestion={() => handleRequestSuggestion(item)}
-                  index={index}
-                  onDragStart={handleDragStart}
-                  onDragEnter={handleDragEnter}
-                />
+                  className="flex items-center justify-center"
+                  style={{
+                    gridRow: `auto`,
+                    gridColumn: `auto`,
+                  }}
+                >
+                  <EquipmentIcon
+                    equipment={item}
+                    isDragging={draggedIdx === index}
+                    onRequestSuggestion={() => handleRequestSuggestion(item)}
+                    index={index}
+                    onDragStart={handleDragStart}
+                    onDragEnter={handleDragEnter}
+                  />
+                </div>
               ))}
-            </motion.div>
-          </AnimatePresence>
+            </AnimatePresence>
+          </div>
         </ScrollArea>
       </CardContent>
 
