@@ -522,7 +522,49 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Azure Services Status Endpoint (duplicate removed)
+  // Equipment troubleshooting routes
+  app.get("/api/equipment/:id/troubleshooting", async (req, res) => {
+    try {
+      // In a real application, this would be fetched from a database
+      // For now, we'll return mock troubleshooting data
+      const mockGuide = {
+        steps: [
+          {
+            id: "1",
+            title: "Power Issues",
+            description: "Equipment is not turning on or display is blank",
+            solution: "Check power connection and verify outlet functionality. If using battery power, replace or recharge batteries.",
+            severity: "high"
+          },
+          {
+            id: "2",
+            title: "Unusual Noise",
+            description: "Equipment is making grinding or squeaking sounds during operation",
+            solution: "Inspect moving parts for wear and tear. Apply appropriate lubricant to designated areas.",
+            severity: "medium"
+          },
+          {
+            id: "3",
+            title: "Display Errors",
+            description: "Error codes or garbled display on the equipment screen",
+            solution: "Power cycle the equipment. If error persists, note the error code and contact manufacturer support.",
+            severity: "medium"
+          },
+          {
+            id: "4",
+            title: "Connectivity Issues",
+            description: "Equipment is not transmitting data or showing offline status",
+            solution: "Check wireless connection strength and reset network adapter. Verify IoT sensor attachment.",
+            severity: "high"
+          }
+        ]
+      };
+
+      res.json(mockGuide);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch troubleshooting guide" });
+    }
+  });
 
   return httpServer;
 }

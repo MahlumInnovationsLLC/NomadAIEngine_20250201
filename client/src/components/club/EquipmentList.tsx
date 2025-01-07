@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Activity, AlertCircle } from "lucide-react";
+import { TroubleshootingGuide } from "./TroubleshootingGuide";
+import { useState } from "react";
 
 interface EquipmentListProps {
   equipment: Equipment[];
@@ -29,6 +31,8 @@ const getHealthColor = (score: number) => {
 };
 
 export default function EquipmentList({ equipment }: EquipmentListProps) {
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+
   return (
     <div className="p-4">
       <Table>
@@ -76,7 +80,11 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
                   <Button variant="ghost" size="icon">
                     <Activity className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setSelectedEquipment(item)}
+                  >
                     <AlertCircle className="h-4 w-4" />
                   </Button>
                 </div>
@@ -85,6 +93,14 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
           ))}
         </TableBody>
       </Table>
+
+      {selectedEquipment && (
+        <TroubleshootingGuide
+          equipment={selectedEquipment}
+          open={!!selectedEquipment}
+          onOpenChange={(open) => !open && setSelectedEquipment(null)}
+        />
+      )}
     </div>
   );
 }
