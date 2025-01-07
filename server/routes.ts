@@ -822,6 +822,74 @@ Please provide a detailed analysis in JSON format with the following sections:
     }
   });
 
+  // Equipment icon suggestion route
+  app.get("/api/equipment/suggest-icons", async (req, res) => {
+    try {
+      const { name, type } = req.query;
+
+      // Use OpenAI to generate icon suggestions
+      const prompt = `Given a piece of fitness equipment with:
+Name: ${name}
+Type: ${type}
+
+Suggest appropriate icons from this list:
+- dumbbell (for strength training)
+- bike (for cycling equipment)
+- timer (for timing-based equipment)
+- footprints (for cardio/walking/running)
+- heart (for cardio equipment)
+- activity (for cross-trainers)
+- waves (for rowing/swimming)
+- weight (for weight machines)
+- target (for goal-based equipment)
+- monitor (for digital/electronic equipment)
+
+Provide suggestions in a JSON array with each item having:
+- key: the icon name from the list above
+- reason: why this icon is appropriate
+- confidence: number between 0 and 1 indicating how well it matches
+
+Return exactly 4 suggestions ordered by confidence.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are an AI expert in fitness equipment and icon design." 
+          },
+          { 
+            role: "user", 
+            content: prompt 
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const suggestions = JSON.parse(completion.choices[0].message.content).suggestions;
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error generating icon suggestions:', error);
+      res.status(500).json({ error: "Failed to generate icon suggestions" });
+    }
+  });
+
+  // Equipment icon update route
+  app.patch("/api/equipment/:id/icon", async (req, res) => {
+    try {
+      const result = await db.update(equipment)
+        .set({
+          iconKey: req.body.iconKey,
+          updatedAt: new Date()
+        })
+        .where(eq(equipment.id, parseInt(req.params.id)))
+        .returning();
+      res.json(result[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update equipment icon" });
+    }
+  });
+
   return httpServer;
 }
 
