@@ -499,7 +499,10 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/equipment", async (_req, res) => {
     try {
       const items = await db.query.equipment.findMany({
-        orderBy: (equipment, { asc }) => [asc(equipment.name)]
+        orderBy: (equipment, { asc }) => [asc(equipment.name)],
+        with: {
+          type: true
+        }
       });
       res.json(items);
     } catch (error) {
@@ -507,18 +510,31 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.patch("/api/equipment/:id/position", async (req, res) => {
+  app.patch("/api/equipment/:id", async (req, res) => {
     try {
       const result = await db.update(equipment)
         .set({
-          position: req.body.position,
+          name: req.body.name,
+          deviceType: req.body.deviceType,
+          deviceIdentifier: req.body.deviceIdentifier,
+          deviceConnectionStatus: req.body.deviceConnectionStatus,
           updatedAt: new Date()
         })
         .where(eq(equipment.id, parseInt(req.params.id)))
         .returning();
       res.json(result[0]);
     } catch (error) {
-      res.status(500).json({ error: "Failed to update equipment position" });
+      res.status(500).json({ error: "Failed to update equipment" });
+    }
+  });
+
+  app.delete("/api/equipment/:id", async (req, res) => {
+    try {
+      await db.delete(equipment)
+        .where(eq(equipment.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete equipment" });
     }
   });
 

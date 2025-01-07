@@ -71,6 +71,11 @@ export const equipment = pgTable("equipment", {
   metadata: jsonb("metadata"),
   maintenanceType: text("maintenance_type"),
   maintenanceNotes: text("maintenance_notes"),
+  // New fields for device linking
+  deviceConnectionStatus: text("device_connection_status", { enum: ['connected', 'disconnected', 'pairing'] }),
+  deviceType: text("device_type"),
+  deviceIdentifier: text("device_identifier"),
+  lastSyncTime: timestamp("last_sync_time"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

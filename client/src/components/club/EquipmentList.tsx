@@ -9,14 +9,12 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Activity, AlertCircle } from "lucide-react";
+import { Settings, Activity, AlertCircle, Edit } from "lucide-react";
 import { TroubleshootingGuide } from "./TroubleshootingGuide";
 import { useState } from "react";
 import { MaintenanceScheduler } from "./MaintenanceScheduler";
-
-interface EquipmentListProps {
-  equipment: Equipment[];
-}
+import { EquipmentEditDialog } from "./EquipmentEditDialog";
+import { useQuery } from "@tanstack/react-query";
 
 const statusColors = {
   active: "bg-green-500",
@@ -31,9 +29,35 @@ const getHealthColor = (score: number) => {
   return "bg-red-500";
 };
 
-export default function EquipmentList({ equipment }: EquipmentListProps) {
+const getConnectionStatusColor = (status: string) => {
+  switch (status) {
+    case 'connected':
+      return 'text-green-500';
+    case 'disconnected':
+      return 'text-red-500';
+    case 'pairing':
+      return 'text-yellow-500';
+    default:
+      return 'text-gray-500';
+  }
+};
+
+export default function EquipmentList() {
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [maintenanceEquipment, setMaintenanceEquipment] = useState<Equipment | null>(null);
+  const [editEquipment, setEditEquipment] = useState<Equipment | null>(null);
+
+  const { data: equipment = [], isLoading, error } = useQuery({
+    queryKey: ['/api/equipment'],
+  });
+
+  if (isLoading) {
+    return <div className="p-4">Loading equipment data...</div>;
+  }
+
+  if (error) {
+    return <div className="p-4 text-red-500">Error loading equipment data</div>;
+  }
 
   return (
     <div className="p-4">
@@ -43,13 +67,14 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
             <TableHead>Equipment</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Health Score</TableHead>
+            <TableHead>Device Connection</TableHead>
             <TableHead>Last Maintenance</TableHead>
             <TableHead>Next Maintenance</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {equipment.map((item) => (
+          {equipment.map((item: Equipment) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">{item.name}</TableCell>
               <TableCell>
@@ -63,6 +88,17 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
                   <div className={`h-2 w-2 rounded-full ${getHealthColor(Number(item.healthScore))}`} />
                   <span>{item.healthScore}%</span>
                 </div>
+              </TableCell>
+              <TableCell>
+                <span className={getConnectionStatusColor(item.deviceConnectionStatus || '')}>
+                  {item.deviceConnectionStatus ? (
+                    <Badge variant="outline" className="capitalize">
+                      {item.deviceConnectionStatus}
+                    </Badge>
+                  ) : (
+                    "Not Connected"
+                  )}
+                </span>
               </TableCell>
               <TableCell>
                 {item.lastMaintenance
@@ -85,11 +121,15 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
                     <Settings className="h-4 w-4" />
                     Schedule
                   </Button>
-                  <Button variant="ghost" size="icon">
-                    <Activity className="h-4 w-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setEditEquipment(item)}
+                  >
+                    <Edit className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     onClick={() => setSelectedEquipment(item)}
                   >
@@ -115,6 +155,14 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
           equipment={maintenanceEquipment}
           open={!!maintenanceEquipment}
           onOpenChange={(open) => !open && setMaintenanceEquipment(null)}
+        />
+      )}
+
+      {editEquipment && (
+        <EquipmentEditDialog
+          equipment={editEquipment}
+          open={!!editEquipment}
+          onOpenChange={(open) => !open && setEditEquipment(null)}
         />
       )}
     </div>
