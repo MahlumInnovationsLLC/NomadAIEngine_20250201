@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import * as solidIcons from "@fortawesome/pro-solid-svg-icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -42,6 +44,14 @@ const StatusIndicator = ({ status, className }: { status: string; className?: st
   );
 };
 
+// Helper function to get icon from library
+const getIconFromName = (iconName: string) => {
+  const name = `fa${iconName.split('-').map(part => 
+    part.charAt(0).toUpperCase() + part.slice(1)
+  ).join('')}`;
+  return solidIcons[name as keyof typeof solidIcons] || solidIcons.faDumbbell;
+};
+
 const EquipmentIcon = ({ 
   equipment, 
   isDragging,
@@ -50,6 +60,8 @@ const EquipmentIcon = ({
   onDragStart,
   onDragEnter,
 }: EquipmentIconProps) => {
+  const icon = getIconFromName(equipment.deviceType || 'dumbbell');
+
   return (
     <motion.div
       layout
@@ -76,7 +88,7 @@ const EquipmentIcon = ({
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-2">
         <div className="p-2 rounded-md bg-muted">
-          <i className={`fas fa-${equipment.deviceType || 'dumbbell'} fa-lg`} />
+          <FontAwesomeIcon icon={icon} size="lg" />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
@@ -152,7 +164,6 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
     const newItems = [...items];
     const draggedItem = newItems[draggedIdx];
 
-    // Update positions while maintaining grid layout
     newItems.splice(draggedIdx, 1);
     newItems.splice(index, 0, draggedItem);
 
