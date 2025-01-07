@@ -20,7 +20,7 @@ export function FontAwesomeIcon({
     <i 
       className={cn(
         prefix,
-        `fa-${iconName}`,
+        type === 'kit' ? `fa-${iconName}` : iconName,
         size && `fa-${size}`,
         className
       )} 

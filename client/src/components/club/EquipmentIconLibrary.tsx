@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { Grid, Wand2 } from "lucide-react";
 import { IconSuggestionDialog } from "./IconSuggestionDialog";
 import { useToast } from "@/hooks/use-toast";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+
 
 interface EquipmentIconProps {
   equipment: Equipment;
@@ -51,10 +53,6 @@ const EquipmentIcon = ({
   onDragStart,
   onDragEnter,
 }: EquipmentIconProps) => {
-  const connectivityIcon = equipment.deviceConnectionStatus === 'connected' ? 
-    (equipment.deviceIdentifier?.includes('bluetooth') ? 'fa-solid fa-bluetooth' : 'fa-solid fa-wifi') : 
-    'fa-solid fa-signal-slash';
-
   return (
     <motion.div
       layout
@@ -73,44 +71,28 @@ const EquipmentIcon = ({
       transition={{ duration: 0.2 }}
       className={cn(
         "bg-background rounded-lg border cursor-grab active:cursor-grabbing",
-        "w-[120px] h-[120px] flex flex-col items-center justify-center p-3",
+        "w-10 h-10 flex items-center justify-center",
         "hover:bg-accent/50 transition-colors relative",
         isDragging ? "shadow-lg ring-2 ring-primary opacity-70" : "opacity-100"
       )}
     >
       <StatusIndicator status={equipment.status} />
-      <div className="flex flex-col items-center gap-2">
-        <div className="p-2 rounded-md bg-muted">
-          <i 
-            className={`fa-kit fa-${equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'}`} 
-            style={{ fontSize: '1.5rem' }}
-          />
-        </div>
-        <span className="text-xs font-medium text-center line-clamp-2">
-          {equipment.name}
-        </span>
-        <Badge variant="outline" className="text-xs flex items-center gap-1">
-          <i 
-            className={connectivityIcon}
-            style={{ 
-              fontSize: '0.875rem',
-              color: equipment.deviceConnectionStatus === 'connected' ? 'rgb(34 197 94)' : 'rgb(156 163 175)'
-            }}
-          />
-          {equipment.deviceConnectionStatus || "Not Connected"}
-        </Badge>
-      </div>
+      <FontAwesomeIcon 
+        icon={equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'}
+        type="kit"
+        size="lg"
+      />
       {onRequestSuggestion && (
         <Button
           variant="ghost"
           size="sm"
-          className="absolute top-1 right-1 opacity-100 hover:opacity-80 transition-opacity"
+          className="absolute -top-2 -right-2 w-4 h-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
             onRequestSuggestion();
           }}
         >
-          <Wand2 className="w-4 h-4" />
+          <Wand2 className="w-3 h-3" />
         </Button>
       )}
     </motion.div>
@@ -152,7 +134,6 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
 
       const updatedEquipment = await response.json();
 
-      // Update the local state
       setItems(prevItems => 
         prevItems.map(item => 
           item.id === selectedEquipment.id ? updatedEquipment : item
@@ -203,7 +184,7 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
   };
 
   return (
-    <Card>
+    <Card className="mb-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Grid className="w-5 h-5" />
@@ -211,12 +192,9 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[400px] px-1">
+        <ScrollArea className="h-[300px] px-1">
           <div
-            className="grid auto-rows-auto gap-6 p-4"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-            }}
+            className="grid grid-cols-8 gap-4 p-4"
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDragEnd}
           >
@@ -225,10 +203,6 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
                 <div
                   key={item.id}
                   className="flex items-center justify-center"
-                  style={{
-                    gridRow: `auto`,
-                    gridColumn: `auto`,
-                  }}
                 >
                   <EquipmentIcon
                     equipment={item}
