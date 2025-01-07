@@ -4,7 +4,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import multer from "multer";
 import { db } from "@db";
 import { chats, messages, documents, documentCollaborators, documentWorkflows } from "@db/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { semanticSearch, indexDocument } from "./services/search";
 
 const upload = multer({ dest: 'uploads/' });
@@ -129,36 +129,58 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/documents", async (req, res) => {
-    const result = await db.insert(documents).values({
-      title: req.body.title,
-      content: req.body.content || "",
-      chatId: req.body.chatId,
-      version: 1
-    }).returning();
+    try {
+      const result = await db.insert(documents).values({
+        title: req.body.title,
+        content: req.body.content || "",
+        chatId: req.body.chatId,
+        version: 1
+      }).returning();
 
-    // Index the document after creation
-    await indexDocument(result[0].id);
-    res.json(result[0]);
+      // Index the document after creation
+      await indexDocument(result[0].id);
+      res.json(result[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create document" });
+    }
   });
 
   app.get("/api/documents/:id", async (req, res) => {
-    const result = await db.query.documents.findFirst({
-      where: eq(documents.id, parseInt(req.params.id))
-    });
+    try {
+      const docId = parseInt(req.params.id);
+      if (isNaN(docId)) {
+        return res.status(400).json({ error: "Invalid document ID" });
+      }
 
-    if (!result) {
-      return res.status(404).json({ message: 'Document not found' });
+      const result = await db.query.documents.findFirst({
+        where: eq(documents.id, docId)
+      });
+
+      if (!result) {
+        return res.status(404).json({ message: 'Document not found' });
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch document" });
     }
-    res.json(result);
   });
 
   app.post("/api/documents/:id/collaborators", async (req, res) => {
-    const result = await db.insert(documentCollaborators).values({
-      documentId: parseInt(req.params.id),
-      userId: req.body.userId,
-      canEdit: req.body.canEdit
-    }).returning();
-    res.json(result[0]);
+    try {
+      const docId = parseInt(req.params.id);
+      if (isNaN(docId)) {
+        return res.status(400).json({ error: "Invalid document ID" });
+      }
+
+      const result = await db.insert(documentCollaborators).values({
+        documentId: docId,
+        userId: req.body.userId,
+        canEdit: req.body.canEdit
+      }).returning();
+      res.json(result[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to add collaborator" });
+    }
   });
 
   app.get("/api/chats", async (req, res) => {
@@ -207,75 +229,84 @@ export function registerRoutes(app: Express): Server {
 
   // Dashboard endpoints
   app.get("/api/dashboard/stats", async (req, res) => {
-    const stats = await db.transaction(async (tx) => {
+    try {
       const [
         totalDocuments,
         activeChats,
         collaborators,
         activeWorkflows
       ] = await Promise.all([
-        tx.select({ count: sql<number>`count(*)` }).from(documents),
-        tx.select({ count: sql<number>`count(*)` }).from(chats),
-        tx.select({ count: sql<number>`count(distinct "user_id")` }).from(documentCollaborators),
-        tx.select({ count: sql<number>`count(*)` })
+        db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` }).from(documents),
+        db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` }).from(chats),
+        db.select({ count: sql<number>`CAST(COUNT(DISTINCT user_id) AS INTEGER)` }).from(documentCollaborators),
+        db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` })
           .from(documentWorkflows)
           .where(eq(documentWorkflows.status, 'active')),
       ]);
 
-      return {
-        totalDocuments: totalDocuments[0].count,
-        activeChats: activeChats[0].count,
-        collaborators: collaborators[0].count,
-        activeWorkflows: activeWorkflows[0].count,
-      };
-    });
-
-    res.json(stats);
+      res.json({
+        totalDocuments: totalDocuments[0].count || 0,
+        activeChats: activeChats[0].count || 0,
+        collaborators: collaborators[0].count || 0,
+        activeWorkflows: activeWorkflows[0].count || 0,
+      });
+    } catch (error) {
+      console.error('Dashboard stats error:', error);
+      res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
   });
 
   app.get("/api/documents/recent", async (req, res) => {
-    const recentDocs = await db.query.documents.findMany({
-      orderBy: [desc(documents.updatedAt)],
-      limit: 5,
-    });
-    res.json(recentDocs);
+    try {
+      const recentDocs = await db.query.documents.findMany({
+        orderBy: [desc(documents.updatedAt)],
+        limit: 5,
+      });
+      res.json(recentDocs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch recent documents" });
+    }
   });
 
   app.get("/api/dashboard/activity", async (req, res) => {
-    const activities = [];
+    try {
+      const activities = [];
 
-    // Get recent document updates
-    const recentDocuments = await db.query.documents.findMany({
-      orderBy: [desc(documents.updatedAt)],
-      limit: 3,
-    });
+      // Get recent document updates
+      const recentDocuments = await db.query.documents.findMany({
+        orderBy: [desc(documents.updatedAt)],
+        limit: 3,
+      });
 
-    activities.push(...recentDocuments.map(doc => ({
-      id: `doc-${doc.id}`,
-      type: 'document',
-      description: `Updated document: ${doc.title}`,
-      timestamp: doc.updatedAt,
-    })));
+      activities.push(...recentDocuments.map(doc => ({
+        id: `doc-${doc.id}`,
+        type: 'document',
+        description: `Updated document: ${doc.title}`,
+        timestamp: doc.updatedAt,
+      })));
 
-    // Get recent messages
-    const recentMessages = await db.query.messages.findMany({
-      orderBy: [desc(messages.createdAt)],
-      limit: 3,
-    });
+      // Get recent messages
+      const recentMessages = await db.query.messages.findMany({
+        orderBy: [desc(messages.createdAt)],
+        limit: 3,
+      });
 
-    activities.push(...recentMessages.map(msg => ({
-      id: `msg-${msg.id}`,
-      type: 'message',
-      description: `New message in chat #${msg.chatId}`,
-      timestamp: msg.createdAt,
-    })));
+      activities.push(...recentMessages.map(msg => ({
+        id: `msg-${msg.id}`,
+        type: 'message',
+        description: `New message in chat #${msg.chatId}`,
+        timestamp: msg.createdAt,
+      })));
 
-    // Sort all activities by timestamp
-    activities.sort((a, b) =>
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
+      // Sort all activities by timestamp
+      activities.sort((a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
 
-    res.json(activities.slice(0, 5));
+      res.json(activities.slice(0, 5));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch activity feed" });
+    }
   });
 
   return httpServer;
