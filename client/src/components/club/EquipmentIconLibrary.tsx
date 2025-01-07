@@ -7,31 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Grid, Wand2 } from "lucide-react";
-
-// Import all the fitness equipment icons
-import {
-  Dumbbell,
-  Bike,
-  Timer,
-  Footprints,
-  Heart,
-  Activity,
-  Waves,
-  Weight,
-  Target,
-  MonitorSmartphone,
-  Scale,
-  Gauge,
-  BarChart3,
-  Maximize2,
-  Cable,
-  Armchair,
-  Dices,
-  Tv2,
-  Vibrate,
-  Zap,
-  LucideIcon
-} from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon"; // Added import
 import { IconSuggestionDialog } from "./IconSuggestionDialog";
 
 interface EquipmentIconProps {
@@ -43,39 +19,26 @@ interface EquipmentIconProps {
   onDragEnter: (index: number) => void;
 }
 
-// Extended icon set for fitness equipment
-const equipmentIcons: Record<string, LucideIcon> = {
-  "treadmill": Footprints,
-  "bike": Bike,
-  "elliptical": Activity,
-  "rowing": Waves,
-  "weights": Weight,
-  "timer": Timer,
-  "cardio": Heart,
-  "strength": Dumbbell,
-  "screen": MonitorSmartphone,
-  "target": Target,
-  "scale": Scale,
-  "gauge": Gauge,
-  "metrics": BarChart3,
-  "stretching": Maximize2,
-  "cable": Cable,
-  "bench": Armchair,
-  "balance": Dices,
-  "display": Tv2,
-  "vibration": Vibrate,
-  "power": Zap,
-  // Add more fitness equipment specific icons
-  "cross-trainer": Activity,
-  "smith-machine": Weight,
-  "leg-press": Footprints,
-  "rowing-machine": Waves,
-  "spin-bike": Bike,
-  "power-rack": Dumbbell,
-  "cable-machine": Cable,
-  "bench-press": Weight,
-  "stair-master": Footprints,
-  "fitness-tracker": MonitorSmartphone
+// Extended mapping of equipment types to Font Awesome icons
+const equipmentIcons: Record<string, { icon: string; type: 'solid' | 'regular' | 'light' | 'thin' | 'duotone' | 'brands' }> = {
+  "treadmill": { icon: "person-running", type: "solid" },
+  "bike": { icon: "bicycle", type: "solid" },
+  "elliptical": { icon: "person-walking", type: "solid" },
+  "rowing": { icon: "person-swimming", type: "solid" },
+  "weights": { icon: "weight-hanging", type: "solid" },
+  "cardio": { icon: "heartbeat", type: "solid" },
+  "strength": { icon: "dumbbell", type: "solid" },
+  "yoga": { icon: "person-yoga", type: "solid" },
+  "stairs": { icon: "stairs", type: "solid" },
+  "screen": { icon: "display", type: "solid" },
+  "gauge": { icon: "gauge-high", type: "solid" },
+  "boxing": { icon: "hand-fist", type: "solid" },
+  "metrics": { icon: "chart-line", type: "solid" },
+  "stretching": { icon: "person-stretching", type: "solid" },
+  "bench": { icon: "chair", type: "solid" },
+  "balance": { icon: "scale-balanced", type: "solid" },
+  "display": { icon: "tv", type: "solid" },
+  "power": { icon: "bolt", type: "solid" }
 };
 
 const StatusIndicator = ({ status, className }: { status: string; className?: string }) => {
@@ -111,7 +74,7 @@ const EquipmentIcon = ({
   onDragEnter,
 }: EquipmentIconProps) => {
   const deviceType = equipment.deviceType?.toLowerCase() || 'strength';
-  const Icon = equipmentIcons[deviceType] || Dumbbell;
+  const iconConfig = equipmentIcons[deviceType] || equipmentIcons.strength;
 
   return (
     <motion.div
@@ -139,7 +102,11 @@ const EquipmentIcon = ({
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-2">
         <div className="p-2 rounded-md bg-muted">
-          <Icon className="w-5 h-5" />
+          <FontAwesomeIcon 
+            icon={iconConfig.icon}
+            type={iconConfig.type}
+            size="lg"
+          />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
@@ -185,13 +152,17 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
     if (!selectedEquipment) return;
 
     try {
-      await fetch(`/api/equipment/${selectedEquipment.id}/icon`, {
+      const response = await fetch(`/api/equipment/${selectedEquipment.id}/icon`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ iconKey }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to update equipment icon');
+      }
     } catch (error) {
       console.error('Failed to update equipment icon:', error);
     }
