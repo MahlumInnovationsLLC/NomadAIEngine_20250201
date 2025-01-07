@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List, FileText, Activity } from "lucide-react";
+import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List, FileText, Activity, Download } from "lucide-react";
 import { TroubleshootingGuide } from "./TroubleshootingGuide";
 import { useState } from "react";
 import { MaintenanceScheduler } from "./MaintenanceScheduler";
@@ -20,6 +20,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import MaintenanceScoreIndicator from "./MaintenanceScoreIndicator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface EquipmentListProps {
   equipment: Equipment[];
@@ -94,10 +100,13 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
         }),
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to generate report');
-      const report = await response.json();
 
-      // Generate and download report
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+
+      const report = await response.json();
+      // Generate HTML report
       const reportHtml = `
 <!DOCTYPE html>
 <html>
@@ -182,6 +191,76 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
     }
   };
 
+  const exportEquipment = async (format: 'excel' | 'pdf') => {
+    const data = equipment.map(item => ({
+      Name: item.name,
+      Status: item.status,
+      'Health Score': `${item.healthScore}%`,
+      'Maintenance Score': item.maintenanceScore ? `${item.maintenanceScore}%` : 'N/A',
+      'Connection Status': item.deviceConnectionStatus || 'Not Connected',
+      'Last Maintenance': item.lastMaintenance ? new Date(item.lastMaintenance).toLocaleDateString() : 'Never',
+      'Next Maintenance': item.nextMaintenance ? new Date(item.nextMaintenance).toLocaleDateString() : 'Not Scheduled',
+    }));
+
+    if (format === 'excel') {
+      const csv = [
+        Object.keys(data[0]).join(','),
+        ...data.map(row => Object.values(row).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `equipment-list-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } else {
+      // For PDF, we'll create an HTML table first
+      const tableHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Equipment List</title>
+          <style>
+            body { font-family: Arial, sans-serif; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; border: 1px solid #ddd; }
+            th { background-color: #f5f5f5; }
+          </style>
+        </head>
+        <body>
+          <h1>Equipment List</h1>
+          <p>Generated: ${new Date().toLocaleString()}</p>
+          <table>
+            <thead>
+              <tr>${Object.keys(data[0]).map(key => `<th>${key}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+              ${data.map(row => `
+                <tr>${Object.values(row).map(value => `<td>${value}</td>`).join('')}</tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob([tableHtml], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `equipment-list-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }
+  };
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center">
@@ -191,9 +270,27 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
             Click row to view predictions, use checkboxes for comparison
           </p>
         </div>
-        <Button onClick={() => setShowQuickAdd(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Quick Add Equipment
-        </Button>
+        <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export List
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => exportEquipment('excel')}>
+                Export as Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportEquipment('pdf')}>
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={() => setShowQuickAdd(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Quick Add Equipment
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="list" className="space-y-4">
