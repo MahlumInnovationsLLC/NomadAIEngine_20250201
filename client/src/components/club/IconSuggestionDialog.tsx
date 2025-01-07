@@ -9,10 +9,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface IconSuggestionDialogProps {
   open: boolean;
@@ -26,70 +26,59 @@ interface IconSuggestionDialogProps {
 const fitnessIcons = [
   { 
     name: '10250144-stationary-bike-sports-competition-fitness-icon', 
-    label: 'Stationary Bike',
-    kitClass: 'fa-kit fa-10250144-stationary-bike-sports-competition-fitness-icon'
+    label: 'Stationary Bike'
   },
   { 
     name: '4596226-fitness-gym-machine-stationery-rowing-workout-icon', 
-    label: 'Rowing Machine',
-    kitClass: 'fa-kit fa-4596226-fitness-gym-machine-stationery-rowing-workout-icon'
+    label: 'Rowing Machine'
   },
   { 
     name: '4596227-bicycle-bike-cardio-fitness-gym-icon', 
-    label: 'Exercise Bike',
-    kitClass: 'fa-kit fa-4596227-bicycle-bike-cardio-fitness-gym-icon'
+    label: 'Exercise Bike'
   },
   { 
     name: '4596236-cable-crossover-equipment-gym-machine-tool-icon', 
-    label: 'Cable Crossover',
-    kitClass: 'fa-kit fa-4596236-cable-crossover-equipment-gym-machine-tool-icon'
+    label: 'Cable Crossover'
   },
   { 
     name: '4596246-cable-row-equipment-gym-machine-tool-icon', 
-    label: 'Cable Row',
-    kitClass: 'fa-kit fa-4596246-cable-row-equipment-gym-machine-tool-icon'
+    label: 'Cable Row'
   },
   { 
     name: '4596247-equipment-gym-lat-pulldown-machine-tool-icon', 
-    label: 'Lat Pulldown',
-    kitClass: 'fa-kit fa-4596247-equipment-gym-lat-pulldown-machine-tool-icon'
+    label: 'Lat Pulldown'
   },
   { 
     name: '4596250-equipment-gym-hammer-strength-machine-tool-icon', 
-    label: 'Hammer Strength',
-    kitClass: 'fa-kit fa-4596250-equipment-gym-hammer-strength-machine-tool-icon'
+    label: 'Hammer Strength'
   },
   { 
     name: '4596255-equipment-gym-smith-machine-tool-icon', 
-    label: 'Smith Machine',
-    kitClass: 'fa-kit fa-4596255-equipment-gym-smith-machine-tool-icon'
+    label: 'Smith Machine'
   },
   { 
     name: '6258926-fitness-service-gym-equipment-gym-services-jogging-machine-runner-icon', 
-    label: 'Treadmill',
-    kitClass: 'fa-kit fa-6258926-fitness-service-gym-equipment-gym-services-jogging-machine-runner-icon'
+    label: 'Treadmill'
   },
   { 
     name: '805744-cardio-elliptical-exercise-fitness-training-equipment-icon', 
-    label: 'Elliptical',
-    kitClass: 'fa-kit fa-805744-cardio-elliptical-exercise-fitness-training-equipment-icon'
+    label: 'Elliptical'
   },
   { 
     name: '8665879-stairs-staircase-icon', 
-    label: 'StairMaster',
-    kitClass: 'fa-kit fa-8665879-stairs-staircase-icon'
+    label: 'StairMaster'
   },
   // Connectivity Icons
   { 
     name: 'wifi', 
-    label: 'WiFi Connected', 
-    kitClass: 'fa-solid fa-wifi',
+    label: 'WiFi Connected',
+    type: 'solid',
     category: 'connectivity' 
   },
   { 
     name: 'bluetooth', 
-    label: 'Bluetooth', 
-    kitClass: 'fa-solid fa-bluetooth',
+    label: 'Bluetooth',
+    type: 'solid',
     category: 'connectivity' 
   }
 ];
@@ -153,7 +142,11 @@ export function IconSuggestionDialog({
                 >
                   <div className="flex flex-col items-center gap-3">
                     <div className="p-3 rounded-md bg-background">
-                      <i className={icon.kitClass} style={{ fontSize: '1.5rem' }} />
+                      <FontAwesomeIcon 
+                        iconName={icon.name}
+                        type={icon.type || 'kit'}
+                        size="lg"
+                      />
                     </div>
                     <div className="text-sm font-medium text-center">
                       {icon.label}
