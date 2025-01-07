@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -47,6 +47,44 @@ export const documentWorkflows = pgTable("document_workflows", {
   completedAt: timestamp("completed_at"),
 });
 
+// New tables for Club Control
+export const equipmentTypes = pgTable("equipment_types", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  manufacturer: text("manufacturer"),
+  model: text("model"),
+  category: text("category").notNull(),
+  connectivityType: text("connectivity_type").notNull(), 
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const equipment = pgTable("equipment", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  equipmentTypeId: integer("equipment_type_id").references(() => equipmentTypes.id),
+  serialNumber: text("serial_number"),
+  lastMaintenance: timestamp("last_maintenance"),
+  nextMaintenance: timestamp("next_maintenance"),
+  status: text("status", { enum: ['active', 'maintenance', 'offline', 'error'] }).notNull(),
+  healthScore: decimal("health_score", { precision: 4, scale: 2 }), 
+  position: jsonb("position"), 
+  metadata: jsonb("metadata"), 
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const floorPlans = pgTable("floor_plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  dimensions: jsonb("dimensions").notNull(), 
+  gridSize: integer("grid_size").notNull(), 
+  isActive: boolean("is_active").default(true).notNull(),
+  metadata: jsonb("metadata"), 
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   collaborators: many(documentCollaborators),
@@ -79,6 +117,13 @@ export const documentWorkflowsRelations = relations(documentWorkflows, ({ one })
   }),
 }));
 
+export const equipmentRelations = relations(equipment, ({ one }) => ({
+  type: one(equipmentTypes, {
+    fields: [equipment.equipmentTypeId],
+    references: [equipmentTypes.id],
+  }),
+}));
+
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
 export const selectDocumentSchema = createSelectSchema(documents);
@@ -95,9 +140,21 @@ export const selectMessageSchema = createSelectSchema(messages);
 export const insertDocumentWorkflowSchema = createInsertSchema(documentWorkflows);
 export const selectDocumentWorkflowSchema = createSelectSchema(documentWorkflows);
 
+export const insertEquipmentTypeSchema = createInsertSchema(equipmentTypes);
+export const selectEquipmentTypeSchema = createSelectSchema(equipmentTypes);
+
+export const insertEquipmentSchema = createInsertSchema(equipment);
+export const selectEquipmentSchema = createSelectSchema(equipment);
+
+export const insertFloorPlanSchema = createInsertSchema(floorPlans);
+export const selectFloorPlanSchema = createSelectSchema(floorPlans);
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type DocumentWorkflow = typeof documentWorkflows.$inferSelect;
+export type EquipmentType = typeof equipmentTypes.$inferSelect;
+export type Equipment = typeof equipment.$inferSelect;
+export type FloorPlan = typeof floorPlans.$inferSelect;

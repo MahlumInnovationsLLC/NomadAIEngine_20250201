@@ -9,6 +9,7 @@ import PageTransition from "@/components/layout/PageTransition";
 import { Toaster } from "@/components/ui/toaster";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import ClubControlPage from "@/pages/ClubControlPage";
 
 function App() {
   const [location] = useLocation();
@@ -43,6 +44,13 @@ function App() {
                 <PageTransition>
                   <div data-tour="document-section">
                     <DocumentControl />
+                  </div>
+                </PageTransition>
+              </Route>
+              <Route path="/club-control">
+                <PageTransition>
+                  <div data-tour="club-control-section">
+                    <ClubControlPage />
                   </div>
                 </PageTransition>
               </Route>
