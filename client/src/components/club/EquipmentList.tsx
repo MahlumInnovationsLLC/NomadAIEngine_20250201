@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List, FileText, Activity, Download } from "lucide-react";
+import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List, FileText, Activity, Download, Grid } from "lucide-react";
 import { TroubleshootingGuide } from "./TroubleshootingGuide";
 import { useState } from "react";
 import { MaintenanceScheduler } from "./MaintenanceScheduler";
@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EquipmentLifecycleTimeline } from "./EquipmentLifecycleTimeline";
+import { EquipmentIconLibrary } from "./EquipmentIconLibrary";
 
 interface EquipmentListProps {
   equipment: Equipment[];
@@ -66,6 +67,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedTroubleshoot, setSelectedTroubleshoot] = useState<Equipment | null>(null);
   const [selectedForTimeline, setSelectedForTimeline] = useState<Equipment | null>(null);
+  const [view, setView] = useState<"list" | "icons" | "health">("list");
 
   const isSelected = (item: Equipment) => {
     return selectedEquipment.some(eq => eq.id === item.id);
@@ -261,6 +263,10 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
     }
   };
 
+  const handleDragEnd = (reorderedEquipment: Equipment[]) => {
+    console.log('Equipment reordered:', reorderedEquipment);
+  };
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center">
@@ -298,6 +304,10 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
           <TabsTrigger value="list" className="flex items-center gap-2">
             <List className="h-4 w-4" />
             List View
+          </TabsTrigger>
+          <TabsTrigger value="icons" className="flex items-center gap-2">
+            <Grid className="h-4 w-4" />
+            Icon View
           </TabsTrigger>
           <TabsTrigger value="health" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
@@ -425,6 +435,13 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
           {selectedForTimeline && (
             <EquipmentLifecycleTimeline equipment={selectedForTimeline} />
           )}
+        </TabsContent>
+
+        <TabsContent value="icons">
+          <EquipmentIconLibrary
+            equipment={equipment}
+            onDragEnd={handleDragEnd}
+          />
         </TabsContent>
 
         <TabsContent value="health">
