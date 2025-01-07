@@ -3,24 +3,11 @@ import { createServer, type Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import multer from "multer";
 import { db } from "@db";
-import { chats, messages, files, documents, documentCollaborators } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { chats, messages, files, documents, documentCollaborators, documentEmbeddings } from "@db/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { semanticSearch, indexDocument } from "./services/search";
 
 const upload = multer({ dest: 'uploads/' });
-
-interface DocumentOperation {
-  type: 'insert' | 'delete' | 'update';
-  position: number;
-  content?: string;
-  length?: number;
-  documentId: number;
-  userId: string;
-}
-
-interface WebSocketClient extends WebSocket {
-  documentId?: number;
-  userId?: string;
-}
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -97,18 +84,18 @@ export function registerRoutes(app: Express): Server {
     let newContent = document.content;
     switch (operation.type) {
       case 'insert':
-        newContent = newContent.slice(0, operation.position) + 
-                    operation.content! + 
+        newContent = newContent.slice(0, operation.position) +
+                    operation.content! +
                     newContent.slice(operation.position);
         break;
       case 'delete':
-        newContent = newContent.slice(0, operation.position) + 
+        newContent = newContent.slice(0, operation.position) +
                     newContent.slice(operation.position + operation.length!);
         break;
     }
 
     await db.update(documents)
-      .set({ 
+      .set({
         content: newContent,
         version: document.version + 1,
         updatedAt: new Date()
@@ -117,13 +104,45 @@ export function registerRoutes(app: Express): Server {
   }
 
   // Document REST endpoints
+  app.post("/api/documents/:id/index", async (req, res) => {
+    try {
+      await indexDocument(parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to index document" });
+    }
+  });
+
+  app.get("/api/search", async (req, res) => {
+    const { q: query, limit = 5 } = req.query;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: "Query parameter 'q' is required" });
+    }
+
+    try {
+      const results = await semanticSearch(query, Number(limit));
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
   app.post("/api/documents", async (req, res) => {
-    const result = await db.insert(documents).values({
-      title: req.body.title,
-      content: req.body.content || "",
-      chatId: req.body.chatId,
-    }).returning();
-    res.json(result[0]);
+    const result = await db.transaction(async (tx) => {
+      const doc = await tx.insert(documents).values({
+        title: req.body.title,
+        content: req.body.content || "",
+        chatId: req.body.chatId,
+      }).returning();
+
+      // Index the document after creation
+      await indexDocument(doc[0].id);
+
+      return doc[0];
+    });
+
+    res.json(result);
   });
 
   app.get("/api/documents/:id", async (req, res) => {
@@ -148,7 +167,6 @@ export function registerRoutes(app: Express): Server {
     res.json(result[0]);
   });
 
-  // Keep existing routes
   app.get("/api/chats", async (req, res) => {
     const result = await db.query.chats.findMany({
       with: {
@@ -202,4 +220,18 @@ export function registerRoutes(app: Express): Server {
 
 
   return httpServer;
+}
+
+interface DocumentOperation {
+  type: 'insert' | 'delete' | 'update';
+  position: number;
+  content?: string;
+  length?: number;
+  documentId: number;
+  userId: string;
+}
+
+interface WebSocketClient extends WebSocket {
+  documentId?: number;
+  userId?: string;
 }

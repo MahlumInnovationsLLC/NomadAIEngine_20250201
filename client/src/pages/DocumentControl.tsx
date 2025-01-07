@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, Clock, FileText, Layout } from "lucide-react";
 import FileUpload from "@/components/document/FileUpload";
 import WorkflowTemplateManager from "@/components/document/WorkflowTemplateManager";
+import SearchInterface from "@/components/document/SearchInterface";
 import { useToast } from "@/hooks/use-toast";
 
 export default function DocumentControl() {
@@ -17,7 +18,6 @@ export default function DocumentControl() {
   });
 
   const handleFileUpload = async (files: File[]) => {
-    // Handle file upload with versioning
     setShowFileUpload(false);
     toast({
       title: "Files uploaded",
@@ -33,6 +33,10 @@ export default function DocumentControl() {
           <Upload className="mr-2 h-4 w-4" />
           Upload Documents
         </Button>
+      </div>
+
+      <div className="mb-8">
+        <SearchInterface />
       </div>
 
       <Tabs defaultValue="documents" className="space-y-6">
@@ -82,7 +86,6 @@ export default function DocumentControl() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Version history will be implemented here */}
                   <p className="text-muted-foreground">No version history available.</p>
                 </div>
               </CardContent>

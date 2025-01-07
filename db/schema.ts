@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer, real } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -26,6 +26,17 @@ export const documents = pgTable("documents", {
   chatId: serial("chat_id").references(() => chats.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  searchableText: text("searchable_text"),
+  metadata: jsonb("metadata"),
+});
+
+export const documentEmbeddings = pgTable("document_embeddings", {
+  id: serial("id").primaryKey(),
+  documentId: serial("document_id").references(() => documents.id),
+  embedding: real("embedding").array(),
+  section: text("section").notNull(),
+  sectionText: text("section_text").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const documentCollaborators = pgTable("document_collaborators", {
@@ -84,6 +95,7 @@ export const documentWorkflows = pgTable("document_workflows", {
   completedAt: timestamp("completed_at"),
 });
 
+// Relations
 export const chatRelations = relations(chats, ({ many }) => ({
   messages: many(messages),
   reports: many(reports),
@@ -100,9 +112,17 @@ export const messageRelations = relations(messages, ({ one, many }) => ({
 
 export const documentRelations = relations(documents, ({ many, one }) => ({
   collaborators: many(documentCollaborators),
+  embeddings: many(documentEmbeddings),
   chat: one(chats, {
     fields: [documents.chatId],
     references: [chats.id],
+  }),
+}));
+
+export const documentEmbeddingsRelations = relations(documentEmbeddings, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentEmbeddings.documentId],
+    references: [documents.id],
   }),
 }));
 
@@ -128,6 +148,7 @@ export const documentWorkflowRelations = relations(documentWorkflows, ({ one }) 
   }),
 }));
 
+// Schemas and Types exports
 export const insertChatSchema = createInsertSchema(chats);
 export const selectChatSchema = createSelectSchema(chats);
 
@@ -142,6 +163,9 @@ export const selectReportSchema = createSelectSchema(reports);
 
 export const insertDocumentSchema = createInsertSchema(documents);
 export const selectDocumentSchema = createSelectSchema(documents);
+
+export const insertDocumentEmbeddingSchema = createInsertSchema(documentEmbeddings);
+export const selectDocumentEmbeddingSchema = createSelectSchema(documentEmbeddings);
 
 export const insertDocumentCollaboratorSchema = createInsertSchema(documentCollaborators);
 export const selectDocumentCollaboratorSchema = createSelectSchema(documentCollaborators);
@@ -160,6 +184,7 @@ export type Message = typeof messages.$inferSelect;
 export type File = typeof files.$inferSelect;
 export type Report = typeof reports.$inferSelect;
 export type Document = typeof documents.$inferSelect;
+export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
 export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
 export type WorkflowTemplate = typeof workflowTemplates.$inferSelect;
