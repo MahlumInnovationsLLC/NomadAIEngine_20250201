@@ -3,11 +3,14 @@ import { createServer, type Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import multer from "multer";
 import { db } from "@db";
-import { chats, messages, documents, documentCollaborators, documentWorkflows } from "@db/schema";
+import { documents, documentCollaborators, documentWorkflows } from "@db/schema";
 import { eq, sql, desc } from "drizzle-orm";
-import { semanticSearch, indexDocument } from "./services/search";
+import * as cosmosService from "./services/azure/cosmos_service";
+import * as blobService from "./services/azure/blob_service";
+import * as openAIService from "./services/azure/openai_service";
 
-const upload = multer({ dest: 'uploads/' });
+// Configure multer for memory storage instead of disk
+const upload = multer({ storage: multer.memoryStorage() });
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -75,9 +78,7 @@ export function registerRoutes(app: Express): Server {
   }
 
   async function applyDocumentOperation(operation: DocumentOperation) {
-    const document = await db.query.documents.findFirst({
-      where: eq(documents.id, operation.documentId)
-    });
+    const document = await cosmosService.getDocument(operation.documentId.toString()); // Changed to use cosmosService
 
     if (!document) return;
 
@@ -94,14 +95,145 @@ export function registerRoutes(app: Express): Server {
         break;
     }
 
-    await db.update(documents)
-      .set({
-        content: newContent,
-        version: document.version + 1,
-        updatedAt: new Date()
-      })
-      .where(eq(documents.id, operation.documentId));
+    await cosmosService.updateDocument(operation.documentId.toString(), { ...document, content: newContent, version: document.version + 1, updatedAt: new Date().toISOString()}); // Changed to use cosmosService
   }
+
+  // Document management with Azure integration
+  app.post("/api/documents", upload.single('file'), async (req, res) => {
+    try {
+      // Create document metadata in Cosmos DB
+      const document = await cosmosService.storeDocument({
+        title: req.body.title,
+        content: req.body.content || "",
+        version: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      // If there's a file, store it in Blob Storage
+      if (req.file) {
+        const blobUrl = await blobService.uploadFile(
+          `${document.id}/${req.file.originalname}`,
+          req.file.buffer,
+          {
+            documentId: document.id,
+            contentType: req.file.mimetype
+          }
+        );
+
+        // Update document with blob URL
+        await cosmosService.updateDocument(document.id, {
+          ...document,
+          blobUrl
+        });
+      }
+
+      // Generate AI insights if content is available
+      if (req.body.content) {
+        const [summary, analysis] = await Promise.all([
+          openAIService.generateSummary(req.body.content),
+          openAIService.analyzeDocument(req.body.content)
+        ]);
+
+        // Store AI insights
+        await cosmosService.updateDocument(document.id, {
+          ...document,
+          aiInsights: {
+            summary,
+            analysis
+          }
+        });
+      }
+
+      res.json(document);
+    } catch (error) {
+      console.error("Error creating document:", error);
+      res.status(500).json({ error: "Failed to create document" });
+    }
+  });
+
+  app.get("/api/documents/:id", async (req, res) => {
+    try {
+      const document = await cosmosService.getDocument(req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: 'Document not found' });
+      }
+      res.json(document);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch document" });
+    }
+  });
+
+  app.get("/api/documents", async (req, res) => {
+    try {
+      const querySpec = {
+        query: "SELECT * FROM c ORDER BY c.updatedAt DESC"
+      };
+      const documents = await cosmosService.listDocuments(querySpec);
+      res.json(documents);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  // Version control with Blob Storage
+  app.post("/api/documents/:id/versions", upload.single('file'), async (req, res) => {
+    try {
+      const documentId = req.params.id;
+      const document = await cosmosService.getDocument(documentId);
+
+      if (!document) {
+        return res.status(404).json({ message: 'Document not found' });
+      }
+
+      // Store new version in Blob Storage
+      const versionNumber = document.version + 1;
+      const blobUrl = await blobService.uploadFile(
+        `${documentId}/v${versionNumber}/${req.file?.originalname || 'content.txt'}`,
+        req.file?.buffer || Buffer.from(req.body.content || ''),
+        {
+          documentId,
+          version: versionNumber.toString(),
+          contentType: req.file?.mimetype || 'text/plain'
+        }
+      );
+
+      // Update document metadata
+      const updatedDocument = await cosmosService.updateDocument(documentId, {
+        ...document,
+        version: versionNumber,
+        blobUrl,
+        updatedAt: new Date().toISOString()
+      });
+
+      res.json(updatedDocument);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create document version" });
+    }
+  });
+
+  // Get document versions
+  app.get("/api/documents/:id/versions", async (req, res) => {
+    try {
+      const documentId = req.params.id;
+      const files = await blobService.listFiles(`${documentId}/`);
+      res.json(files);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch document versions" });
+    }
+  });
+
+  // Download specific version
+  app.get("/api/documents/:id/versions/:version", async (req, res) => {
+    try {
+      const { id, version } = req.params;
+      const downloadResponse = await blobService.downloadFile(`${id}/v${version}/content.txt`);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      downloadResponse.readableStreamBody?.pipe(res);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to download document version" });
+    }
+  });
 
   // Document REST endpoints
   app.post("/api/documents/:id/index", async (req, res) => {
@@ -128,42 +260,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/documents", async (req, res) => {
-    try {
-      const result = await db.insert(documents).values({
-        title: req.body.title,
-        content: req.body.content || "",
-        chatId: req.body.chatId,
-        version: 1
-      }).returning();
-
-      // Index the document after creation
-      await indexDocument(result[0].id);
-      res.json(result[0]);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create document" });
-    }
-  });
-
-  app.get("/api/documents/:id", async (req, res) => {
-    try {
-      const docId = parseInt(req.params.id);
-      if (isNaN(docId)) {
-        return res.status(400).json({ error: "Invalid document ID" });
-      }
-
-      const result = await db.query.documents.findFirst({
-        where: eq(documents.id, docId)
-      });
-
-      if (!result) {
-        return res.status(404).json({ message: 'Document not found' });
-      }
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch document" });
-    }
-  });
 
   app.post("/api/documents/:id/collaborators", async (req, res) => {
     try {
