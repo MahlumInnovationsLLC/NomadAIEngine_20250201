@@ -13,9 +13,27 @@ export const chats = pgTable("chats", {
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   chatId: serial("chat_id").references(() => chats.id),
-  role: text("role").notNull(), // 'user' or 'assistant'
+  role: text("role", { enum: ['user', 'assistant'] }).notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const documents = pgTable("documents", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  version: serial("version").notNull(),
+  chatId: serial("chat_id").references(() => chats.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const documentCollaborators = pgTable("document_collaborators", {
+  id: serial("id").primaryKey(),
+  documentId: serial("document_id").references(() => documents.id),
+  userId: text("user_id").notNull(),
+  canEdit: boolean("can_edit").default(true).notNull(),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
 });
 
 export const files = pgTable("files", {
@@ -38,7 +56,8 @@ export const reports = pgTable("reports", {
 // Relations
 export const chatRelations = relations(chats, ({ many }) => ({
   messages: many(messages),
-  reports: many(reports)
+  reports: many(reports),
+  documents: many(documents),
 }));
 
 export const messageRelations = relations(messages, ({ one, many }) => ({
@@ -47,6 +66,14 @@ export const messageRelations = relations(messages, ({ one, many }) => ({
     references: [chats.id],
   }),
   files: many(files)
+}));
+
+export const documentRelations = relations(documents, ({ many, one }) => ({
+  collaborators: many(documentCollaborators),
+  chat: one(chats, {
+    fields: [documents.chatId],
+    references: [chats.id],
+  }),
 }));
 
 // Schemas
@@ -62,8 +89,16 @@ export const selectFileSchema = createSelectSchema(files);
 export const insertReportSchema = createInsertSchema(reports);
 export const selectReportSchema = createSelectSchema(reports);
 
+export const insertDocumentSchema = createInsertSchema(documents);
+export const selectDocumentSchema = createSelectSchema(documents);
+
+export const insertDocumentCollaboratorSchema = createInsertSchema(documentCollaborators);
+export const selectDocumentCollaboratorSchema = createSelectSchema(documentCollaborators);
+
 // Types
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type File = typeof files.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type Document = typeof documents.$inferSelect;
+export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
