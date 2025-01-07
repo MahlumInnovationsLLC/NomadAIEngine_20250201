@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, FileText, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { HelpBubble } from "@/components/ui/HelpBubble";
 
 interface SearchResult {
   document_id: number;
@@ -37,13 +38,25 @@ export default function SearchInterface() {
   return (
     <div className="space-y-6">
       <div className="flex gap-2">
-        <Input
-          placeholder="Search documents..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          className="flex-1"
-        />
+        <div className="flex-1">
+          <HelpBubble 
+            content={
+              <div className="space-y-2">
+                <p>Our AI-powered semantic search understands the meaning behind your query.</p>
+                <p>It can find relevant content even if the exact words don't match.</p>
+              </div>
+            }
+            side="top"
+          >
+            <Input
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="w-full"
+            />
+          </HelpBubble>
+        </div>
         <Button onClick={handleSearch} disabled={isLoading}>
           <Search className="h-4 w-4 mr-2" />
           Search
@@ -60,6 +73,10 @@ export default function SearchInterface() {
                     <div className="flex items-center gap-2 mb-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <h3 className="font-medium">{result.document_title}</h3>
+                      <HelpBubble 
+                        content={`This result has a ${(result.similarity * 100).toFixed(1)}% similarity match to your query`}
+                        side="right"
+                      />
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {result.section_text.length > 200

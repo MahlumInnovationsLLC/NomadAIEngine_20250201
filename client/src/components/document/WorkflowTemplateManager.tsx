@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Copy, Edit, Trash2 } from "lucide-react";
+import { HelpBubble } from "@/components/ui/HelpBubble";
 
 interface WorkflowStep {
   id: string;
@@ -83,10 +84,22 @@ export default function WorkflowTemplateManager() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Workflow Templates</h2>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Template
-        </Button>
+        <HelpBubble
+          content={
+            <div className="space-y-2">
+              <p>Create custom document workflows with AI-powered analysis stages.</p>
+              <p>- Automatic content summarization</p>
+              <p>- Sentiment analysis</p>
+              <p>- Key points extraction</p>
+            </div>
+          }
+          side="left"
+        >
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Template
+          </Button>
+        </HelpBubble>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -127,7 +140,14 @@ export default function WorkflowTemplateManager() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Workflow Template</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              Create Workflow Template
+              <HelpBubble
+                content="Define steps for document processing, including AI analysis phases"
+                showIcon={true}
+                side="right"
+              />
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
