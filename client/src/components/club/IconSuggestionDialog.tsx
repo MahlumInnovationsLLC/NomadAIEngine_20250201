@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface IconSuggestionDialogProps {
@@ -68,7 +69,23 @@ const fitnessIcons = [
   { name: 'bed-pulse', label: 'Equipment' },
   { name: 'tape', label: 'Measurement' },
   { name: 'chair', label: 'Seating' },
-  { name: 'toolbox', label: 'Maintenance' }
+  { name: 'toolbox', label: 'Maintenance' },
+
+  // Custom Pro Kit Icons for Fitness
+  { name: 'treadmill', label: 'Treadmill' },
+  { name: 'elliptical', label: 'Elliptical' },
+  { name: 'rowing-machine', label: 'Rower' },
+  { name: 'fitness-machine', label: 'Machine' },
+  { name: 'leg-press', label: 'Leg Press' },
+  { name: 'smith-machine', label: 'Smith Machine' },
+  { name: 'cable-machine', label: 'Cable Machine' },
+  { name: 'power-rack', label: 'Power Rack' },
+
+  // Connectivity Icons
+  { name: 'wifi', label: 'WiFi Connected', category: 'connectivity' },
+  { name: 'bluetooth', label: 'Bluetooth', category: 'connectivity' },
+  { name: 'signal-stream', label: 'Connected', category: 'connectivity' },
+  { name: 'signal-bars-good', label: 'Good Signal', category: 'connectivity' }
 ];
 
 export function IconSuggestionDialog({ 
@@ -94,8 +111,8 @@ export function IconSuggestionDialog({
   };
 
   const filteredIcons = fitnessIcons.filter(icon => 
-    icon.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    icon.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (icon.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    icon.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Helper function to get icon from library
@@ -164,6 +181,11 @@ export function IconSuggestionDialog({
                             <div className="text-sm font-medium text-center">
                               {icon.label}
                             </div>
+                            {icon.category === 'connectivity' && (
+                              <Badge variant="secondary" className="text-xs">
+                                Connectivity
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       );

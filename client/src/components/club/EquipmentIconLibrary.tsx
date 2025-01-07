@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Grid, Wand2 } from "lucide-react";
 import { IconSuggestionDialog } from "./IconSuggestionDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface EquipmentIconProps {
   equipment: Equipment;
@@ -61,6 +62,9 @@ const EquipmentIcon = ({
   onDragEnter,
 }: EquipmentIconProps) => {
   const icon = getIconFromName(equipment.deviceType || 'dumbbell');
+  const connectivityIcon = equipment.deviceConnectionStatus === 'connected' ? 
+    (equipment.deviceIdentifier?.includes('bluetooth') ? 'bluetooth' : 'wifi') : 
+    'signal-slash';
 
   return (
     <motion.div
@@ -93,8 +97,13 @@ const EquipmentIcon = ({
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
         </span>
-        <Badge variant="outline" className="text-xs">
-          {equipment.deviceType || "Unknown"}
+        <Badge variant="outline" className="text-xs flex items-center gap-1">
+          <FontAwesomeIcon 
+            icon={getIconFromName(connectivityIcon)} 
+            size="sm" 
+            className={equipment.deviceConnectionStatus === 'connected' ? 'text-green-500' : 'text-gray-400'}
+          />
+          {equipment.deviceConnectionStatus || "Not Connected"}
         </Badge>
       </div>
       {onRequestSuggestion && (
@@ -124,6 +133,7 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState(equipment);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const { toast } = useToast();
 
   const handleRequestSuggestion = (equipment: Equipment) => {
     setSelectedEquipment(equipment);
@@ -145,8 +155,28 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
       if (!response.ok) {
         throw new Error('Failed to update equipment icon');
       }
+
+      const updatedEquipment = await response.json();
+
+      // Update the local state
+      setItems(prevItems => 
+        prevItems.map(item => 
+          item.id === selectedEquipment.id ? updatedEquipment : item
+        )
+      );
+
+      toast({
+        title: "Icon Updated",
+        description: "Equipment icon has been successfully updated.",
+      });
+
     } catch (error) {
       console.error('Failed to update equipment icon:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update equipment icon. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
