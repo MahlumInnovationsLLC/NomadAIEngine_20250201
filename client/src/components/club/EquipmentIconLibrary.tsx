@@ -37,8 +37,6 @@ interface EquipmentIconProps {
   equipment: Equipment;
   isDragging?: boolean;
   onRequestSuggestion?: () => void;
-  onDragStart?: () => void;
-  onDragEnd?: () => void;
 }
 
 const equipmentIcons: Record<string, LucideIcon> = {
@@ -97,13 +95,13 @@ const EquipmentIcon = ({
   const Icon = equipmentIcons[deviceType] || Dumbbell;
 
   return (
-    <Reorder.Item
-      value={equipment}
+    <motion.div
+      layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       whileHover={{ scale: 1.05 }}
-      whileDrag={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
       className={cn(
         "relative bg-background rounded-lg border cursor-grab active:cursor-grabbing w-[140px] h-[140px] flex flex-col items-center justify-center p-4",
         "hover:bg-accent/50 transition-colors"
@@ -134,7 +132,7 @@ const EquipmentIcon = ({
           </Button>
         )}
       </div>
-    </Reorder.Item>
+    </motion.div>
   );
 };
 
@@ -184,10 +182,8 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[400px]">
-          <Reorder.Group
-            axis="both"
-            values={equipment}
-            onReorder={handleReorder}
+          <motion.div
+            layout
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 p-4"
           >
             {equipment.map((item) => (
@@ -197,7 +193,7 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
                 onRequestSuggestion={() => handleRequestSuggestion(item)}
               />
             ))}
-          </Reorder.Group>
+          </motion.div>
         </ScrollArea>
       </CardContent>
 
