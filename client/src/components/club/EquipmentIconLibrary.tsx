@@ -50,8 +50,6 @@ const EquipmentIcon = ({
   onDragStart,
   onDragEnter,
 }: EquipmentIconProps) => {
-  const deviceType = equipment.deviceType?.toLowerCase() || 'dumbbell';
-
   return (
     <motion.div
       layout
@@ -78,7 +76,7 @@ const EquipmentIcon = ({
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-2">
         <div className="p-2 rounded-md bg-muted">
-          <i className={`fas fa-${deviceType} fa-lg`} />
+          <i className={`fas fa-${equipment.deviceType || 'dumbbell'} fa-lg`} />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
