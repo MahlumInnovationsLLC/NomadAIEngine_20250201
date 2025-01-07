@@ -66,7 +66,13 @@ export function IconSuggestionDialog({
   const { data: suggestions = [], isLoading } = useQuery({
     queryKey: ['/api/equipment/suggest-icons', equipmentName, equipmentType],
     enabled: open,
-    select: (data): IconSuggestion[] => {
+    queryFn: async ({ queryKey }) => {
+      const [_, name, type] = queryKey;
+      const response = await fetch(`/api/equipment/suggest-icons?name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch icon suggestions');
+      }
+      const data = await response.json();
       return data.map((suggestion: any) => ({
         ...suggestion,
         icon: defaultIcons[suggestion.key] || Dumbbell
