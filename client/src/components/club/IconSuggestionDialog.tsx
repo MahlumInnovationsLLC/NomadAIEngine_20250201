@@ -21,6 +21,16 @@ import {
   Weight,
   Target,
   MonitorSmartphone,
+  Scale,
+  Gauge,
+  BarChart3,
+  Maximize2,
+  Cable,
+  Armchair,
+  Dices,
+  Tv2,
+  Vibrate,
+  Zap,
   LucideIcon,
   type LucideProps
 } from "lucide-react";
@@ -51,7 +61,17 @@ const defaultIcons: Record<string, LucideIcon> = {
   "waves": Waves,
   "weight": Weight,
   "target": Target,
-  "monitor": MonitorSmartphone
+  "monitor": MonitorSmartphone,
+  "scale": Scale,
+  "gauge": Gauge,
+  "metrics": BarChart3,
+  "stretching": Maximize2,
+  "cable": Cable,
+  "bench": Armchair,
+  "balance": Dices,
+  "display": Tv2,
+  "vibration": Vibrate,
+  "power": Zap
 };
 
 export function IconSuggestionDialog({ 

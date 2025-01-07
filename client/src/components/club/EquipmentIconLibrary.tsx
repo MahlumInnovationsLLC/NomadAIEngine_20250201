@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { motion, Reorder, useDragControls } from "framer-motion";
+import { motion, Reorder } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,7 +19,17 @@ import {
   MonitorSmartphone,
   LucideIcon,
   Wand2,
-  Grid
+  Grid,
+  Scale,
+  Gauge,
+  BarChart3,
+  Maximize2,
+  Cable,
+  Armchair,
+  Dices,
+  Tv2,
+  Vibrate,
+  Zap
 } from "lucide-react";
 import { IconSuggestionDialog } from "./IconSuggestionDialog";
 
@@ -42,6 +52,16 @@ const equipmentIcons: Record<string, LucideIcon> = {
   "strength": Dumbbell,
   "screen": MonitorSmartphone,
   "target": Target,
+  "scale": Scale,
+  "gauge": Gauge,
+  "metrics": BarChart3,
+  "stretching": Maximize2,
+  "cable": Cable,
+  "bench": Armchair,
+  "balance": Dices,
+  "display": Tv2,
+  "vibration": Vibrate,
+  "power": Zap
 };
 
 const StatusIndicator = ({ status, className }: { status: string; className?: string }) => {
@@ -71,38 +91,29 @@ const StatusIndicator = ({ status, className }: { status: string; className?: st
 
 const EquipmentIcon = ({ 
   equipment, 
-  isDragging, 
   onRequestSuggestion,
-  onDragStart,
-  onDragEnd
 }: EquipmentIconProps) => {
   const deviceType = equipment.deviceType?.toLowerCase() || 'strength';
   const Icon = equipmentIcons[deviceType] || Dumbbell;
-  const dragControls = useDragControls();
 
   return (
-    <motion.div
-      layout
-      drag
-      dragControls={dragControls}
-      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-      dragElastic={0.1}
-      dragMomentum={false}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+    <Reorder.Item
+      value={equipment}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={cn(
-        "relative p-4 bg-background rounded-lg border cursor-move group w-[120px] h-[120px] flex flex-col items-center justify-center",
-        isDragging ? "shadow-lg ring-2 ring-primary" : "hover:bg-accent/50"
-      )}
       whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileDrag={{ scale: 1.1 }}
+      className={cn(
+        "relative bg-background rounded-lg border cursor-grab active:cursor-grabbing w-[140px] h-[140px] flex flex-col items-center justify-center p-4",
+        "hover:bg-accent/50 transition-colors"
+      )}
     >
       <StatusIndicator status={equipment.status} />
-      <div className="flex flex-col items-center gap-2">
-        <Icon className="w-8 h-8" />
+      <div className="flex flex-col items-center gap-3">
+        <div className="p-2 rounded-md bg-muted">
+          <Icon className="w-8 h-8" />
+        </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
         </span>
@@ -123,7 +134,7 @@ const EquipmentIcon = ({
           </Button>
         )}
       </div>
-    </motion.div>
+    </Reorder.Item>
   );
 };
 
@@ -135,7 +146,6 @@ interface EquipmentIconLibraryProps {
 export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibraryProps) {
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [draggedItem, setDraggedItem] = useState<Equipment | null>(null);
 
   const handleReorder = (reorderedEquipment: Equipment[]) => {
     if (onDragEnd) {
@@ -174,18 +184,20 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[400px]">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">
+          <Reorder.Group
+            axis="both"
+            values={equipment}
+            onReorder={handleReorder}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 p-4"
+          >
             {equipment.map((item) => (
               <EquipmentIcon
                 key={item.id}
                 equipment={item}
-                isDragging={draggedItem?.id === item.id}
                 onRequestSuggestion={() => handleRequestSuggestion(item)}
-                onDragStart={() => setDraggedItem(item)}
-                onDragEnd={() => setDraggedItem(null)}
               />
             ))}
-          </div>
+          </Reorder.Group>
         </ScrollArea>
       </CardContent>
 
