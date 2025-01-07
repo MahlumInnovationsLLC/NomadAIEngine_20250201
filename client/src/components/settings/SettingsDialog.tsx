@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import {
   Dialog,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Laptop, Moon, Sun } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -25,9 +26,54 @@ interface SettingsDialogProps {
 
 export default function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { theme, setTheme } = useTheme();
-  const [enableAnimations, setEnableAnimations] = useState(true);
-  const [enableNotifications, setEnableNotifications] = useState(true);
-  const [messageDensity, setMessageDensity] = useState<string>("comfortable");
+  const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
+  const [enableAnimations, setEnableAnimations] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('enableAnimations') !== 'false';
+    }
+    return true;
+  });
+  const [enableNotifications, setEnableNotifications] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('enableNotifications') !== 'false';
+    }
+    return true;
+  });
+  const [messageDensity, setMessageDensity] = useState(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('messageDensity') || 'comfortable';
+    }
+    return 'comfortable';
+  });
+
+  // Handle hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Save settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('enableAnimations', enableAnimations.toString());
+    localStorage.setItem('enableNotifications', enableNotifications.toString());
+    localStorage.setItem('messageDensity', messageDensity);
+
+    // Apply animations setting
+    document.documentElement.style.setProperty(
+      '--transition-duration',
+      enableAnimations ? '300ms' : '0ms'
+    );
+
+    // Show confirmation toast
+    toast({
+      title: "Settings saved",
+      description: "Your preferences have been updated.",
+    });
+  }, [enableAnimations, enableNotifications, messageDensity, toast]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -45,6 +91,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   variant={theme === 'light' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setTheme('light')}
+                  className="theme-transition"
                 >
                   <Sun className="h-4 w-4 mr-1" />
                   Light
@@ -53,6 +100,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   variant={theme === 'dark' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setTheme('dark')}
+                  className="theme-transition"
                 >
                   <Moon className="h-4 w-4 mr-1" />
                   Dark
@@ -61,6 +109,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   variant={theme === 'system' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setTheme('system')}
+                  className="theme-transition"
                 >
                   <Laptop className="h-4 w-4 mr-1" />
                   System
@@ -105,13 +154,29 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               <Label htmlFor="notifications" className="flex flex-col">
                 <span>Enable notifications</span>
                 <span className="font-normal text-sm text-muted-foreground">
-                  Receive notifications for new messages
+                  Receive notifications for new messages and updates
                 </span>
               </Label>
               <Switch
                 id="notifications"
                 checked={enableNotifications}
-                onCheckedChange={setEnableNotifications}
+                onCheckedChange={(checked) => {
+                  if (checked && 'Notification' in window) {
+                    Notification.requestPermission().then((permission) => {
+                      if (permission === 'granted') {
+                        setEnableNotifications(true);
+                      } else {
+                        toast({
+                          title: "Permission denied",
+                          description: "Please enable notifications in your browser settings.",
+                          variant: "destructive",
+                        });
+                      }
+                    });
+                  } else {
+                    setEnableNotifications(checked);
+                  }
+                }}
               />
             </div>
           </div>
