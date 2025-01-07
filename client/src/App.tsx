@@ -1,23 +1,74 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import EquipmentList from "@/components/club/EquipmentList";
+import { AnimatePresence } from "framer-motion";
+import Navbar from "@/components/layout/Navbar";
+import PageTransition from "@/components/layout/PageTransition";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import Home from "@/pages/Home";
+import ChatPage from "@/pages/ChatPage";
+import DocumentControl from "@/pages/DocumentControl";
+import DashboardPage from "@/pages/DashboardPage";
 
 function App() {
+  const [location] = useLocation();
+
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background">
-        <main className="container mx-auto p-4">
-          <Switch>
-            <Route path="/" component={EquipmentList} />
-            <Route component={NotFound} />
-          </Switch>
-        </main>
-        <Toaster />
-      </div>
+      <OnboardingProvider>
+        <div className="min-h-screen bg-background">
+          <Navbar />
+          <main className="container mx-auto px-4 pt-16">
+            <AnimatePresence mode="wait">
+              <Switch key={location}>
+                <Route path="/">
+                  <PageTransition>
+                    <Home />
+                  </PageTransition>
+                </Route>
+                <Route path="/dashboard">
+                  <PageTransition>
+                    <div data-tour="dashboard-section">
+                      <DashboardPage />
+                    </div>
+                  </PageTransition>
+                </Route>
+                <Route path="/chat/:id?">
+                  <PageTransition>
+                    <div data-tour="chat-section">
+                      <ChatPage />
+                    </div>
+                  </PageTransition>
+                </Route>
+                <Route path="/documents">
+                  <PageTransition>
+                    <div data-tour="document-section">
+                      <DocumentControl />
+                    </div>
+                  </PageTransition>
+                </Route>
+                <Route path="/equipment">
+                  <PageTransition>
+                    <div data-tour="equipment-section">
+                      <EquipmentList />
+                    </div>
+                  </PageTransition>
+                </Route>
+                <Route>
+                  <NotFound />
+                </Route>
+              </Switch>
+            </AnimatePresence>
+          </main>
+          <OnboardingTour />
+          <Toaster />
+        </div>
+      </OnboardingProvider>
     </QueryClientProvider>
   );
 }
