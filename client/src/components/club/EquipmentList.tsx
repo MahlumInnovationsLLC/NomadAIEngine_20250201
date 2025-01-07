@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List, FileText } from "lucide-react";
+import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List, FileText, Activity } from "lucide-react";
 import { TroubleshootingGuide } from "./TroubleshootingGuide";
 import { useState } from "react";
 import { MaintenanceScheduler } from "./MaintenanceScheduler";
@@ -19,6 +19,7 @@ import { EquipmentHealthDashboard } from "./EquipmentHealthDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import MaintenanceScoreIndicator from "./MaintenanceScoreIndicator";
 
 interface EquipmentListProps {
   equipment: Equipment[];
@@ -221,7 +222,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
             </TableHeader>
             <TableBody>
               {equipment.map((item) => (
-                <TableRow 
+                <TableRow
                   key={item.id}
                   className={cn(
                     "cursor-pointer hover:bg-accent/50",
@@ -230,7 +231,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                   onClick={() => handleRowClick(item)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox 
+                    <Checkbox
                       checked={isSelected(item)}
                       onCheckedChange={(checked) => handleCheckboxChange(checked, item)}
                       aria-label={`Select ${item.name}`}
@@ -246,7 +247,15 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className={`h-2 w-2 rounded-full ${getHealthColor(Number(item.healthScore))}`} />
-                      <span>{item.healthScore}%</span>
+                      <div className="flex flex-col">
+                        <span>{item.healthScore}%</span>
+                        {item.maintenanceScore !== null && (
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Activity className="h-3 w-3" />
+                            Maintenance Score: {Math.round(Number(item.maintenanceScore))}%
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
