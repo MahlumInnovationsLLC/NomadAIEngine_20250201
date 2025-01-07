@@ -11,12 +11,29 @@ export function initializeOpenAI() {
       return;
     }
 
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT.trim();
+    const apiKey = process.env.AZURE_OPENAI_API_KEY.trim();
+
+    if (!endpoint || !apiKey) {
+      console.warn("Azure OpenAI endpoint or API key is empty. AI features will be disabled.");
+      return;
+    }
+
+    console.log("Attempting to connect to Azure OpenAI...");
     client = new OpenAIClient(
-      process.env.AZURE_OPENAI_ENDPOINT,
-      new AzureKeyCredential(process.env.AZURE_OPENAI_API_KEY)
+      endpoint,
+      new AzureKeyCredential(apiKey)
     );
+    console.log("Successfully initialized Azure OpenAI client");
   } catch (error) {
     console.error("Error initializing Azure OpenAI:", error);
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+    }
     client = null;
   }
 }
@@ -26,6 +43,7 @@ initializeOpenAI();
 
 export async function generateEmbeddings(text: string) {
   if (!client) {
+    console.warn("OpenAI client not initialized. Skipping embedding generation.");
     return null;
   }
 
@@ -34,12 +52,19 @@ export async function generateEmbeddings(text: string) {
     return result.data[0].embedding;
   } catch (error) {
     console.error("Error generating embeddings:", error);
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        name: error.name
+      });
+    }
     return null;
   }
 }
 
 export async function analyzeDocument(content: string) {
   if (!client) {
+    console.warn("OpenAI client not initialized. Skipping document analysis.");
     return null;
   }
 
@@ -57,6 +82,7 @@ export async function analyzeDocument(content: string) {
 
 export async function generateSummary(content: string) {
   if (!client) {
+    console.warn("OpenAI client not initialized. Skipping summary generation.");
     return null;
   }
 

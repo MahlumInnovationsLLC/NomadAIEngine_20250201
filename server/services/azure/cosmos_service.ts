@@ -11,12 +11,29 @@ export async function initializeCosmosDB() {
       return;
     }
 
-    client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
-    database = client.database("documents-db");
-    container = database.container("documents");
+    // Trim the connection string to remove any whitespace
+    const connectionString = process.env.AZURE_COSMOS_CONNECTION_STRING.trim();
 
-    // Verify connection
-    await container.read();
+    if (!connectionString) {
+      console.warn("Azure Cosmos DB connection string is empty. Document storage will use local database.");
+      return;
+    }
+
+    client = new CosmosClient(connectionString);
+
+    // Create database if it doesn't exist
+    const { database: db } = await client.databases.createIfNotExists({
+      id: "documents-db"
+    });
+    database = db;
+
+    // Create container if it doesn't exist
+    const { container: cont } = await database.containers.createIfNotExists({
+      id: "documents",
+      partitionKey: "/id"
+    });
+    container = cont;
+
     console.log("Successfully connected to Azure Cosmos DB");
   } catch (error) {
     console.error("Error initializing Cosmos DB:", error);

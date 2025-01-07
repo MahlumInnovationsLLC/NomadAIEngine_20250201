@@ -10,9 +10,21 @@ export async function initializeBlobStorage() {
       return;
     }
 
-    const blobServiceClient = BlobServiceClient.fromConnectionString(
-      process.env.AZURE_BLOB_CONNECTION_STRING
-    );
+    // Clean and validate the connection string
+    const connectionString = process.env.AZURE_BLOB_CONNECTION_STRING.trim();
+
+    if (!connectionString) {
+      console.warn("Azure Blob Storage connection string is empty. File storage will be disabled.");
+      return;
+    }
+
+    // Log connection attempt (without exposing sensitive info)
+    console.log("Attempting to connect to Azure Blob Storage...");
+
+    const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+
+    // Log successful client creation
+    console.log("Successfully created Blob Service Client");
 
     containerClient = blobServiceClient.getContainerClient(containerName);
 
@@ -20,9 +32,21 @@ export async function initializeBlobStorage() {
     await containerClient.createIfNotExists({
       access: 'blob' // Allow public access to blobs
     });
-    console.log("Successfully connected to Azure Blob Storage");
+
+    // Test the connection by listing blobs
+    const testIterator = containerClient.listBlobsFlat().byPage({ maxPageSize: 1 });
+    await testIterator.next();
+
+    console.log("Successfully connected to Azure Blob Storage and verified container access");
   } catch (error) {
     console.error("Error initializing Blob Storage:", error);
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+    }
     containerClient = null;
   }
 }
@@ -40,6 +64,7 @@ export async function uploadFile(
   }
 
   try {
+    console.log(`Attempting to upload file: ${filename}`);
     const blockBlobClient = containerClient.getBlockBlobClient(filename);
     await blockBlobClient.uploadData(content, {
       metadata,
@@ -47,9 +72,10 @@ export async function uploadFile(
         blobContentType: "application/octet-stream"
       }
     });
+    console.log(`Successfully uploaded file: ${filename}`);
     return blockBlobClient.url;
   } catch (error) {
-    console.error("Error uploading file to Blob Storage:", error);
+    console.error(`Error uploading file ${filename} to Blob Storage:`, error);
     throw error;
   }
 }
@@ -63,7 +89,7 @@ export async function downloadFile(filename: string) {
     const blockBlobClient = containerClient.getBlockBlobClient(filename);
     return await blockBlobClient.download(0);
   } catch (error) {
-    console.error("Error downloading file from Blob Storage:", error);
+    console.error(`Error downloading file ${filename} from Blob Storage:`, error);
     throw error;
   }
 }
@@ -77,7 +103,7 @@ export async function deleteFile(filename: string) {
     const blockBlobClient = containerClient.getBlockBlobClient(filename);
     await blockBlobClient.delete();
   } catch (error) {
-    console.error("Error deleting file from Blob Storage:", error);
+    console.error(`Error deleting file ${filename} from Blob Storage:`, error);
     throw error;
   }
 }

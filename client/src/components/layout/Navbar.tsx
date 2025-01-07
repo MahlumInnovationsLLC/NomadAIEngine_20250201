@@ -12,16 +12,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, Settings, Share2, LogOut, MoonIcon, SunIcon, LayoutDashboard } from "lucide-react";
+import { Menu, X, Settings, Share2, LogOut, MoonIcon, SunIcon, Cloud } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Link } from "wouter";
 import { useState } from "react";
 import SettingsDialog from "@/components/settings/SettingsDialog";
+import { AzureServicesStatus } from "@/components/azure/AzureServicesStatus";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showStatus, setShowStatus] = useState(false);
 
   return (
     <header className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -63,6 +67,16 @@ export default function Navbar() {
             variant="ghost"
             size="icon"
             className="h-9 w-9"
+            onClick={() => setShowStatus(!showStatus)}
+          >
+            <Cloud className="h-4 w-4" />
+            <span className="sr-only">Azure services status</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
             <SunIcon className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -97,6 +111,15 @@ export default function Navbar() {
           </DropdownMenu>
         </div>
       </div>
+
+      <Dialog open={showStatus} onOpenChange={setShowStatus}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Azure Services Status</DialogTitle>
+          </DialogHeader>
+          <AzureServicesStatus />
+        </DialogContent>
+      </Dialog>
 
       <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
     </header>
