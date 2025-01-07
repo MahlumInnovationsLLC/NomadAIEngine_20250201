@@ -1,4 +1,5 @@
-import React from "react";
+import React from "react"; // Added React import
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
@@ -20,14 +21,47 @@ interface EquipmentLifecycleTimelineProps {
   equipment: Equipment;
 }
 
+const getEventIcon = (type: TimelineEvent['type']) => {
+  switch (type) {
+    case 'installation':
+      return Settings;
+    case 'maintenance':
+      return Wrench;
+    case 'repair':
+      return AlertTriangle;
+    case 'upgrade':
+      return Activity;
+    case 'inspection':
+      return CheckCircle2;
+    default:
+      return Calendar;
+  }
+};
+
+const getEventColor = (type: TimelineEvent['type']) => {
+  switch (type) {
+    case 'installation':
+      return 'text-blue-500';
+    case 'maintenance':
+      return 'text-yellow-500';
+    case 'repair':
+      return 'text-red-500';
+    case 'upgrade':
+      return 'text-purple-500';
+    case 'inspection':
+      return 'text-green-500';
+    default:
+      return 'text-gray-500';
+  }
+};
+
 export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTimelineProps) {
-  // Generate lifecycle events from equipment history
   const generateLifecycleEvents = (eq: Equipment): TimelineEvent[] => {
     const events: TimelineEvent[] = [];
 
     // Add installation event (first event)
     events.push({
-      date: new Date(eq.createdAt || Date.now()),
+      date: new Date(eq.createdAt),
       type: 'installation',
       description: 'Equipment installed and configured',
       healthScore: 100,
@@ -40,7 +74,7 @@ export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTime
         type: 'maintenance',
         description: 'Regular maintenance performed',
         healthScore: Number(eq.healthScore),
-        notes: eq.maintenanceNotes || undefined,
+        notes: eq.maintenanceNotes || undefined
       });
     }
 
@@ -50,7 +84,7 @@ export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTime
         date: new Date(eq.nextMaintenance),
         type: 'maintenance',
         description: 'Scheduled maintenance',
-        notes: eq.maintenanceNotes || undefined,
+        notes: eq.maintenanceNotes || undefined
       });
     }
 
@@ -60,42 +94,8 @@ export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTime
 
   const events = generateLifecycleEvents(equipment);
 
-  const getEventIcon = (type: TimelineEvent['type']) => {
-    switch (type) {
-      case 'installation':
-        return Settings;
-      case 'maintenance':
-        return Wrench;
-      case 'repair':
-        return AlertTriangle;
-      case 'upgrade':
-        return Activity;
-      case 'inspection':
-        return CheckCircle2;
-      default:
-        return Calendar;
-    }
-  };
-
-  const getEventColor = (type: TimelineEvent['type']) => {
-    switch (type) {
-      case 'installation':
-        return 'text-blue-500';
-      case 'maintenance':
-        return 'text-yellow-500';
-      case 'repair':
-        return 'text-red-500';
-      case 'upgrade':
-        return 'text-purple-500';
-      case 'inspection':
-        return 'text-green-500';
-      default:
-        return 'text-gray-500';
-    }
-  };
-
   return (
-    <Card className="mt-4">
+    <Card className="mt-4"> {/*Restored mt-4 */}
       <CardHeader>
         <CardTitle className="text-xl">Equipment Lifecycle Timeline</CardTitle>
       </CardHeader>
@@ -134,7 +134,7 @@ export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTime
                           {event.type}
                         </span>
                         <Badge variant="outline">
-                          {new Date(event.date).toLocaleDateString()}
+                          {event.date.toLocaleDateString()}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
