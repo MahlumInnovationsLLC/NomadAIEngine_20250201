@@ -51,50 +51,87 @@ export default function EquipmentPerformanceReport({ selectedEquipment }: Equipm
     },
     onSuccess: (data) => {
       setReport(data);
+      downloadReport(data);
     },
   });
 
-  const downloadReport = () => {
-    if (!report) return;
+  const downloadReport = (reportData: PerformanceReport) => {
+    const reportHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Equipment Performance Report</title>
+<style>
+  body { font-family: Arial, sans-serif; }
+  h1 { color: #333; }
+  .section { margin: 20px 0; }
+  .metric { margin: 10px 0; }
+  .equipment-item { margin: 15px 0; padding: 10px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h1>Equipment Performance Report</h1>
+<p>Generated: ${new Date(reportData.generatedAt).toLocaleString()}</p>
 
-    const reportText = `
-Equipment Performance Report
-Generated: ${new Date(report.generatedAt).toLocaleString()}
+<div class="section">
+  <h2>Summary</h2>
+  <div class="metric">Total Equipment: ${reportData.summary.totalEquipment}</div>
+  <div class="metric">Average Health Score: ${Math.round(reportData.summary.averageHealth)}%</div>
+  <div class="metric">Requires Maintenance: ${reportData.summary.requiresMaintenance}</div>
+  <div class="metric">Offline: ${reportData.summary.offline}</div>
+</div>
 
-Summary:
-- Total Equipment: ${report.summary.totalEquipment}
-- Average Health Score: ${Math.round(report.summary.averageHealth)}%
-- Requires Maintenance: ${report.summary.requiresMaintenance}
-- Offline: ${report.summary.offline}
+<div class="section">
+  <h2>Performance Analysis</h2>
+  <ul>
+    ${reportData.analysis.performanceAnalysis.map(item => `<li>${item}</li>`).join('\n')}
+  </ul>
+</div>
 
-Performance Analysis:
-${report.analysis.performanceAnalysis.map(item => `- ${item}`).join('\n')}
+<div class="section">
+  <h2>Maintenance Recommendations</h2>
+  <ul>
+    ${reportData.analysis.maintenanceRecommendations.map(item => `<li>${item}</li>`).join('\n')}
+  </ul>
+</div>
 
-Maintenance Recommendations:
-${report.analysis.maintenanceRecommendations.map(item => `- ${item}`).join('\n')}
+<div class="section">
+  <h2>Usage Optimization</h2>
+  <ul>
+    ${reportData.analysis.usageOptimization.map(item => `<li>${item}</li>`).join('\n')}
+  </ul>
+</div>
 
-Usage Optimization:
-${report.analysis.usageOptimization.map(item => `- ${item}`).join('\n')}
+<div class="section">
+  <h2>Risk Assessment</h2>
+  <ul>
+    ${reportData.analysis.riskAssessment.map(item => `<li>${item}</li>`).join('\n')}
+  </ul>
+</div>
 
-Risk Assessment:
-${report.analysis.riskAssessment.map(item => `- ${item}`).join('\n')}
+<div class="section">
+  <h2>Equipment Details</h2>
+  ${reportData.equipment.map(eq => `
+    <div class="equipment-item">
+      <h3>${eq.name}</h3>
+      <div>Type: ${eq.type?.name || 'Unknown'}</div>
+      <div>Health Score: ${eq.healthScore}%</div>
+      <div>Status: ${eq.status}</div>
+      <div>Last Maintenance: ${eq.lastMaintenance ? new Date(eq.lastMaintenance).toLocaleDateString() : 'Never'}</div>
+      <div>Next Maintenance: ${eq.nextMaintenance ? new Date(eq.nextMaintenance).toLocaleDateString() : 'Not scheduled'}</div>
+    </div>
+  `).join('\n')}
+</div>
 
-Equipment Details:
-${report.equipment.map(eq => `
-${eq.name}
-- Type: ${eq.type?.name || 'Unknown'}
-- Health Score: ${eq.healthScore}%
-- Status: ${eq.status}
-- Last Maintenance: ${eq.lastMaintenance ? new Date(eq.lastMaintenance).toLocaleDateString() : 'Never'}
-- Next Maintenance: ${eq.nextMaintenance ? new Date(eq.nextMaintenance).toLocaleDateString() : 'Not scheduled'}
-`).join('\n')}
-    `.trim();
+</body>
+</html>`;
 
-    const blob = new Blob([reportText], { type: 'text/plain' });
+    const blob = new Blob([reportHtml], { type: 'application/msword' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `equipment-report-${new Date().toISOString().split('T')[0]}.txt`;
+    a.download = `equipment-report-${new Date().toISOString().split('T')[0]}.doc`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -127,7 +164,7 @@ ${eq.name}
             <Button
               variant="outline"
               size="icon"
-              onClick={downloadReport}
+              onClick={() => report && downloadReport(report)}
             >
               <Download className="h-4 w-4" />
             </Button>

@@ -18,6 +18,7 @@ import { EquipmentQuickAdd } from "./EquipmentQuickAdd";
 import { EquipmentHealthDashboard } from "./EquipmentHealthDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface EquipmentListProps {
   equipment: Equipment[];
@@ -57,14 +58,14 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedTroubleshoot, setSelectedTroubleshoot] = useState<Equipment | null>(null);
 
-  const handleRowClick = (item: Equipment) => {
-    if (onEquipmentSelect) {
-      onEquipmentSelect(item.id);
-    }
-  };
-
   const isSelected = (item: Equipment) => {
     return selectedEquipment.some(eq => eq.id === item.id);
+  };
+
+  const handleCheckboxChange = (checked: boolean | "indeterminate", item: Equipment) => {
+    if (onEquipmentSelect && checked !== "indeterminate") {
+      onEquipmentSelect(item.id);
+    }
   };
 
   return (
@@ -73,7 +74,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Equipment Management</h2>
           <p className="text-sm text-muted-foreground">
-            Click to select up to 5 items for comparison
+            Select up to 5 items for comparison using the checkboxes
           </p>
         </div>
         <Button onClick={() => setShowQuickAdd(true)}>
@@ -97,6 +98,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]"></TableHead>
                 <TableHead>Equipment</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Health Score</TableHead>
@@ -111,11 +113,17 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                 <TableRow 
                   key={item.id}
                   className={cn(
-                    "cursor-pointer hover:bg-accent/50",
+                    "hover:bg-accent/50",
                     isSelected(item) && "bg-accent"
                   )}
-                  onClick={() => handleRowClick(item)}
                 >
+                  <TableCell>
+                    <Checkbox 
+                      checked={isSelected(item)}
+                      onCheckedChange={(checked) => handleCheckboxChange(checked, item)}
+                      aria-label={`Select ${item.name}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -156,10 +164,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                         variant="secondary"
                         size="sm"
                         className="flex items-center gap-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMaintenanceEquipment(item);
-                        }}
+                        onClick={() => setMaintenanceEquipment(item)}
                       >
                         <Settings className="h-4 w-4" />
                         Schedule
@@ -167,20 +172,14 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditEquipment(item);
-                        }}
+                        onClick={() => setEditEquipment(item)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedTroubleshoot(item);
-                        }}
+                        onClick={() => setSelectedTroubleshoot(item)}
                       >
                         <AlertCircle className="h-4 w-4" />
                       </Button>
