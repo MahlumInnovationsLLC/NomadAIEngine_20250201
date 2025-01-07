@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import multer from "multer";
 import { db } from "@db";
-import { documents, documentCollaborators, documentWorkflows, messages, chats, type Message, type Chat } from "@db/schema";
+import { documents, documentCollaborators, documentWorkflows, messages, chats, type Message, type Chat, equipment, floorPlans } from "@db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import * as cosmosService from "./services/azure/cosmos_service";
 import * as blobService from "./services/azure/blob_service";
@@ -96,10 +96,10 @@ export function registerRoutes(app: Express): Server {
         break;
     }
 
-    await cosmosService.updateDocument(operation.documentId.toString(), { 
-      ...document, 
-      content: newContent, 
-      version: document.version + 1, 
+    await cosmosService.updateDocument(operation.documentId.toString(), {
+      ...document,
+      content: newContent,
+      version: document.version + 1,
       updatedAt: new Date().toISOString()
     });
   }
@@ -466,63 +466,63 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-
-  // Azure Services Status Endpoint
-  app.get("/api/azure/status", async (_req, res) => {
+  // Floor plan routes
+  app.get("/api/floor-plans/active", async (_req, res) => {
     try {
-      const status = [];
-
-      // Check Cosmos DB Status
-      try {
-        await cosmosService.getDocument("health-check");
-        status.push({
-          name: "Cosmos DB",
-          status: "connected",
-        });
-      } catch (error) {
-        status.push({
-          name: "Cosmos DB",
-          status: "error",
-          message: "Connection failed",
-        });
-      }
-
-      // Check Blob Storage Status
-      try {
-        await blobService.listFiles("health-check/");
-        status.push({
-          name: "Blob Storage",
-          status: "connected",
-        });
-      } catch (error) {
-        status.push({
-          name: "Blob Storage",
-          status: "error",
-          message: "Connection failed",
-        });
-      }
-
-      // Check OpenAI Status
-      try {
-        await openAIService.generateEmbeddings("health check");
-        status.push({
-          name: "Azure OpenAI",
-          status: "connected",
-        });
-      } catch (error) {
-        status.push({
-          name: "Azure OpenAI",
-          status: "error",
-          message: "Connection failed",
-        });
-      }
-
-      res.json(status);
+      const activePlan = await db.query.floorPlans.findFirst({
+        where: eq(floorPlans.isActive, true)
+      });
+      res.json(activePlan);
     } catch (error) {
-      console.error("Error checking Azure services status:", error);
-      res.status(500).json({ error: "Failed to check services status" });
+      res.status(500).json({ error: "Failed to fetch active floor plan" });
     }
   });
+
+  app.patch("/api/floor-plans/:id", async (req, res) => {
+    try {
+      const result = await db.update(floorPlans)
+        .set({
+          gridSize: req.body.gridSize,
+          dimensions: req.body.dimensions,
+          metadata: req.body.metadata,
+          updatedAt: new Date()
+        })
+        .where(eq(floorPlans.id, parseInt(req.params.id)))
+        .returning();
+      res.json(result[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update floor plan" });
+    }
+  });
+
+  // Equipment routes
+  app.get("/api/equipment", async (_req, res) => {
+    try {
+      const items = await db.query.equipment.findMany({
+        orderBy: (equipment, { asc }) => [asc(equipment.name)]
+      });
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch equipment" });
+    }
+  });
+
+  app.patch("/api/equipment/:id/position", async (req, res) => {
+    try {
+      const result = await db.update(equipment)
+        .set({
+          position: req.body.position,
+          updatedAt: new Date()
+        })
+        .where(eq(equipment.id, parseInt(req.params.id)))
+        .returning();
+      res.json(result[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update equipment position" });
+    }
+  });
+
+  // Azure Services Status Endpoint (duplicate removed)
 
   return httpServer;
 }
