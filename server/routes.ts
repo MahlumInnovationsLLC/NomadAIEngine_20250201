@@ -522,6 +522,28 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Equipment maintenance routes
+  app.post("/api/equipment/:id/maintenance", async (req, res) => {
+    try {
+      const { scheduledFor, type, notes } = req.body;
+      const equipmentId = parseInt(req.params.id);
+
+      const result = await db.update(equipment)
+        .set({
+          nextMaintenance: new Date(scheduledFor),
+          maintenanceType: type,
+          maintenanceNotes: notes,
+          updatedAt: new Date()
+        })
+        .where(eq(equipment.id, equipmentId))
+        .returning();
+
+      res.json(result[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to schedule maintenance" });
+    }
+  });
+
   // Equipment troubleshooting routes
   app.get("/api/equipment/:id/troubleshooting", async (req, res) => {
     try {

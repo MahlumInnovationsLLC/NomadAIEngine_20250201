@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Settings, Activity, AlertCircle } from "lucide-react";
 import { TroubleshootingGuide } from "./TroubleshootingGuide";
 import { useState } from "react";
+import { MaintenanceScheduler } from "./MaintenanceScheduler";
 
 interface EquipmentListProps {
   equipment: Equipment[];
@@ -32,6 +33,7 @@ const getHealthColor = (score: number) => {
 
 export default function EquipmentList({ equipment }: EquipmentListProps) {
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [maintenanceEquipment, setMaintenanceEquipment] = useState<Equipment | null>(null);
 
   return (
     <div className="p-4">
@@ -74,7 +76,11 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
               </TableCell>
               <TableCell>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="icon">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setMaintenanceEquipment(item)}
+                  >
                     <Settings className="h-4 w-4" />
                   </Button>
                   <Button variant="ghost" size="icon">
@@ -99,6 +105,14 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
           equipment={selectedEquipment}
           open={!!selectedEquipment}
           onOpenChange={(open) => !open && setSelectedEquipment(null)}
+        />
+      )}
+
+      {maintenanceEquipment && (
+        <MaintenanceScheduler
+          equipment={maintenanceEquipment}
+          open={!!maintenanceEquipment}
+          onOpenChange={(open) => !open && setMaintenanceEquipment(null)}
         />
       )}
     </div>
