@@ -3,6 +3,7 @@ import { motion, useDragControls } from "framer-motion";
 import { Equipment, FloorPlan } from "@db/schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -39,8 +40,10 @@ export default function FloorPlanEditor({
     floorPlan?.dimensions as { width: number; height: number } || { width: 800, height: 600 }
   );
   const [zones, setZones] = useState<Zone[]>(floorPlan?.zones || []);
+  const [isSaving, setIsSaving] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
+  const { toast } = useToast();
 
   const handleDragEnd = async (equipmentId: number, info: any) => {
     const { point } = info;
@@ -71,7 +74,11 @@ export default function FloorPlanEditor({
         onEquipmentMove(equipmentId, { x: snappedX, y: snappedY });
       } catch (error) {
         console.error('Failed to save equipment position:', error);
-        // Optionally show an error toast
+        toast({
+          title: "Error",
+          description: "Failed to update equipment position",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -86,13 +93,50 @@ export default function FloorPlanEditor({
     setZones([...zones, newZone]);
   };
 
-  const handleSave = () => {
-    onSave({
-      gridSize,
-      dimensions,
-      zones,
-      metadata: floorPlan?.metadata || {}
-    });
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/floor-plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gridSize,
+          dimensions,
+          zones,
+          metadata: floorPlan?.metadata || {}
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save floor plan');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Floor plan saved successfully",
+        });
+        onSave({
+          gridSize,
+          dimensions,
+          zones,
+          metadata: floorPlan?.metadata || {}
+        });
+      }
+    } catch (error) {
+      console.error('Failed to save floor plan:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save floor plan",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -137,9 +181,9 @@ export default function FloorPlanEditor({
             <Plus className="h-4 w-4 mr-2" />
             Add Zone
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} disabled={isSaving}>
             <Save className="h-4 w-4 mr-2" />
-            Save Layout
+            {isSaving ? 'Saving...' : 'Save Layout'}
           </Button>
         </div>
       </div>
