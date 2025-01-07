@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
@@ -104,59 +105,60 @@ export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTime
           <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
 
           <div className="space-y-6">
-            {events.map((event, index) => (
-              <motion.div
-                key={`${event.type}-${event.date.getTime()}`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="relative pl-10"
-              >
-                {/* Timeline dot */}
+            {events.map((event, index) => {
+              const Icon = getEventIcon(event.type);
+              return (
                 <motion.div
-                  className={cn(
-                    "absolute left-3 w-3 h-3 rounded-full -translate-x-1.5 border-2 border-background",
-                    getEventColor(event.type).replace('text-', 'bg-')
-                  )}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: index * 0.1 + 0.2 }}
-                />
+                  key={`${event.type}-${event.date.getTime()}`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="relative pl-10"
+                >
+                  {/* Timeline dot */}
+                  <motion.div
+                    className={cn(
+                      "absolute left-3 w-3 h-3 rounded-full -translate-x-1.5 border-2 border-background",
+                      getEventColor(event.type).replace('text-', 'bg-')
+                    )}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: index * 0.1 + 0.2 }}
+                  />
 
-                <div className="flex items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      {React.createElement(getEventIcon(event.type), {
-                        className: cn("h-4 w-4", getEventColor(event.type))
-                      })}
-                      <span className="text-sm font-medium capitalize">
-                        {event.type}
-                      </span>
-                      <Badge variant="outline">
-                        {new Date(event.date).toLocaleDateString()}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {event.description}
-                    </p>
-                    {event.notes && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Notes: {event.notes}
-                      </p>
-                    )}
-                    {event.healthScore !== undefined && (
-                      <div className={cn(
-                        "text-sm mt-1",
-                        event.healthScore >= 80 ? "text-green-500" :
-                        event.healthScore >= 60 ? "text-yellow-500" : "text-red-500"
-                      )}>
-                        Health Score: {event.healthScore}%
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Icon className={cn("h-4 w-4", getEventColor(event.type))} />
+                        <span className="text-sm font-medium capitalize">
+                          {event.type}
+                        </span>
+                        <Badge variant="outline">
+                          {new Date(event.date).toLocaleDateString()}
+                        </Badge>
                       </div>
-                    )}
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {event.description}
+                      </p>
+                      {event.notes && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Notes: {event.notes}
+                        </p>
+                      )}
+                      {event.healthScore !== undefined && (
+                        <div className={cn(
+                          "text-sm mt-1",
+                          event.healthScore >= 80 ? "text-green-500" :
+                          event.healthScore >= 60 ? "text-yellow-500" : "text-red-500"
+                        )}>
+                          Health Score: {event.healthScore}%
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </CardContent>
