@@ -8,6 +8,7 @@ import { eq, sql, desc } from "drizzle-orm";
 import * as cosmosService from "./services/azure/cosmos_service";
 import * as blobService from "./services/azure/blob_service";
 import * as openAIService from "./services/azure/openai_service";
+import { openai } from "./services/azure/openai_service";
 import * as searchService from "./services/search";
 
 // Configure multer for memory storage instead of disk
@@ -638,6 +639,88 @@ export function registerRoutes(app: Express): Server {
       res.json(result[0]);
     } catch (error) {
       res.status(500).json({ error: "Failed to create equipment" });
+    }
+  });
+
+  // Equipment usage prediction routes
+  app.get("/api/equipment/:id/predictions", async (req, res) => {
+    try {
+      const { timeRange = '7d' } = req.query;
+      const equipmentId = parseInt(req.params.id);
+
+      // In a real app, fetch historical data from a time-series database
+      // For demo, generate mock data
+      const mockData = Array.from({ length: timeRange === '24h' ? 24 : timeRange === '7d' ? 7 : 30 }, (_, i) => {
+        const date = new Date();
+        date.setHours(date.getHours() - (timeRange === '24h' ? i : i * 24));
+
+        return {
+          equipment_id: equipmentId,
+          timestamp: date.toISOString(),
+          predicted_usage: Math.random() * 100,
+          confidence: 0.7 + Math.random() * 0.3
+        };
+      });
+
+      res.json(mockData);
+    } catch (error) {
+      console.error('Error fetching predictions:', error);
+      res.status(500).json({ error: "Failed to fetch predictions" });
+    }
+  });
+
+  app.post("/api/equipment/:id/generate-prediction", async (req, res) => {
+    try {
+      const equipmentId = parseInt(req.params.id);
+      const { timeRange = '7d' } = req.body;
+
+      // Get equipment details
+      const equipment = await db.query.equipment.findFirst({
+        where: eq(equipment.id, equipmentId),
+        with: {
+          type: true
+        }
+      });
+
+      if (!equipment) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+
+      // Use OpenAI to generate predictions
+      const prompt = `Analyze the following fitness equipment and predict its usage pattern:
+Equipment: ${equipment.name}
+Type: ${equipment.type?.name || 'Unknown'}
+Current Health Score: ${equipment.healthScore}%
+Time Range: ${timeRange}
+
+Generate a detailed prediction of equipment usage over the specified time range, considering:
+1. Typical gym peak hours
+2. Equipment popularity
+3. Seasonal patterns
+4. Current health status
+
+Provide the prediction as a JSON array with hourly/daily predictions including confidence scores.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are an AI expert in fitness equipment usage analysis and prediction." 
+          },
+          { 
+            role: "user", 
+            content: prompt 
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const predictions = JSON.parse(completion.choices[0].message.content);
+      res.json(predictions);
+    } catch (error) {
+      console.error('Error generating predictions:', error);
+      res.status(500).json({ error: "Failed to generate predictions" });
     }
   });
 

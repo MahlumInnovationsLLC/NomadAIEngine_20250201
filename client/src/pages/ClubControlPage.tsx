@@ -1,22 +1,32 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { List, MapPin, Activity } from "lucide-react";
 import EquipmentList from "@/components/club/EquipmentList";
 import FloorPlanView from "@/components/club/FloorPlanView";
+import EquipmentUsagePrediction from "@/components/club/EquipmentUsagePrediction";
+import type { Equipment, FloorPlan } from "@db/schema";
 
 export default function ClubControlPage() {
   const [view, setView] = useState<"list" | "map">("list");
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
 
-  const { data: equipment } = useQuery({
+  const { data: equipment = [] } = useQuery<Equipment[]>({
     queryKey: ['/api/equipment'],
   });
 
-  const { data: floorPlan } = useQuery({
+  const { data: floorPlan } = useQuery<FloorPlan | null>({
     queryKey: ['/api/floor-plans/active'],
   });
+
+  const handleEquipmentSelect = (equipmentId: number) => {
+    setSelectedEquipmentId(equipmentId);
+  };
+
+  const activeEquipment = equipment.filter(eq => eq.status === 'active');
+  const maintenanceEquipment = equipment.filter(eq => eq.status === 'maintenance');
+  const offlineEquipment = equipment.filter(eq => eq.status === 'offline');
 
   return (
     <div className="container mx-auto py-8">
@@ -56,7 +66,7 @@ export default function ClubControlPage() {
                   Total Equipment
                 </p>
                 <h3 className="text-2xl font-bold mt-2">
-                  {equipment?.length || 0}
+                  {equipment.length}
                 </h3>
               </div>
               <Activity className="h-8 w-8 text-muted-foreground" />
@@ -72,7 +82,7 @@ export default function ClubControlPage() {
                   Active Devices
                 </p>
                 <h3 className="text-2xl font-bold mt-2">
-                  {equipment?.filter(eq => eq.status === 'active').length || 0}
+                  {activeEquipment.length}
                 </h3>
               </div>
               <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -90,7 +100,7 @@ export default function ClubControlPage() {
                   Maintenance Required
                 </p>
                 <h3 className="text-2xl font-bold mt-2">
-                  {equipment?.filter(eq => eq.status === 'maintenance').length || 0}
+                  {maintenanceEquipment.length}
                 </h3>
               </div>
               <div className="h-8 w-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
@@ -108,7 +118,7 @@ export default function ClubControlPage() {
                   Offline Devices
                 </p>
                 <h3 className="text-2xl font-bold mt-2">
-                  {equipment?.filter(eq => eq.status === 'offline').length || 0}
+                  {offlineEquipment.length}
                 </h3>
               </div>
               <div className="h-8 w-8 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -119,15 +129,28 @@ export default function ClubControlPage() {
         </Card>
       </div>
 
-      <div className="bg-card rounded-lg border">
-        {view === "list" ? (
-          <EquipmentList equipment={equipment || []} />
-        ) : (
-          <FloorPlanView 
-            floorPlan={floorPlan} 
-            equipment={equipment || []} 
-          />
-        )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <div className="bg-card rounded-lg border">
+            {view === "list" ? (
+              <EquipmentList 
+                equipment={equipment} 
+                onEquipmentSelect={handleEquipmentSelect}
+              />
+            ) : (
+              <FloorPlanView 
+                floorPlan={floorPlan} 
+                equipment={equipment} 
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          {selectedEquipmentId && (
+            <EquipmentUsagePrediction equipmentId={selectedEquipmentId} />
+          )}
+        </div>
       </div>
     </div>
   );

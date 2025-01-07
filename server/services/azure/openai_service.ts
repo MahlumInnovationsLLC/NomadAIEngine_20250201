@@ -1,8 +1,17 @@
 import { OpenAIClient } from "@azure/openai";
 import { AzureKeyCredential } from "@azure/core-auth";
+import OpenAI from "openai";
 
 let client: OpenAIClient | null = null;
 const deploymentName = "gpt-35-turbo"; // Update this with your actual deployment name
+
+// Initialize OpenAI API client for more advanced features
+export const openai = new OpenAI({
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4/`,
+  defaultQuery: { "api-version": "2024-02-15-preview" },
+  defaultHeaders: { "api-key": process.env.AZURE_OPENAI_API_KEY }
+});
 
 export function initializeOpenAI() {
   try {
