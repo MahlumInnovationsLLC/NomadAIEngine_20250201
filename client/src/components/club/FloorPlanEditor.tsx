@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { motion, Reorder, useDragControls } from "framer-motion";
+import { motion, useDragControls } from "framer-motion";
 import { Equipment, FloorPlan } from "@db/schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,9 @@ export default function FloorPlanEditor({
   onEquipmentMove 
 }: FloorPlanEditorProps) {
   const [gridSize, setGridSize] = useState(floorPlan?.gridSize || 20);
-  const [dimensions, setDimensions] = useState(floorPlan?.dimensions || { width: 800, height: 600 });
+  const [dimensions, setDimensions] = useState<{ width: number; height: number }>(
+    floorPlan?.dimensions as { width: number; height: number } || { width: 800, height: 600 }
+  );
   const editorRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
 
@@ -37,11 +39,11 @@ export default function FloorPlanEditor({
       const rect = editorRef.current.getBoundingClientRect();
       const x = point.x - rect.left;
       const y = point.y - rect.top;
-      
+
       // Snap to grid
       const snappedX = Math.round(x / gridSize) * gridSize;
       const snappedY = Math.round(y / gridSize) * gridSize;
-      
+
       onEquipmentMove(equipmentId, { x: snappedX, y: snappedY });
     }
   };
@@ -134,7 +136,7 @@ export default function FloorPlanEditor({
         {/* Draggable equipment */}
         {equipment.map((item) => {
           const position = item.position as { x: number; y: number } || { x: 0, y: 0 };
-          
+
           return (
             <motion.div
               key={item.id}

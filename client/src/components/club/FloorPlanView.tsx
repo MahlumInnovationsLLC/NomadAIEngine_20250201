@@ -26,6 +26,11 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
+  const dimensions = {
+    width: floorPlan?.dimensions?.width || 800,
+    height: floorPlan?.dimensions?.height || 600
+  };
+
   const updateFloorPlanMutation = useMutation({
     mutationFn: async (updates: Partial<FloorPlan>) => {
       const response = await fetch(`/api/floor-plans/${floorPlan?.id}`, {
@@ -142,7 +147,7 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
         <div
           ref={containerRef}
           className="relative overflow-hidden border rounded-lg bg-background"
-          style={{ height: floorPlan?.dimensions?.height || 600 }}
+          style={{ height: dimensions.height }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -157,8 +162,8 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
           >
             {/* Grid background */}
             <svg 
-              width={floorPlan?.dimensions?.width || 800} 
-              height={floorPlan?.dimensions?.height || 600} 
+              width={dimensions.width}
+              height={dimensions.height}
               className="pointer-events-none"
             >
               <defs>
@@ -215,9 +220,10 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
                 );
               })}
             </TooltipProvider>
+
             {/* Example room layouts */}
             <div className="absolute inset-0 pointer-events-none">
-              <svg width={width} height={height}>
+              <svg width={dimensions.width} height={dimensions.height}>
                 {/* Example room outlines */}
                 <rect x="50" y="50" width="200" height="150" 
                   fill="none" stroke="currentColor" strokeOpacity={0.2} />
