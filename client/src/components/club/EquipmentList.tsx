@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EquipmentLifecycleTimeline } from "./EquipmentLifecycleTimeline";
 
 interface EquipmentListProps {
   equipment: Equipment[];
@@ -64,6 +65,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
   const [editEquipment, setEditEquipment] = useState<Equipment | null>(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedTroubleshoot, setSelectedTroubleshoot] = useState<Equipment | null>(null);
+  const [selectedForTimeline, setSelectedForTimeline] = useState<Equipment | null>(null);
 
   const isSelected = (item: Equipment) => {
     return selectedEquipment.some(eq => eq.id === item.id);
@@ -77,7 +79,6 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
 
   const handleRowClick = (item: Equipment) => {
     if (onEquipmentSelect) {
-      // Clear other selections and select only this item for predictive analytics
       selectedEquipment.forEach(eq => {
         if (eq.id !== item.id) {
           onEquipmentSelect(eq.id);
@@ -85,6 +86,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
       });
       onEquipmentSelect(item.id);
     }
+    setSelectedForTimeline(item);
   };
 
   const generateSingleReport = async (equipmentId: number) => {
@@ -106,7 +108,6 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
       }
 
       const report = await response.json();
-      // Generate HTML report
       const reportHtml = `
 <!DOCTYPE html>
 <html>
@@ -218,7 +219,6 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } else {
-      // For PDF, we'll create an HTML table first
       const tableHtml = `
         <!DOCTYPE html>
         <html>
@@ -327,7 +327,9 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                     "cursor-pointer hover:bg-accent/50",
                     isSelected(item) && "bg-accent"
                   )}
-                  onClick={() => handleRowClick(item)}
+                  onClick={() => {
+                    handleRowClick(item);
+                  }}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
@@ -350,7 +352,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                         <span>{item.healthScore}%</span>
                       </div>
                       {item.maintenanceScore !== null && (
-                        <MaintenanceScoreIndicator 
+                        <MaintenanceScoreIndicator
                           score={Number(item.maintenanceScore)}
                           riskFactors={item.riskFactors as any[]}
                           lastUpdate={item.lastPredictionUpdate ? new Date(item.lastPredictionUpdate) : undefined}
@@ -420,6 +422,9 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
               ))}
             </TableBody>
           </Table>
+          {selectedForTimeline && (
+            <EquipmentLifecycleTimeline equipment={selectedForTimeline} />
+          )}
         </TabsContent>
 
         <TabsContent value="health">

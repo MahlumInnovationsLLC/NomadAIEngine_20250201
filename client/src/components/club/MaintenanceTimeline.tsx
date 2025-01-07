@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
-import { Calendar, Tool, AlertTriangle, CheckCircle } from "lucide-react";
+import { Calendar, Wrench, AlertTriangle, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +29,7 @@ export function MaintenanceTimeline({ equipment }: MaintenanceTimelineProps) {
         type: 'completed',
         description: 'Regular maintenance completed',
         healthScore: Number(eq.healthScore),
-        notes: eq.maintenanceNotes
+        notes: eq.maintenanceNotes || undefined
       });
     }
 
@@ -39,7 +39,7 @@ export function MaintenanceTimeline({ equipment }: MaintenanceTimelineProps) {
         date: new Date(eq.nextMaintenance),
         type: 'scheduled',
         description: 'Scheduled maintenance',
-        notes: eq.maintenanceNotes
+        notes: eq.maintenanceNotes || undefined
       });
     }
 
