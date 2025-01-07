@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
@@ -6,6 +6,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Grid, Wand2 } from "lucide-react";
+
+// Import all the fitness equipment icons
 import {
   Dumbbell,
   Bike,
@@ -17,9 +20,6 @@ import {
   Weight,
   Target,
   MonitorSmartphone,
-  LucideIcon,
-  Wand2,
-  Grid,
   Scale,
   Gauge,
   BarChart3,
@@ -29,7 +29,8 @@ import {
   Dices,
   Tv2,
   Vibrate,
-  Zap
+  Zap,
+  LucideIcon
 } from "lucide-react";
 import { IconSuggestionDialog } from "./IconSuggestionDialog";
 
@@ -37,11 +38,12 @@ interface EquipmentIconProps {
   equipment: Equipment;
   isDragging?: boolean;
   onRequestSuggestion?: () => void;
-  position: number;
-  onDragStart: () => void;
-  onDragEnd: (position: number) => void;
+  index: number;
+  onDragStart: (e: any, index: number) => void;
+  onDragEnter: (index: number) => void;
 }
 
+// Extended icon set for fitness equipment
 const equipmentIcons: Record<string, LucideIcon> = {
   "treadmill": Footprints,
   "bike": Bike,
@@ -62,7 +64,18 @@ const equipmentIcons: Record<string, LucideIcon> = {
   "balance": Dices,
   "display": Tv2,
   "vibration": Vibrate,
-  "power": Zap
+  "power": Zap,
+  // Add more fitness equipment specific icons
+  "cross-trainer": Activity,
+  "smith-machine": Weight,
+  "leg-press": Footprints,
+  "rowing-machine": Waves,
+  "spin-bike": Bike,
+  "power-rack": Dumbbell,
+  "cable-machine": Cable,
+  "bench-press": Weight,
+  "stair-master": Footprints,
+  "fitness-tracker": MonitorSmartphone
 };
 
 const StatusIndicator = ({ status, className }: { status: string; className?: string }) => {
@@ -73,7 +86,6 @@ const StatusIndicator = ({ status, className }: { status: string; className?: st
       case 'maintenance':
         return 'bg-yellow-500';
       case 'offline':
-        return 'bg-red-500';
       case 'error':
         return 'bg-red-500';
       default:
@@ -94,9 +106,9 @@ const EquipmentIcon = ({
   equipment, 
   isDragging,
   onRequestSuggestion,
-  position,
+  index,
   onDragStart,
-  onDragEnd,
+  onDragEnter,
 }: EquipmentIconProps) => {
   const deviceType = equipment.deviceType?.toLowerCase() || 'strength';
   const Icon = equipmentIcons[deviceType] || Dumbbell;
@@ -104,12 +116,10 @@ const EquipmentIcon = ({
   return (
     <motion.div
       layout
-      drag
-      dragSnapToOrigin={false}
-      dragElastic={0}
-      dragMomentum={false}
-      onDragStart={onDragStart}
-      onDragEnd={() => onDragEnd(position)}
+      draggable
+      onDragStart={(e) => onDragStart(e, index)}
+      onDragEnter={() => onDragEnter(index)}
+      onDragOver={(e) => e.preventDefault()}
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ 
         opacity: 1, 
@@ -119,15 +129,16 @@ const EquipmentIcon = ({
       exit={{ opacity: 0, scale: 0.8 }}
       whileHover={{ scale: 1.05 }}
       className={cn(
-        "relative bg-background rounded-lg border cursor-grab active:cursor-grabbing w-[140px] h-[140px] flex flex-col items-center justify-center p-4",
+        "relative bg-background rounded-lg border cursor-grab active:cursor-grabbing w-[140px] h-[140px]",
+        "flex flex-col items-center justify-center p-4",
         "hover:bg-accent/50 transition-colors",
-        isDragging && "shadow-lg ring-2 ring-primary z-50"
+        isDragging && "shadow-lg ring-2 ring-primary opacity-50"
       )}
     >
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-3">
         <div className="p-2 rounded-md bg-muted">
-          <Icon className="w-8 h-8" />
+          <Icon className="w-6 h-6" />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
@@ -139,7 +150,7 @@ const EquipmentIcon = ({
           <Button
             variant="ghost"
             size="sm"
-            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 left-1"
+            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
               onRequestSuggestion();
@@ -162,7 +173,7 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState(equipment);
-  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
 
   const handleRequestSuggestion = (equipment: Equipment) => {
     setSelectedEquipment(equipment);
@@ -185,25 +196,30 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
     }
   };
 
-  const handleDragStart = (id: number) => {
-    setDraggingId(id);
+  const handleDragStart = (e: DragEvent, index: number) => {
+    setDraggedIdx(index);
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+    }
   };
 
-  const handleDragEnd = (dropPosition: number) => {
-    if (draggingId === null) return;
-
-    const draggedIndex = items.findIndex(item => item.id === draggingId);
-    if (draggedIndex === -1) return;
+  const handleDragEnter = (index: number) => {
+    if (draggedIdx === null) return;
+    if (draggedIdx === index) return;
 
     const newItems = [...items];
-    const [draggedItem] = newItems.splice(draggedIndex, 1);
-    newItems.splice(dropPosition, 0, draggedItem);
+    const draggedItem = newItems[draggedIdx];
+    newItems.splice(draggedIdx, 1);
+    newItems.splice(index, 0, draggedItem);
 
     setItems(newItems);
-    setDraggingId(null);
+    setDraggedIdx(index);
+  };
 
+  const handleDragEnd = () => {
+    setDraggedIdx(null);
     if (onDragEnd) {
-      onDragEnd(newItems);
+      onDragEnd(items);
     }
   };
 
@@ -221,16 +237,18 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
             <motion.div
               layout
               className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 p-4"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDragEnd}
             >
               {items.map((item, index) => (
                 <EquipmentIcon
                   key={item.id}
                   equipment={item}
-                  isDragging={draggingId === item.id}
+                  isDragging={draggedIdx === index}
                   onRequestSuggestion={() => handleRequestSuggestion(item)}
-                  position={index}
-                  onDragStart={() => handleDragStart(item.id)}
-                  onDragEnd={handleDragEnd}
+                  index={index}
+                  onDragStart={handleDragStart}
+                  onDragEnter={handleDragEnter}
                 />
               ))}
             </motion.div>
