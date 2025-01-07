@@ -1,10 +1,4 @@
 import { useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import * as solidIcons from "@fortawesome/pro-solid-svg-icons";
-import * as regularIcons from "@fortawesome/pro-regular-svg-icons";
-import * as lightIcons from "@fortawesome/pro-light-svg-icons";
-import * as thinIcons from "@fortawesome/pro-thin-svg-icons";
-import * as duotoneIcons from "@fortawesome/pro-duotone-svg-icons";
 import { 
   Dialog,
   DialogContent,
@@ -28,64 +22,76 @@ interface IconSuggestionDialogProps {
   onSelectIcon: (iconKey: string) => void;
 }
 
-// Font Awesome icon styles with their corresponding libraries
-const iconStyles = [
-  { key: 'solid', library: solidIcons, prefix: 'fas', label: 'Solid' },
-  { key: 'regular', library: regularIcons, prefix: 'far', label: 'Regular' },
-  { key: 'light', library: lightIcons, prefix: 'fal', label: 'Light' },
-  { key: 'thin', library: thinIcons, prefix: 'fat', label: 'Thin' },
-  { key: 'duotone', library: duotoneIcons, prefix: 'fad', label: 'Duotone' }
-];
-
-// Common fitness equipment icons
+// Custom fitness equipment icons from the kit
 const fitnessIcons = [
-  // Cardio Equipment
-  { name: 'person-running', label: 'Running' },
-  { name: 'person-walking', label: 'Walking' },
-  { name: 'bicycle', label: 'Bicycle' },
-  { name: 'person-biking', label: 'Cycling' },
-  { name: 'stairs', label: 'Stairs' },
-  { name: 'heart-pulse', label: 'Heart Rate' },
-
-  // Strength Equipment
-  { name: 'dumbbell', label: 'Dumbbell' },
-  { name: 'weight-hanging', label: 'Weight' },
-  { name: 'person-walking-with-cane', label: 'Balance' },
-  { name: 'person-dots-from-line', label: 'Movement' },
-
-  // Recovery & Flexibility
-  { name: 'person-stretching', label: 'Stretching' },
-  { name: 'spa', label: 'Wellness' },
-  { name: 'person-swimming', label: 'Swimming' },
-  { name: 'hot-tub-person', label: 'Recovery' },
-
-  // Metrics & Monitoring
-  { name: 'gauge-high', label: 'Performance' },
-  { name: 'chart-line', label: 'Metrics' },
-  { name: 'stopwatch-20', label: 'Timer' },
-  { name: 'scale-balanced', label: 'Balance' },
-
-  // General Equipment
-  { name: 'bed-pulse', label: 'Equipment' },
-  { name: 'tape', label: 'Measurement' },
-  { name: 'chair', label: 'Seating' },
-  { name: 'toolbox', label: 'Maintenance' },
-
-  // Custom Pro Kit Icons for Fitness
-  { name: 'treadmill', label: 'Treadmill' },
-  { name: 'elliptical', label: 'Elliptical' },
-  { name: 'rowing-machine', label: 'Rower' },
-  { name: 'fitness-machine', label: 'Machine' },
-  { name: 'leg-press', label: 'Leg Press' },
-  { name: 'smith-machine', label: 'Smith Machine' },
-  { name: 'cable-machine', label: 'Cable Machine' },
-  { name: 'power-rack', label: 'Power Rack' },
-
+  { 
+    name: '10250144-stationary-bike-sports-competition-fitness-icon', 
+    label: 'Stationary Bike',
+    kitClass: 'fa-kit fa-10250144-stationary-bike-sports-competition-fitness-icon'
+  },
+  { 
+    name: '4596226-fitness-gym-machine-stationery-rowing-workout-icon', 
+    label: 'Rowing Machine',
+    kitClass: 'fa-kit fa-4596226-fitness-gym-machine-stationery-rowing-workout-icon'
+  },
+  { 
+    name: '4596227-bicycle-bike-cardio-fitness-gym-icon', 
+    label: 'Exercise Bike',
+    kitClass: 'fa-kit fa-4596227-bicycle-bike-cardio-fitness-gym-icon'
+  },
+  { 
+    name: '4596236-cable-crossover-equipment-gym-machine-tool-icon', 
+    label: 'Cable Crossover',
+    kitClass: 'fa-kit fa-4596236-cable-crossover-equipment-gym-machine-tool-icon'
+  },
+  { 
+    name: '4596246-cable-row-equipment-gym-machine-tool-icon', 
+    label: 'Cable Row',
+    kitClass: 'fa-kit fa-4596246-cable-row-equipment-gym-machine-tool-icon'
+  },
+  { 
+    name: '4596247-equipment-gym-lat-pulldown-machine-tool-icon', 
+    label: 'Lat Pulldown',
+    kitClass: 'fa-kit fa-4596247-equipment-gym-lat-pulldown-machine-tool-icon'
+  },
+  { 
+    name: '4596250-equipment-gym-hammer-strength-machine-tool-icon', 
+    label: 'Hammer Strength',
+    kitClass: 'fa-kit fa-4596250-equipment-gym-hammer-strength-machine-tool-icon'
+  },
+  { 
+    name: '4596255-equipment-gym-smith-machine-tool-icon', 
+    label: 'Smith Machine',
+    kitClass: 'fa-kit fa-4596255-equipment-gym-smith-machine-tool-icon'
+  },
+  { 
+    name: '6258926-fitness-service-gym-equipment-gym-services-jogging-machine-runner-icon', 
+    label: 'Treadmill',
+    kitClass: 'fa-kit fa-6258926-fitness-service-gym-equipment-gym-services-jogging-machine-runner-icon'
+  },
+  { 
+    name: '805744-cardio-elliptical-exercise-fitness-training-equipment-icon', 
+    label: 'Elliptical',
+    kitClass: 'fa-kit fa-805744-cardio-elliptical-exercise-fitness-training-equipment-icon'
+  },
+  { 
+    name: '8665879-stairs-staircase-icon', 
+    label: 'StairMaster',
+    kitClass: 'fa-kit fa-8665879-stairs-staircase-icon'
+  },
   // Connectivity Icons
-  { name: 'wifi', label: 'WiFi Connected', category: 'connectivity' },
-  { name: 'bluetooth', label: 'Bluetooth', category: 'connectivity' },
-  { name: 'signal-stream', label: 'Connected', category: 'connectivity' },
-  { name: 'signal-bars-good', label: 'Good Signal', category: 'connectivity' }
+  { 
+    name: 'wifi', 
+    label: 'WiFi Connected', 
+    kitClass: 'fa-solid fa-wifi',
+    category: 'connectivity' 
+  },
+  { 
+    name: 'bluetooth', 
+    label: 'Bluetooth', 
+    kitClass: 'fa-solid fa-bluetooth',
+    category: 'connectivity' 
+  }
 ];
 
 export function IconSuggestionDialog({ 
@@ -96,7 +102,6 @@ export function IconSuggestionDialog({
   onSelectIcon 
 }: IconSuggestionDialogProps) {
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState('solid');
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleSelectIcon = (iconKey: string) => {
@@ -114,15 +119,6 @@ export function IconSuggestionDialog({
     (icon.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
     icon.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-
-  // Helper function to get icon from library
-  const getIconFromLibrary = (iconName: string, style: string) => {
-    const currentStyle = iconStyles.find(s => s.key === style);
-    if (!currentStyle) return null;
-
-    const iconKey = `fa${iconName.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')}`;
-    return currentStyle.library[iconKey as keyof typeof currentStyle.library];
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,59 +138,36 @@ export function IconSuggestionDialog({
             className="w-full"
           />
 
-          <Tabs defaultValue="solid" onValueChange={setSelectedStyle}>
-            <TabsList className="w-full">
-              {iconStyles.map(style => (
-                <TabsTrigger
-                  key={style.key}
-                  value={style.key}
-                  className="flex-1"
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {filteredIcons.map((icon) => (
+                <div
+                  key={icon.name}
+                  className={cn(
+                    "p-4 rounded-lg border cursor-pointer transition-colors",
+                    selectedIcon === icon.name
+                      ? "border-primary bg-primary/10"
+                      : "hover:bg-accent"
+                  )}
+                  onClick={() => handleSelectIcon(icon.name)}
                 >
-                  {style.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {iconStyles.map(style => (
-              <TabsContent key={style.key} value={style.key}>
-                <ScrollArea className="h-[400px] pr-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {filteredIcons.map((icon) => {
-                      const faIcon = getIconFromLibrary(icon.name, style.key);
-                      if (!faIcon) return null;
-
-                      return (
-                        <div
-                          key={`${style.key}-${icon.name}`}
-                          className={cn(
-                            "p-4 rounded-lg border cursor-pointer transition-colors",
-                            selectedIcon === icon.name
-                              ? "border-primary bg-primary/10"
-                              : "hover:bg-accent"
-                          )}
-                          onClick={() => handleSelectIcon(icon.name)}
-                        >
-                          <div className="flex flex-col items-center gap-3">
-                            <div className="p-3 rounded-md bg-background">
-                              <FontAwesomeIcon icon={faIcon} size="lg" />
-                            </div>
-                            <div className="text-sm font-medium text-center">
-                              {icon.label}
-                            </div>
-                            {icon.category === 'connectivity' && (
-                              <Badge variant="secondary" className="text-xs">
-                                Connectivity
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="p-3 rounded-md bg-background">
+                      <i className={icon.kitClass} style={{ fontSize: '1.5rem' }} />
+                    </div>
+                    <div className="text-sm font-medium text-center">
+                      {icon.label}
+                    </div>
+                    {icon.category === 'connectivity' && (
+                      <Badge variant="secondary" className="text-xs">
+                        Connectivity
+                      </Badge>
+                    )}
                   </div>
-                </ScrollArea>
-              </TabsContent>
-            ))}
-          </Tabs>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
         </div>
 
         <DialogFooter>

@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import * as solidIcons from "@fortawesome/pro-solid-svg-icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -45,14 +43,6 @@ const StatusIndicator = ({ status, className }: { status: string; className?: st
   );
 };
 
-// Helper function to get icon from library
-const getIconFromName = (iconName: string) => {
-  const name = `fa${iconName.split('-').map(part => 
-    part.charAt(0).toUpperCase() + part.slice(1)
-  ).join('')}`;
-  return solidIcons[name as keyof typeof solidIcons] || solidIcons.faDumbbell;
-};
-
 const EquipmentIcon = ({ 
   equipment, 
   isDragging,
@@ -61,10 +51,9 @@ const EquipmentIcon = ({
   onDragStart,
   onDragEnter,
 }: EquipmentIconProps) => {
-  const icon = getIconFromName(equipment.deviceType || 'dumbbell');
   const connectivityIcon = equipment.deviceConnectionStatus === 'connected' ? 
-    (equipment.deviceIdentifier?.includes('bluetooth') ? 'bluetooth' : 'wifi') : 
-    'signal-slash';
+    (equipment.deviceIdentifier?.includes('bluetooth') ? 'fa-solid fa-bluetooth' : 'fa-solid fa-wifi') : 
+    'fa-solid fa-signal-slash';
 
   return (
     <motion.div
@@ -92,16 +81,21 @@ const EquipmentIcon = ({
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-2">
         <div className="p-2 rounded-md bg-muted">
-          <FontAwesomeIcon icon={icon} size="lg" />
+          <i 
+            className={`fa-kit fa-${equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'}`} 
+            style={{ fontSize: '1.5rem' }}
+          />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
         </span>
         <Badge variant="outline" className="text-xs flex items-center gap-1">
-          <FontAwesomeIcon 
-            icon={getIconFromName(connectivityIcon)} 
-            size="sm" 
-            className={equipment.deviceConnectionStatus === 'connected' ? 'text-green-500' : 'text-gray-400'}
+          <i 
+            className={connectivityIcon}
+            style={{ 
+              fontSize: '0.875rem',
+              color: equipment.deviceConnectionStatus === 'connected' ? 'rgb(34 197 94)' : 'rgb(156 163 175)'
+            }}
           />
           {equipment.deviceConnectionStatus || "Not Connected"}
         </Badge>
