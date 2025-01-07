@@ -54,7 +54,7 @@ export const equipmentTypes = pgTable("equipment_types", {
   manufacturer: text("manufacturer"),
   model: text("model"),
   category: text("category").notNull(),
-  connectivityType: text("connectivity_type").notNull(), 
+  connectivityType: text("connectivity_type").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -66,9 +66,11 @@ export const equipment = pgTable("equipment", {
   lastMaintenance: timestamp("last_maintenance"),
   nextMaintenance: timestamp("next_maintenance"),
   status: text("status", { enum: ['active', 'maintenance', 'offline', 'error'] }).notNull(),
-  healthScore: decimal("health_score", { precision: 4, scale: 2 }), 
-  position: jsonb("position"), 
-  metadata: jsonb("metadata"), 
+  healthScore: decimal("health_score", { precision: 4, scale: 2 }),
+  position: jsonb("position"),
+  metadata: jsonb("metadata"),
+  maintenanceType: text("maintenance_type"),
+  maintenanceNotes: text("maintenance_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -77,10 +79,10 @@ export const floorPlans = pgTable("floor_plans", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  dimensions: jsonb("dimensions").notNull(), 
-  gridSize: integer("grid_size").notNull(), 
+  dimensions: jsonb("dimensions").notNull(),
+  gridSize: integer("grid_size").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
-  metadata: jsonb("metadata"), 
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

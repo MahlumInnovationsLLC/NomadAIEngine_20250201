@@ -77,11 +77,13 @@ export default function EquipmentList({ equipment }: EquipmentListProps) {
               <TableCell>
                 <div className="flex gap-2">
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center gap-2"
                     onClick={() => setMaintenanceEquipment(item)}
                   >
                     <Settings className="h-4 w-4" />
+                    Schedule
                   </Button>
                   <Button variant="ghost" size="icon">
                     <Activity className="h-4 w-4" />
