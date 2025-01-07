@@ -17,10 +17,12 @@ import { EquipmentEditDialog } from "./EquipmentEditDialog";
 import { EquipmentQuickAdd } from "./EquipmentQuickAdd";
 import { EquipmentHealthDashboard } from "./EquipmentHealthDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 interface EquipmentListProps {
   equipment: Equipment[];
   onEquipmentSelect?: (equipmentId: number) => void;
+  selectedEquipment?: Equipment[];
 }
 
 const statusColors: Record<string, string> = {
@@ -49,11 +51,11 @@ const getConnectionStatusColor = (status: string) => {
   }
 };
 
-export default function EquipmentList({ equipment, onEquipmentSelect }: EquipmentListProps) {
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+export default function EquipmentList({ equipment, onEquipmentSelect, selectedEquipment = [] }: EquipmentListProps) {
   const [maintenanceEquipment, setMaintenanceEquipment] = useState<Equipment | null>(null);
   const [editEquipment, setEditEquipment] = useState<Equipment | null>(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [selectedTroubleshoot, setSelectedTroubleshoot] = useState<Equipment | null>(null);
 
   const handleRowClick = (item: Equipment) => {
     if (onEquipmentSelect) {
@@ -61,10 +63,19 @@ export default function EquipmentList({ equipment, onEquipmentSelect }: Equipmen
     }
   };
 
+  const isSelected = (item: Equipment) => {
+    return selectedEquipment.some(eq => eq.id === item.id);
+  };
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold tracking-tight">Equipment Management</h2>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Equipment Management</h2>
+          <p className="text-sm text-muted-foreground">
+            Click to select up to 5 items for comparison
+          </p>
+        </div>
         <Button onClick={() => setShowQuickAdd(true)}>
           <Plus className="mr-2 h-4 w-4" /> Quick Add Equipment
         </Button>
@@ -99,7 +110,10 @@ export default function EquipmentList({ equipment, onEquipmentSelect }: Equipmen
               {equipment.map((item) => (
                 <TableRow 
                   key={item.id}
-                  className="cursor-pointer hover:bg-accent/50"
+                  className={cn(
+                    "cursor-pointer hover:bg-accent/50",
+                    isSelected(item) && "bg-accent"
+                  )}
                   onClick={() => handleRowClick(item)}
                 >
                   <TableCell className="font-medium">{item.name}</TableCell>
@@ -165,7 +179,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect }: Equipmen
                         size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedEquipment(item);
+                          setSelectedTroubleshoot(item);
                         }}
                       >
                         <AlertCircle className="h-4 w-4" />
@@ -183,11 +197,11 @@ export default function EquipmentList({ equipment, onEquipmentSelect }: Equipmen
         </TabsContent>
       </Tabs>
 
-      {selectedEquipment && (
+      {selectedTroubleshoot && (
         <TroubleshootingGuide
-          equipment={selectedEquipment}
-          open={!!selectedEquipment}
-          onOpenChange={(open) => !open && setSelectedEquipment(null)}
+          equipment={selectedTroubleshoot}
+          open={!!selectedTroubleshoot}
+          onOpenChange={(open) => !open && setSelectedTroubleshoot(null)}
         />
       )}
 

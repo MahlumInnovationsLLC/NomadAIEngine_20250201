@@ -6,11 +6,13 @@ import { List, MapPin, Activity } from "lucide-react";
 import EquipmentList from "@/components/club/EquipmentList";
 import FloorPlanView from "@/components/club/FloorPlanView";
 import EquipmentUsagePrediction from "@/components/club/EquipmentUsagePrediction";
+import EquipmentComparisonDashboard from "@/components/club/EquipmentComparisonDashboard";
 import type { Equipment, FloorPlan } from "@db/schema";
 
 export default function ClubControlPage() {
   const [view, setView] = useState<"list" | "map">("list");
-  const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment[]>([]);
+  const [showingPrediction, setShowingPrediction] = useState(false);
 
   const { data: equipment = [] } = useQuery<Equipment[]>({
     queryKey: ['/api/equipment'],
@@ -21,7 +23,19 @@ export default function ClubControlPage() {
   });
 
   const handleEquipmentSelect = (equipmentId: number) => {
-    setSelectedEquipmentId(equipmentId);
+    const equipment_item = equipment.find(eq => eq.id === equipmentId);
+    if (!equipment_item) return;
+
+    setSelectedEquipment(prev => {
+      const isAlreadySelected = prev.some(eq => eq.id === equipmentId);
+      if (isAlreadySelected) {
+        return prev.filter(eq => eq.id !== equipmentId);
+      } else {
+        // Limit to 5 items for better visualization
+        return [...prev, equipment_item].slice(-5);
+      }
+    });
+    setShowingPrediction(true);
   };
 
   const activeEquipment = equipment.filter(eq => eq.status === 'active');
@@ -136,19 +150,21 @@ export default function ClubControlPage() {
               <EquipmentList 
                 equipment={equipment} 
                 onEquipmentSelect={handleEquipmentSelect}
+                selectedEquipment={selectedEquipment}
               />
             ) : (
               <FloorPlanView 
                 floorPlan={floorPlan} 
-                equipment={equipment} 
+                equipment={equipment}
               />
             )}
           </div>
         </div>
 
         <div className="space-y-8">
-          {selectedEquipmentId && (
-            <EquipmentUsagePrediction equipmentId={selectedEquipmentId} />
+          <EquipmentComparisonDashboard selectedEquipment={selectedEquipment} />
+          {showingPrediction && selectedEquipment.length === 1 && (
+            <EquipmentUsagePrediction equipmentId={selectedEquipment[0].id} />
           )}
         </div>
       </div>
