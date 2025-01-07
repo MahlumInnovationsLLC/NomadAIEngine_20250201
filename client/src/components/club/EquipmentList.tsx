@@ -9,14 +9,15 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Activity, AlertCircle, Edit } from "lucide-react";
+import { Settings, Activity, AlertCircle, Edit, Plus } from "lucide-react";
 import { TroubleshootingGuide } from "./TroubleshootingGuide";
 import { useState } from "react";
 import { MaintenanceScheduler } from "./MaintenanceScheduler";
 import { EquipmentEditDialog } from "./EquipmentEditDialog";
+import { EquipmentQuickAdd } from "./EquipmentQuickAdd";
 import { useQuery } from "@tanstack/react-query";
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   active: "bg-green-500",
   maintenance: "bg-yellow-500",
   offline: "bg-red-500",
@@ -46,8 +47,9 @@ export default function EquipmentList() {
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [maintenanceEquipment, setMaintenanceEquipment] = useState<Equipment | null>(null);
   const [editEquipment, setEditEquipment] = useState<Equipment | null>(null);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
-  const { data: equipment = [], isLoading, error } = useQuery({
+  const { data: equipment = [], isLoading, error } = useQuery<Equipment[]>({
     queryKey: ['/api/equipment'],
   });
 
@@ -60,7 +62,14 @@ export default function EquipmentList() {
   }
 
   return (
-    <div className="p-4">
+    <div className="space-y-4 p-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold tracking-tight">Equipment</h2>
+        <Button onClick={() => setShowQuickAdd(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Quick Add Equipment
+        </Button>
+      </div>
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -165,6 +174,11 @@ export default function EquipmentList() {
           onOpenChange={(open) => !open && setEditEquipment(null)}
         />
       )}
+
+      <EquipmentQuickAdd
+        open={showQuickAdd}
+        onOpenChange={setShowQuickAdd}
+      />
     </div>
   );
 }

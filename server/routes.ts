@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import multer from "multer";
 import { db } from "@db";
-import { documents, documentCollaborators, documentWorkflows, messages, chats, type Message, type Chat, equipment, floorPlans } from "@db/schema";
+import { documents, documentCollaborators, documentWorkflows, messages, chats, type Message, type Chat, equipment, floorPlans, equipmentTypes } from "@db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import * as cosmosService from "./services/azure/cosmos_service";
 import * as blobService from "./services/azure/blob_service";
@@ -601,6 +601,43 @@ export function registerRoutes(app: Express): Server {
       res.json(mockGuide);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch troubleshooting guide" });
+    }
+  });
+
+  // Equipment type routes
+  app.post("/api/equipment-types", async (req, res) => {
+    try {
+      const result = await db.insert(equipmentTypes)
+        .values({
+          name: req.body.name,
+          manufacturer: req.body.manufacturer,
+          model: req.body.model,
+          category: req.body.category,
+          connectivityType: req.body.connectivityType,
+        })
+        .returning();
+      res.json(result[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create equipment type" });
+    }
+  });
+
+  app.post("/api/equipment", async (req, res) => {
+    try {
+      const result = await db.insert(equipment)
+        .values({
+          name: req.body.name,
+          equipmentTypeId: req.body.equipmentTypeId,
+          status: req.body.status,
+          healthScore: req.body.healthScore,
+          deviceConnectionStatus: req.body.deviceConnectionStatus,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      res.json(result[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create equipment" });
     }
   });
 
