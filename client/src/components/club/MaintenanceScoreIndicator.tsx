@@ -29,7 +29,7 @@ export default function MaintenanceScoreIndicator({
   const Icon = riskLevel.icon;
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">
           Predictive Maintenance Score
@@ -48,8 +48,7 @@ export default function MaintenanceScoreIndicator({
 
         <Progress 
           value={score} 
-          className="h-2 mb-4" 
-          indicatorClassName={score >= 80 ? "bg-green-500" : score >= 60 ? "bg-yellow-500" : "bg-red-500"}
+          className={`h-2 mb-4 ${score >= 80 ? "bg-green-500" : score >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
         />
 
         {riskFactors.length > 0 && (

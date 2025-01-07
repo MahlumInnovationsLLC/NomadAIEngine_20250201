@@ -83,6 +83,9 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
 
   const generateSingleReport = async (equipmentId: number) => {
     try {
+      const equipment_item = equipment.find(eq => eq.id === equipmentId);
+      if (!equipment_item) return;
+
       const response = await fetch('/api/equipment/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -154,7 +157,6 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
   ${report.equipment.map((eq: Equipment) => `
     <div class="equipment-item">
       <h3>${eq.name}</h3>
-      <div>Type: ${eq.type?.name || 'Unknown'}</div>
       <div>Health Score: ${eq.healthScore}%</div>
       <div>Status: ${eq.status}</div>
       <div>Last Maintenance: ${eq.lastMaintenance ? new Date(eq.lastMaintenance).toLocaleDateString() : 'Never'}</div>
@@ -170,7 +172,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `equipment-report-${eq.name}-${new Date().toISOString().split('T')[0]}.doc`;
+      a.download = `equipment-report-${equipment_item.name}-${new Date().toISOString().split('T')[0]}.doc`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -245,17 +247,18 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${getHealthColor(Number(item.healthScore))}`} />
-                      <div className="flex flex-col">
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2 w-2 rounded-full ${getHealthColor(Number(item.healthScore))}`} />
                         <span>{item.healthScore}%</span>
-                        {item.maintenanceScore !== null && (
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Activity className="h-3 w-3" />
-                            Maintenance Score: {Math.round(Number(item.maintenanceScore))}%
-                          </div>
-                        )}
                       </div>
+                      {item.maintenanceScore !== null && (
+                        <MaintenanceScoreIndicator 
+                          score={Number(item.maintenanceScore)}
+                          riskFactors={item.riskFactors as any[]}
+                          lastUpdate={item.lastPredictionUpdate ? new Date(item.lastPredictionUpdate) : undefined}
+                        />
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -307,7 +310,10 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => generateSingleReport(item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          generateSingleReport(item.id);
+                        }}
                       >
                         <FileText className="h-4 w-4" />
                       </Button>
