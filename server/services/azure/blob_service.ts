@@ -18,6 +18,14 @@ export async function initializeBlobStorage() {
       return;
     }
 
+    // Validate connection string format
+    if (!connectionString.includes("DefaultEndpointsProtocol=") || 
+        !connectionString.includes("AccountName=") || 
+        !connectionString.includes("AccountKey=")) {
+      console.warn("Invalid Azure Blob Storage connection string format. File storage will be disabled.");
+      return;
+    }
+
     // Log connection attempt (without exposing sensitive info)
     console.log("Attempting to connect to Azure Blob Storage...");
 
@@ -60,7 +68,8 @@ export async function uploadFile(
   metadata?: Record<string, string>
 ) {
   if (!containerClient) {
-    throw new Error("Blob Storage not initialized. Please check your connection string.");
+    console.warn("Blob Storage not initialized. File operations will be skipped.");
+    return null;
   }
 
   try {
@@ -76,13 +85,14 @@ export async function uploadFile(
     return blockBlobClient.url;
   } catch (error) {
     console.error(`Error uploading file ${filename} to Blob Storage:`, error);
-    throw error;
+    return null;
   }
 }
 
 export async function downloadFile(filename: string) {
   if (!containerClient) {
-    throw new Error("Blob Storage not initialized. Please check your connection string.");
+    console.warn("Blob Storage not initialized. File operations will be skipped.");
+    return null;
   }
 
   try {
@@ -90,13 +100,14 @@ export async function downloadFile(filename: string) {
     return await blockBlobClient.download(0);
   } catch (error) {
     console.error(`Error downloading file ${filename} from Blob Storage:`, error);
-    throw error;
+    return null;
   }
 }
 
 export async function deleteFile(filename: string) {
   if (!containerClient) {
-    throw new Error("Blob Storage not initialized. Please check your connection string.");
+    console.warn("Blob Storage not initialized. File operations will be skipped.");
+    return;
   }
 
   try {
@@ -104,13 +115,13 @@ export async function deleteFile(filename: string) {
     await blockBlobClient.delete();
   } catch (error) {
     console.error(`Error deleting file ${filename} from Blob Storage:`, error);
-    throw error;
   }
 }
 
 export async function listFiles(prefix?: string) {
   if (!containerClient) {
-    throw new Error("Blob Storage not initialized. Please check your connection string.");
+    console.warn("Blob Storage not initialized. File operations will be skipped.");
+    return [];
   }
 
   try {
@@ -126,6 +137,6 @@ export async function listFiles(prefix?: string) {
     return files;
   } catch (error) {
     console.error("Error listing files from Blob Storage:", error);
-    throw error;
+    return [];
   }
 }
