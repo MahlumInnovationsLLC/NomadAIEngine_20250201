@@ -733,12 +733,16 @@ Provide the prediction as a JSON array with hourly/daily predictions including c
       // Get equipment details
       const reportEquipment = await db.query.equipment.findMany({
         where: equipmentIds?.length > 0 
-          ? sql`id = ANY(${equipmentIds})`
+          ? sql`id = ANY(ARRAY[${equipmentIds.join(',')}]::integer[])`
           : undefined,
         with: {
           type: true
         }
       });
+
+      if (reportEquipment.length === 0) {
+        return res.status(400).json({ error: "No equipment found" });
+      }
 
       // Generate insights using OpenAI
       const prompt = `Analyze the following fitness equipment performance data and provide insights:
@@ -749,13 +753,13 @@ Health Score: ${eq.healthScore}%
 Status: ${eq.status}
 Last Maintenance: ${eq.lastMaintenance ? new Date(eq.lastMaintenance).toLocaleDateString() : 'Never'}
 Next Maintenance: ${eq.nextMaintenance ? new Date(eq.nextMaintenance).toLocaleDateString() : 'Not scheduled'}
+`).join('\n')}
 
-Provide:
-1. Performance Analysis
-2. Maintenance Recommendations
-3. Usage Optimization Tips
-4. Risk Assessment
-`).join('\n')}`;
+Please provide a detailed analysis in JSON format with the following sections:
+1. performanceAnalysis: Array of insights about equipment performance
+2. maintenanceRecommendations: Array of specific maintenance recommendations
+3. usageOptimization: Array of tips to optimize equipment usage
+4. riskAssessment: Array of potential risks and mitigation strategies`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4",
@@ -772,7 +776,7 @@ Provide:
         response_format: { type: "json_object" }
       });
 
-      const analysis = JSON.parse(completion.choices[0].message.content);
+      const analysis = JSON.parse(completion.choices[0].message.content || '{"performanceAnalysis":[],"maintenanceRecommendations":[],"usageOptimization":[],"riskAssessment":[]}');
 
       // Compose the final report
       const report = {
@@ -781,7 +785,7 @@ Provide:
         analysis,
         summary: {
           totalEquipment: reportEquipment.length,
-          averageHealth: reportEquipment.reduce((acc, eq) => acc + Number(eq.healthScore), 0) / reportEquipment.length,
+          averageHealth: reportEquipment.reduce((acc, eq) => acc + Number(eq.healthScore || 0), 0) / reportEquipment.length,
           requiresMaintenance: reportEquipment.filter(eq => eq.status === 'maintenance').length,
           offline: reportEquipment.filter(eq => eq.status === 'offline').length
         }

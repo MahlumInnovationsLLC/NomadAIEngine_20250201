@@ -1,7 +1,12 @@
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Shield, Activity } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface RiskFactor {
   factor: string;
@@ -28,54 +33,69 @@ export default function MaintenanceScoreIndicator({
 
   const Icon = riskLevel.icon;
 
+  const formattedRiskFactors = riskFactors.map(factor => ({
+    ...factor,
+    impactColor: factor.impact >= 0.7 ? "text-red-500" : 
+                factor.impact >= 0.4 ? "text-yellow-500" : 
+                "text-green-500"
+  }));
+
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">
-          Predictive Maintenance Score
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Icon className={`h-5 w-5 ${riskLevel.color}`} />
-            <span className={`font-semibold ${riskLevel.color}`}>
-              {riskLevel.level} Risk
-            </span>
-          </div>
-          <span className="text-2xl font-bold">{Math.round(score)}%</span>
-        </div>
-
-        <Progress 
-          value={score} 
-          className={`h-2 mb-4 ${score >= 80 ? "bg-green-500" : score >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
-        />
-
-        {riskFactors.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium mb-2">Risk Factors</h4>
-            {riskFactors.map((factor, index) => (
-              <div key={index} className="text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">{factor.factor}</span>
-                  <span className={factor.impact >= 0.7 ? "text-red-500" : 
-                                 factor.impact >= 0.4 ? "text-yellow-500" : 
-                                 "text-green-500"}>
-                    {Math.round(factor.impact * 100)}%
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">{factor.description}</p>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-2 text-sm">
+            <Icon className={`h-4 w-4 ${riskLevel.color}`} />
+            <div className="flex flex-col">
+              <span className="text-xs font-medium">Maintenance Score</span>
+              <div className="flex items-center gap-1">
+                <Progress 
+                  value={score} 
+                  className={`w-16 h-1.5 ${
+                    score >= 80 ? "bg-green-500" : 
+                    score >= 60 ? "bg-yellow-500" : 
+                    "bg-red-500"
+                  }`}
+                />
+                <span className={`text-xs ${riskLevel.color}`}>
+                  {Math.round(score)}%
+                </span>
               </div>
-            ))}
+            </div>
           </div>
-        )}
+        </TooltipTrigger>
+        <TooltipContent side="right" align="start" className="w-80">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Risk Level: {riskLevel.level}</span>
+              <span className="font-medium">{Math.round(score)}%</span>
+            </div>
 
-        {lastUpdate && (
-          <div className="mt-4 text-xs text-muted-foreground">
-            Last updated: {new Date(lastUpdate).toLocaleString()}
+            {formattedRiskFactors.length > 0 && (
+              <div className="space-y-1.5">
+                <h4 className="text-sm font-medium">Risk Factors:</h4>
+                {formattedRiskFactors.map((factor, index) => (
+                  <div key={index} className="text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">{factor.factor}</span>
+                      <span className={factor.impactColor}>
+                        {Math.round(factor.impact * 100)}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{factor.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {lastUpdate && (
+              <div className="text-xs text-muted-foreground pt-1">
+                Last updated: {lastUpdate.toLocaleString()}
+              </div>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
