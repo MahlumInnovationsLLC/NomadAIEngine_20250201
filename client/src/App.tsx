@@ -4,7 +4,6 @@ import { AlertCircle } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import EquipmentList from "@/components/club/EquipmentList";
 import { AnimatePresence } from "framer-motion";
 import Navbar from "@/components/layout/Navbar";
 import PageTransition from "@/components/layout/PageTransition";
@@ -14,6 +13,7 @@ import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
 import DocumentControl from "@/pages/DocumentControl";
 import DashboardPage from "@/pages/DashboardPage";
+import ClubControlPage from "@/pages/ClubControlPage";
 
 function App() {
   const [location] = useLocation();
@@ -52,10 +52,10 @@ function App() {
                     </div>
                   </PageTransition>
                 </Route>
-                <Route path="/equipment">
+                <Route path="/club-control">
                   <PageTransition>
-                    <div data-tour="equipment-section">
-                      <EquipmentList />
+                    <div data-tour="club-control-section">
+                      <ClubControlPage />
                     </div>
                   </PageTransition>
                 </Route>
