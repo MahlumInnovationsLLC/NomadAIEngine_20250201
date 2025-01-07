@@ -29,7 +29,7 @@ export function registerRoutes(app: Express): Server {
     });
   });
 
-  // WebSocket message handling (unchanged from original)
+  // WebSocket message handling
   wss.on('connection', (ws: WebSocketClient) => {
     ws.on('message', async (data) => {
       try {
@@ -106,7 +106,7 @@ export function registerRoutes(app: Express): Server {
     });
   }
 
-  // Document REST endpoints (unchanged from original)
+  // Document REST endpoints
   app.post("/api/documents/:id/index", async (req, res) => {
     try {
       await searchService.indexDocument(parseInt(req.params.id));
@@ -149,7 +149,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Dashboard endpoints (unchanged from original)
+  // Dashboard endpoints
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       const [
@@ -231,7 +231,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Azure Services Status Endpoint (unchanged from original)
+  // Azure Services Status Endpoint
   app.get("/api/azure/status", async (_req, res) => {
     try {
       const status = [];
@@ -288,7 +288,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Chat routes (unchanged from original)
+  // Chat routes
   app.get("/api/chats", async (req, res) => {
     const result = await db.query.chats.findMany({
       with: {
@@ -332,7 +332,7 @@ export function registerRoutes(app: Express): Server {
   });
 
 
-  // Document management with Azure integration (unchanged from original)
+  // Document management with Azure integration
   app.post("/api/documents", upload.single('file'), async (req, res) => {
     try {
       // Create document metadata in Cosmos DB
@@ -410,7 +410,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Version control with Blob Storage (unchanged from original)
+  // Version control with Blob Storage
   app.post("/api/documents/:id/versions", upload.single('file'), async (req, res) => {
     try {
       const documentId = req.params.id;
@@ -446,7 +446,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get document versions (unchanged from original)
+  // Get document versions
   app.get("/api/documents/:id/versions", async (req, res) => {
     try {
       const documentId = req.params.id;
@@ -457,7 +457,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Download specific version (unchanged from original)
+  // Download specific version
   app.get("/api/documents/:id/versions/:version", async (req, res) => {
     try {
       const { id, version } = req.params;
@@ -469,7 +469,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Floor plan routes (unchanged from original)
+  // Floor plan routes
   app.get("/api/floor-plans/active", async (_req, res) => {
     try {
       const activePlan = await db.query.floorPlans.findFirst({
@@ -498,7 +498,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Equipment routes (modified with edited code)
+  // Equipment routes
   app.get("/api/equipment", async (_req, res) => {
     try {
       const items = await db.query.equipment.findMany({
@@ -541,7 +541,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Equipment maintenance routes (modified with edited code)
+  // Equipment maintenance routes
   app.post("/api/equipment/:id/maintenance", async (req, res) => {
     try {
       const { scheduledFor, type, notes } = req.body;
@@ -563,7 +563,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Equipment troubleshooting routes (unchanged from original)
+  // Equipment troubleshooting routes
   app.get("/api/equipment/:id/troubleshooting", async (req, res) => {
     try {
       // In a real application, this would be fetched from a database
@@ -607,7 +607,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Equipment type routes (unchanged from original)
+  // Equipment type routes
   app.post("/api/equipment-types", async (req, res) => {
     try {
       const result = await db.insert(equipmentTypes)
@@ -644,7 +644,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Equipment usage prediction routes (modified with edited code)
+  // Equipment usage prediction routes
   app.get("/api/equipment/:id/predictions", async (req, res) => {
     try {
       const { timeRange = '7d' } = req.query;
@@ -722,6 +722,75 @@ Provide the prediction as a JSON array with hourly/daily predictions including c
     } catch (error) {
       console.error('Error generating predictions:', error);
       res.status(500).json({ error: "Failed to generate predictions" });
+    }
+  });
+
+  // Equipment performance report routes
+  app.post("/api/equipment/report", async (req, res) => {
+    try {
+      const { equipmentIds } = req.body;
+
+      // Get equipment details
+      const reportEquipment = await db.query.equipment.findMany({
+        where: equipmentIds?.length > 0 
+          ? sql`id = ANY(${equipmentIds})`
+          : undefined,
+        with: {
+          type: true
+        }
+      });
+
+      // Generate insights using OpenAI
+      const prompt = `Analyze the following fitness equipment performance data and provide insights:
+${reportEquipment.map(eq => `
+Equipment: ${eq.name}
+Type: ${eq.type?.name || 'Unknown'}
+Health Score: ${eq.healthScore}%
+Status: ${eq.status}
+Last Maintenance: ${eq.lastMaintenance ? new Date(eq.lastMaintenance).toLocaleDateString() : 'Never'}
+Next Maintenance: ${eq.nextMaintenance ? new Date(eq.nextMaintenance).toLocaleDateString() : 'Not scheduled'}
+
+Provide:
+1. Performance Analysis
+2. Maintenance Recommendations
+3. Usage Optimization Tips
+4. Risk Assessment
+`).join('\n')}`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are an AI expert in fitness equipment performance analysis and maintenance optimization." 
+          },
+          { 
+            role: "user", 
+            content: prompt 
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const analysis = JSON.parse(completion.choices[0].message.content);
+
+      // Compose the final report
+      const report = {
+        generatedAt: new Date().toISOString(),
+        equipment: reportEquipment,
+        analysis,
+        summary: {
+          totalEquipment: reportEquipment.length,
+          averageHealth: reportEquipment.reduce((acc, eq) => acc + Number(eq.healthScore), 0) / reportEquipment.length,
+          requiresMaintenance: reportEquipment.filter(eq => eq.status === 'maintenance').length,
+          offline: reportEquipment.filter(eq => eq.status === 'offline').length
+        }
+      };
+
+      res.json(report);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      res.status(500).json({ error: "Failed to generate performance report" });
     }
   });
 

@@ -8,6 +8,7 @@ import FloorPlanView from "@/components/club/FloorPlanView";
 import EquipmentUsagePrediction from "@/components/club/EquipmentUsagePrediction";
 import EquipmentComparisonDashboard from "@/components/club/EquipmentComparisonDashboard";
 import type { Equipment, FloorPlan } from "@db/schema";
+import EquipmentPerformanceReport from "@/components/club/EquipmentPerformanceReport";
 
 export default function ClubControlPage() {
   const [view, setView] = useState<"list" | "map">("list");
@@ -166,6 +167,7 @@ export default function ClubControlPage() {
           {showingPrediction && selectedEquipment.length === 1 && (
             <EquipmentUsagePrediction equipmentId={selectedEquipment[0].id} />
           )}
+          <EquipmentPerformanceReport selectedEquipment={selectedEquipment} />
         </div>
       </div>
     </div>
