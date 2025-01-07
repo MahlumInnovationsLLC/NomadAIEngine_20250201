@@ -16,10 +16,12 @@ import { Menu, X, Settings, Share2, LogOut, MoonIcon, SunIcon } from "lucide-rea
 import { useTheme } from "next-themes";
 import { Link } from "wouter";
 import { useState } from "react";
+import SettingsDialog from "@/components/settings/SettingsDialog";
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <header className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -65,7 +67,7 @@ export default function Navbar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setShowSettings(true)}>
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
@@ -81,6 +83,8 @@ export default function Navbar() {
           </DropdownMenu>
         </div>
       </div>
+
+      <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
     </header>
   );
 }
