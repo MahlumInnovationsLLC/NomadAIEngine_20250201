@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List } from "lucide-react";
+import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List, FileText } from "lucide-react";
 import { TroubleshootingGuide } from "./TroubleshootingGuide";
 import { useState } from "react";
 import { MaintenanceScheduler } from "./MaintenanceScheduler";
@@ -68,13 +68,124 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
     }
   };
 
+  const handleRowClick = (item: Equipment) => {
+    if (onEquipmentSelect) {
+      // Clear other selections and select only this item for predictive analytics
+      selectedEquipment.forEach(eq => {
+        if (eq.id !== item.id) {
+          onEquipmentSelect(eq.id);
+        }
+      });
+      onEquipmentSelect(item.id);
+    }
+  };
+
+  const generateSingleReport = async (equipmentId: number) => {
+    try {
+      const response = await fetch('/api/equipment/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipmentIds: [equipmentId]
+        }),
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to generate report');
+      const report = await response.json();
+
+      // Generate and download report
+      const reportHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Equipment Performance Report</title>
+<style>
+  body { font-family: Arial, sans-serif; }
+  h1 { color: #333; }
+  .section { margin: 20px 0; }
+  .metric { margin: 10px 0; }
+  .equipment-item { margin: 15px 0; padding: 10px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h1>Equipment Performance Report</h1>
+<p>Generated: ${new Date(report.generatedAt).toLocaleString()}</p>
+
+<div class="section">
+  <h2>Summary</h2>
+  <div class="metric">Total Equipment: ${report.summary.totalEquipment}</div>
+  <div class="metric">Average Health Score: ${Math.round(report.summary.averageHealth)}%</div>
+  <div class="metric">Requires Maintenance: ${report.summary.requiresMaintenance}</div>
+  <div class="metric">Offline: ${report.summary.offline}</div>
+</div>
+
+<div class="section">
+  <h2>Performance Analysis</h2>
+  <ul>
+    ${report.analysis.performanceAnalysis.map((item: string) => `<li>${item}</li>`).join('\n')}
+  </ul>
+</div>
+
+<div class="section">
+  <h2>Maintenance Recommendations</h2>
+  <ul>
+    ${report.analysis.maintenanceRecommendations.map((item: string) => `<li>${item}</li>`).join('\n')}
+  </ul>
+</div>
+
+<div class="section">
+  <h2>Usage Optimization</h2>
+  <ul>
+    ${report.analysis.usageOptimization.map((item: string) => `<li>${item}</li>`).join('\n')}
+  </ul>
+</div>
+
+<div class="section">
+  <h2>Risk Assessment</h2>
+  <ul>
+    ${report.analysis.riskAssessment.map((item: string) => `<li>${item}</li>`).join('\n')}
+  </ul>
+</div>
+
+<div class="section">
+  <h2>Equipment Details</h2>
+  ${report.equipment.map((eq: Equipment) => `
+    <div class="equipment-item">
+      <h3>${eq.name}</h3>
+      <div>Type: ${eq.type?.name || 'Unknown'}</div>
+      <div>Health Score: ${eq.healthScore}%</div>
+      <div>Status: ${eq.status}</div>
+      <div>Last Maintenance: ${eq.lastMaintenance ? new Date(eq.lastMaintenance).toLocaleDateString() : 'Never'}</div>
+      <div>Next Maintenance: ${eq.nextMaintenance ? new Date(eq.nextMaintenance).toLocaleDateString() : 'Not scheduled'}</div>
+    </div>
+  `).join('\n')}
+</div>
+
+</body>
+</html>`;
+
+      const blob = new Blob([reportHtml], { type: 'application/msword' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `equipment-report-${eq.name}-${new Date().toISOString().split('T')[0]}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error generating report:', error);
+    }
+  };
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Equipment Management</h2>
           <p className="text-sm text-muted-foreground">
-            Select up to 5 items for comparison using the checkboxes
+            Click row to view predictions, use checkboxes for comparison
           </p>
         </div>
         <Button onClick={() => setShowQuickAdd(true)}>
@@ -113,11 +224,12 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                 <TableRow 
                   key={item.id}
                   className={cn(
-                    "hover:bg-accent/50",
+                    "cursor-pointer hover:bg-accent/50",
                     isSelected(item) && "bg-accent"
                   )}
+                  onClick={() => handleRowClick(item)}
                 >
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox 
                       checked={isSelected(item)}
                       onCheckedChange={(checked) => handleCheckboxChange(checked, item)}
@@ -158,7 +270,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                       ? new Date(item.nextMaintenance).toLocaleDateString()
                       : "Not scheduled"}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-2">
                       <Button
                         variant="secondary"
@@ -182,6 +294,13 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                         onClick={() => setSelectedTroubleshoot(item)}
                       >
                         <AlertCircle className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => generateSingleReport(item.id)}
+                      >
+                        <FileText className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
