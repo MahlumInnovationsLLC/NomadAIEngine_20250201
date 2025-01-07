@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import multer from "multer";
 import { db } from "@db";
-import { chats, messages, files, documents, documentCollaborators, documentEmbeddings, documentWorkflows } from "@db/schema";
+import { chats, messages, documents, documentCollaborators, documentWorkflows } from "@db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { semanticSearch, indexDocument } from "./services/search";
 
@@ -129,29 +129,23 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/documents", async (req, res) => {
-    const result = await db.transaction(async (tx) => {
-      const doc = await tx.insert(documents).values({
-        title: req.body.title,
-        content: req.body.content || "",
-        chatId: req.body.chatId,
-      }).returning();
+    const result = await db.insert(documents).values({
+      title: req.body.title,
+      content: req.body.content || "",
+      chatId: req.body.chatId,
+      version: 1
+    }).returning();
 
-      // Index the document after creation
-      await indexDocument(doc[0].id);
-
-      return doc[0];
-    });
-
-    res.json(result);
+    // Index the document after creation
+    await indexDocument(result[0].id);
+    res.json(result[0]);
   });
 
   app.get("/api/documents/:id", async (req, res) => {
     const result = await db.query.documents.findFirst({
-      where: eq(documents.id, parseInt(req.params.id)),
-      with: {
-        collaborators: true
-      }
+      where: eq(documents.id, parseInt(req.params.id))
     });
+
     if (!result) {
       return res.status(404).json({ message: 'Document not found' });
     }
@@ -210,14 +204,6 @@ export function registerRoutes(app: Express): Server {
     res.json(results.map(r => r[0]));
   });
 
-  app.post("/api/reports", async (req, res) => {
-    const result = await db.insert(reports).values({
-      chatId: req.body.chatId,
-      content: req.body.content
-    }).returning();
-    res.json(result[0]);
-  });
-
 
   // Dashboard endpoints
   app.get("/api/dashboard/stats", async (req, res) => {
@@ -230,7 +216,7 @@ export function registerRoutes(app: Express): Server {
       ] = await Promise.all([
         tx.select({ count: sql<number>`count(*)` }).from(documents),
         tx.select({ count: sql<number>`count(*)` }).from(chats),
-        tx.select({ count: sql<number>`count(distinct user_id)` }).from(documentCollaborators),
+        tx.select({ count: sql<number>`count(distinct "user_id")` }).from(documentCollaborators),
         tx.select({ count: sql<number>`count(*)` })
           .from(documentWorkflows)
           .where(eq(documentWorkflows.status, 'active')),

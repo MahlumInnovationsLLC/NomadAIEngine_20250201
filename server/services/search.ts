@@ -1,6 +1,6 @@
 import { db } from '@db';
-import { documents, documentEmbeddings } from '@db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { documents } from '@db/schema';
+import { eq, sql, like } from 'drizzle-orm';
 
 export async function generateEmbeddings(text: string): Promise<number[]> {
   // Simple TF-IDF-like approach for demonstration
@@ -22,62 +22,39 @@ export async function generateEmbeddings(text: string): Promise<number[]> {
 
 export async function indexDocument(documentId: number) {
   const document = await db.query.documents.findFirst({
-    where: eq(documents.id, documentId),
+    where: eq(documents.id, documentId)
   });
 
   if (!document) return;
-
-  // Split document into sections (e.g., paragraphs)
-  const sections = document.content.split('\n\n');
-
-  // Generate embeddings for each section
-  for (const section of sections) {
-    if (section.trim()) {
-      const embedding = await generateEmbeddings(section);
-
-      await db.insert(documentEmbeddings).values({
-        documentId,
-        embedding,
-        section: section.slice(0, 100), // First 100 chars as section identifier
-        sectionText: section,
-      });
-    }
-  }
 
   // Update document's searchable text
   await db.update(documents)
     .set({ 
       searchableText: document.content,
       metadata: { 
-        indexedAt: new Date().toISOString(),
-        sectionCount: sections.length 
+        indexedAt: new Date().toISOString()
       }
     })
     .where(eq(documents.id, documentId));
 }
 
 export async function semanticSearch(query: string, limit: number = 5) {
-  const queryEmbedding = await generateEmbeddings(query);
+  // Simple text-based search implementation
+  const results = await db.query.documents.findMany({
+    where: sql`${documents.searchableText} ILIKE ${`%${query}%`}`,
+    limit,
+  });
 
-  // Perform similarity search using cosine similarity
-  const results = await db.execute(sql`
-    SELECT 
-      d.id as document_id,
-      d.title as document_title,
-      de.section_text,
-      1 - (de.embedding <=> ${queryEmbedding}::vector) as similarity
-    FROM document_embeddings de
-    JOIN documents d ON d.id = de.document_id
-    ORDER BY similarity DESC
-    LIMIT ${limit}
-  `);
-
-  return results;
+  return results.map(doc => ({
+    document_id: doc.id,
+    document_title: doc.title,
+    section_text: doc.content.substring(0, 200), // First 200 chars as preview
+    similarity: 1.0 // Placeholder similarity score
+  }));
 }
 
 export async function reindexAllDocuments() {
   const allDocuments = await db.query.documents.findMany();
-
   for (const document of allDocuments) {
     await indexDocument(document.id);
   }
