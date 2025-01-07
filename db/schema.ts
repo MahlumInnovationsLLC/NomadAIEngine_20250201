@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -63,7 +63,27 @@ export const documentVersions = pgTable("document_versions", {
   changeDescription: text("change_description"),
 });
 
-// Relations
+export const workflowTemplates = pgTable("workflow_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  steps: jsonb("steps").notNull(),
+  userId: text("user_id").notNull(),
+  isPublic: boolean("is_public").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const documentWorkflows = pgTable("document_workflows", {
+  id: serial("id").primaryKey(),
+  documentId: serial("document_id").references(() => documents.id),
+  templateId: serial("template_id").references(() => workflowTemplates.id),
+  currentStep: integer("current_step").notNull(),
+  status: text("status", { enum: ['active', 'completed', 'paused'] }).notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
 export const chatRelations = relations(chats, ({ many }) => ({
   messages: many(messages),
   reports: many(reports),
@@ -93,7 +113,21 @@ export const documentVersionsRelations = relations(documentVersions, ({ one }) =
   }),
 }));
 
-// Schemas
+export const workflowTemplateRelations = relations(workflowTemplates, ({ many }) => ({
+  documentWorkflows: many(documentWorkflows),
+}));
+
+export const documentWorkflowRelations = relations(documentWorkflows, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentWorkflows.documentId],
+    references: [documents.id],
+  }),
+  template: one(workflowTemplates, {
+    fields: [documentWorkflows.templateId],
+    references: [workflowTemplates.id],
+  }),
+}));
+
 export const insertChatSchema = createInsertSchema(chats);
 export const selectChatSchema = createSelectSchema(chats);
 
@@ -115,7 +149,12 @@ export const selectDocumentCollaboratorSchema = createSelectSchema(documentColla
 export const insertDocumentVersionSchema = createInsertSchema(documentVersions);
 export const selectDocumentVersionSchema = createSelectSchema(documentVersions);
 
-// Types
+export const insertWorkflowTemplateSchema = createInsertSchema(workflowTemplates);
+export const selectWorkflowTemplateSchema = createSelectSchema(workflowTemplates);
+
+export const insertDocumentWorkflowSchema = createInsertSchema(documentWorkflows);
+export const selectDocumentWorkflowSchema = createSelectSchema(documentWorkflows);
+
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type File = typeof files.$inferSelect;
@@ -123,3 +162,5 @@ export type Report = typeof reports.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
+export type WorkflowTemplate = typeof workflowTemplates.$inferSelect;
+export type DocumentWorkflow = typeof documentWorkflows.$inferSelect;

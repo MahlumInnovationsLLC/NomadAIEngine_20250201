@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Clock, FileText } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Upload, Clock, FileText, Layout } from "lucide-react";
 import FileUpload from "@/components/document/FileUpload";
+import WorkflowTemplateManager from "@/components/document/WorkflowTemplateManager";
 import { useToast } from "@/hooks/use-toast";
 
 export default function DocumentControl() {
@@ -15,7 +17,7 @@ export default function DocumentControl() {
   });
 
   const handleFileUpload = async (files: File[]) => {
-    // TODO: Implement file upload with versioning
+    // Handle file upload with versioning
     setShowFileUpload(false);
     toast({
       title: "Files uploaded",
@@ -33,33 +35,65 @@ export default function DocumentControl() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="mr-2 h-5 w-5" />
-              Recent Documents
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* TODO: Add document list with versions */}
-            <p className="text-muted-foreground">No documents uploaded yet.</p>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="documents" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="workflows">Workflow Templates</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Clock className="mr-2 h-5 w-5" />
-              Version History
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* TODO: Add version history list */}
-            <p className="text-muted-foreground">No version history available.</p>
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="documents" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="mr-2 h-5 w-5" />
+                  Recent Documents
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {documents && documents.length > 0 ? (
+                  <div className="space-y-4">
+                    {documents.map((doc: any) => (
+                      <div key={doc.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{doc.title}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Version {doc.version}
+                          </p>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          View
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No documents uploaded yet.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Clock className="mr-2 h-5 w-5" />
+                  Version History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Version history will be implemented here */}
+                  <p className="text-muted-foreground">No version history available.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="workflows">
+          <WorkflowTemplateManager />
+        </TabsContent>
+      </Tabs>
 
       {showFileUpload && (
         <FileUpload
