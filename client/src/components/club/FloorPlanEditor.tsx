@@ -12,6 +12,14 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { GridIcon, Move, Plus, Save } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+
+interface Zone {
+  id: string;
+  name: string;
+  position: { x: number; y: number };
+  dimensions: { width: number; height: number };
+}
 
 interface FloorPlanEditorProps {
   floorPlan: FloorPlan | null;
@@ -30,6 +38,7 @@ export default function FloorPlanEditor({
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>(
     floorPlan?.dimensions as { width: number; height: number } || { width: 800, height: 600 }
   );
+  const [zones, setZones] = useState<Zone[]>(floorPlan?.zones || []);
   const editorRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
 
@@ -48,17 +57,28 @@ export default function FloorPlanEditor({
     }
   };
 
+  const handleAddZone = () => {
+    const newZone: Zone = {
+      id: `zone-${Date.now()}`,
+      name: `Zone ${zones.length + 1}`,
+      position: { x: 0, y: 0 },
+      dimensions: { width: 200, height: 200 }
+    };
+    setZones([...zones, newZone]);
+  };
+
   const handleSave = () => {
     onSave({
       gridSize,
       dimensions,
+      zones,
       metadata: floorPlan?.metadata || {}
     });
   };
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap bg-background p-4 rounded-lg border">
         <div className="flex items-center gap-2">
           <GridIcon className="h-4 w-4" />
           <Select
@@ -94,7 +114,7 @@ export default function FloorPlanEditor({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleAddZone}>
             <Plus className="h-4 w-4 mr-2" />
             Add Zone
           </Button>
@@ -105,64 +125,93 @@ export default function FloorPlanEditor({
         </div>
       </div>
 
-      <div
-        ref={editorRef}
-        className="relative border rounded-lg bg-background overflow-hidden"
-        style={{ 
-          height: dimensions.height,
-          width: dimensions.width
-        }}
-      >
-        {/* Grid background */}
-        <svg width="100%" height="100%" className="absolute pointer-events-none">
-          <defs>
-            <pattern
-              id="grid"
-              width={gridSize}
-              height={gridSize}
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
-                fill="none"
-                stroke="currentColor"
-                strokeOpacity={0.1}
-              />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
-        </svg>
+      <div className="flex gap-4">
+        <div className="w-3/4">
+          <div
+            ref={editorRef}
+            className="relative border rounded-lg bg-background overflow-hidden"
+            style={{ 
+              height: dimensions.height,
+              width: dimensions.width
+            }}
+          >
+            {/* Grid background */}
+            <svg width="100%" height="100%" className="absolute pointer-events-none">
+              <defs>
+                <pattern
+                  id="grid"
+                  width={gridSize}
+                  height={gridSize}
+                  patternUnits="userSpaceOnUse"
+                >
+                  <path
+                    d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeOpacity={0.1}
+                  />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
 
-        {/* Draggable equipment */}
-        {equipment.map((item) => {
-          const position = item.position as { x: number; y: number } || { x: 0, y: 0 };
+            {/* Zones */}
+            {zones.map((zone) => (
+              <div
+                key={zone.id}
+                className="absolute border-2 border-dashed border-primary/50 rounded-lg p-2"
+                style={{
+                  left: zone.position.x,
+                  top: zone.position.y,
+                  width: zone.dimensions.width,
+                  height: zone.dimensions.height
+                }}
+              >
+                <div className="text-sm font-medium text-primary/70">{zone.name}</div>
+              </div>
+            ))}
 
-          return (
-            <motion.div
-              key={item.id}
-              drag
-              dragControls={dragControls}
-              dragMomentum={false}
-              dragElastic={0}
-              onDragEnd={(_, info) => handleDragEnd(item.id, info)}
-              initial={false}
-              animate={{ x: position.x, y: position.y }}
-              className="absolute cursor-move"
-              style={{ left: 0, top: 0 }}
-            >
-              <Card className={`
-                p-2 select-none border-2
-                ${item.status === 'active' ? 'border-green-500' :
-                  item.status === 'maintenance' ? 'border-yellow-500' : 'border-red-500'}
-              `}>
-                <div className="flex items-center gap-2">
-                  <Move className="h-4 w-4" />
-                  <span className="text-sm font-medium">{item.name}</span>
-                </div>
-              </Card>
-            </motion.div>
-          );
-        })}
+            {/* Draggable equipment */}
+            {equipment.map((item) => {
+              const position = item.position as { x: number; y: number } || { x: 0, y: 0 };
+              const statusColor = item.status === 'active' ? 'bg-green-500' : 
+                                item.status === 'maintenance' ? 'bg-yellow-500' : 'bg-red-500';
+
+              return (
+                <motion.div
+                  key={item.id}
+                  drag
+                  dragControls={dragControls}
+                  dragMomentum={false}
+                  dragElastic={0}
+                  onDragEnd={(_, info) => handleDragEnd(item.id, info)}
+                  initial={false}
+                  animate={{ x: position.x, y: position.y }}
+                  className="absolute cursor-move"
+                  style={{ left: 0, top: 0 }}
+                >
+                  <div className="relative w-10 h-10 bg-background rounded-lg border flex items-center justify-center">
+                    <div className={`absolute -top-1 -right-1 w-2 h-2 ${statusColor} rounded-full border border-background`} />
+                    <FontAwesomeIcon 
+                      iconName={item.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'}
+                      type="kit"
+                      size="lg"
+                    />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="w-1/4">
+          <Card className="p-4">
+            <h3 className="font-medium mb-2">Performance Report</h3>
+            <p className="text-sm text-muted-foreground">
+              Select equipment items to generate a performance report
+            </p>
+          </Card>
+        </div>
       </div>
     </div>
   );
