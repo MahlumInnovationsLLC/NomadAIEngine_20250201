@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@awesome.me/kit-d0e8ebe783": "^1.0.20",
     "@azure/core-auth": "^1.9.0",
     "@azure/cosmos": "^4.2.0",
     "@azure/identity": "^4.5.0",

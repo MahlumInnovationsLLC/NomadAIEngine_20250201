@@ -1,5 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+import { Toaster } from "@/components/ui/toaster";
+import '@awesome.me/kit-d0e8ebe783';  // Import Font Awesome Kit
 import App from './App';
 import "./index.css";
 
@@ -11,6 +15,9 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
-  </StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <App />
+      <Toaster />
+    </QueryClientProvider>
+  </StrictMode>,
 );
