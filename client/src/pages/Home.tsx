@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus, FileText } from "lucide-react";
 
 export default function Home() {
   const [, navigate] = useLocation();
@@ -17,7 +17,7 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4">Start a Chat</h2>
           <p className="text-muted-foreground mb-6">
@@ -30,6 +30,21 @@ export default function Home() {
           >
             <MessageSquarePlus className="mr-2 h-5 w-5" />
             New Chat
+          </Button>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">Document Training & Control</h2>
+          <p className="text-muted-foreground mb-6">
+            Upload, manage, and train documents with advanced version control.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/documents')}
+          >
+            <FileText className="mr-2 h-5 w-5" />
+            Manage Documents
           </Button>
         </Card>
 

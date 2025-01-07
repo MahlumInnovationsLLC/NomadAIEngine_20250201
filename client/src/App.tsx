@@ -2,6 +2,7 @@ import { Switch, Route, useLocation } from "wouter";
 import { AnimatePresence } from "framer-motion";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
+import DocumentControl from "@/pages/DocumentControl";
 import Navbar from "@/components/layout/Navbar";
 import PageTransition from "@/components/layout/PageTransition";
 import { Toaster } from "@/components/ui/toaster";
@@ -23,6 +24,11 @@ function App() {
             <Route path="/chat/:id?">
               <PageTransition>
                 <ChatPage />
+              </PageTransition>
+            </Route>
+            <Route path="/documents">
+              <PageTransition>
+                <DocumentControl />
               </PageTransition>
             </Route>
             <Route>

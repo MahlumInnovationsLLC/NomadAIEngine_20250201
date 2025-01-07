@@ -53,6 +53,16 @@ export const reports = pgTable("reports", {
   generatedAt: timestamp("generated_at").defaultNow().notNull(),
 });
 
+export const documentVersions = pgTable("document_versions", {
+  id: serial("id").primaryKey(),
+  documentId: serial("document_id").references(() => documents.id),
+  content: text("content").notNull(),
+  version: serial("version").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: text("created_by").notNull(),
+  changeDescription: text("change_description"),
+});
+
 // Relations
 export const chatRelations = relations(chats, ({ many }) => ({
   messages: many(messages),
@@ -76,6 +86,13 @@ export const documentRelations = relations(documents, ({ many, one }) => ({
   }),
 }));
 
+export const documentVersionsRelations = relations(documentVersions, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentVersions.documentId],
+    references: [documents.id],
+  }),
+}));
+
 // Schemas
 export const insertChatSchema = createInsertSchema(chats);
 export const selectChatSchema = createSelectSchema(chats);
@@ -95,6 +112,9 @@ export const selectDocumentSchema = createSelectSchema(documents);
 export const insertDocumentCollaboratorSchema = createInsertSchema(documentCollaborators);
 export const selectDocumentCollaboratorSchema = createSelectSchema(documentCollaborators);
 
+export const insertDocumentVersionSchema = createInsertSchema(documentVersions);
+export const selectDocumentVersionSchema = createSelectSchema(documentVersions);
+
 // Types
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
@@ -102,3 +122,4 @@ export type File = typeof files.$inferSelect;
 export type Report = typeof reports.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
+export type DocumentVersion = typeof documentVersions.$inferSelect;

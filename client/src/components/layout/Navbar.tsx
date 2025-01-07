@@ -41,6 +41,13 @@ export default function Navbar() {
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
+            <NavigationMenuItem>
+              <Link href="/documents">
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  Document Training & Control
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
 
