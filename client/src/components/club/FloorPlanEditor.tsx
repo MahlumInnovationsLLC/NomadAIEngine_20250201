@@ -42,7 +42,7 @@ export default function FloorPlanEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
 
-  const handleDragEnd = (equipmentId: number, info: any) => {
+  const handleDragEnd = async (equipmentId: number, info: any) => {
     const { point } = info;
     if (editorRef.current) {
       const rect = editorRef.current.getBoundingClientRect();
@@ -53,7 +53,26 @@ export default function FloorPlanEditor({
       const snappedX = Math.round(x / gridSize) * gridSize;
       const snappedY = Math.round(y / gridSize) * gridSize;
 
-      onEquipmentMove(equipmentId, { x: snappedX, y: snappedY });
+      try {
+        const response = await fetch(`/api/equipment/${equipmentId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            position: { x: snappedX, y: snappedY }
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update equipment position');
+        }
+
+        onEquipmentMove(equipmentId, { x: snappedX, y: snappedY });
+      } catch (error) {
+        console.error('Failed to save equipment position:', error);
+        // Optionally show an error toast
+      }
     }
   };
 
