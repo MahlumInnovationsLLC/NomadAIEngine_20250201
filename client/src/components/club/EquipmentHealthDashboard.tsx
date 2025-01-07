@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Activity, Calendar, CheckCircle2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { MaintenanceTimeline } from "./MaintenanceTimeline";
 
 export function EquipmentHealthDashboard() {
   const { data: equipment = [], isLoading } = useQuery<Equipment[]>({
@@ -48,7 +49,6 @@ export function EquipmentHealthDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Overall Health Status */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -69,7 +69,6 @@ export function EquipmentHealthDashboard() {
           </CardContent>
         </Card>
 
-        {/* Maintenance Needed */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -87,7 +86,6 @@ export function EquipmentHealthDashboard() {
           </CardContent>
         </Card>
 
-        {/* Healthy Equipment */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -106,7 +104,6 @@ export function EquipmentHealthDashboard() {
         </Card>
       </div>
 
-      {/* Risk Visualization */}
       <Card>
         <CardHeader>
           <CardTitle>Maintenance Risk Analysis</CardTitle>
@@ -172,7 +169,6 @@ export function EquipmentHealthDashboard() {
         </CardContent>
       </Card>
 
-      {/* Equipment Health Details */}
       <Card>
         <CardHeader>
           <CardTitle>Equipment Health Status</CardTitle>
@@ -221,7 +217,8 @@ export function EquipmentHealthDashboard() {
         </CardContent>
       </Card>
 
-      {/* Maintenance Alerts */}
+      <MaintenanceTimeline equipment={equipment} />
+
       {requiresAttention.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Maintenance Alerts</h3>
