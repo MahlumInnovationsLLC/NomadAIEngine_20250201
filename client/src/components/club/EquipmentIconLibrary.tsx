@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Grid, Wand2 } from "lucide-react";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon"; // Added import
 import { IconSuggestionDialog } from "./IconSuggestionDialog";
 
 interface EquipmentIconProps {
@@ -18,28 +17,6 @@ interface EquipmentIconProps {
   onDragStart: (e: React.DragEvent, index: number) => void;
   onDragEnter: (index: number) => void;
 }
-
-// Extended mapping of equipment types to Font Awesome icons
-const equipmentIcons: Record<string, { icon: string; type: 'solid' | 'regular' | 'light' | 'thin' | 'duotone' | 'brands' }> = {
-  "treadmill": { icon: "person-running", type: "solid" },
-  "bike": { icon: "bicycle", type: "solid" },
-  "elliptical": { icon: "person-walking", type: "solid" },
-  "rowing": { icon: "person-swimming", type: "solid" },
-  "weights": { icon: "weight-hanging", type: "solid" },
-  "cardio": { icon: "heartbeat", type: "solid" },
-  "strength": { icon: "dumbbell", type: "solid" },
-  "yoga": { icon: "person-yoga", type: "solid" },
-  "stairs": { icon: "stairs", type: "solid" },
-  "screen": { icon: "display", type: "solid" },
-  "gauge": { icon: "gauge-high", type: "solid" },
-  "boxing": { icon: "hand-fist", type: "solid" },
-  "metrics": { icon: "chart-line", type: "solid" },
-  "stretching": { icon: "person-stretching", type: "solid" },
-  "bench": { icon: "chair", type: "solid" },
-  "balance": { icon: "scale-balanced", type: "solid" },
-  "display": { icon: "tv", type: "solid" },
-  "power": { icon: "bolt", type: "solid" }
-};
 
 const StatusIndicator = ({ status, className }: { status: string; className?: string }) => {
   const getStatusColor = (status: string) => {
@@ -73,8 +50,7 @@ const EquipmentIcon = ({
   onDragStart,
   onDragEnter,
 }: EquipmentIconProps) => {
-  const deviceType = equipment.deviceType?.toLowerCase() || 'strength';
-  const iconConfig = equipmentIcons[deviceType] || equipmentIcons.strength;
+  const deviceType = equipment.deviceType?.toLowerCase() || 'dumbbell';
 
   return (
     <motion.div
@@ -102,11 +78,7 @@ const EquipmentIcon = ({
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-2">
         <div className="p-2 rounded-md bg-muted">
-          <FontAwesomeIcon 
-            icon={iconConfig.icon}
-            type={iconConfig.type}
-            size="lg"
-          />
+          <i className={`fas fa-${deviceType} fa-lg`} />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
@@ -119,7 +91,7 @@ const EquipmentIcon = ({
         <Button
           variant="ghost"
           size="sm"
-          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-1 right-1 opacity-100 hover:opacity-80 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
             onRequestSuggestion();

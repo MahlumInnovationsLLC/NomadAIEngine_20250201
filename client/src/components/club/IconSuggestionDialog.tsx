@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { cn } from "@/lib/utils";
 
 interface IconSuggestionDialogProps {
@@ -22,36 +21,65 @@ interface IconSuggestionDialogProps {
 }
 
 interface IconSuggestion {
-  icon: string;
-  type: 'solid' | 'regular' | 'light' | 'thin' | 'duotone' | 'brands';
   key: string;
+  prefix: string;
+  icon: string;
   reason: string;
   confidence: number;
 }
 
-// Extended set of Font Awesome fitness equipment icons
-const defaultIcons: Record<string, { icon: string; type: 'solid' | 'regular' | 'light' | 'thin' | 'duotone' | 'brands' }> = {
-  "dumbbell": { icon: "dumbbell", type: "solid" },
-  "running": { icon: "person-running", type: "solid" },
-  "bicycle": { icon: "bicycle", type: "solid" },
-  "heartbeat": { icon: "heartbeat", type: "solid" },
-  "swimmer": { icon: "person-swimming", type: "solid" },
-  "weight": { icon: "weight-hanging", type: "solid" },
-  "yoga": { icon: "person-yoga", type: "solid" },
-  "walking": { icon: "person-walking", type: "solid" },
-  "stairs": { icon: "stairs", type: "solid" },
-  "gauge": { icon: "gauge-high", type: "solid" },
-  "boxing": { icon: "hand-fist", type: "solid" },
-  "hiking": { icon: "person-hiking", type: "solid" },
-  "jumping": { icon: "person-falling", type: "solid" },
-  "skating": { icon: "person-skating", type: "solid" },
-  "skiing": { icon: "person-skiing", type: "solid" },
-  "snowboarding": { icon: "person-snowboarding", type: "solid" },
-  "basketball": { icon: "basketball", type: "solid" },
-  "football": { icon: "football", type: "solid" },
-  "baseball": { icon: "baseball", type: "solid" },
-  "volleyball": { icon: "volleyball", type: "solid" }
-};
+// Predefined Font Awesome icons for fitness equipment
+const defaultIcons: IconSuggestion[] = [
+  {
+    key: "dumbbell",
+    prefix: "fas",
+    icon: "dumbbell",
+    reason: "Perfect for strength training equipment",
+    confidence: 0.95
+  },
+  {
+    key: "running",
+    prefix: "fas",
+    icon: "person-running",
+    reason: "Ideal for cardio and running equipment",
+    confidence: 0.9
+  },
+  {
+    key: "bicycle",
+    prefix: "fas",
+    icon: "bicycle",
+    reason: "Best for cycling equipment",
+    confidence: 0.9
+  },
+  {
+    key: "heart-pulse",
+    prefix: "fas",
+    icon: "heart-pulse",
+    reason: "Good for cardio monitoring equipment",
+    confidence: 0.85
+  },
+  {
+    key: "weight-scale",
+    prefix: "fas",
+    icon: "weight-scale",
+    reason: "Suitable for weight measurement equipment",
+    confidence: 0.85
+  },
+  {
+    key: "stairs",
+    prefix: "fas",
+    icon: "stairs",
+    reason: "Perfect for stair climbers and steppers",
+    confidence: 0.8
+  },
+  {
+    key: "gauge",
+    prefix: "fas",
+    icon: "gauge-high",
+    reason: "Good for equipment with performance metrics",
+    confidence: 0.8
+  }
+];
 
 export function IconSuggestionDialog({ 
   open, 
@@ -61,23 +89,6 @@ export function IconSuggestionDialog({
   onSelectIcon 
 }: IconSuggestionDialogProps) {
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
-
-  const { data: suggestions = [], isLoading } = useQuery({
-    queryKey: ['/api/equipment/suggest-icons', equipmentName, equipmentType],
-    enabled: open,
-    queryFn: async ({ queryKey }) => {
-      const [_, name, type] = queryKey;
-      const response = await fetch(`/api/equipment/suggest-icons?name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch icon suggestions');
-      }
-      const data = await response.json();
-      return data.map((suggestion: any) => ({
-        ...suggestion,
-        ...defaultIcons[suggestion.key] || defaultIcons.dumbbell
-      }));
-    }
-  });
 
   const handleSelectIcon = (iconKey: string) => {
     setSelectedIcon(iconKey);
@@ -94,20 +105,15 @@ export function IconSuggestionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Font Awesome Equipment Icons</DialogTitle>
+          <DialogTitle>Select Equipment Icon</DialogTitle>
           <DialogDescription>
-            Based on the equipment type "{equipmentType}" and name "{equipmentName}", 
-            here are some suggested icons that might be appropriate.
+            Choose an icon that best represents "{equipmentName}" ({equipmentType})
           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="h-[400px] pr-4">
           <div className="grid grid-cols-2 gap-4">
-            {isLoading ? (
-              <div className="col-span-2 text-center py-8">
-                Analyzing equipment and generating suggestions...
-              </div>
-            ) : suggestions.map((suggestion: IconSuggestion) => (
+            {defaultIcons.map((suggestion) => (
               <div
                 key={suggestion.key}
                 className={cn(
@@ -120,15 +126,11 @@ export function IconSuggestionDialog({
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-md bg-background">
-                    <FontAwesomeIcon 
-                      icon={suggestion.icon} 
-                      type={suggestion.type}
-                      size="lg"
-                    />
+                    <i className={`${suggestion.prefix} fa-${suggestion.icon} fa-lg`} />
                   </div>
                   <div className="flex-1">
                     <div className="font-medium capitalize">
-                      {suggestion.key}
+                      {suggestion.key.replace('-', ' ')}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {Math.round(suggestion.confidence * 100)}% match
