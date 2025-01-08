@@ -4,20 +4,99 @@ import { db } from "@db";
 import { equipment, equipmentTypes, floorPlans, documents, documentVersions, trainingModules } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { initializeOpenAI, checkOpenAIConnection } from "./services/azure/openai_service";
+import { BlobServiceClient } from "@azure/storage-blob";
 import multer from "multer";
 import { createHash } from "crypto";
-import { initializeBlobStorage, uploadDocument, downloadDocument, getDocumentMetadata } from "./services/blobStorage";
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
-export async function registerRoutes(app: Express): Server {
+async function uploadDocument(buffer: Buffer, fileName: string, metadata: any) {
+  try {
+    if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+      throw new Error("Azure Blob Storage connection string not configured");
+    }
+
+    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_BLOB_CONNECTION_STRING);
+    const containerClient = blobServiceClient.getContainerClient('documents');
+    const blockBlobClient = containerClient.getBlockBlobClient(fileName);
+
+    await blockBlobClient.uploadData(buffer, {
+      metadata,
+      blobHTTPHeaders: {
+        blobContentType: metadata.mimeType || 'application/octet-stream'
+      }
+    });
+
+    const checksum = createHash('md5').update(buffer).digest('hex');
+
+    return {
+      url: blockBlobClient.url,
+      path: fileName,
+      size: buffer.length,
+      checksum
+    };
+  } catch (error) {
+    console.error("Error uploading document:", error);
+    return null;
+  }
+}
+
+async function downloadDocument(blobPath: string) {
+  try {
+    if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+      throw new Error("Azure Blob Storage connection string not configured");
+    }
+
+    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_BLOB_CONNECTION_STRING);
+    const containerClient = blobServiceClient.getContainerClient('documents');
+    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
+
+    const downloadResponse = await blockBlobClient.download(0);
+    const chunks: Buffer[] = [];
+
+    for await (const chunk of downloadResponse.readableStreamBody!) {
+      chunks.push(Buffer.from(chunk));
+    }
+
+    return Buffer.concat(chunks);
+  } catch (error) {
+    console.error("Error downloading document:", error);
+    throw error;
+  }
+}
+
+async function getDocumentMetadata(blobPath: string) {
+  try {
+    if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+      throw new Error("Azure Blob Storage connection string not configured");
+    }
+
+    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_BLOB_CONNECTION_STRING);
+    const containerClient = blobServiceClient.getContainerClient('documents');
+    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
+
+    const properties = await blockBlobClient.getProperties();
+    return properties.metadata;
+  } catch (error) {
+    console.error("Error getting document metadata:", error);
+    return null;
+  }
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // Initialize blob storage
-  const containerClient = await initializeBlobStorage();
-  if (!containerClient) {
-    console.warn("Warning: Blob storage initialization failed. Document storage features will be limited.");
+  const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_BLOB_CONNECTION_STRING || '');
+  const containerClient = blobServiceClient.getContainerClient('documents');
+
+  // Ensure container exists
+  try {
+    await containerClient.createIfNotExists();
+    console.log("Container 'documents' is ready");
+  } catch (error) {
+    console.error("Error initializing blob container:", error);
   }
 
   // Document Management Routes
@@ -594,5 +673,136 @@ export async function registerRoutes(app: Express): Server {
   });
 
 
+  // Browse blob storage contents
+  app.get("/api/documents/browse", async (req, res) => {
+    try {
+      const prefix = (req.query.path as string || '').replace(/^\//, '');
+      const result: Array<{ name: string; path: string; type: 'folder' | 'file'; size?: number; lastModified?: string }> = [];
+
+      // List all blobs with the prefix
+      for await (const blob of containerClient.listBlobsFlat({ prefix })) {
+        const relativePath = blob.name.slice(prefix.length);
+        const parts = relativePath.split('/');
+
+        if (parts.length > 1 && parts[0]) {
+          // This is a folder
+          const folderName = parts[0];
+          if (!result.find(item => item.name === folderName && item.type === 'folder')) {
+            result.push({
+              name: folderName,
+              path: `${prefix}${folderName}`,
+              type: 'folder'
+            });
+          }
+        } else if (parts[0]) {
+          // This is a file
+          result.push({
+            name: parts[0],
+            path: blob.name,
+            type: 'file',
+            size: blob.properties.contentLength,
+            lastModified: blob.properties.lastModified?.toISOString()
+          });
+        }
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error browsing documents:", error);
+      res.status(500).json({ error: "Failed to browse documents" });
+    }
+  });
+
+  // Create folder (marker blob)
+  app.post("/api/documents/folders", async (req, res) => {
+    try {
+      const { path } = req.body;
+      if (!path) {
+        return res.status(400).json({ error: "Path is required" });
+      }
+
+      const folderPath = path.replace(/^\/+|\/+$/g, '') + '/.folder';
+      const blockBlobClient = containerClient.getBlockBlobClient(folderPath);
+      await blockBlobClient.upload("", 0);
+
+      res.json({ path: folderPath });
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      res.status(500).json({ error: "Failed to create folder" });
+    }
+  });
+
+  // Generate sample documents
+  app.post("/api/documents/generate-samples", async (_req, res) => {
+    try {
+      // Sample document structure
+      const sampleDocs = [
+        {
+          title: "Employee Handbook",
+          content: "Comprehensive guide for all gym employees...",
+          folder: "policies",
+          type: "policy"
+        },
+        {
+          title: "Emergency Procedures",
+          content: "Step-by-step guide for handling emergencies...",
+          folder: "safety",
+          type: "procedure"
+        },
+        {
+          title: "Equipment Manual",
+          content: "Detailed instructions for all gym equipment...",
+          folder: "manuals",
+          type: "manual"
+        }
+      ];
+
+      for (const doc of sampleDocs) {
+        // Create folder if it doesn't exist
+        const folderPath = `${doc.folder}/.folder`;
+        const folderBlob = containerClient.getBlockBlobClient(folderPath);
+        await folderBlob.uploadData(Buffer.from(""));
+
+        // Upload document
+        const fileName = `${doc.folder}/${doc.title.toLowerCase().replace(/\s+/g, '-')}.txt`;
+        const blockBlobClient = containerClient.getBlockBlobClient(fileName);
+        await blockBlobClient.upload(doc.content, doc.content.length);
+
+        // Create document record
+        await db.insert(documents).values({
+          title: doc.title,
+          description: `Sample ${doc.type} document`,
+          blobStorageUrl: blockBlobClient.url,
+          blobStorageContainer: "documents",
+          blobStoragePath: fileName,
+          version: "1.0",
+          status: "released",
+          documentType: doc.type,
+          mimeType: "text/plain",
+          fileSize: doc.content.length,
+          checksum: createHash('md5').update(doc.content).digest('hex'),
+          createdBy: "system",
+          updatedBy: "system",
+          metadata: { generated: true },
+          tags: [doc.type]
+        });
+      }
+
+      res.json({ message: "Sample documents generated successfully" });
+    } catch (error) {
+      console.error("Error generating sample documents:", error);
+      res.status(500).json({ error: "Failed to generate sample documents" });
+    }
+  });
+
   return httpServer;
+}
+
+async function initializeBlobStorage() {
+  if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+    return null;
+  }
+  const blobServiceClient = new BlobServiceClient(process.env.AZURE_BLOB_CONNECTION_STRING);
+  const containerClient = blobServiceClient.getContainerClient('documents');
+  return containerClient
 }

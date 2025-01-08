@@ -3,13 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Clock, FileText, GraduationCap, Shield } from "lucide-react";
-import FileUpload from "@/components/document/FileUpload";
-import WorkflowTemplateManager from "@/components/document/WorkflowTemplateManager";
+import { FileText, GraduationCap, Shield } from "lucide-react";
 import SearchInterface from "@/components/document/SearchInterface";
-import { Progress } from "@/components/ui/progress";
-import { useToast } from "@/hooks/use-toast";
+import { FileExplorer } from "@/components/document/FileExplorer";
+import WorkflowTemplateManager from "@/components/document/WorkflowTemplateManager";
 import { TrainingProgress } from "@/components/training/TrainingProgress";
+import { useToast } from "@/hooks/use-toast";
 
 interface Document {
   id: number;
@@ -36,7 +35,6 @@ interface UserTraining {
 }
 
 export default function DocumentControl() {
-  const [showFileUpload, setShowFileUpload] = useState(false);
   const { toast } = useToast();
 
   const { data: documents = [] } = useQuery<Document[]>({
@@ -51,21 +49,35 @@ export default function DocumentControl() {
     queryKey: ['/api/roles/current'],
   });
 
-  const handleFileUpload = async (files: File[]) => {
-    setShowFileUpload(false);
-    toast({
-      title: "Files uploaded",
-      description: `Successfully uploaded ${files.length} files`,
-    });
+  const generateSampleDocuments = async () => {
+    try {
+      const response = await fetch('/api/documents/generate-samples', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate sample documents');
+      }
+
+      toast({
+        title: "Success",
+        description: "Sample documents have been generated",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate sample documents",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Document Training & Control</h1>
-        <Button onClick={() => setShowFileUpload(true)}>
-          <Upload className="mr-2 h-4 w-4" />
-          Upload Documents
+        <Button onClick={generateSampleDocuments}>
+          Generate Sample Documents
         </Button>
       </div>
 
@@ -81,48 +93,16 @@ export default function DocumentControl() {
         </TabsList>
 
         <TabsContent value="documents" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <FileText className="mr-2 h-5 w-5" />
-                  Recent Documents
+                  Document Explorer
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {documents.length > 0 ? (
-                  <div className="space-y-4">
-                    {documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{doc.title}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Version {doc.version}
-                          </p>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          View
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">No documents uploaded yet.</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="mr-2 h-5 w-5" />
-                  Version History
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">No version history available.</p>
-                </div>
+                <FileExplorer />
               </CardContent>
             </Card>
           </div>
@@ -182,13 +162,6 @@ export default function DocumentControl() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {showFileUpload && (
-        <FileUpload
-          onUpload={handleFileUpload}
-          onClose={() => setShowFileUpload(false)}
-        />
-      )}
     </div>
   );
 }
