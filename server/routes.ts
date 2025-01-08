@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { equipment, equipmentTypes, floorPlans, documents, documentVersions } from "@db/schema";
+import { equipment, equipmentTypes, floorPlans, documents, documentVersions, trainingModules } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { initializeOpenAI, checkOpenAIConnection } from "./services/azure/openai_service";
 import multer from "multer";
@@ -530,6 +530,69 @@ export async function registerRoutes(app: Express): Server {
 
     res.json(suggestions);
   });
+
+  // Add this new endpoint for generating sample training documents
+  app.post("/api/training/generate-samples", async (_req, res) => {
+    try {
+      const sampleTrainingDocs = [
+        {
+          title: "Safety Protocols Training",
+          content: "Comprehensive guide to gym safety protocols...",
+          type: "training",
+          moduleLevel: 1
+        },
+        {
+          title: "Equipment Maintenance Guide",
+          content: "Detailed instructions for maintaining gym equipment...",
+          type: "training",
+          moduleLevel: 2
+        },
+        {
+          title: "Customer Service Best Practices",
+          content: "Guidelines for providing excellent customer service...",
+          type: "training",
+          moduleLevel: 1
+        }
+      ];
+
+      for (const doc of sampleTrainingDocs) {
+        const buffer = Buffer.from(doc.content);
+        const fileName = `${doc.title.toLowerCase().replace(/\s+/g, '-')}.txt`;
+
+        const uploadResult = await uploadDocument(buffer, fileName, {
+          type: doc.type,
+          moduleLevel: doc.moduleLevel
+        });
+
+        if (uploadResult) {
+          // Create document record
+          await db.insert(documents).values({
+            title: doc.title,
+            description: `Training document for ${doc.title}`,
+            blobStorageUrl: uploadResult.url,
+            blobStorageContainer: "documents",
+            blobStoragePath: uploadResult.path,
+            version: "1.0",
+            status: "released",
+            documentType: "training",
+            mimeType: "text/plain",
+            fileSize: buffer.length,
+            checksum: uploadResult.checksum,
+            createdBy: "system",
+            updatedBy: "system",
+            metadata: { moduleLevel: doc.moduleLevel },
+            tags: ["training", `level-${doc.moduleLevel}`],
+          });
+        }
+      }
+
+      res.json({ message: "Sample training documents generated successfully" });
+    } catch (error) {
+      console.error("Error generating sample documents:", error);
+      res.status(500).json({ error: "Failed to generate sample documents" });
+    }
+  });
+
 
   return httpServer;
 }
