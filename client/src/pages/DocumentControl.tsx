@@ -9,6 +9,7 @@ import WorkflowTemplateManager from "@/components/document/WorkflowTemplateManag
 import SearchInterface from "@/components/document/SearchInterface";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { TrainingProgress } from "@/components/training/TrainingProgress";
 
 interface Document {
   id: number;
@@ -171,32 +172,11 @@ export default function DocumentControl() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {userTraining?.modules ? (
-                    userTraining.modules.map((module) => (
-                      <div key={module.id} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{module.title}</p>
-                          <span className={`px-2 py-1 rounded text-sm ${
-                            module.status === 'completed' 
-                              ? 'bg-green-100 text-green-800'
-                              : module.status === 'in_progress'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {module.status}
-                          </span>
-                        </div>
-                        <Progress value={module.progress} className="h-2" />
-                        <p className="text-sm text-muted-foreground">
-                          Due: {new Date(module.dueDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted-foreground">No training modules assigned</p>
-                  )}
-                </div>
+                {userTraining?.modules ? (
+                  <TrainingProgress modules={userTraining.modules} />
+                ) : (
+                  <p className="text-muted-foreground">No training modules assigned</p>
+                )}
               </CardContent>
             </Card>
           </div>
