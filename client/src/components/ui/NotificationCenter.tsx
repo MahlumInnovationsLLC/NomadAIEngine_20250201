@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { io, Socket } from "socket.io-client";
 
 interface Notification {
   id: number;
@@ -24,7 +25,7 @@ interface Notification {
 }
 
 export function NotificationCenter() {
-  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -41,28 +42,32 @@ export function NotificationCenter() {
   });
 
   useEffect(() => {
-    // Determine WebSocket protocol based on page protocol
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const websocket = new WebSocket(`${protocol}//${window.location.host}/ws?userId=${userId}`);
+    // Initialize socket connection
+    const socketInstance = io(window.location.origin, {
+      query: { userId },
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
 
-    websocket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'notification') {
-        // Show toast for new notification
-        toast({
-          title: data.data.title,
-          description: data.data.message,
-          duration: 5000,
-        });
-        // Invalidate notifications query to refresh the list
-        queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
-      }
-    };
+    socketInstance.on('notification', (data) => {
+      // Show toast for new notification
+      toast({
+        title: data.data.title,
+        description: data.data.message,
+        duration: 5000,
+      });
+      // Invalidate notifications query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
+    });
 
-    setWs(websocket);
+    socketInstance.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+
+    setSocket(socketInstance);
 
     return () => {
-      websocket.close();
+      socketInstance.disconnect();
     };
   }, [queryClient, toast]);
 
@@ -86,11 +91,7 @@ export function NotificationCenter() {
       }
     }
 
-    // Instead of using window.location.href, we'll handle navigation differently
-    // based on whether it's a link notification
     if (notification.link) {
-      // Use the link directly in the onClick handler of the DropdownMenuItem
-      // The parent won't have an anchor tag, avoiding nesting issues
       window.location.href = notification.link;
     }
   };
