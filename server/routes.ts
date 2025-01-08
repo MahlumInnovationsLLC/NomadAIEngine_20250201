@@ -2,27 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { createChat, updateChat, deleteChat, getChat, listChats } from "./services/azure/cosmos_service";
 import { setupWebSocketServer } from "./services/websocket";
+import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import { join } from "path";
 import express from "express";
 import { v4 as uuidv4 } from 'uuid';
-
-function generateAIResponse(content: string): string {
-  // Basic conversation patterns
-  if (content.toLowerCase().includes('hello') || content.toLowerCase().includes('hi')) {
-    return "Hello! I'm your AI assistant. How can I help you today?";
-  }
-
-  if (content.toLowerCase().includes('how are you')) {
-    return "I'm functioning well, thank you for asking! I'm here to help you with any questions or tasks you might have.";
-  }
-
-  if (content.toLowerCase().includes('thank')) {
-    return "You're welcome! Is there anything else I can help you with?";
-  }
-
-  // Default response with context
-  return `I understand you're asking about "${content}". Let me help you with that. What specific information would you like to know?`;
-}
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -30,6 +13,20 @@ export function registerRoutes(app: Express): Server {
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
+
+  // Check Azure OpenAI connection status
+  app.get("/api/azure/status", async (req, res) => {
+    try {
+      const status = await checkOpenAIConnection();
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking Azure OpenAI status:", error);
+      res.status(500).json({ 
+        status: "error",
+        message: "Failed to check Azure OpenAI status"
+      });
+    }
+  });
 
   // Get all chats for the current user
   app.get("/api/chats", async (req, res) => {
@@ -115,11 +112,19 @@ export function registerRoutes(app: Express): Server {
         throw new Error("Invalid chat data received from database");
       }
 
-      // Add AI response
+      // Add AI response using Azure OpenAI
+      let aiResponse;
+      try {
+        aiResponse = await analyzeDocument(content);
+      } catch (error) {
+        console.error("Error getting AI response:", error);
+        aiResponse = "I apologize, but I'm having trouble processing your request at the moment. Could you please try again?";
+      }
+
       const aiMessage = {
         id: uuidv4(),
         role: 'assistant',
-        content: generateAIResponse(content),
+        content: aiResponse || "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
         createdAt: new Date().toISOString()
       };
 
@@ -170,11 +175,20 @@ export function registerRoutes(app: Express): Server {
         createdAt: new Date().toISOString()
       };
 
+      // Get AI response using Azure OpenAI
+      let aiResponse;
+      try {
+        aiResponse = await analyzeDocument(content);
+      } catch (error) {
+        console.error("Error getting AI response:", error);
+        aiResponse = "I apologize, but I'm having trouble processing your request at the moment. Could you please try again?";
+      }
+
       // Add AI response
       const aiMessage = {
         id: uuidv4(),
         role: 'assistant',
-        content: generateAIResponse(content),
+        content: aiResponse || "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
         createdAt: new Date().toISOString()
       };
 
