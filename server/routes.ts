@@ -673,6 +673,231 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // Generate sample documents
+  app.post("/api/documents/generate-samples", async (_req, res) => {
+    try {
+      // Sample document structure with real content
+      const sampleDocs = [
+        {
+          title: "Gym Equipment Safety Guidelines",
+          content: `
+# Gym Equipment Safety Guidelines
+Last Updated: January 2025
+
+## 1. General Safety Rules
+- Always inspect equipment before use
+- Report any damaged equipment immediately
+- Clean equipment after use
+- Follow proper form and technique
+
+## 2. Equipment-Specific Guidelines
+### Cardio Equipment
+- Use emergency stop clips when provided
+- Start at a comfortable pace
+- Hold handrails when mounting/dismounting
+
+### Weight Equipment
+- Use spotters for free weights
+- Secure weight plates with clips
+- Never exceed weight limits
+
+## 3. Emergency Procedures
+Contact staff immediately in case of:
+- Equipment malfunction
+- Injury or medical emergency
+- Unusual sounds or smells
+
+## 4. Maintenance Schedule
+Daily:
+- Equipment inspection
+- Cleaning and sanitization
+
+Weekly:
+- Detailed safety check
+- Cable inspection
+- Belt tension check`,
+          folder: "policies",
+          type: "policy"
+        },
+        {
+          title: "Member Services Handbook",
+          content: `
+# Member Services Handbook
+Version: 2025.1
+
+## 1. Customer Service Standards
+- Greet all members by name when possible
+- Respond to inquiries within 10 minutes
+- Maintain professional appearance
+- Follow up on complaints within 24 hours
+
+## 2. Membership Types
+- Standard
+- Premium
+- Corporate
+- Student
+
+## 3. Check-in Procedures
+- Verify membership status
+- Scan membership card
+- Check photo ID if needed
+
+## 4. Common Scenarios
+### New Members
+- Facility tour
+- Equipment orientation
+- Class schedule review
+
+### Membership Renewal
+- Review benefits
+- Update contact info
+- Process payment`,
+          folder: "training",
+          type: "manual"
+        },
+        {
+          title: "Emergency Response Protocol",
+          content: `
+# Emergency Response Protocol
+Priority: Critical
+
+## 1. Medical Emergencies
+### Immediate Actions
+1. Assess the situation
+2. Call emergency services (911)
+3. Clear the area
+4. Provide first aid if qualified
+
+### Follow-up
+- Complete incident report
+- Contact management
+- Review security footage
+
+## 2. Facility Emergencies
+### Fire
+- Activate alarm
+- Begin evacuation
+- Meet at assembly point
+
+### Power Outage
+- Activate emergency lights
+- Assist members
+- Secure equipment`,
+          folder: "safety",
+          type: "procedure"
+        },
+        {
+          title: "Personal Trainer Guidelines",
+          content: `
+# Personal Trainer Guidelines
+Effective: January 2025
+
+## 1. Certification Requirements
+- Current CPT certification
+- First Aid/CPR certification
+- Liability insurance
+- Continuing education
+
+## 2. Session Protocols
+- Initial assessment
+- Goal setting
+- Progress tracking
+- Regular reassessment
+
+## 3. Documentation
+- Client records
+- Workout plans
+- Progress photos
+- Measurements
+
+## 4. Professional Standards
+- Punctuality
+- Dress code
+- Communication
+- Client confidentiality`,
+          folder: "training",
+          type: "manual"
+        },
+        {
+          title: "Equipment Maintenance Manual",
+          content: `
+# Equipment Maintenance Manual
+Reference: Tech-2025
+
+## 1. Daily Checks
+- Power connection
+- Display functionality
+- Moving parts
+- Safety features
+
+## 2. Weekly Maintenance
+- Belt alignment
+- Lubrication
+- Cable inspection
+- Computer diagnostics
+
+## 3. Monthly Service
+- Deep cleaning
+- Calibration
+- Software updates
+- Wear assessment
+
+## 4. Troubleshooting
+Common Issues:
+- Error codes
+- Strange noises
+- Power problems
+- Display issues`,
+          folder: "manuals",
+          type: "manual"
+        }
+      ];
+
+      for (const doc of sampleDocs) {
+        // Convert content to a Word-like format using markdown
+        const buffer = Buffer.from(doc.content);
+        const fileName = `${doc.folder}/${doc.title.toLowerCase().replace(/\s+/g, '-')}.txt`;
+
+        // Create folder if it doesn't exist
+        const folderPath = `${doc.folder}/.folder`;
+        const folderBlob = containerClient.getBlockBlobClient(folderPath);
+        await folderBlob.uploadData(Buffer.from(""));
+
+        // Upload document
+        const blockBlobClient = containerClient.getBlockBlobClient(fileName);
+        await blockBlobClient.upload(doc.content, doc.content.length, {
+          blobHTTPHeaders: {
+            blobContentType: 'text/markdown'
+          }
+        });
+
+        // Create document record
+        await db.insert(documents).values({
+          title: doc.title,
+          description: `Sample ${doc.type} document`,
+          blobStorageUrl: blockBlobClient.url,
+          blobStorageContainer: "documents",
+          blobStoragePath: fileName,
+          version: "1.0",
+          status: "released",
+          documentType: doc.type,
+          mimeType: "text/markdown",
+          fileSize: doc.content.length,
+          checksum: createHash('md5').update(doc.content).digest('hex'),
+          createdBy: "system",
+          updatedBy: "system",
+          metadata: { generated: true },
+          tags: [doc.type, doc.folder]
+        });
+      }
+
+      res.json({ message: "Sample documents generated successfully" });
+    } catch (error) {
+      console.error("Error generating sample documents:", error);
+      res.status(500).json({ error: "Failed to generate sample documents" });
+    }
+  });
+
   // Browse blob storage contents
   app.get("/api/documents/browse", async (req, res) => {
     try {
@@ -729,69 +954,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating folder:", error);
       res.status(500).json({ error: "Failed to create folder" });
-    }
-  });
-
-  // Generate sample documents
-  app.post("/api/documents/generate-samples", async (_req, res) => {
-    try {
-      // Sample document structure
-      const sampleDocs = [
-        {
-          title: "Employee Handbook",
-          content: "Comprehensive guide for all gym employees...",
-          folder: "policies",
-          type: "policy"
-        },
-        {
-          title: "Emergency Procedures",
-          content: "Step-by-step guide for handling emergencies...",
-          folder: "safety",
-          type: "procedure"
-        },
-        {
-          title: "Equipment Manual",
-          content: "Detailed instructions for all gym equipment...",
-          folder: "manuals",
-          type: "manual"
-        }
-      ];
-
-      for (const doc of sampleDocs) {
-        // Create folder if it doesn't exist
-        const folderPath = `${doc.folder}/.folder`;
-        const folderBlob = containerClient.getBlockBlobClient(folderPath);
-        await folderBlob.uploadData(Buffer.from(""));
-
-        // Upload document
-        const fileName = `${doc.folder}/${doc.title.toLowerCase().replace(/\s+/g, '-')}.txt`;
-        const blockBlobClient = containerClient.getBlockBlobClient(fileName);
-        await blockBlobClient.upload(doc.content, doc.content.length);
-
-        // Create document record
-        await db.insert(documents).values({
-          title: doc.title,
-          description: `Sample ${doc.type} document`,
-          blobStorageUrl: blockBlobClient.url,
-          blobStorageContainer: "documents",
-          blobStoragePath: fileName,
-          version: "1.0",
-          status: "released",
-          documentType: doc.type,
-          mimeType: "text/plain",
-          fileSize: doc.content.length,
-          checksum: createHash('md5').update(doc.content).digest('hex'),
-          createdBy: "system",
-          updatedBy: "system",
-          metadata: { generated: true },
-          tags: [doc.type]
-        });
-      }
-
-      res.json({ message: "Sample documents generated successfully" });
-    } catch (error) {
-      console.error("Error generating sample documents:", error);
-      res.status(500).json({ error: "Failed to generate sample documents" });
     }
   });
 

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, GraduationCap, Shield } from "lucide-react";
 import SearchInterface from "@/components/document/SearchInterface";
 import { FileExplorer } from "@/components/document/FileExplorer";
+import { DocumentConfig } from "@/components/document/DocumentConfig";
 import WorkflowTemplateManager from "@/components/document/WorkflowTemplateManager";
 import { TrainingProgress } from "@/components/training/TrainingProgress";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +36,7 @@ interface UserTraining {
 }
 
 export default function DocumentControl() {
+  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
   const { toast } = useToast();
 
   const { data: documents = [] } = useQuery<Document[]>({
@@ -49,36 +51,10 @@ export default function DocumentControl() {
     queryKey: ['/api/roles/current'],
   });
 
-  const generateSampleDocuments = async () => {
-    try {
-      const response = await fetch('/api/documents/generate-samples', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate sample documents');
-      }
-
-      toast({
-        title: "Success",
-        description: "Sample documents have been generated",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate sample documents",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Document Training & Control</h1>
-        <Button onClick={generateSampleDocuments}>
-          Generate Sample Documents
-        </Button>
       </div>
 
       <div className="mb-8">
@@ -102,9 +78,13 @@ export default function DocumentControl() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <FileExplorer />
+                <FileExplorer onSelectDocument={(id) => setSelectedDocumentId(id)} />
               </CardContent>
             </Card>
+
+            {selectedDocumentId && (
+              <DocumentConfig documentId={selectedDocumentId} />
+            )}
           </div>
         </TabsContent>
 
