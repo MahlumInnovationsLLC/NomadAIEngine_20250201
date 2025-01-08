@@ -4,9 +4,9 @@ import { db } from "@db";
 import { equipment, equipmentTypes, floorPlans, documents, documentVersions } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { initializeOpenAI, checkOpenAIConnection } from "./services/azure/openai_service";
-import { initializeBlobStorage, uploadDocument, downloadDocument, getDocumentMetadata } from "./services/blobStorage";
 import multer from "multer";
 import { createHash } from "crypto";
+import { initializeBlobStorage, uploadDocument, downloadDocument, getDocumentMetadata } from "./services/blobStorage";
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
@@ -15,7 +15,10 @@ export async function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
 
   // Initialize blob storage
-  await initializeBlobStorage().catch(console.error);
+  const containerClient = await initializeBlobStorage();
+  if (!containerClient) {
+    console.warn("Warning: Blob storage initialization failed. Document storage features will be limited.");
+  }
 
   // Document Management Routes
   app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
@@ -32,6 +35,9 @@ export async function registerRoutes(app: Express): Server {
       };
 
       const uploadResult = await uploadDocument(file.buffer, file.originalname, metadata);
+      if (!uploadResult) {
+        return res.status(503).json({ error: "Document storage service unavailable" });
+      }
 
       // Create document record in database
       const document = await db.insert(documents).values({
@@ -144,6 +150,9 @@ export async function registerRoutes(app: Express): Server {
       };
 
       const uploadResult = await uploadDocument(file.buffer, file.originalname, metadata);
+      if (!uploadResult) {
+        return res.status(503).json({ error: "Document storage service unavailable" });
+      }
 
       // Create version record
       const version = await db.insert(documentVersions).values({
@@ -239,7 +248,7 @@ export async function registerRoutes(app: Express): Server {
       res.json(services);
     } catch (error) {
       console.error("Error fetching Azure services status:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to fetch Azure services status",
         details: error instanceof Error ? error.message : "Unknown error"
       });
@@ -280,8 +289,8 @@ export async function registerRoutes(app: Express): Server {
       const predictions = {
         usageHours: Math.floor(Math.random() * 8) + 2,
         peakTimes: ["09:00", "17:00"],
-        maintenanceRecommendation: item.maintenanceScore && item.maintenanceScore < 70 
-          ? "Schedule maintenance soon" 
+        maintenanceRecommendation: item.maintenanceScore && item.maintenanceScore < 70
+          ? "Schedule maintenance soon"
           : "No immediate maintenance required",
         nextPredictedMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       };
@@ -313,8 +322,8 @@ export async function registerRoutes(app: Express): Server {
       const currentHour = new Date().getHours();
       const peakHours = [9, 17]; // 9 AM and 5 PM are typical peak hours
       const nextPeakHour = peakHours.find(h => h > currentHour) || peakHours[0];
-      const minutesToPeak = nextPeakHour > currentHour 
-        ? (nextPeakHour - currentHour) * 60 
+      const minutesToPeak = nextPeakHour > currentHour
+        ? (nextPeakHour - currentHour) * 60
         : (24 - currentHour + nextPeakHour) * 60;
 
       const predictiveData = {

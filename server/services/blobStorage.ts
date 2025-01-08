@@ -5,6 +5,7 @@ if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
   throw new Error("AZURE_BLOB_CONNECTION_STRING environment variable is required");
 }
 
+// Create the BlobServiceClient with retries
 const blobServiceClient = BlobServiceClient.fromConnectionString(
   process.env.AZURE_BLOB_CONNECTION_STRING
 );
@@ -14,21 +15,37 @@ const CONTAINER_NAME = "documents";
 export async function initializeBlobStorage() {
   try {
     const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-    const createContainerResponse = await containerClient.createIfNotExists({
-      access: "container" // This is a valid PublicAccessType
-    });
 
-    if (createContainerResponse.succeeded) {
-      console.log(`Created container: ${CONTAINER_NAME}`);
-    } else {
-      console.log(`Container ${CONTAINER_NAME} already exists`);
+    // Check if container exists and is accessible
+    try {
+      await containerClient.getProperties();
+      console.log(`Successfully connected to container: ${CONTAINER_NAME}`);
+    } catch (error) {
+      if (error.statusCode === 404) {
+        // Container doesn't exist, create it
+        await containerClient.create({
+          access: "blob" // Changed from "container" to "blob" for more secure access
+        });
+        console.log(`Created container: ${CONTAINER_NAME}`);
+      } else {
+        throw error;
+      }
     }
 
     return containerClient;
   } catch (error) {
     console.error("Error initializing blob storage:", error);
-    throw new Error(`Failed to initialize blob storage: ${error.message}`);
+    return null;
   }
+}
+
+let containerClientInstance: ReturnType<typeof blobServiceClient.getContainerClient> | null = null;
+
+export async function getContainerClient() {
+  if (!containerClientInstance) {
+    containerClientInstance = await initializeBlobStorage();
+  }
+  return containerClientInstance;
 }
 
 export async function uploadDocument(
@@ -40,9 +57,14 @@ export async function uploadDocument(
   path: string;
   checksum: string;
   size: number;
-}> {
+} | null> {
   try {
-    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+    const containerClient = await getContainerClient();
+    if (!containerClient) {
+      console.error("Blob storage not initialized");
+      return null;
+    }
+
     const timestamp = new Date().toISOString();
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
     const blobPath = `${timestamp}_${sanitizedFileName}`;
@@ -63,39 +85,44 @@ export async function uploadDocument(
       },
     });
 
-    const url = blockBlobClient.url;
-
     return {
-      url,
+      url: blockBlobClient.url,
       path: blobPath,
       checksum,
       size: file.length,
     };
   } catch (error) {
     console.error("Error uploading document:", error);
-    throw new Error(`Failed to upload document: ${error.message}`);
+    return null;
   }
 }
 
-export async function downloadDocument(blobPath: string): Promise<Buffer> {
+export async function downloadDocument(blobPath: string): Promise<Buffer | null> {
   try {
-    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+    const containerClient = await getContainerClient();
+    if (!containerClient) {
+      console.error("Blob storage not initialized");
+      return null;
+    }
+
     const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
-
     const downloadResponse = await blockBlobClient.download(0);
-
     return await streamToBuffer(downloadResponse.readableStreamBody!);
   } catch (error) {
     console.error("Error downloading document:", error);
-    throw new Error(`Failed to download document: ${error.message}`);
+    return null;
   }
 }
 
 export async function getDocumentMetadata(blobPath: string) {
   try {
-    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
+    const containerClient = await getContainerClient();
+    if (!containerClient) {
+      console.error("Blob storage not initialized");
+      return null;
+    }
 
+    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
     const properties = await blockBlobClient.getProperties();
     return {
       metadata: properties.metadata,
@@ -106,7 +133,7 @@ export async function getDocumentMetadata(blobPath: string) {
     };
   } catch (error) {
     console.error("Error getting document metadata:", error);
-    throw new Error(`Failed to get document metadata: ${error.message}`);
+    return null;
   }
 }
 
