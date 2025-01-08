@@ -38,7 +38,7 @@ export async function generateReport(topic: string): Promise<string> {
                 "- **text** for bold emphasis\n" +
                 "- - for bullet points\n" +
                 "- 1. for numbered lists\n\n" +
-                "Provide extensive detail, statistics, and analysis in each section."
+                "Provide extensive detail, statistics, and analysis in each section. Include market trends, adoption rates, technical specifications, and impact analysis. The report should be comprehensive enough to serve as a detailed industry analysis document."
       },
       { role: "user", content: `Create a comprehensive report about: ${topic}` }
     ]);
@@ -47,16 +47,22 @@ export async function generateReport(topic: string): Promise<string> {
     const lines = response.split('\n');
     let docTitle = "Generated Report";
 
-    // Find the document title
+    // Find the document title from any level header
     for (const line of lines) {
       const stripped = line.trim();
-      if (stripped.startsWith('# ')) {
+      if (stripped.startsWith("# ")) {
         docTitle = stripped.substring(2).trim();
+        break;
+      } else if (stripped.startsWith("## ")) {
+        docTitle = stripped.substring(3).trim();
+        break;
+      } else if (stripped.startsWith("### ")) {
+        docTitle = stripped.substring(4).trim();
         break;
       }
     }
 
-    // Create a new document with proper styling
+    // Create document with proper styling
     const doc = new Document({
       sections: [{
         properties: {
@@ -84,7 +90,7 @@ export async function generateReport(topic: string): Promise<string> {
             spacing: { after: 300 },
           }),
 
-          // Process each line
+          // Process each line for headers, bullets, and paragraphs
           ...lines.map(line => {
             const stripped = line.trim();
             if (!stripped) {
@@ -94,7 +100,7 @@ export async function generateReport(topic: string): Promise<string> {
             }
 
             // Handle headers
-            if (stripped.startsWith('### ')) {
+            if (stripped.startsWith("### ")) {
               return new Paragraph({
                 children: [
                   new TextRun({
@@ -107,7 +113,7 @@ export async function generateReport(topic: string): Promise<string> {
                 spacing: { before: 240, after: 120 },
                 heading: HeadingLevel.HEADING_3,
               });
-            } else if (stripped.startsWith('## ')) {
+            } else if (stripped.startsWith("## ")) {
               return new Paragraph({
                 children: [
                   new TextRun({
@@ -120,7 +126,7 @@ export async function generateReport(topic: string): Promise<string> {
                 spacing: { before: 320, after: 160 },
                 heading: HeadingLevel.HEADING_2,
               });
-            } else if (stripped.startsWith('# ')) {
+            } else if (stripped.startsWith("# ")) {
               return new Paragraph({
                 children: [
                   new TextRun({
@@ -136,16 +142,17 @@ export async function generateReport(topic: string): Promise<string> {
             }
 
             // Handle bullet points
-            if (stripped.startsWith('- ')) {
+            if (stripped.startsWith("- ")) {
+              const content = stripped.substring(2).trim();
               return new Paragraph({
-                children: stripped.substring(2)
-                  .split('**')
-                  .map((segment, index) => new TextRun({
+                children: content.split("**").map((segment, index) => 
+                  new TextRun({
                     text: segment,
                     size: 24,
                     bold: index % 2 === 1,
                     font: "Calibri",
-                  })),
+                  })
+                ),
                 bullet: { level: 0 },
                 spacing: { after: 120 },
               });
@@ -154,17 +161,18 @@ export async function generateReport(topic: string): Promise<string> {
             // Handle numbered lists
             const numberedMatch = stripped.match(/^\d+\.\s+(.+)/);
             if (numberedMatch) {
+              const content = numberedMatch[1].trim();
               return new Paragraph({
-                children: numberedMatch[1]
-                  .split('**')
-                  .map((segment, index) => new TextRun({
+                children: content.split("**").map((segment, index) => 
+                  new TextRun({
                     text: segment,
                     size: 24,
                     bold: index % 2 === 1,
                     font: "Calibri",
-                  })),
+                  })
+                ),
                 numbering: {
-                  reference: 'default-numbering',
+                  reference: "default-numbering",
                   level: 0,
                 },
                 spacing: { after: 120 },
@@ -173,14 +181,14 @@ export async function generateReport(topic: string): Promise<string> {
 
             // Regular paragraph with bold text support
             return new Paragraph({
-              children: stripped
-                .split('**')
-                .map((segment, index) => new TextRun({
+              children: stripped.split("**").map((segment, index) => 
+                new TextRun({
                   text: segment,
                   size: 24,
                   bold: index % 2 === 1,
                   font: "Calibri",
-                })),
+                })
+              ),
               spacing: { after: 120 },
             });
           }),
@@ -188,11 +196,10 @@ export async function generateReport(topic: string): Promise<string> {
       }],
     });
 
-    // Generate filename
+    // Generate filename and save
     const filename = `report-${Date.now()}.docx`;
     const filepath = join(uploadsDir, filename);
 
-    // Create buffer and write to file
     const buffer = await Packer.toBuffer(doc);
     writeFileSync(filepath, buffer);
 
