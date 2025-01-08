@@ -4,6 +4,7 @@ import { createChat, updateChat, deleteChat, getChat, listChats } from "./servic
 import { setupWebSocketServer } from "./services/websocket";
 import { join } from "path";
 import express from "express";
+import { v4 as uuidv4 } from 'uuid';
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -65,12 +66,15 @@ export function registerRoutes(app: Express): Server {
       const { content } = req.body;
       const userId = "user123"; // Mock user ID until auth is implemented
 
+      const chatId = uuidv4(); // Generate a unique UUID for the chat
+      const messageId = uuidv4(); // Generate a unique UUID for the message
+
       const chatData = {
-        id: Date.now().toString(), // Generate a unique ID
-        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""), // Generate title from content
+        id: chatId,
         userKey: userId, // Using userKey as partition key
+        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""), // Generate title from content
         messages: [{
-          id: Date.now(),
+          id: messageId,
           role: 'user',
           content,
           createdAt: new Date().toISOString()
@@ -83,14 +87,14 @@ export function registerRoutes(app: Express): Server {
 
       // Add AI response
       const aiMessage = {
-        id: Date.now() + 1,
+        id: uuidv4(),
         role: 'assistant',
         content: `I'm here to help! Here's my response to: ${content}`,
         createdAt: new Date().toISOString()
       };
 
       // Update chat with AI response
-      const updatedChat = await updateChat(userId, chat.id, {
+      const updatedChat = await updateChat(userId, chatId, {
         messages: [...chat.messages, aiMessage]
       });
 
@@ -129,7 +133,7 @@ export function registerRoutes(app: Express): Server {
 
       // Add user message
       const userMessage = {
-        id: Date.now(),
+        id: uuidv4(),
         role: 'user',
         content,
         createdAt: new Date().toISOString()
@@ -137,7 +141,7 @@ export function registerRoutes(app: Express): Server {
 
       // Add AI response
       const aiMessage = {
-        id: Date.now() + 1,
+        id: uuidv4(),
         role: 'assistant',
         content: `Here's my response to: ${content}`,
         createdAt: new Date().toISOString()

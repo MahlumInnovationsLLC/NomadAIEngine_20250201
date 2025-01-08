@@ -57,14 +57,14 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         const newChat = await createChat.mutateAsync(content);
         targetChatId = newChat.id;
         navigate(`/chat/${targetChatId}`);
-        return newChat;
+        return newChat.messages;
       }
 
       // Add optimistic user message
       const optimisticMessage = {
         id: Date.now(),
-        chatId: parseInt(targetChatId),
-        role: 'user',
+        chatId: null,
+        role: 'user' as const,
         content,
         createdAt: new Date(),
       };
@@ -74,7 +74,10 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId: targetChatId, content }),
+        body: JSON.stringify({
+          chatId: targetChatId,
+          content,
+        }),
         credentials: 'include',
       });
 
