@@ -1,6 +1,16 @@
 import { Server } from 'socket.io';
 import { Server as HttpServer } from 'http';
 
+interface User {
+  id: string;
+  name: string;
+  avatar?: string;
+  status: 'online' | 'away' | 'offline';
+  lastSeen?: Date;
+  socketId: string;
+}
+
+const users = new Map<string, User>();
 const clients = new Map<string, string>(); // userId -> socketId
 
 export function setupWebSocketServer(server: HttpServer) {
@@ -10,6 +20,12 @@ export function setupWebSocketServer(server: HttpServer) {
       methods: ["GET", "POST"]
     }
   });
+
+  // Broadcast presence update to all clients
+  function broadcastPresence() {
+    const activeUsers = Array.from(users.values()).map(({ socketId, ...user }) => user);
+    io.emit('presence:update', activeUsers);
+  }
 
   io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId as string;
@@ -22,11 +38,43 @@ export function setupWebSocketServer(server: HttpServer) {
     // Store the socket ID for this user
     clients.set(userId, socket.id);
 
-    // Join a room specific to this user
+    // Join user-specific room for targeted notifications
     socket.join(`user-${userId}`);
 
+    // Handle presence events
+    socket.on('presence:join', ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
+      users.set(uid, {
+        id: uid,
+        name,
+        status: 'online',
+        socketId: socket.id,
+        lastSeen: new Date()
+      });
+      broadcastPresence();
+    });
+
+    // Handle user status updates
+    socket.on('presence:status', ({ status }) => {
+      const user = users.get(userId);
+      if (user) {
+        users.set(userId, { ...user, status, lastSeen: new Date() });
+        broadcastPresence();
+      }
+    });
+
     socket.on('disconnect', () => {
-      // Remove user mapping on disconnect
+      // Update user status on disconnect
+      const user = users.get(userId);
+      if (user) {
+        users.set(userId, {
+          ...user,
+          status: 'offline',
+          lastSeen: new Date()
+        });
+        broadcastPresence();
+      }
+
+      // Remove socket mapping
       if (clients.get(userId) === socket.id) {
         clients.delete(userId);
       }

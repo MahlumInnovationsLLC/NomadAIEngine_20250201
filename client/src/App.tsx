@@ -10,6 +10,7 @@ import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { ModuleSelector } from "@/components/layout/ModuleSelector";
 import { NotificationCenter } from "@/components/ui/NotificationCenter";
+import { UserPresence } from "@/components/ui/UserPresence";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
 import { DocManagement } from "@/pages/DocManagement";
@@ -25,6 +26,9 @@ function App() {
 
   // Only show ModuleSelector in document training & control section
   const showModuleSelector = ['documents', 'docmanagement', 'training'].includes(currentPath);
+
+  // For demo purposes, using a hardcoded user ID
+  const userId = "1";
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,6 +66,7 @@ function App() {
           </div>
         </div>
       </main>
+      <UserPresence currentUserId={userId} />
       <OnboardingTour />
       <Toaster />
     </div>
