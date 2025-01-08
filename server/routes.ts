@@ -6,6 +6,24 @@ import { join } from "path";
 import express from "express";
 import { v4 as uuidv4 } from 'uuid';
 
+function generateAIResponse(content: string): string {
+  // Basic conversation patterns
+  if (content.toLowerCase().includes('hello') || content.toLowerCase().includes('hi')) {
+    return "Hello! I'm your AI assistant. How can I help you today?";
+  }
+
+  if (content.toLowerCase().includes('how are you')) {
+    return "I'm functioning well, thank you for asking! I'm here to help you with any questions or tasks you might have.";
+  }
+
+  if (content.toLowerCase().includes('thank')) {
+    return "You're welcome! Is there anything else I can help you with?";
+  }
+
+  // Default response with context
+  return `I understand you're asking about "${content}". Let me help you with that. What specific information would you like to know?`;
+}
+
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   const wsServer = setupWebSocketServer(httpServer);
@@ -101,7 +119,7 @@ export function registerRoutes(app: Express): Server {
       const aiMessage = {
         id: uuidv4(),
         role: 'assistant',
-        content: `I'm here to help! Here's my response to: ${content}`,
+        content: generateAIResponse(content),
         createdAt: new Date().toISOString()
       };
 
@@ -156,7 +174,7 @@ export function registerRoutes(app: Express): Server {
       const aiMessage = {
         id: uuidv4(),
         role: 'assistant',
-        content: `Here's my response to: ${content}`,
+        content: generateAIResponse(content),
         createdAt: new Date().toISOString()
       };
 
