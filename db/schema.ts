@@ -64,6 +64,8 @@ export const chats = pgTable("chats", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   userId: text("user_id").notNull(),
+  lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+  isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -273,7 +275,6 @@ export const documentCollaboratorsRelations = relations(documentCollaborators, (
 
 export const chatsRelations = relations(chats, ({ many }) => ({
   messages: many(messages),
-  documents: many(documents),
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({

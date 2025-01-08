@@ -1,28 +1,69 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import ChatInterface from "@/components/chat/ChatInterface";
-import FileUpload from "@/components/document/FileUpload";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Pencil, Check } from "lucide-react";
+import type { Chat } from "@db/schema";
 
 export default function ChatPage() {
   const [match, params] = useRoute("/chat/:id?");
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [showFileUpload, setShowFileUpload] = useState(false);
+  const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // Fetch chat history
+  const { data: chats = [] } = useQuery<Chat[]>({
+    queryKey: ['/api/chats'],
+  });
+
+  // Fetch current chat if ID exists
+  const { data: currentChat } = useQuery<Chat>({
+    queryKey: ['/api/chats', params?.id],
+    enabled: !!params?.id,
+  });
+
+  // Update chat title mutation
+  const updateChatTitle = useMutation({
+    mutationFn: async ({ id, title }: { id: number; title: string }) => {
+      const response = await fetch(`/api/chats/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update chat title');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      setEditingTitle(null);
+      toast({
+        title: "Success",
+        description: "Chat title updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update chat title",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleNewChat = () => {
     navigate('/chat');
   };
 
-  const handleFileUpload = async (files: File[]) => {
-    // Handle file upload
-    setShowFileUpload(false);
-    toast({
-      title: "Files uploaded",
-      description: `Successfully uploaded ${files.length} files`,
-    });
+  const handleTitleSubmit = (chatId: number, newTitle: string) => {
+    updateChatTitle.mutate({ id: chatId, title: newTitle });
   };
 
   return (
@@ -38,31 +79,93 @@ export default function ChatPage() {
           New Chat
         </Button>
 
-        <div className="flex-1 overflow-auto">
-          {/* Chat history would go here */}
+        <div className="flex-1 overflow-auto space-y-2">
+          {chats.map((chat) => (
+            <div 
+              key={chat.id}
+              className="flex items-center group hover:bg-accent rounded-lg p-2 cursor-pointer"
+              onClick={() => navigate(`/chat/${chat.id}`)}
+            >
+              {editingTitle === chat.id.toString() ? (
+                <form 
+                  className="flex-1 flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.target as HTMLFormElement;
+                    const input = form.elements.namedItem('title') as HTMLInputElement;
+                    handleTitleSubmit(chat.id, input.value);
+                  }}
+                >
+                  <Input 
+                    name="title"
+                    defaultValue={chat.title}
+                    autoFocus
+                    onBlur={(e) => handleTitleSubmit(chat.id, e.target.value)}
+                  />
+                  <Button type="submit" size="sm" variant="ghost">
+                    <Check className="h-4 w-4" />
+                  </Button>
+                </form>
+              ) : (
+                <>
+                  <span className="flex-1 truncate">{chat.title}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingTitle(chat.id.toString());
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
-        <ChatInterface chatId={params?.id} />
-
-        {showFileUpload && (
-          <FileUpload
-            onUpload={handleFileUpload}
-            onClose={() => setShowFileUpload(false)}
-          />
+        {currentChat && (
+          <div className="border-b p-4 flex items-center gap-2">
+            {editingTitle === currentChat.id.toString() ? (
+              <form 
+                className="flex-1 flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const input = form.elements.namedItem('title') as HTMLInputElement;
+                  handleTitleSubmit(currentChat.id, input.value);
+                }}
+              >
+                <Input 
+                  name="title"
+                  defaultValue={currentChat.title}
+                  autoFocus
+                  onBlur={(e) => handleTitleSubmit(currentChat.id, e.target.value)}
+                />
+                <Button type="submit" size="sm" variant="ghost">
+                  <Check className="h-4 w-4" />
+                </Button>
+              </form>
+            ) : (
+              <>
+                <h1 className="text-lg font-semibold flex-1">{currentChat.title}</h1>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingTitle(currentChat.id.toString())}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
         )}
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="absolute bottom-4 right-4"
-          onClick={() => setShowFileUpload(true)}
-        >
-          <FileText className="mr-2 h-4 w-4" />
-          Upload Files
-        </Button>
+        <ChatInterface chatId={params?.id} />
       </div>
     </div>
   );

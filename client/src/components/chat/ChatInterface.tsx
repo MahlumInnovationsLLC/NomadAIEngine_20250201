@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,16 +8,10 @@ import { Send, FileText } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
+import type { Message } from "@db/schema";
 
 interface ChatInterfaceProps {
   chatId?: string;
-}
-
-interface Message {
-  id: number;
-  role: 'user' | 'assistant';
-  content: string;
-  files?: any[];
 }
 
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
@@ -26,10 +21,30 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ['/api/messages', chatId],
     enabled: !!chatId,
+  });
+
+  // Create new chat mutation
+  const createChat = useMutation({
+    mutationFn: async (content: string) => {
+      const response = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create chat');
+      }
+
+      const chat = await response.json();
+      navigate(`/chat/${chat.id}`);
+      return chat;
+    },
   });
 
   const sendMessage = useMutation({
@@ -39,25 +54,36 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         id: Date.now(),
         role: 'user',
         content,
+        createdAt: new Date().toISOString(),
       };
       setLocalMessages(prev => [...prev, userMessage]);
       setInput(""); // Clear input immediately after sending
 
+      let targetChatId = chatId;
+      if (!targetChatId) {
+        // Create a new chat if we don't have one
+        const chat = await createChat.mutateAsync(content);
+        targetChatId = chat.id.toString();
+      }
+
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, content }),
+        body: JSON.stringify({ chatId: targetChatId, content }),
       });
 
-      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to send message');
+        throw new Error('Failed to send message');
       }
-      return data;
+
+      return response.json();
     },
     onSuccess: (data) => {
       setLocalMessages(prev => [...prev, data]);
       queryClient.invalidateQueries({ queryKey: ['/api/messages', chatId] });
+      if (!chatId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      }
     },
     onError: (error) => {
       console.error('Failed to send message:', error);
@@ -83,14 +109,13 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   }, [localMessages]);
 
   const handleFileUpload = async (files: File[]) => {
-    // Handle file upload logic here
     setShowFileUpload(false);
   };
 
-  const allMessages = [...localMessages];
+  const allMessages = [...messages, ...localMessages];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]">
+    <div className="flex flex-col h-full">
       {allMessages.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -106,7 +131,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
             key={message.id}
             role={message.role}
             content={message.content}
-            files={message.files}
           />
         ))}
       </ScrollArea>

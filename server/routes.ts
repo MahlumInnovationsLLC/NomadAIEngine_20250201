@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { notifications, userNotifications } from "@db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { chats, messages } from "@db/schema";
+import { eq, desc } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
 import { getChatCompletion } from "./services/azure-openai";
 import { generateReport } from "./services/document-generator";
@@ -21,10 +21,123 @@ export function registerRoutes(app: Express): Server {
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
 
+  // Get all chats for the current user
+  app.get("/api/chats", async (req, res) => {
+    try {
+      // For now, using a mock user ID until auth is implemented
+      const userId = "user123";
+      const userChats = await db.query.chats.findMany({
+        where: eq(chats.userId, userId),
+        orderBy: [desc(chats.lastMessageAt)],
+        with: {
+          messages: {
+            limit: 1,
+            orderBy: [desc(messages.createdAt)],
+          },
+        },
+      });
+
+      res.json(userChats);
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+      res.status(500).json({ error: "Failed to fetch chats" });
+    }
+  });
+
+  // Get a specific chat
+  app.get("/api/chats/:id", async (req, res) => {
+    try {
+      const chat = await db.query.chats.findFirst({
+        where: eq(chats.id, parseInt(req.params.id)),
+        with: {
+          messages: true,
+        },
+      });
+
+      if (!chat) {
+        return res.status(404).json({ error: "Chat not found" });
+      }
+
+      res.json(chat);
+    } catch (error) {
+      console.error("Error fetching chat:", error);
+      res.status(500).json({ error: "Failed to fetch chat" });
+    }
+  });
+
+  // Create a new chat with AI-generated title
+  app.post("/api/chats", async (req, res) => {
+    try {
+      const { content } = req.body;
+      const userId = "user123"; // Mock user ID until auth is implemented
+
+      // Generate a title for the chat based on the first message
+      const titleResponse = await getChatCompletion([
+        {
+          role: "system",
+          content: "Generate a brief, descriptive title (max 6 words) for a chat that starts with this message. Return only the title text."
+        },
+        { role: "user", content }
+      ]);
+
+      // Create new chat
+      const [chat] = await db.insert(chats)
+        .values({
+          title: titleResponse.trim(),
+          userId,
+          lastMessageAt: new Date(),
+        })
+        .returning();
+
+      // Create first message
+      await db.insert(messages)
+        .values({
+          chatId: chat.id,
+          role: 'user',
+          content,
+        });
+
+      res.json(chat);
+    } catch (error) {
+      console.error("Error creating chat:", error);
+      res.status(500).json({ error: "Failed to create chat" });
+    }
+  });
+
+  // Update chat title
+  app.patch("/api/chats/:id", async (req, res) => {
+    try {
+      const { title } = req.body;
+      const [updatedChat] = await db.update(chats)
+        .set({ title })
+        .where(eq(chats.id, parseInt(req.params.id)))
+        .returning();
+
+      res.json(updatedChat);
+    } catch (error) {
+      console.error("Error updating chat:", error);
+      res.status(500).json({ error: "Failed to update chat" });
+    }
+  });
+
   // Chat message endpoint
   app.post("/api/messages", async (req, res) => {
     try {
-      const { content } = req.body;
+      const { content, chatId } = req.body;
+
+      // Save user message
+      const [userMessage] = await db.insert(messages)
+        .values({
+          chatId: parseInt(chatId),
+          role: 'user',
+          content,
+        })
+        .returning();
+
+      // Update chat's last message timestamp
+      await db.update(chats)
+        .set({ lastMessageAt: new Date() })
+        .where(eq(chats.id, parseInt(chatId)));
 
       // Check if this is a direct request for a report
       if (content.toLowerCase().includes('yes, generate') || 
@@ -59,19 +172,36 @@ export function registerRoutes(app: Express): Server {
         { role: "user", content }
       ]);
 
-      const message = {
-        id: Date.now(),
-        content: response,
-        role: 'assistant'
-      };
+      // Save assistant message
+      const [assistantMessage] = await db.insert(messages)
+        .values({
+          chatId: parseInt(chatId),
+          role: 'assistant',
+          content: response,
+        })
+        .returning();
 
-      res.json(message);
+      res.json(assistantMessage);
     } catch (error) {
       console.error("Error processing message:", error);
       res.status(500).json({ error: "Failed to process message" });
     }
   });
 
+  // Get chat messages
+  app.get("/api/messages/:chatId", async (req, res) => {
+    try {
+      const chatMessages = await db.query.messages.findMany({
+        where: eq(messages.chatId, parseInt(req.params.chatId)),
+        orderBy: [messages.createdAt],
+      });
+
+      res.json(chatMessages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
   // Generate report endpoint
   app.post("/api/generate-report", async (req, res) => {
     try {
