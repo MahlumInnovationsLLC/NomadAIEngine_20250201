@@ -5,7 +5,7 @@ import ChatInterface from "@/components/chat/ChatInterface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, FileText, Pencil, Check } from "lucide-react";
+import { Plus, Pencil, Check } from "lucide-react";
 import type { Chat } from "@db/schema";
 
 export default function ChatPage() {
@@ -33,6 +33,7 @@ export default function ChatPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -63,6 +64,7 @@ export default function ChatPage() {
   };
 
   const handleTitleSubmit = (chatId: number, newTitle: string) => {
+    if (!newTitle.trim()) return;
     updateChatTitle.mutate({ id: chatId, title: newTitle });
   };
 
@@ -86,42 +88,18 @@ export default function ChatPage() {
               className="flex items-center group hover:bg-accent rounded-lg p-2 cursor-pointer"
               onClick={() => navigate(`/chat/${chat.id}`)}
             >
-              {editingTitle === String(chat.id) ? (
-                <form 
-                  className="flex-1 flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const form = e.target as HTMLFormElement;
-                    const input = form.elements.namedItem('title') as HTMLInputElement;
-                    handleTitleSubmit(chat.id, input.value);
-                  }}
-                >
-                  <Input 
-                    name="title"
-                    defaultValue={chat.title}
-                    autoFocus
-                    onBlur={(e) => handleTitleSubmit(chat.id, e.target.value)}
-                  />
-                  <Button type="submit" size="sm" variant="ghost">
-                    <Check className="h-4 w-4" />
-                  </Button>
-                </form>
-              ) : (
-                <>
-                  <span className="flex-1 truncate">{chat.title}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingTitle(String(chat.id));
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
+              <span className="flex-1 truncate">{chat.title}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="opacity-0 group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingTitle(String(chat.id));
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
@@ -129,11 +107,12 @@ export default function ChatPage() {
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
+        {/* Chat Title Header */}
         {currentChat && (
-          <div className="border-b p-4 flex items-center gap-2">
+          <div className="p-6 bg-background border-b">
             {editingTitle === String(currentChat.id) ? (
               <form 
-                className="flex-1 flex gap-2"
+                className="flex gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
                   const form = e.target as HTMLFormElement;
@@ -146,14 +125,15 @@ export default function ChatPage() {
                   defaultValue={currentChat.title}
                   autoFocus
                   onBlur={(e) => handleTitleSubmit(currentChat.id, e.target.value)}
+                  className="text-2xl font-semibold"
                 />
                 <Button type="submit" size="sm" variant="ghost">
                   <Check className="h-4 w-4" />
                 </Button>
               </form>
             ) : (
-              <>
-                <h1 className="text-lg font-semibold flex-1">{currentChat.title}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-semibold">{currentChat.title}</h1>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -161,10 +141,11 @@ export default function ChatPage() {
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
-              </>
+              </div>
             )}
           </div>
         )}
+
         <ChatInterface chatId={params?.id} />
       </div>
     </div>
