@@ -709,6 +709,196 @@ export function registerRoutes(app: Express): Server {
   });
 
 
+  // Training Module Routes
+  app.get("/api/training/modules/:id", async (req, res) => {
+    try {
+      // For now, return hardcoded sample module data
+      const moduleContent = {
+        id: req.params.id,
+        title: "Azure Blob Storage Fundamentals",
+        description: "Learn the basics of Azure Blob Storage and how to use it effectively",
+        sections: [
+          {
+            id: "section-1",
+            title: "Introduction to Azure Blob Storage",
+            content: [
+              {
+                id: "content-1",
+                title: "What is Azure Blob Storage?",
+                content: `
+# Introduction to Azure Blob Storage
+
+Azure Blob Storage is Microsoft's object storage solution for the cloud. Blob storage is optimized for storing massive amounts of unstructured data, such as:
+- Text or binary data
+- Images, documents, and media files
+- Application backups
+- Log files and metrics data
+
+## Key Features
+- Scalable object storage for massive amounts of data
+- Multiple storage tiers for cost optimization
+- High availability and disaster recovery options
+- Integration with other Azure services
+                `,
+                type: "text",
+                order: 1
+              },
+              {
+                id: "content-2",
+                title: "Azure Blob Storage Architecture",
+                content: "https://example.com/blob-architecture.svg",
+                type: "diagram",
+                mediaUrl: "https://example.com/blob-architecture.svg",
+                order: 2
+              }
+            ],
+            order: 1
+          },
+          {
+            id: "section-2",
+            title: "Working with Containers and Blobs",
+            content: [
+              {
+                id: "content-3",
+                title: "Container Management",
+                content: `
+# Working with Containers
+
+Containers in Azure Blob Storage are similar to directories but with additional capabilities:
+- Organize related blobs in containers
+- Control access at container level
+- Set metadata and properties
+
+## Best Practices
+1. Use meaningful container names
+2. Implement proper access controls
+3. Monitor container metrics
+                `,
+                type: "text",
+                order: 1
+              }
+            ],
+            order: 2
+          }
+        ],
+        assessment: {
+          quizzes: [
+            {
+              id: "quiz-1",
+              question: "What is the main purpose of Azure Blob Storage?",
+              options: [
+                "To store structured relational data",
+                "To store unstructured data like files and media",
+                "To run virtual machines",
+                "To process real-time streaming data"
+              ],
+              correctAnswer: 1,
+              explanation: "Azure Blob Storage is designed for storing large amounts of unstructured data, such as files, images, and media content."
+            },
+            {
+              id: "quiz-2",
+              question: "Which of the following is NOT a feature of Azure Blob Storage?",
+              options: [
+                "Multiple storage tiers",
+                "SQL query capabilities",
+                "High availability",
+                "Integration with other Azure services"
+              ],
+              correctAnswer: 1,
+              explanation: "Azure Blob Storage does not provide SQL query capabilities as it's designed for unstructured data. For SQL queries, you would use Azure SQL Database or similar services."
+            }
+          ],
+          handsonLabs: [
+            {
+              id: "lab-1",
+              title: "Creating and Managing Blob Containers",
+              description: "Learn how to create and manage blob containers using the Azure Portal",
+              tasks: [
+                {
+                  id: "task-1",
+                  description: "Create a new blob container named 'training-data'",
+                  verificationCriteria: "Container exists and is accessible"
+                },
+                {
+                  id: "task-2",
+                  description: "Upload a sample file to the container",
+                  verificationCriteria: "File is successfully uploaded and viewable"
+                }
+              ]
+            }
+          ]
+        }
+      };
+
+      res.json(moduleContent);
+    } catch (error) {
+      console.error("Error fetching module content:", error);
+      res.status(500).json({ error: "Failed to fetch module content" });
+    }
+  });
+
+  app.get("/api/training/progress", async (_req, res) => {
+    try {
+      // Return sample training progress data
+      const progressData = {
+        currentLevel: 2,
+        currentExp: 750,
+        nextLevelExp: 1000,
+        modules: [
+          {
+            id: "module-1",
+            title: "Azure Blob Storage Fundamentals",
+            description: "Learn the basics of Azure Blob Storage and how to use it effectively",
+            completedLessons: 2,
+            totalLessons: 5,
+            requiredLevel: 1
+          },
+          {
+            id: "module-2",
+            title: "Advanced Blob Storage Features",
+            description: "Explore advanced features and best practices for Azure Blob Storage",
+            completedLessons: 0,
+            totalLessons: 4,
+            requiredLevel: 2
+          }
+        ],
+        recentActivity: [
+          {
+            id: "activity-1",
+            description: "Completed Introduction to Azure Blob Storage",
+            timestamp: new Date().toISOString(),
+            type: "completion"
+          },
+          {
+            id: "activity-2",
+            description: "Passed Container Management Quiz",
+            timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            type: "quiz"
+          }
+        ],
+        achievements: [
+          {
+            id: "achievement-1",
+            name: "Storage Explorer",
+            description: "Complete your first Blob Storage module",
+            unlockedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: "achievement-2",
+            name: "Quiz Master",
+            description: "Score 100% on all module quizzes",
+            unlockedAt: null
+          }
+        ]
+      };
+
+      res.json(progressData);
+    } catch (error) {
+      console.error("Error fetching training progress:", error);
+      res.status(500).json({ error: "Failed to fetch training progress" });
+    }
+  });
+
   // Generate sample documents
   app.post("/api/documents/generate-samples", async (_req, res) => {
     try {
