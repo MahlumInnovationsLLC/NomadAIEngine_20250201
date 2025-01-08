@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Send, FileText } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatInterfaceProps {
   chatId?: string;
@@ -24,6 +25,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ['/api/messages', chatId],
@@ -39,23 +41,31 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         content,
       };
       setLocalMessages(prev => [...prev, userMessage]);
+      setInput(""); // Clear input immediately after sending
 
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatId, content }),
       });
+
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to send message');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send message');
+      }
       return data;
     },
     onSuccess: (data) => {
       setLocalMessages(prev => [...prev, data]);
       queryClient.invalidateQueries({ queryKey: ['/api/messages', chatId] });
-      setInput("");
     },
     onError: (error) => {
       console.error('Failed to send message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
