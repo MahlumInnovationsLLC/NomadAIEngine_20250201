@@ -54,11 +54,25 @@ export async function createChat(chatData: any) {
   const cont = ensureContainer();
 
   try {
-    console.log("Creating chat with data:", chatData); // Debug log
+    console.log("Creating chat with data:", chatData);
 
     // Validate required fields
     if (!chatData.id || !chatData.userKey || !chatData.messages) {
       throw new Error("Missing required fields in chat data");
+    }
+
+    // Check if chat already exists
+    try {
+      const { resource: existingChat } = await cont.item(chatData.id, chatData.userKey).read();
+      if (existingChat) {
+        console.log("Chat already exists, returning existing chat:", existingChat);
+        return existingChat;
+      }
+    } catch (error: any) {
+      // Only proceed if the error is "not found"
+      if (error.code !== 404) {
+        throw error;
+      }
     }
 
     // Add metadata fields and ensure proper structure
@@ -72,22 +86,17 @@ export async function createChat(chatData: any) {
       type: 'chat'
     };
 
-    console.log("Attempting to create chat with metadata:", chatWithMetadata); // Debug log
+    console.log("Attempting to create chat with metadata:", chatWithMetadata);
     const { resource } = await cont.items.create(chatWithMetadata);
 
     if (!resource) {
       throw new Error("Failed to create chat resource");
     }
 
-    console.log("Successfully created chat:", resource); // Debug log
+    console.log("Successfully created chat:", resource);
     return resource;
   } catch (error: any) {
-    console.error("Error in createChat:", error); // Debug log
-    if (error.code === 409) {
-      // If document already exists, try to get it
-      const { resource: existingChat } = await cont.item(chatData.id, chatData.userKey).read();
-      return existingChat;
-    }
+    console.error("Error in createChat:", error);
     throw error;
   }
 }
@@ -136,17 +145,6 @@ export async function updateChat(userId: string, chatId: string, updates: any) {
     return result;
   } catch (error) {
     console.error("Error updating chat:", error);
-    throw error;
-  }
-}
-
-export async function deleteChat(userId: string, chatId: string) {
-  const cont = ensureContainer();
-
-  try {
-    await cont.item(chatId, userId).delete();
-  } catch (error) {
-    console.error("Error deleting chat:", error);
     throw error;
   }
 }

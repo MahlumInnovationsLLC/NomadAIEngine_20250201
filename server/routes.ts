@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createChat, updateChat, deleteChat, getChat, listChats } from "./services/azure/cosmos_service";
+import { createChat, updateChat, getChat, listChats } from "./services/azure/cosmos_service";
 import { setupWebSocketServer } from "./services/websocket";
 import { join } from "path";
 import express from "express";
@@ -23,18 +23,6 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching chats:", error);
       res.status(500).json({ error: "Failed to fetch chats" });
-    }
-  });
-
-  // Delete a chat
-  app.delete("/api/chats/:id", async (req, res) => {
-    try {
-      const userId = "user123"; // Mock user ID until auth is implemented
-      await deleteChat(userId, req.params.id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting chat:", error);
-      res.status(500).json({ error: "Failed to delete chat" });
     }
   });
 
@@ -110,23 +98,9 @@ export function registerRoutes(app: Express): Server {
 
       console.log("Chat updated with AI response:", updatedChat);
       res.json(updatedChat);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in chat creation:", error);
       res.status(500).json({ error: "Failed to create chat", details: error.message });
-    }
-  });
-
-  // Update chat title
-  app.patch("/api/chats/:id", async (req, res) => {
-    try {
-      const { title } = req.body;
-      const userId = "user123"; // Mock user ID until auth is implemented
-
-      const updatedChat = await updateChat(userId, req.params.id, { title });
-      res.json(updatedChat);
-    } catch (error) {
-      console.error("Error updating chat:", error);
-      res.status(500).json({ error: "Failed to update chat" });
     }
   });
 
@@ -179,11 +153,24 @@ export function registerRoutes(app: Express): Server {
 
       console.log("Chat successfully updated:", updatedChat);
       res.json([userMessage, aiMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing message:", error);
       res.status(500).json({ error: "Failed to process message", details: error.message });
     }
   });
 
+  // Update chat title
+  app.patch("/api/chats/:id", async (req, res) => {
+    try {
+      const { title } = req.body;
+      const userId = "user123"; // Mock user ID until auth is implemented
+
+      const updatedChat = await updateChat(userId, req.params.id, { title });
+      res.json(updatedChat);
+    } catch (error) {
+      console.error("Error updating chat:", error);
+      res.status(500).json({ error: "Failed to update chat" });
+    }
+  });
   return httpServer;
 }

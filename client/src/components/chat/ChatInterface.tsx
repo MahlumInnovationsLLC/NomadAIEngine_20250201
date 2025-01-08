@@ -9,15 +9,17 @@ import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 
+interface Message {
+  id: string | number;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string | Date;
+}
+
 interface Chat {
   id: string;
   title: string;
-  messages: Array<{
-    id: string | number;
-    role: 'user' | 'assistant';
-    content: string;
-    createdAt: string | Date;
-  }>;
+  messages: Message[];
 }
 
 interface ChatInterfaceProps {
@@ -27,6 +29,7 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -63,6 +66,10 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       console.log("Chat created successfully:", data);
       return data;
     },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['/api/chats', data.id], data);
+      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+    },
   });
 
   // Send message mutation
@@ -80,7 +87,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         return newChat.messages;
       }
 
-      // Send message to server
+      // Send message to existing chat
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,11 +112,17 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       console.log("Message sent successfully:", data);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (newMessages) => {
+      // Update local messages immediately
+      setLocalMessages(prev => [...prev, ...newMessages]);
+
       // Clear input and refresh data
       setInput("");
+
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
+      if (chatId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
     },
     onError: (error: Error) => {
@@ -126,9 +139,17 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     e.preventDefault();
     if (input.trim()) {
       try {
+        // Add user message to local state immediately
+        const userMessage: Message = {
+          id: Date.now(),
+          role: 'user',
+          content: input.trim(),
+          createdAt: new Date().toISOString(),
+        };
+        setLocalMessages(prev => [...prev, userMessage]);
+
         await sendMessage.mutateAsync(input);
       } catch (error) {
-        // Error is handled in the mutation's onError callback
         console.error("Error in handleSubmit:", error);
       }
     }
@@ -139,7 +160,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [chat?.messages]);
+  }, [chat?.messages, localMessages]);
 
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
@@ -156,7 +177,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     );
   }
 
-  const messages = chat?.messages || [];
+  // Use local messages for immediate feedback, fall back to chat messages from server
+  const messages = localMessages.length > 0 ? localMessages : (chat?.messages || []);
 
   return (
     <div className="flex flex-col h-[calc(100vh-14rem)]">
