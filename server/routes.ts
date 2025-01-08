@@ -79,10 +79,11 @@ export function registerRoutes(app: Express): Server {
       const chatId = uuidv4(); // Generate a unique UUID for the chat
       const messageId = uuidv4(); // Generate a unique UUID for the message
 
+      // Create initial chat data with first message
       const chatData = {
         id: chatId,
-        userKey: userId, // Using userKey as partition key
-        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""), // Generate title from content
+        userKey: userId,
+        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
         messages: [{
           id: messageId,
           role: 'user',
@@ -92,7 +93,13 @@ export function registerRoutes(app: Express): Server {
         lastMessageAt: new Date().toISOString()
       };
 
+      // Create chat in Cosmos DB
       const chat = await createChat(chatData);
+      console.log("Created chat:", chat); // Debug log
+
+      if (!chat || !Array.isArray(chat.messages)) {
+        throw new Error("Invalid chat data received from database");
+      }
 
       // Add AI response
       const aiMessage = {
@@ -102,6 +109,7 @@ export function registerRoutes(app: Express): Server {
         createdAt: new Date().toISOString()
       };
 
+      // Update chat with AI response
       const updatedChat = await updateChat(userId, chatId, {
         messages: [...chat.messages, aiMessage],
         lastMessageAt: new Date().toISOString()
@@ -142,6 +150,10 @@ export function registerRoutes(app: Express): Server {
       const chat = await getChat(userId, chatId);
       if (!chat) {
         return res.status(404).json({ error: "Chat not found" });
+      }
+
+      if (!Array.isArray(chat.messages)) {
+        throw new Error("Invalid chat data: messages array is missing");
       }
 
       // Add user message

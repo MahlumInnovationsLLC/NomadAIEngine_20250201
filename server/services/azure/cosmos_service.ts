@@ -24,6 +24,7 @@ export async function initializeCosmosDB() {
       id: "GYMAIEngineDB"
     });
     database = db;
+    console.log("Successfully connected to database:", db.id);
 
     // Create container if it doesn't exist with the specified partition key
     const { container: cont } = await database.containers.createIfNotExists({
@@ -31,6 +32,7 @@ export async function initializeCosmosDB() {
       partitionKey: { paths: ["/userKey"] }
     });
     container = cont;
+    console.log("Successfully created/connected to container:", cont.id);
 
     console.log("Successfully connected to Azure Cosmos DB");
   } catch (error) {
@@ -38,9 +40,6 @@ export async function initializeCosmosDB() {
     throw error;
   }
 }
-
-// Initialize on module load
-initializeCosmosDB().catch(console.error);
 
 // Helper function to check container availability
 function ensureContainer() {
@@ -55,14 +54,18 @@ export async function createChat(chatData: any) {
   const cont = ensureContainer();
 
   try {
+    console.log("Creating chat with data:", chatData); // Debug log
+
     // Add metadata fields
     const chatWithMetadata = {
       ...chatData,
       _ts: Math.floor(Date.now() / 1000),
-      type: 'chat'
+      type: 'chat',
+      messages: chatData.messages || [] // Ensure messages array exists
     };
 
     const { resource: createdChat } = await cont.items.create(chatWithMetadata);
+    console.log("Successfully created chat:", createdChat); // Debug log
     return createdChat;
   } catch (error: any) {
     if (error.code === 409) {
@@ -80,6 +83,12 @@ export async function getChat(userId: string, chatId: string) {
 
   try {
     const { resource: chat } = await cont.item(chatId, userId).read();
+
+    // Ensure messages array exists
+    if (chat && !Array.isArray(chat.messages)) {
+      chat.messages = [];
+    }
+
     return chat;
   } catch (error: any) {
     if (error.code === 404) {
@@ -98,6 +107,14 @@ export async function updateChat(userId: string, chatId: string, updates: any) {
 
     if (!existingChat) {
       throw new Error("Chat not found");
+    }
+
+    // Ensure messages array exists in both objects
+    if (!Array.isArray(existingChat.messages)) {
+      existingChat.messages = [];
+    }
+    if (!Array.isArray(updates.messages)) {
+      updates.messages = [];
     }
 
     const updatedChat = {
@@ -143,9 +160,16 @@ export async function listChats(userId: string) {
       .query(querySpec)
       .fetchAll();
 
-    return chats;
+    // Ensure messages array exists for all chats
+    return chats.map(chat => ({
+      ...chat,
+      messages: Array.isArray(chat.messages) ? chat.messages : []
+    }));
   } catch (error) {
     console.error("Error listing chats:", error);
     throw error;
   }
 }
+
+// Initialize on module load
+initializeCosmosDB().catch(console.error);
