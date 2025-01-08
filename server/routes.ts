@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { equipment, equipmentTypes } from "@db/schema";
+import { equipment, equipmentTypes, floorPlans } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { initializeOpenAI } from "./services/azure/openai_service";
 
@@ -73,6 +73,7 @@ export function registerRoutes(app: Express): Server {
           .where(eq(floorPlans.id, result.id));
       } else {
         await db.insert(floorPlans).values({
+          name: "Default Layout",
           gridSize,
           dimensions,
           zones,

@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { Grid, Wand2 } from "lucide-react";
 import { IconSuggestionDialog } from "./IconSuggestionDialog";
 import { useToast } from "@/hooks/use-toast";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWifi, faBluetooth, faSignalSlash } from "@fortawesome/pro-solid-svg-icons";
 
 interface EquipmentIconProps {
   equipment: Equipment;
@@ -51,9 +53,15 @@ const EquipmentIcon = ({
   onDragStart,
   onDragEnter,
 }: EquipmentIconProps) => {
-  const connectivityIcon = equipment.deviceConnectionStatus === 'connected' ? 
-    (equipment.deviceIdentifier?.includes('bluetooth') ? 'fa-solid fa-bluetooth' : 'fa-solid fa-wifi') : 
-    'fa-solid fa-signal-slash';
+  const getConnectivityIcon = () => {
+    if (equipment.deviceConnectionStatus === 'connected') {
+      return equipment.deviceIdentifier?.includes('bluetooth') ? faBluetooth : faWifi;
+    }
+    return faSignalSlash;
+  };
+
+  const connectivityColor = equipment.deviceConnectionStatus === 'connected' ? 
+    'text-green-500' : 'text-gray-400';
 
   return (
     <motion.div
@@ -80,22 +88,19 @@ const EquipmentIcon = ({
     >
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-2">
-        <div className="p-2 rounded-md bg-muted">
+        <div className="p-2 rounded-md bg-muted relative">
           <i 
-            className={`fa-kit fa-${equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'}`} 
-            style={{ fontSize: '1.5rem' }}
+            className={`fa-kit fa-${equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'} text-2xl`}
           />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
         </span>
         <Badge variant="outline" className="text-xs flex items-center gap-1">
-          <i 
-            className={connectivityIcon}
-            style={{ 
-              fontSize: '0.875rem',
-              color: equipment.deviceConnectionStatus === 'connected' ? 'rgb(34 197 94)' : 'rgb(156 163 175)'
-            }}
+          <FontAwesomeIcon 
+            icon={getConnectivityIcon()}
+            className={connectivityColor}
+            size="sm"
           />
           {equipment.deviceConnectionStatus || "Not Connected"}
         </Badge>

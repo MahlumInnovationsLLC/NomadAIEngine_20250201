@@ -29,11 +29,11 @@ interface FloorPlanEditorProps {
   onEquipmentMove: (equipmentId: number, position: { x: number; y: number }) => void;
 }
 
-export default function FloorPlanEditor({ 
-  floorPlan, 
+export default function FloorPlanEditor({
+  floorPlan,
   equipment,
   onSave,
-  onEquipmentMove 
+  onEquipmentMove
 }: FloorPlanEditorProps) {
   const [gridSize, setGridSize] = useState(floorPlan?.gridSize || 20);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>(
@@ -102,10 +102,13 @@ export default function FloorPlanEditor({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          name: floorPlan?.name || 'Default Layout',
+          description: floorPlan?.description || null,
           gridSize,
           dimensions,
           zones,
-          metadata: floorPlan?.metadata || {}
+          metadata: floorPlan?.metadata || {},
+          isActive: true
         }),
       });
 
@@ -193,7 +196,7 @@ export default function FloorPlanEditor({
           <div
             ref={editorRef}
             className="relative border rounded-lg bg-background overflow-hidden"
-            style={{ 
+            style={{
               height: dimensions.height,
               width: dimensions.width
             }}
@@ -237,8 +240,8 @@ export default function FloorPlanEditor({
             {/* Draggable equipment */}
             {equipment.map((item) => {
               const position = item.position as { x: number; y: number } || { x: 0, y: 0 };
-              const statusColor = item.status === 'active' ? 'bg-green-500' : 
-                                item.status === 'maintenance' ? 'bg-yellow-500' : 'bg-red-500';
+              const statusColor = item.status === 'active' ? 'bg-green-500' :
+                item.status === 'maintenance' ? 'bg-yellow-500' : 'bg-red-500';
 
               return (
                 <motion.div
@@ -255,7 +258,7 @@ export default function FloorPlanEditor({
                 >
                   <div className="relative w-10 h-10 bg-background rounded-lg border flex items-center justify-center">
                     <div className={`absolute -top-1 -right-1 w-2 h-2 ${statusColor} rounded-full border border-background`} />
-                    <FontAwesomeIcon 
+                    <FontAwesomeIcon
                       iconName={item.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'}
                       type="kit"
                       size="lg"
