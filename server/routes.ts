@@ -166,7 +166,35 @@ export function registerRoutes(app: Express): Server {
             efficiency: Math.floor(Math.random() * 100),
             utilization: Math.floor(Math.random() * 100)
           }
-        }))
+        })),
+        analysis: {
+          performanceAnalysis: [
+            "Equipment efficiency trends show consistent performance",
+            "Usage patterns indicate optimal load distribution",
+            "Maintenance schedule adherence is above target"
+          ],
+          maintenanceRecommendations: [
+            "Schedule preventive maintenance for high-usage equipment",
+            "Consider upgrading aging components",
+            "Monitor wear patterns on critical components"
+          ],
+          usageOptimization: [
+            "Redistribute peak hour equipment usage",
+            "Implement energy-saving modes during off-peak hours",
+            "Consider equipment rotation to balance wear"
+          ],
+          riskAssessment: [
+            "Low risk of immediate equipment failure",
+            "Medium-term maintenance needs identified",
+            "Contingency plans in place for critical equipment"
+          ]
+        },
+        summary: {
+          totalEquipment: items.length,
+          averageHealth: items.reduce((acc, item) => acc + (item.healthScore || 0), 0) / items.length,
+          requiresMaintenance: items.filter(item => (item.maintenanceScore || 0) < 70).length,
+          offline: items.filter(item => item.status === 'offline').length
+        }
       };
 
       res.json(report);
