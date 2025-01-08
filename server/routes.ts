@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { notifications, userNotifications } from "@db/schema";
+import { notifications, userNotifications, equipment, equipmentTypes } from "@db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
 
@@ -12,6 +12,75 @@ export function registerRoutes(app: Express): Server {
   // Clean up WebSocket server when HTTP server closes
   httpServer.on('close', () => {
     wsServer.close();
+  });
+
+  // Example equipment data route
+  app.get("/api/equipment", async (_req, res) => {
+    try {
+      // Return sample equipment data
+      const sampleEquipment = [
+        {
+          id: 1,
+          name: "Treadmill X-1000",
+          status: "active",
+          healthScore: 95.5,
+          lastMaintenance: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 23 * 24 * 60 * 60 * 1000).toISOString(),
+          maintenanceType: "Regular checkup",
+          deviceConnectionStatus: "connected",
+          position: { x: 10, y: 20 }
+        },
+        {
+          id: 2,
+          name: "Elliptical E-2000",
+          status: "maintenance",
+          healthScore: 75.0,
+          lastMaintenance: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+          maintenanceType: "Belt replacement",
+          deviceConnectionStatus: "connected",
+          position: { x: 30, y: 40 }
+        },
+        {
+          id: 3,
+          name: "Rowing Machine R-500",
+          status: "error",
+          healthScore: 45.5,
+          lastMaintenance: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+          maintenanceType: "Urgent repair",
+          deviceConnectionStatus: "disconnected",
+          position: { x: 50, y: 60 }
+        },
+        {
+          id: 4,
+          name: "Strength Station S-3000",
+          status: "active",
+          healthScore: 88.5,
+          lastMaintenance: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+          maintenanceType: "Regular checkup",
+          deviceConnectionStatus: "connected",
+          position: { x: 70, y: 80 }
+        },
+        {
+          id: 5,
+          name: "Cycling Bike C-800",
+          status: "active",
+          healthScore: 92.0,
+          lastMaintenance: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+          maintenanceType: "Regular checkup",
+          deviceConnectionStatus: "connected",
+          position: { x: 90, y: 100 }
+        }
+      ];
+
+      res.json(sampleEquipment);
+    } catch (error) {
+      console.error("Error fetching equipment:", error);
+      res.status(500).json({ error: "Failed to fetch equipment" });
+    }
   });
 
   // Notification broadcast function
