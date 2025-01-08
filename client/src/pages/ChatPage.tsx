@@ -29,6 +29,10 @@ export default function ChatPage() {
   // Update chat title mutation
   const updateChatTitle = useMutation({
     mutationFn: async ({ id, title }: { id: number; title: string }) => {
+      if (!id) {
+        throw new Error('Chat ID is required');
+      }
+
       const response = await fetch(`/api/chats/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -44,6 +48,7 @@ export default function ChatPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/chats', params?.id] });
       setEditingTitle(null);
       toast({
         title: "Success",
@@ -97,7 +102,7 @@ export default function ChatPage() {
   };
 
   const handleTitleSubmit = (chatId: number, newTitle: string) => {
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim() || !chatId) return;
     updateChatTitle.mutate({ id: chatId, title: newTitle });
   };
 
