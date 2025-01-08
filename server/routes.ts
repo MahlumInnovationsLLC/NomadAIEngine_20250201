@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { notifications, userNotifications, equipment, equipmentTypes } from "@db/schema";
+import { notifications, userNotifications, equipment, equipmentTypes, floorPlans } from "@db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
 
@@ -80,6 +80,84 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching equipment:", error);
       res.status(500).json({ error: "Failed to fetch equipment" });
+    }
+  });
+
+  // Update equipment position
+  app.patch("/api/equipment/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { position } = req.body;
+
+      // For demo, just return success
+      res.json({ success: true, id, position });
+    } catch (error) {
+      console.error("Error updating equipment:", error);
+      res.status(500).json({ error: "Failed to update equipment" });
+    }
+  });
+
+  // Get active floor plan
+  app.get("/api/floor-plans/active", async (_req, res) => {
+    try {
+      // Return a sample floor plan
+      res.json({
+        id: 1,
+        name: "Default Layout",
+        dimensions: { width: 800, height: 600 },
+        gridSize: 20,
+        isActive: true,
+        metadata: {
+          zones: [
+            { name: "Cardio Area", bounds: { x: 0, y: 0, width: 400, height: 300 } },
+            { name: "Weight Training", bounds: { x: 400, y: 0, width: 400, height: 300 } },
+            { name: "Group Fitness", bounds: { x: 0, y: 300, width: 800, height: 300 } }
+          ]
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching floor plan:", error);
+      res.status(500).json({ error: "Failed to fetch floor plan" });
+    }
+  });
+
+  // Save floor plan
+  app.post("/api/floor-plans", async (req, res) => {
+    try {
+      const floorPlan = req.body;
+      // For demo, just return success
+      res.json({ success: true, id: floorPlan.id || 1 });
+    } catch (error) {
+      console.error("Error saving floor plan:", error);
+      res.status(500).json({ error: "Failed to save floor plan" });
+    }
+  });
+
+  // Equipment predictions
+  app.get("/api/equipment/:id/predictions", async (req, res) => {
+    try {
+      const { id } = req.params;
+      // Return sample prediction data
+      res.json({
+        equipmentId: parseInt(id),
+        predictions: {
+          maintenanceScore: Math.random() * 100,
+          nextFailureProbability: Math.random(),
+          recommendedActions: [
+            "Schedule routine maintenance",
+            "Check belt tension",
+            "Verify sensor calibration"
+          ],
+          usagePattern: {
+            morning: Math.random() * 100,
+            afternoon: Math.random() * 100,
+            evening: Math.random() * 100
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching predictions:", error);
+      res.status(500).json({ error: "Failed to fetch predictions" });
     }
   });
 
