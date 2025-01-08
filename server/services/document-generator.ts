@@ -16,7 +16,7 @@ export async function generateReport(topic: string): Promise<string> {
       {
         role: "system",
         content: "Generate a highly detailed, comprehensive report in markdown format. The report should be extensive and thorough, covering all aspects in depth. Use the following structure and markdown formatting:\n\n" +
-                "# Comprehensive Report: Latest Fitness Trends in the Industry\n\n" +
+                "# [Generate a clear, professional title that reflects the content]\n\n" +
                 "# Introduction\n" +
                 "[Detailed introduction with context and importance]\n\n" +
                 "## Market Overview\n" +
@@ -76,20 +76,6 @@ export async function generateReport(topic: string): Promise<string> {
           },
         },
         children: [
-          // Title
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: docTitle,
-                size: 48,
-                bold: true,
-                font: "Calibri",
-              }),
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 300 },
-          }),
-
           // Process each line for headers, bullets, and paragraphs
           ...lines.map(line => {
             const stripped = line.trim();
@@ -196,8 +182,10 @@ export async function generateReport(topic: string): Promise<string> {
       }],
     });
 
-    // Generate filename and save
-    const filename = `report-${Date.now()}.docx`;
+    // Generate a clean filename from the title
+    const safeTitle = docTitle.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `${safeTitle}-${timestamp}.docx`;
     const filepath = join(uploadsDir, filename);
 
     const buffer = await Packer.toBuffer(doc);
