@@ -5,7 +5,7 @@ import ChatInterface from "@/components/chat/ChatInterface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Check } from "lucide-react";
+import { Plus, Pencil, Check, Trash2 } from "lucide-react";
 import type { Chat } from "@db/schema";
 
 export default function ChatPage() {
@@ -59,6 +59,39 @@ export default function ChatPage() {
     },
   });
 
+  // Delete chat mutation
+  const deleteChat = useMutation({
+    mutationFn: async (chatId: number) => {
+      const response = await fetch(`/api/chats/${chatId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete chat');
+      }
+
+      return response.json();
+    },
+    onSuccess: (_, deletedChatId) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      if (parseInt(params?.id || '0') === deletedChatId) {
+        navigate('/chat');
+      }
+      toast({
+        title: "Success",
+        description: "Chat deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete chat",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleNewChat = () => {
     navigate('/chat');
   };
@@ -66,6 +99,13 @@ export default function ChatPage() {
   const handleTitleSubmit = (chatId: number, newTitle: string) => {
     if (!newTitle.trim()) return;
     updateChatTitle.mutate({ id: chatId, title: newTitle });
+  };
+
+  const handleDeleteChat = (chatId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this chat?')) {
+      deleteChat.mutate(chatId);
+    }
   };
 
   return (
@@ -89,17 +129,26 @@ export default function ChatPage() {
               onClick={() => navigate(`/chat/${chat.id}`)}
             >
               <span className="flex-1 truncate">{chat.title}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="opacity-0 group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditingTitle(String(chat.id));
-                }}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingTitle(String(chat.id));
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={(e) => handleDeleteChat(chat.id, e)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>

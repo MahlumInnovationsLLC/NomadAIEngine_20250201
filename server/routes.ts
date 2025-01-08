@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { chats, messages, notifications, userNotifications } from "@db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { chats, messages } from "@db/schema";
+import { eq, desc } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
 import { getChatCompletion } from "./services/azure-openai";
 import { generateReport } from "./services/document-generator";
@@ -44,6 +44,22 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Delete a chat
+  app.delete("/api/chats/:id", async (req, res) => {
+    try {
+      await db.delete(messages)
+        .where(eq(messages.chatId, parseInt(req.params.id)));
+
+      await db.delete(chats)
+        .where(eq(chats.id, parseInt(req.params.id)));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting chat:", error);
+      res.status(500).json({ error: "Failed to delete chat" });
+    }
+  });
+
   // Get a specific chat
   app.get("/api/chats/:id", async (req, res) => {
     try {
@@ -65,39 +81,31 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Create a new chat with AI-generated title
+  // Create a new chat
   app.post("/api/chats", async (req, res) => {
     try {
       const { content } = req.body;
       const userId = "user123"; // Mock user ID until auth is implemented
 
-      // Generate a title for the chat based on the first message
-      const titleResponse = await getChatCompletion([
-        {
-          role: "system",
-          content: "Generate a brief, descriptive title (max 6 words) for a chat that starts with this message. Return only the title text."
-        },
-        { role: "user", content }
-      ]);
-
-      // Create new chat
+      // Create new chat with initial title
       const [chat] = await db.insert(chats)
         .values({
-          title: titleResponse.trim(),
+          title: "New Chat",
           userId,
           lastMessageAt: new Date(),
         })
         .returning();
 
       // Create first message
-      await db.insert(messages)
+      const [message] = await db.insert(messages)
         .values({
           chatId: chat.id,
           role: 'user',
           content,
-        });
+        })
+        .returning();
 
-      res.json(chat);
+      res.json({ ...chat, messages: [message] });
     } catch (error) {
       console.error("Error creating chat:", error);
       res.status(500).json({ error: "Failed to create chat" });
@@ -108,9 +116,11 @@ export function registerRoutes(app: Express): Server {
   app.patch("/api/chats/:id", async (req, res) => {
     try {
       const { title } = req.body;
+      const chatId = parseInt(req.params.id);
+
       const [updatedChat] = await db.update(chats)
         .set({ title })
-        .where(eq(chats.id, parseInt(req.params.id)))
+        .where(eq(chats.id, chatId))
         .returning();
 
       res.json(updatedChat);
@@ -120,7 +130,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Chat message endpoint
+  // Send a message
   app.post("/api/messages", async (req, res) => {
     try {
       const { content, chatId } = req.body;
@@ -139,49 +149,16 @@ export function registerRoutes(app: Express): Server {
         .set({ lastMessageAt: new Date() })
         .where(eq(chats.id, parseInt(chatId)));
 
-      // Check if this is a direct request for a report
-      if (content.toLowerCase().includes('yes, generate') || 
-          content.toLowerCase().includes('yes, give me') ||
-          content.toLowerCase().includes('generate a downloadable') ||
-          content.toLowerCase().includes('create a downloadable')) {
-        try {
-          const reportTopic = content.replace(/yes,?\s*(generate|create|give me)\s*(a|the)?\s*report/i, '').trim();
-          const filename = await generateReport(reportTopic);
-          const message = {
-            id: Date.now(),
-            content: `I've prepared a detailed report based on your request. You can download it here:\n\n[Click here to download the report](/uploads/${filename})`,
-            role: 'assistant'
-          };
-          return res.json(message);
-        } catch (error) {
-          console.error("Error generating report:", error);
-          return res.json({
-            id: Date.now(),
-            content: "I apologize, but I encountered an error while generating the report. Please try again.",
-            role: 'assistant'
-          });
-        }
-      }
-
-      // Get chat completion from Azure OpenAI
-      const response = await getChatCompletion([
-        { 
-          role: "system", 
-          content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance. Format your responses using Markdown:\n\n- Use # for main headings\n- Use ** for bold text\n- Use - for bullet points\n- Use 1. for numbered lists\n\nWhen users ask for a report or analysis, respond with: 'I can help you create a detailed report on [topic]. Would you like me to generate a downloadable Word document for you? Just let me know by saying \"Yes, generate the report\" and I'll create a comprehensive document that you can download.'\n\nFor reports, provide extensive detail including market analysis, trends, statistics, and in-depth explanations. Structure the content with clear sections and subsections."
-        },
-        { role: "user", content }
-      ]);
-
-      // Save assistant message
-      const [assistantMessage] = await db.insert(messages)
+      // Simulate AI response
+      const [aiMessage] = await db.insert(messages)
         .values({
           chatId: parseInt(chatId),
           role: 'assistant',
-          content: response,
+          content: `Here's the AI response to: ${content}`,
         })
         .returning();
 
-      res.json(assistantMessage);
+      res.json(aiMessage);
     } catch (error) {
       console.error("Error processing message:", error);
       res.status(500).json({ error: "Failed to process message" });
