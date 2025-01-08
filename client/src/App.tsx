@@ -9,9 +9,10 @@ import Navbar from "@/components/layout/Navbar";
 import PageTransition from "@/components/layout/PageTransition";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import { ModuleSelector } from "@/components/layout/ModuleSelector";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
-import { DocumentManagement } from "@/pages/DocumentManagement";
+import { DocManagement } from "@/pages/DocManagement";
 import DashboardPage from "@/pages/DashboardPage";
 import ClubControlPage from "@/pages/ClubControlPage";
 
@@ -24,16 +25,28 @@ function App() {
         <div className="min-h-screen bg-background">
           <Navbar />
           <main className="container mx-auto px-4 pt-16">
-            <AnimatePresence mode="wait">
-              <Switch key={location}>
-                <Route path="/" component={Home} />
-                <Route path="/dashboard" component={DashboardPage} />
-                <Route path="/chat/:id?" component={ChatPage} />
-                <Route path="/documents" component={DocumentManagement} />
-                <Route path="/club-control" component={ClubControlPage} />
-                <Route component={NotFound} />
-              </Switch>
-            </AnimatePresence>
+            <div className="flex gap-4">
+              <ModuleSelector 
+                activeModule={location.split('/')[1] || 'documents'} 
+                onModuleChange={(moduleId) => {
+                  window.location.href = `/${moduleId}`;
+                }}
+              />
+              <div className="flex-1">
+                <AnimatePresence mode="wait">
+                  <Switch key={location}>
+                    <Route path="/" component={Home} />
+                    <Route path="/dashboard" component={DashboardPage} />
+                    <Route path="/chat/:id?" component={ChatPage} />
+                    <Route path="/documents" component={Home} />
+                    <Route path="/docmanagement" component={DocManagement} />
+                    <Route path="/training" component={Home} />
+                    <Route path="/club-control" component={ClubControlPage} />
+                    <Route component={NotFound} />
+                  </Switch>
+                </AnimatePresence>
+              </div>
+            </div>
           </main>
           <OnboardingTour />
           <Toaster />
