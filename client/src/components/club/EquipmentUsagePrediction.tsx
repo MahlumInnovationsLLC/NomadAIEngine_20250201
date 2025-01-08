@@ -5,7 +5,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import PredictiveUsageMiniDashboard from "./PredictiveUsageMiniDashboard";
 
 interface PredictionResponse {
   equipmentId: number;
@@ -70,55 +69,51 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
   ];
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Usage Prediction</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="h-[200px] w-full">
-              <ResponsiveContainer>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="usage"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    name="Predicted Usage"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Usage Prediction</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="time" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="usage"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  name="Predicted Usage"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
 
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Maintenance Score:</span>
-                <span>{prediction.predictions.maintenanceScore.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Failure Probability:</span>
-                <span>{(prediction.predictions.nextFailureProbability * 100).toFixed(1)}%</span>
-              </div>
-              <div className="flex flex-col gap-1 mt-2">
-                <span className="text-muted-foreground">Recommended Actions:</span>
-                <ul className="list-disc list-inside space-y-1">
-                  {prediction.predictions.recommendedActions.map((action, index) => (
-                    <li key={index} className="text-sm">{action}</li>
-                  ))}
-                </ul>
-              </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Maintenance Score:</span>
+              <span>{prediction.predictions.maintenanceScore.toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Failure Probability:</span>
+              <span>{(prediction.predictions.nextFailureProbability * 100).toFixed(1)}%</span>
+            </div>
+            <div className="flex flex-col gap-1 mt-2">
+              <span className="text-muted-foreground">Recommended Actions:</span>
+              <ul className="list-disc list-inside space-y-1">
+                {prediction.predictions.recommendedActions.map((action, index) => (
+                  <li key={index} className="text-sm">{action}</li>
+                ))}
+              </ul>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <PredictiveUsageMiniDashboard equipmentId={equipmentId} />
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
