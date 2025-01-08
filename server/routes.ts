@@ -1301,6 +1301,68 @@ Common Issues:
     }
   });
 
+  // Modified skill assessment route to work without requiring a user ID
+  app.get("/api/skills/assessment/current-user", async (_req, res) => {
+    try {
+      // For demo purposes, return sample data
+      const sampleData = {
+        skillGaps: [
+          {
+            skill: {
+              id: 1,
+              name: "Azure Cloud Services",
+              description: "Knowledge of Azure cloud platform and services",
+              category: "Cloud Computing",
+              level: 3
+            },
+            required: 4,
+            current: 2,
+            gap: 2,
+            importance: 'critical' as const
+          },
+          {
+            skill: {
+              id: 2,
+              name: "Data Security",
+              description: "Understanding of data security principles and practices",
+              category: "Security",
+              level: 2
+            },
+            required: 3,
+            current: 1,
+            gap: 2,
+            importance: 'important' as const
+          }
+        ],
+        recommendedModules: [
+          {
+            id: "azure-1",
+            title: "Azure Fundamentals",
+            description: "Learn the basics of Azure cloud services",
+            estimatedHours: 4,
+            difficulty: "Beginner"
+          },
+          {
+            id: "security-1",
+            title: "Data Security Essentials",
+            description: "Introduction to data security concepts",
+            estimatedHours: 3,
+            difficulty: "Intermediate"
+          }
+        ],
+        currentRole: {
+          name: "Junior Developer",
+          level: 1
+        }
+      };
+
+      res.json(sampleData);
+    } catch (error) {
+      console.error("Error performing skill gap assessment:", error);
+      res.status(500).json({ error: "Failed to perform skill gap assessment" });
+    }
+  });
+
   app.post("/api/skills/assessment", async (req, res) => {
     try {
       const { userId, skillId, assessmentData } = req.body;
@@ -1397,6 +1459,68 @@ Common Issues:
     const baseHours = moduleContent.estimatedHours || 10;
     return Math.ceil(baseHours * (scoreGap / 50));
   }
+
+  // Add the module creation endpoint to properly save modules
+  app.post("/api/training/modules", async (req, res) => {
+    try {
+      const moduleData = req.body;
+
+      const module = await db.insert(trainingModules).values({
+        title: moduleData.title,
+        description: moduleData.description,
+        content: moduleData.blocks,
+        status: "active",
+        requiredRoleLevel: 1,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      res.json(module[0]);
+    } catch (error) {
+      console.error("Error saving module:", error);
+      res.status(500).json({ error: "Failed to save module" });
+    }
+  });
+
+  // Add these routes after the existing training routes
+
+  // Get team members
+  app.get("/api/team/members", async (_req, res) => {
+    try {
+      // For demo, return sample team members
+      const teamMembers = [
+        { id: "1", name: "John Doe", role: "Developer" },
+        { id: "2", name: "Jane Smith", role: "Designer" },
+        { id: "3", name: "Bob Johnson", role: "Manager" },
+      ];
+      res.json(teamMembers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch team members" });
+    }
+  });
+
+  // Assign module to user
+  app.post("/api/training/assign-module", async (req, res) => {
+    try {
+      const { userId, moduleId } = req.body;
+
+      // In a real implementation, you would:
+      // 1. Verify the module exists
+      // 2. Check if the user already has this module assigned
+      // 3. Create the assignment record
+      // 4. Send notification to the user
+
+      // For demo, we'll just return success
+      res.json({
+        success: true,
+        message: "Module assigned successfully",
+        assignment: { userId, moduleId, assignedAt: new Date() }
+      });
+    } catch (error) {
+      console.error("Error assigning module:", error);
+      res.status(500).json({ error: "Failed to assign module" });
+    }
+  });
 
   return httpServer;
 }

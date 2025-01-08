@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { SkillAssessment } from "@/components/training/SkillAssessment";
+import { AdminModuleManager } from "@/components/training/AdminModuleManager";
 
 // Types from the schema
 interface TrainingModule {
@@ -103,10 +104,13 @@ export default function TrainingModule() {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5" />
-              Training Progress
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                Training Progress
+              </CardTitle>
+              <AdminModuleManager />
+            </div>
             <Button onClick={() => setIsCreating(true)} className="flex items-center gap-2">
               <PlusCircle className="h-4 w-4" />
               Create Module
