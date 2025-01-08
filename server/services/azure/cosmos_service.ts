@@ -56,24 +56,33 @@ export async function createChat(chatData: any) {
   try {
     console.log("Creating chat with data:", chatData); // Debug log
 
-    // Add metadata fields
+    // Validate required fields
+    if (!chatData.id || !chatData.userKey || !chatData.messages) {
+      throw new Error("Missing required fields in chat data");
+    }
+
+    // Add metadata fields and ensure proper structure
     const chatWithMetadata = {
-      ...chatData,
+      id: chatData.id,
+      userKey: chatData.userKey,
+      title: chatData.title || "",
+      messages: Array.isArray(chatData.messages) ? chatData.messages : [],
+      lastMessageAt: chatData.lastMessageAt || new Date().toISOString(),
       _ts: Math.floor(Date.now() / 1000),
-      type: 'chat',
-      messages: chatData.messages || [] // Ensure messages array exists
+      type: 'chat'
     };
 
+    console.log("Attempting to create chat with metadata:", chatWithMetadata); // Debug log
     const { resource: createdChat } = await cont.items.create(chatWithMetadata);
     console.log("Successfully created chat:", createdChat); // Debug log
     return createdChat;
   } catch (error: any) {
+    console.error("Error in createChat:", error); // Debug log
     if (error.code === 409) {
       // If document already exists, try to get it
       const { resource: existingChat } = await cont.item(chatData.id, chatData.userKey).read();
       return existingChat;
     }
-    console.error("Error creating chat:", error);
     throw error;
   }
 }
@@ -84,7 +93,7 @@ export async function getChat(userId: string, chatId: string) {
   try {
     const { resource: chat } = await cont.item(chatId, userId).read();
 
-    // Ensure messages array exists
+    // Initialize empty messages array if it doesn't exist
     if (chat && !Array.isArray(chat.messages)) {
       chat.messages = [];
     }
@@ -110,17 +119,12 @@ export async function updateChat(userId: string, chatId: string, updates: any) {
     }
 
     // Ensure messages array exists in both objects
-    if (!Array.isArray(existingChat.messages)) {
-      existingChat.messages = [];
-    }
-    if (!Array.isArray(updates.messages)) {
-      updates.messages = [];
-    }
-
     const updatedChat = {
       ...existingChat,
       ...updates,
-      _ts: Math.floor(Date.now() / 1000)
+      messages: Array.isArray(updates.messages) ? updates.messages : (existingChat.messages || []),
+      _ts: Math.floor(Date.now() / 1000),
+      lastMessageAt: updates.lastMessageAt || new Date().toISOString()
     };
 
     const { resource: result } = await cont.item(chatId, userId).replace(updatedChat);
