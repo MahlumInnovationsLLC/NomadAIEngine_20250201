@@ -47,72 +47,115 @@ export async function generateReport(topic: string): Promise<string> {
           },
         },
         children: [
-          // Title
+          // Title paragraph
           new Paragraph({
             children: [
               new TextRun({
                 text: "Comprehensive Report: Latest Fitness Trends in the Industry",
-                font: {
-                  name: "Calibri",
-                  bold: true,
-                  size: 32,
-                },
+                size: 48, // Larger size for main title
+                bold: true,
+                font: "Calibri",
               }),
             ],
             alignment: AlignmentType.CENTER,
             spacing: { after: 300 },
           }),
-          // Date
+
+          // Date paragraph
           new Paragraph({
             children: [
               new TextRun({
                 text: new Date().toLocaleDateString(),
-                font: {
-                  name: "Calibri",
-                  size: 24,
-                  color: "666666",
-                },
+                size: 24,
+                color: "666666",
+                font: "Calibri",
               }),
             ],
-            alignment: AlignmentType.LEFT,
             spacing: { after: 400 },
           }),
-          // Content sections
-          ...sections.map(section => {
-            const [title, ...content] = section.split('\n');
 
-            return [
-              // Section title
+          // Process each section
+          ...sections.map(section => {
+            const [title, ...contentLines] = section.split('\n');
+            const content = contentLines.join('\n');
+
+            const paragraphs = [];
+
+            // Section header
+            paragraphs.push(
               new Paragraph({
                 children: [
                   new TextRun({
                     text: title.trim(),
-                    font: {
-                      name: "Calibri",
-                      bold: true,
-                      size: 28,
-                    },
+                    size: 32,
+                    bold: true,
+                    font: "Calibri",
                   }),
                 ],
                 spacing: { before: 400, after: 200 },
-              }),
-              // Section content
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: content.join('\n')
-                      .replace(/\*\*(.*?)\*\*/g, '$1') // Handle bold text
-                      .replace(/^\s*-\s*/gm, '• ') // Convert dashes to bullets
-                      .trim(),
-                    font: {
-                      name: "Calibri",
-                      size: 24,
+              })
+            );
+
+            // Process content by lines to handle bullet points and paragraphs
+            let currentParagraphLines = [];
+            content.split('\n').forEach(line => {
+              const trimmedLine = line.trim();
+              if (trimmedLine.startsWith('-')) {
+                // If we have accumulated regular paragraph lines, add them first
+                if (currentParagraphLines.length > 0) {
+                  paragraphs.push(
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: currentParagraphLines.join('\n'),
+                          size: 24,
+                          font: "Calibri",
+                        }),
+                      ],
+                      spacing: { after: 200 },
+                    })
+                  );
+                  currentParagraphLines = [];
+                }
+
+                // Add bullet point
+                paragraphs.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: trimmedLine.substring(1).trim(),
+                        size: 24,
+                        font: "Calibri",
+                      }),
+                    ],
+                    bullet: {
+                      level: 0,
                     },
-                  }),
-                ],
-                spacing: { after: 200 },
-              }),
-            ];
+                    spacing: { after: 100 },
+                  })
+                );
+              } else if (trimmedLine) {
+                currentParagraphLines.push(trimmedLine);
+              }
+            });
+
+            // Add any remaining paragraph lines
+            if (currentParagraphLines.length > 0) {
+              paragraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: currentParagraphLines.join('\n'),
+                      size: 24,
+                      font: "Calibri",
+                    }),
+                  ],
+                  spacing: { after: 200 },
+                })
+              );
+            }
+
+            return paragraphs;
           }).flat(),
         ],
       }],
