@@ -35,6 +35,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -57,10 +58,21 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         navigate(`/chat/${targetChatId}`);
       }
 
+      // Add message optimistically
+      const optimisticMessage = {
+        id: Date.now(),
+        chatId: parseInt(targetChatId),
+        role: 'user' as const,
+        content,
+        createdAt: new Date(),
+      };
+      setLocalMessages(prev => [...prev, optimisticMessage]);
+
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatId: targetChatId, content }),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -70,12 +82,20 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       return response.json();
     },
     onSuccess: (data) => {
+      // Remove optimistic update and add real message
+      setLocalMessages(prev => prev.filter(msg => msg.role === 'assistant'));
       setLocalMessages(prev => [...prev, data]);
+
+      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/messages', chatId] });
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-      setInput(""); // Clear input after successful send
+
+      // Clear input after successful send
+      setInput("");
     },
     onError: (error) => {
+      // Remove optimistic update on error
+      setLocalMessages(prev => prev.slice(0, -1));
       console.error('Failed to send message:', error);
       toast({
         title: "Error",
@@ -110,7 +130,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const allMessages = [...messages, ...localMessages];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]">
+    <div className="flex flex-col h-[calc(100vh-14rem)]">
       {allMessages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
