@@ -1,4 +1,4 @@
-import { Document, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { Document, Packer, Paragraph, HeadingLevel } from 'docx';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getChatCompletion } from './azure-openai';
@@ -15,28 +15,27 @@ export async function generateReport(topic: string): Promise<string> {
     const response = await getChatCompletion([
       {
         role: "system",
-        content: "Generate a detailed, professional report on the given topic. Structure it with clear sections, headings, bullet points, and thorough explanations. Format the response in markdown with # for main sections and ## for subsections."
+        content: "Generate a detailed, professional report in markdown format. Include these sections: Executive Summary, Key Findings, Detailed Analysis, Recommendations, and Conclusion. Use proper markdown formatting with headers (#) and lists (-). Be thorough and analytical."
       },
       { role: "user", content: `Create a comprehensive report about: ${topic}` }
     ]);
 
     // Parse the markdown response and create document sections
-    const sections = response.split('\n# ').filter(Boolean);
+    const sections = response.split('\n#').filter(Boolean);
 
     // Create a new document
     const doc = new Document({
       sections: [{
         properties: {},
         children: [
-          // Title
           new Paragraph({
-            text: "GYM AI Engine Report",
+            text: "GYM AI Engine - Generated Report",
             heading: HeadingLevel.TITLE,
-            spacing: { after: 300 },
+            spacing: { after: 300 }
           }),
           new Paragraph({
             text: new Date().toLocaleDateString(),
-            spacing: { after: 300 },
+            spacing: { after: 400 }
           }),
           ...sections.map(section => {
             const [title, ...content] = section.split('\n');
@@ -44,24 +43,24 @@ export async function generateReport(topic: string): Promise<string> {
               new Paragraph({
                 text: title.trim(),
                 heading: HeadingLevel.HEADING_1,
-                spacing: { before: 400, after: 200 },
+                spacing: { before: 400, after: 200 }
               }),
               new Paragraph({
                 text: content.join('\n').trim(),
-                spacing: { after: 200 },
-              }),
+                spacing: { after: 200 }
+              })
             ];
-          }).flat(),
-        ],
-      }],
+          }).flat()
+        ]
+      }]
     });
 
     // Generate unique filename
     const filename = `report-${Date.now()}.docx`;
     const filepath = join(uploadsDir, filename);
 
-    // Write the document to file
-    const buffer = await doc.save();
+    // Create buffer and write to file
+    const buffer = await Packer.toBuffer(doc);
     writeFileSync(filepath, buffer);
 
     return filename;

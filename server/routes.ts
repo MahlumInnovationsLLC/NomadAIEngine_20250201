@@ -39,31 +39,38 @@ export function registerRoutes(app: Express): Server {
     try {
       const { content } = req.body;
 
-      // Get chat completion from Azure OpenAI
-      const response = await getChatCompletion([
-        { 
-          role: "system", 
-          content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance. Format your responses using Markdown:\n\n- Use # for main headings\n- Use ** for bold text\n- Use - for bullet points\n- Use 1. for numbered lists\n\nWhen users ask for a report, respond with: 'I can help you create a detailed report on [topic]. Would you like me to generate a downloadable Word document for you? Just let me know and I'll create a comprehensive report that you can download.'"
-        },
-        { role: "user", content }
-      ]);
-
-      // Check if the user is requesting a report
-      if (content.toLowerCase().includes('report') || content.toLowerCase().includes('download')) {
+      // Check if this is a direct request for a report
+      if (content.toLowerCase().includes('yes, generate') || 
+          content.toLowerCase().includes('yes, create') ||
+          content.toLowerCase().includes('generate a downloadable') ||
+          content.toLowerCase().includes('create a downloadable')) {
         try {
           const filename = await generateReport(content);
           const message = {
             id: Date.now(),
-            content: `I've prepared a detailed report based on your request. You can download it here: [Download Report](/uploads/${filename})`,
+            content: `I've prepared a detailed report based on your request. You can download it here:\n\n[Click here to download the report](/uploads/${filename})`,
             role: 'assistant'
           };
           return res.json(message);
         } catch (error) {
           console.error("Error generating report:", error);
+          return res.json({
+            id: Date.now(),
+            content: "I apologize, but I encountered an error while generating the report. Please try again.",
+            role: 'assistant'
+          });
         }
       }
 
-      // For regular messages
+      // Get chat completion from Azure OpenAI
+      const response = await getChatCompletion([
+        { 
+          role: "system", 
+          content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance. Format your responses using Markdown:\n\n- Use # for main headings\n- Use ** for bold text\n- Use - for bullet points\n- Use 1. for numbered lists\n\nWhen users ask for a report or analysis, respond with: 'I can help you create a detailed report on [topic]. Would you like me to generate a downloadable Word document for you? Just let me know by saying \"Yes, generate the report\" and I'll create a comprehensive document that you can download.'"
+        },
+        { role: "user", content }
+      ]);
+
       const message = {
         id: Date.now(),
         content: response,
