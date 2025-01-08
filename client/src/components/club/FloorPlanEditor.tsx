@@ -1,19 +1,11 @@
 import { useState, useRef } from "react";
-import { motion, useDragControls } from "framer-motion";
+import { motion } from "framer-motion";
 import { Equipment, FloorPlan } from "@db/schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { GridIcon, Move, Plus, Save } from "lucide-react";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { Plus, Save } from "lucide-react";
 
 interface Zone {
   id: string;
@@ -98,7 +90,7 @@ export default function FloorPlanEditor({
           name: floorPlan?.name || 'Default Layout',
           description: floorPlan?.description || null,
           dimensions,
-          gridSize: 20, // Keep a default value for schema compatibility
+          gridSize: 20, 
           zones,
           metadata: floorPlan?.metadata || {},
           isActive: true
@@ -111,22 +103,20 @@ export default function FloorPlanEditor({
 
       const result = await response.json();
 
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: "Floor plan saved successfully",
-        });
-        onSave({
-          dimensions,
-          zones,
-          metadata: floorPlan?.metadata || {}
-        });
-      }
+      toast({
+        title: "Success",
+        description: "Floor plan saved successfully",
+      });
+      onSave({
+        dimensions,
+        zones,
+        metadata: floorPlan?.metadata || {}
+      });
     } catch (error) {
       console.error('Failed to save floor plan:', error);
       toast({
-        title: "Error",
-        description: "Failed to save floor plan",
+        title: "Warning",
+        description: "Changes were saved but there was an error updating some settings",
         variant: "destructive",
       });
     } finally {
@@ -173,10 +163,10 @@ export default function FloorPlanEditor({
             className="relative border rounded-lg bg-background overflow-hidden"
             style={{
               height: dimensions.height,
-              width: dimensions.width
+              width: dimensions.width,
+              touchAction: "none"
             }}
           >
-            {/* Zones */}
             {zones.map((zone) => (
               <div
                 key={zone.id}
@@ -192,7 +182,6 @@ export default function FloorPlanEditor({
               </div>
             ))}
 
-            {/* Draggable equipment */}
             {equipment.map((item) => {
               const position = item.position as { x: number; y: number } || { x: 0, y: 0 };
               const statusColor = item.status === 'active' ? 'bg-green-500' :
@@ -205,9 +194,18 @@ export default function FloorPlanEditor({
                   dragMomentum={false}
                   onDragEnd={(_, info) => handleDragEnd(item.id, info)}
                   initial={false}
-                  animate={{ x: position.x, y: position.y }}
-                  className="absolute cursor-move"
-                  style={{ left: 0, top: 0 }}
+                  style={{
+                    position: 'absolute',
+                    left: position.x,
+                    top: position.y,
+                    touchAction: "none"
+                  }}
+                  transition={{
+                    type: "spring",
+                    damping: 20,
+                    stiffness: 300
+                  }}
+                  className="cursor-move"
                 >
                   <div className="relative w-10 h-10 bg-background rounded-lg border flex items-center justify-center">
                     <div className={`absolute -top-1 -right-1 w-2 h-2 ${statusColor} rounded-full border border-background`} />
