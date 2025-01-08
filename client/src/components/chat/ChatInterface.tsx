@@ -63,7 +63,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-10rem)]">
+    <div className="flex flex-col h-[calc(100vh-12rem)]">
       {messages.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -101,8 +101,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
             placeholder="Type your message..."
             className="flex-1"
           />
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             disabled={!input.trim() || sendMessage.isPending}
             className="bg-primary hover:bg-primary/90"
           >

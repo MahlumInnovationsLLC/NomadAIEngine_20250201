@@ -4,6 +4,7 @@ import { db } from "@db";
 import { notifications, userNotifications, equipment, equipmentTypes, floorPlans } from "@db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
+import { getChatCompletion } from "./services/azure-openai";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -12,6 +13,42 @@ export function registerRoutes(app: Express): Server {
   // Clean up WebSocket server when HTTP server closes
   httpServer.on('close', () => {
     wsServer.close();
+  });
+
+  // Chat message endpoint
+  app.post("/api/messages", async (req, res) => {
+    try {
+      const { content } = req.body;
+
+      // Get chat completion from Azure OpenAI
+      const response = await getChatCompletion([
+        { role: "system", content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance." },
+        { role: "user", content }
+      ]);
+
+      // For now, we'll create a simple message structure
+      const message = {
+        id: Date.now(),
+        content: response,
+        role: 'assistant'
+      };
+
+      res.json(message);
+    } catch (error) {
+      console.error("Error processing message:", error);
+      res.status(500).json({ error: "Failed to process message" });
+    }
+  });
+
+  // Get chat messages endpoint
+  app.get("/api/messages/:chatId?", async (req, res) => {
+    try {
+      // For now, return an empty array as we haven't implemented message persistence yet
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
   });
 
   // Example equipment data route
