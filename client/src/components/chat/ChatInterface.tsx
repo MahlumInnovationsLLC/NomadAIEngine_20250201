@@ -21,6 +21,7 @@ interface Message {
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -31,16 +32,30 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
+      // First add the user message locally
+      const userMessage: Message = {
+        id: Date.now(),
+        role: 'user',
+        content,
+      };
+      setLocalMessages(prev => [...prev, userMessage]);
+
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatId, content }),
       });
-      return response.json();
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to send message');
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      setLocalMessages(prev => [...prev, data]);
       queryClient.invalidateQueries({ queryKey: ['/api/messages', chatId] });
       setInput("");
+    },
+    onError: (error) => {
+      console.error('Failed to send message:', error);
     },
   });
 
@@ -55,16 +70,18 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [localMessages]);
 
   const handleFileUpload = async (files: File[]) => {
     // Handle file upload logic here
     setShowFileUpload(false);
   };
 
+  const allMessages = [...localMessages];
+
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
-      {messages.length === 0 && (
+      {allMessages.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">GYM AI Engine</h1>
@@ -74,7 +91,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       )}
 
       <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-        {messages.map((message) => (
+        {allMessages.map((message) => (
           <ChatMessage
             key={message.id}
             role={message.role}

@@ -12,7 +12,7 @@ const client = new OpenAIClient(
 export async function getChatCompletion(messages: Array<{ role: string; content: string }>) {
   try {
     const result = await client.getChatCompletions(
-      "gpt-4", // This should match your deployed model name in Azure
+      "GYM-AI", 
       messages,
       {
         temperature: 0.7,
