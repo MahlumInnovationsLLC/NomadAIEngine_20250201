@@ -84,14 +84,26 @@ async function getDocumentMetadata(blobPath: string) {
   }
 }
 
+// Add debug logging to the listBlobContents function
 async function listBlobContents(prefix: string = '') {
   try {
     if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+      console.error("Azure Blob Storage connection string missing");
       throw new Error("Azure Blob Storage connection string not configured");
     }
 
+    console.log("Listing blobs with prefix:", prefix);
     const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_BLOB_CONNECTION_STRING);
     const containerClient = blobServiceClient.getContainerClient('documents');
+
+    // Verify container exists
+    try {
+      await containerClient.getProperties();
+    } catch (error) {
+      console.error("Error accessing container:", error);
+      throw new Error("Container 'documents' not accessible");
+    }
+
     const items: Array<{
       name: string;
       path: string;
@@ -101,27 +113,33 @@ async function listBlobContents(prefix: string = '') {
     }> = [];
     const processedFolders = new Set<string>();
 
+    // List all blobs including those in subfolders
     for await (const blob of containerClient.listBlobsFlat({ prefix })) {
+      console.log("Found blob:", blob.name);
       const relativePath = blob.name.slice(prefix.length);
       const parts = relativePath.split('/');
 
-      if (parts.length > 1 && parts[0]) {
-        // This is a nested item, create a folder entry
-        const folderName = parts[0];
-        const folderPath = prefix + folderName;
+      // Process all parent folders in the path
+      let currentPath = prefix;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const folderName = parts[i];
+        if (!folderName) continue;
 
-        if (!processedFolders.has(folderPath)) {
-          processedFolders.add(folderPath);
+        currentPath += folderName + '/';
+        if (!processedFolders.has(currentPath)) {
+          processedFolders.add(currentPath);
           items.push({
             name: folderName,
-            path: folderPath,
+            path: currentPath,
             type: 'folder'
           });
         }
-      } else if (parts[0]) {
-        // This is a file
+      }
+
+      // Add the file itself if it's not a folder marker
+      if (!blob.name.endsWith('/') && parts[parts.length - 1]) {
         items.push({
-          name: parts[0],
+          name: parts[parts.length - 1],
           path: blob.name,
           type: 'file',
           size: blob.properties.contentLength,
@@ -130,6 +148,7 @@ async function listBlobContents(prefix: string = '') {
       }
     }
 
+    console.log("Found items:", items);
     return items;
   } catch (error) {
     console.error("Error listing blob contents:", error);
@@ -955,11 +974,15 @@ Common Issues:
   app.get("/api/documents/browse", async (req, res) => {
     try {
       const prefix = (req.query.path as string || '').replace(/^\//, '');
+      console.log("Browsing documents with prefix:", prefix);
       const items = await listBlobContents(prefix);
       res.json(items);
     } catch (error) {
       console.error("Error browsing documents:", error);
-      res.status(500).json({ error: "Failed to browse documents" });
+      res.status(500).json({ 
+        error: "Failed to browse documents",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
