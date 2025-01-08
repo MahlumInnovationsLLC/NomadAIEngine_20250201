@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { SkillAssessment } from "@/components/training/SkillAssessment";
 
 // Types from the schema
 interface TrainingModule {
@@ -57,7 +58,7 @@ interface TrainingData {
 
 export default function TrainingModule() {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'achievements' | 'create'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'achievements' | 'create' | 'assessment'>('overview');
   const [isCreating, setIsCreating] = useState(false);
 
   const { data: trainingData } = useQuery<TrainingData>({
@@ -118,6 +119,7 @@ export default function TrainingModule() {
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="modules">Learning Modules</TabsTrigger>
               <TabsTrigger value="achievements">Achievements</TabsTrigger>
+              <TabsTrigger value="assessment">Skill Assessment</TabsTrigger>
               <TabsTrigger value="create">Create Module</TabsTrigger>
             </TabsList>
 
@@ -214,7 +216,9 @@ export default function TrainingModule() {
             <TabsContent value="create">
               <ModuleCreator />
             </TabsContent>
-
+            <TabsContent value="assessment">
+              <SkillAssessment />
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>

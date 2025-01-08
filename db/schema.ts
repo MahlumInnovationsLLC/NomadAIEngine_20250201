@@ -177,6 +177,50 @@ export const documentPermissions = pgTable("document_permissions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// New tables for skill assessment
+export const skills = pgTable("skills", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  level: integer("level").notNull(),
+  prerequisites: jsonb("prerequisites"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const skillAssessments = pgTable("skill_assessments", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  skillId: integer("skill_id").references(() => skills.id),
+  score: decimal("score", { precision: 4, scale: 2 }),
+  confidenceLevel: decimal("confidence_level", { precision: 4, scale: 2 }),
+  assessmentData: jsonb("assessment_data"),
+  recommendedModules: jsonb("recommended_modules"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const requiredSkills = pgTable("required_skills", {
+  id: serial("id").primaryKey(),
+  roleId: integer("role_id").references(() => roles.id),
+  skillId: integer("skill_id").references(() => skills.id),
+  requiredLevel: integer("required_level").notNull(),
+  importance: text("importance", { enum: ['critical', 'important', 'nice_to_have'] }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const userSkills = pgTable("user_skills", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  skillId: integer("skill_id").references(() => skills.id),
+  currentLevel: integer("current_level").notNull(),
+  targetLevel: integer("target_level"),
+  lastAssessedAt: timestamp("last_assessed_at"),
+  progress: jsonb("progress"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -261,6 +305,38 @@ export const documentPermissionsRelations = relations(documentPermissions, ({ on
   }),
 }));
 
+// Add relations for new tables
+export const skillsRelations = relations(skills, ({ many }) => ({
+  assessments: many(skillAssessments),
+  requiredFor: many(requiredSkills),
+  userSkills: many(userSkills),
+}));
+
+export const skillAssessmentsRelations = relations(skillAssessments, ({ one }) => ({
+  skill: one(skills, {
+    fields: [skillAssessments.skillId],
+    references: [skills.id],
+  }),
+}));
+
+export const requiredSkillsRelations = relations(requiredSkills, ({ one }) => ({
+  role: one(roles, {
+    fields: [requiredSkills.roleId],
+    references: [roles.id],
+  }),
+  skill: one(skills, {
+    fields: [requiredSkills.skillId],
+    references: [skills.id],
+  }),
+}));
+
+export const userSkillsRelations = relations(userSkills, ({ one }) => ({
+  skill: one(skills, {
+    fields: [userSkills.skillId],
+    references: [skills.id],
+  }),
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -309,6 +385,19 @@ export const selectUserTrainingSchema = createSelectSchema(userTraining);
 export const insertDocumentPermissionSchema = createInsertSchema(documentPermissions);
 export const selectDocumentPermissionSchema = createSelectSchema(documentPermissions);
 
+// Add schemas for new tables
+export const insertSkillSchema = createInsertSchema(skills);
+export const selectSkillSchema = createSelectSchema(skills);
+
+export const insertSkillAssessmentSchema = createInsertSchema(skillAssessments);
+export const selectSkillAssessmentSchema = createSelectSchema(skillAssessments);
+
+export const insertRequiredSkillSchema = createInsertSchema(requiredSkills);
+export const selectRequiredSkillSchema = createSelectSchema(requiredSkills);
+
+export const insertUserSkillSchema = createInsertSchema(userSkills);
+export const selectUserSkillSchema = createSelectSchema(userSkills);
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -327,3 +416,9 @@ export type UserRole = typeof userRoles.$inferSelect;
 export type TrainingModule = typeof trainingModules.$inferSelect;
 export type UserTraining = typeof userTraining.$inferSelect;
 export type DocumentPermission = typeof documentPermissions.$inferSelect;
+
+// Add types for new tables
+export type Skill = typeof skills.$inferSelect;
+export type SkillAssessment = typeof skillAssessments.$inferSelect;
+export type RequiredSkill = typeof requiredSkills.$inferSelect;
+export type UserSkill = typeof userSkills.$inferSelect;

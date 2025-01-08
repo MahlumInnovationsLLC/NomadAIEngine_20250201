@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { equipment, equipmentTypes, floorPlans, documents, documentVersions, trainingModules } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { equipment, equipmentTypes, floorPlans, documents, documentVersions, trainingModules, skills, skillAssessments, requiredSkills, userRoles, userSkills } from "@db/schema";
+import { eq, lt, gt, and, asc } from "drizzle-orm";
 import { initializeOpenAI, checkOpenAIConnection } from "./services/azure/openai_service";
 import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 import multer from "multer";
@@ -1039,8 +1039,7 @@ Effective: January 2025
 ## 4. Professional Standards
 - Punctuality
 - Dress code
-- Communication
-- Client confidentiality`,
+- Communication- Client confidentiality`,
           folder: "training",
           type: "manual"
         },
@@ -1220,6 +1219,183 @@ Common Issues:
       console.error("Error getting document metadata:", error);
       return null;
     }
+  }
+
+  // Skill Assessment Routes
+  app.get("/api/skills", async (_req, res) => {
+    try {
+      const allSkills = await db.query.skills.findMany({
+        orderBy: (skills, { asc }) => [asc(skills.category), asc(skills.level)],
+      });
+      res.json(allSkills);
+    } catch (error) {
+      console.error("Error fetching skills:", error);
+      res.status(500).json({ error: "Failed to fetch skills" });
+    }
+  });
+
+  app.get("/api/skills/assessment/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      // Get user's current role level
+      const userRole = await db.query.userRoles.findFirst({
+        where: eq(userRoles.userId, userId),
+        with: {
+          role: true,
+        },
+      });
+
+      if (!userRole) {
+        return res.status(404).json({ error: "User role not found" });
+      }
+
+      // Get required skills for user's role
+      const requiredSkillsForRole = await db.query.requiredSkills.findMany({
+        where: eq(requiredSkills.roleId, userRole.roleId),
+        with: {
+          skill: true,
+        },
+      });
+
+      // Get user's current skill levels
+      const userSkillLevels = await db.query.userSkills.findMany({
+        where: eq(userSkills.userId, userId),
+      });
+
+      // Identify skill gaps
+      const skillGaps = requiredSkillsForRole.map(required => {
+        const userSkill = userSkillLevels.find(us => us.skillId === required.skillId);
+        return {
+          skill: required.skill,
+          required: required.requiredLevel,
+          current: userSkill?.currentLevel ?? 0,
+          gap: required.requiredLevel - (userSkill?.currentLevel ?? 0),
+          importance: required.importance,
+        };
+      }).filter(gap => gap.gap > 0)
+        .sort((a, b) => {
+          // Sort by importance first, then by gap size
+          const importanceOrder = { critical: 0, important: 1, nice_to_have: 2 };
+          const importanceDiff = importanceOrder[a.importance] - importanceOrder[b.importance];
+          return importanceDiff !== 0 ? importanceDiff : b.gap - a.gap;
+        });
+
+      // Get relevant training modules based on skill gaps
+      const recommendedModules = await db.query.trainingModules.findMany({
+        where: and(
+          gt(trainingModules.requiredRoleLevel, userRole.role.level - 2),
+          lt(trainingModules.requiredRoleLevel, userRole.role.level + 2)
+        ),
+      });
+
+      res.json({
+        skillGaps,
+        recommendedModules,
+        currentRole: userRole.role,
+        assessmentDate: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error performing skill gap assessment:", error);
+      res.status(500).json({ error: "Failed to perform skill gap assessment" });
+    }
+  });
+
+  app.post("/api/skills/assessment", async (req, res) => {
+    try {
+      const { userId, skillId, assessmentData } = req.body;
+
+      // Calculate score and confidence level based on assessment data
+      const score = calculateAssessmentScore(assessmentData);
+      const confidenceLevel = calculateConfidenceLevel(assessmentData);
+
+      // Create assessment record
+      const assessment = await db.insert(skillAssessments).values({
+        userId,
+        skillId,
+        score,
+        confidenceLevel,
+        assessmentData,
+        recommendedModules: await generateRecommendations(userId, skillId, score),
+      }).returning();
+
+      // Update user skill level
+      await db.insert(userSkills)
+        .values({
+          userId,
+          skillId,
+          currentLevel: Math.floor(score),
+          lastAssessedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [userSkills.userId, userSkills.skillId],
+          set: {
+            currentLevel: Math.floor(score),
+            lastAssessedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+
+      res.json(assessment[0]);
+    } catch (error) {
+      console.error("Error saving assessment:", error);
+      res.status(500).json({ error: "Failed to save assessment" });
+    }
+  });
+
+  // Helper functions for assessment calculations
+  function calculateAssessmentScore(assessmentData: any): number {
+    // Implement scoring logic based on assessment data
+    // This is a simplified example
+    const totalQuestions = assessmentData.answers.length;
+    const correctAnswers = assessmentData.answers.filter((a: any) => a.correct).length;
+    return (correctAnswers / totalQuestions) * 100;
+  }
+
+  function calculateConfidenceLevel(assessmentData: any): number {
+    // Implement confidence calculation logic
+    // This is a simplified example
+    const timeFactors = assessmentData.answers.map((a: any) => {
+      const responseTime = a.responseTime;
+      const maxExpectedTime = a.maxExpectedTime;
+      return Math.min(1, maxExpectedTime / responseTime);
+    });
+
+    return (timeFactors.reduce((sum: number, factor: number) => sum + factor, 0) / timeFactors.length) * 100;
+  }
+
+  async function generateRecommendations(userId: string, skillId: number, score: number) {
+    // Get modules that target this skill and are appropriate for the user's level
+    const relevantModules = await db.query.trainingModules.findMany({
+      where: eq(trainingModules.content.skillId, skillId),
+    });
+
+    // Sort and filter modules based on score and other factors
+    return relevantModules
+      .filter(module => module.requiredRoleLevel <= Math.ceil(score / 20))
+      .map(module => ({
+        moduleId: module.id,
+        relevance: calculateModuleRelevance(module, score),
+        estimatedTimeToMastery: calculateTimeToMastery(score, module.content),
+      }))
+      .sort((a, b) => b.relevance - a.relevance)
+      .slice(0, 3);
+  }
+
+  function calculateModuleRelevance(module: any, score: number): number {
+    // Implement module relevance calculation
+    // This is a simplified example
+    const levelDiff = Math.abs(module.requiredRoleLevel - Math.ceil(score / 20));
+    return 1 / (1 + levelDiff);
+  }
+
+  function calculateTimeToMastery(currentScore: number, moduleContent: any): number {
+    // Implement time to mastery estimation
+    // This is a simplified example
+    const targetScore = 90;
+    const scoreGap = targetScore - currentScore;
+    const baseHours = moduleContent.estimatedHours || 10;
+    return Math.ceil(baseHours * (scoreGap / 50));
   }
 
   return httpServer;
