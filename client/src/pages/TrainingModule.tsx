@@ -3,7 +3,7 @@ import { Trophy, Award, Book, CheckCircle, Clock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { ModuleCard } from "@/components/training/ModuleCard";
-import { QuizCard } from "@/components/training/QuizCard";
+import { ModuleViewer } from "@/components/training/ModuleViewer";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -55,12 +55,30 @@ interface TrainingData {
 
 export default function TrainingModule() {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'achievements'>('overview');
 
   const { data: trainingData } = useQuery<TrainingData>({
     queryKey: ['/api/training/progress'],
   });
 
-  const selectedModule = trainingData?.modules.find(m => m.id === selectedModuleId);
+  const handleModuleComplete = () => {
+    setSelectedModuleId(null);
+    setActiveTab('modules'); //Added to switch back to modules tab after completion
+    // Refetch training data to update progress - uncomment if needed and implement queryClient
+    // queryClient.invalidateQueries({ queryKey: ['/api/training/progress'] });
+  };
+
+  // If a module is selected, show the module viewer instead of the dashboard
+  if (selectedModuleId) {
+    return (
+      <div className="space-y-6">
+        <ModuleViewer
+          moduleId={selectedModuleId}
+          onComplete={handleModuleComplete}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -72,7 +90,7 @@ export default function TrainingModule() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="overview" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="space-y-4">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="modules">Learning Modules</TabsTrigger>
