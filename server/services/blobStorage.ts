@@ -14,13 +14,20 @@ const CONTAINER_NAME = "documents";
 export async function initializeBlobStorage() {
   try {
     const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-    await containerClient.createIfNotExists({
-      access: "private",
+    const createContainerResponse = await containerClient.createIfNotExists({
+      access: "container" // This is a valid PublicAccessType
     });
-    console.log("Blob storage container initialized");
+
+    if (createContainerResponse.succeeded) {
+      console.log(`Created container: ${CONTAINER_NAME}`);
+    } else {
+      console.log(`Container ${CONTAINER_NAME} already exists`);
+    }
+
+    return containerClient;
   } catch (error) {
     console.error("Error initializing blob storage:", error);
-    throw error;
+    throw new Error(`Failed to initialize blob storage: ${error.message}`);
   }
 }
 
@@ -34,58 +41,73 @@ export async function uploadDocument(
   checksum: string;
   size: number;
 }> {
-  const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-  const timestamp = new Date().toISOString();
-  const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const blobPath = `${timestamp}_${sanitizedFileName}`;
-  const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
-  
-  // Calculate checksum
-  const checksum = createHash('sha256').update(file).digest('hex');
-  
-  // Upload file with metadata
-  await blockBlobClient.uploadData(file, {
-    blobHTTPHeaders: {
-      blobContentType: metadata.mimeType,
-    },
-    metadata: {
-      ...metadata,
-      checksum,
-      uploadedAt: timestamp,
-    },
-  });
+  try {
+    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+    const timestamp = new Date().toISOString();
+    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const blobPath = `${timestamp}_${sanitizedFileName}`;
+    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
 
-  const url = blockBlobClient.url;
-  
-  return {
-    url,
-    path: blobPath,
-    checksum,
-    size: file.length,
-  };
+    // Calculate checksum
+    const checksum = createHash('sha256').update(file).digest('hex');
+
+    // Upload file with metadata
+    await blockBlobClient.uploadData(file, {
+      blobHTTPHeaders: {
+        blobContentType: metadata.mimeType,
+      },
+      metadata: {
+        ...metadata,
+        checksum,
+        uploadedAt: timestamp,
+      },
+    });
+
+    const url = blockBlobClient.url;
+
+    return {
+      url,
+      path: blobPath,
+      checksum,
+      size: file.length,
+    };
+  } catch (error) {
+    console.error("Error uploading document:", error);
+    throw new Error(`Failed to upload document: ${error.message}`);
+  }
 }
 
 export async function downloadDocument(blobPath: string): Promise<Buffer> {
-  const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-  const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
-  
-  const downloadResponse = await blockBlobClient.download(0);
-  
-  return await streamToBuffer(downloadResponse.readableStreamBody!);
+  try {
+    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
+
+    const downloadResponse = await blockBlobClient.download(0);
+
+    return await streamToBuffer(downloadResponse.readableStreamBody!);
+  } catch (error) {
+    console.error("Error downloading document:", error);
+    throw new Error(`Failed to download document: ${error.message}`);
+  }
 }
 
 export async function getDocumentMetadata(blobPath: string) {
-  const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
-  const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
-  
-  const properties = await blockBlobClient.getProperties();
-  return {
-    metadata: properties.metadata,
-    contentType: properties.contentType,
-    size: properties.contentLength,
-    createdOn: properties.createdOn,
-    lastModified: properties.lastModified,
-  };
+  try {
+    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
+
+    const properties = await blockBlobClient.getProperties();
+    return {
+      metadata: properties.metadata,
+      contentType: properties.contentType,
+      size: properties.contentLength,
+      createdOn: properties.createdOn,
+      lastModified: properties.lastModified,
+    };
+  } catch (error) {
+    console.error("Error getting document metadata:", error);
+    throw new Error(`Failed to get document metadata: ${error.message}`);
+  }
 }
 
 // Helper function to convert stream to buffer
