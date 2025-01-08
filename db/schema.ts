@@ -126,6 +126,53 @@ export const floorPlans = pgTable("floor_plans", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// New tables for roles and training
+export const roles = pgTable("roles", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  level: integer("level").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const userRoles = pgTable("user_roles", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  roleId: integer("role_id").references(() => roles.id),
+  assignedBy: text("assigned_by").notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+});
+
+export const trainingModules = pgTable("training_modules", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  requiredRoleLevel: integer("required_role_level").notNull(),
+  dueDate: timestamp("due_date"),
+  content: jsonb("content"),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const userTraining = pgTable("user_training", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  moduleId: integer("module_id").references(() => trainingModules.id),
+  status: text("status", { enum: ['not_started', 'in_progress', 'completed'] }).notNull(),
+  progress: integer("progress").default(0),
+  assignedBy: text("assigned_by").notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const documentPermissions = pgTable("document_permissions", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").references(() => documents.id),
+  roleLevel: integer("role_level").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -180,6 +227,37 @@ export const equipmentRelations = relations(equipment, ({ one }) => ({
   }),
 }));
 
+//Add relations for new tables
+export const rolesRelations = relations(roles, ({ many }) => ({
+  userRoles: many(userRoles),
+}));
+
+export const userRolesRelations = relations(userRoles, ({ one }) => ({
+  role: one(roles, {
+    fields: [userRoles.roleId],
+    references: [roles.id],
+  }),
+}));
+
+export const trainingModulesRelations = relations(trainingModules, ({ many }) => ({
+  userTraining: many(userTraining),
+}));
+
+export const userTrainingRelations = relations(userTraining, ({ one }) => ({
+  module: one(trainingModules, {
+    fields: [userTraining.moduleId],
+    references: [trainingModules.id],
+  }),
+}));
+
+export const documentPermissionsRelations = relations(documentPermissions, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentPermissions.documentId],
+    references: [documents.id],
+  }),
+}));
+
+
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
 export const selectDocumentSchema = createSelectSchema(documents);
@@ -211,6 +289,22 @@ export const selectEquipmentSchema = createSelectSchema(equipment);
 export const insertFloorPlanSchema = createInsertSchema(floorPlans);
 export const selectFloorPlanSchema = createSelectSchema(floorPlans);
 
+//Add schemas for new tables
+export const insertRoleSchema = createInsertSchema(roles);
+export const selectRoleSchema = createSelectSchema(roles);
+
+export const insertUserRoleSchema = createInsertSchema(userRoles);
+export const selectUserRoleSchema = createSelectSchema(userRoles);
+
+export const insertTrainingModuleSchema = createInsertSchema(trainingModules);
+export const selectTrainingModuleSchema = createSelectSchema(trainingModules);
+
+export const insertUserTrainingSchema = createInsertSchema(userTraining);
+export const selectUserTrainingSchema = createSelectSchema(userTraining);
+
+export const insertDocumentPermissionSchema = createInsertSchema(documentPermissions);
+export const selectDocumentPermissionSchema = createSelectSchema(documentPermissions);
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -222,3 +316,10 @@ export type DocumentWorkflow = typeof documentWorkflows.$inferSelect;
 export type EquipmentType = typeof equipmentTypes.$inferSelect;
 export type Equipment = typeof equipment.$inferSelect;
 export type FloorPlan = typeof floorPlans.$inferSelect;
+
+//Add types for new tables
+export type Role = typeof roles.$inferSelect;
+export type UserRole = typeof userRoles.$inferSelect;
+export type TrainingModule = typeof trainingModules.$inferSelect;
+export type UserTraining = typeof userTraining.$inferSelect;
+export type DocumentPermission = typeof documentPermissions.$inferSelect;
