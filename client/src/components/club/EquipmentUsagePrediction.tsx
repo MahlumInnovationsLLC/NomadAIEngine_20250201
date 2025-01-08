@@ -3,16 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import PredictiveUsageMiniDashboard from "./PredictiveUsageMiniDashboard";
 
 interface PredictionResponse {
-  usageHours: number;
-  peakTimes: string[];
-  maintenanceRecommendation: string;
-  nextPredictedMaintenance: string;
+  equipmentId: number;
+  predictions: {
+    maintenanceScore: number;
+    nextFailureProbability: number;
+    recommendedActions: string[];
+    usagePattern: {
+      morning: number;
+      afternoon: number;
+      evening: number;
+    };
+  };
 }
 
 interface EquipmentUsagePredictionProps {
@@ -56,18 +62,12 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
     );
   }
 
-  // Now that we know prediction exists, we can safely use it
-  const fullChartData = Array.from({ length: 24 }, (_, i) => {
-    const hour = `${i}:00`;
-    const isPeakHour = prediction.peakTimes.some(time => 
-      parseInt(time.split(':')[0]) === i
-    );
-
-    return {
-      hour,
-      usage: isPeakHour ? prediction.usageHours : Math.floor(prediction.usageHours * 0.3)
-    };
-  });
+  // Transform the prediction data for the chart
+  const chartData = [
+    { time: '06:00', usage: prediction.predictions.usagePattern.morning },
+    { time: '14:00', usage: prediction.predictions.usagePattern.afternoon },
+    { time: '20:00', usage: prediction.predictions.usagePattern.evening }
+  ];
 
   return (
     <div className="space-y-4">
@@ -79,13 +79,9 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
           <div className="space-y-4">
             <div className="h-[200px] w-full">
               <ResponsiveContainer>
-                <LineChart data={fullChartData}>
+                <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="hour"
-                    interval={3} 
-                    tickFormatter={(value) => value.split(':')[0]}
-                  />
+                  <XAxis dataKey="time" />
                   <YAxis />
                   <Tooltip />
                   <Legend />
@@ -94,7 +90,7 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
                     dataKey="usage"
                     stroke="hsl(var(--primary))"
                     strokeWidth={2}
-                    name="Predicted Usage (hours)"
+                    name="Predicted Usage"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -102,16 +98,20 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Peak Hours:</span>
-                <span>{prediction.peakTimes.join(' & ')}</span>
+                <span className="text-muted-foreground">Maintenance Score:</span>
+                <span>{prediction.predictions.maintenanceScore.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Daily Usage:</span>
-                <span>{prediction.usageHours} hours</span>
+                <span className="text-muted-foreground">Failure Probability:</span>
+                <span>{(prediction.predictions.nextFailureProbability * 100).toFixed(1)}%</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Maintenance:</span>
-                <span>{prediction.maintenanceRecommendation}</span>
+              <div className="flex flex-col gap-1 mt-2">
+                <span className="text-muted-foreground">Recommended Actions:</span>
+                <ul className="list-disc list-inside space-y-1">
+                  {prediction.predictions.recommendedActions.map((action, index) => (
+                    <li key={index} className="text-sm">{action}</li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
