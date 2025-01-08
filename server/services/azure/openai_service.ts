@@ -50,21 +50,50 @@ export async function initializeOpenAI() {
 export async function checkOpenAIConnection() {
   try {
     if (!client) {
-      return {
-        status: "disabled",
-        message: "Azure OpenAI not configured - AI features are disabled"
-      };
+      await initializeOpenAI();
     }
 
-    return {
-      status: "connected",
-      message: "Connected to Azure OpenAI"
-    };
+    const services = [];
+
+    // Check OpenAI Connection
+    try {
+      if (!client) {
+        services.push({
+          name: "Azure OpenAI",
+          status: "disabled",
+          message: "Azure OpenAI not configured"
+        });
+      } else {
+        const testResult = await client.getChatCompletions(deploymentName, [
+          { role: "system", content: "Connection test" }
+        ]);
+
+        services.push({
+          name: "Azure OpenAI",
+          status: testResult.choices && testResult.choices.length > 0 ? "connected" : "error",
+          message: testResult.choices && testResult.choices.length > 0 
+            ? "Connected to Azure OpenAI"
+            : "Failed to connect to OpenAI"
+        });
+      }
+    } catch (error) {
+      services.push({
+        name: "Azure OpenAI",
+        status: "error",
+        message: "Failed to connect to OpenAI"
+      });
+    }
+
+    // Add other Azure services status checks here
+    // For example, Cosmos DB, Blob Storage, etc.
+
+    return services;
   } catch (error) {
-    return {
+    return [{
+      name: "Azure Services",
       status: "error",
-      message: "Failed to connect to OpenAI"
-    };
+      message: "Failed to check services status"
+    }];
   }
 }
 

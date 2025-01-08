@@ -7,17 +7,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ServiceStatus {
   name: string;
-  status: "connected" | "disconnected" | "error";
+  status: "connected" | "disconnected" | "error" | "disabled";
   message?: string;
 }
 
 export function AzureServicesStatus() {
-  const { data: services, error, isLoading, isError } = useQuery<ServiceStatus[]>({
+  const { data, error, isLoading, isError } = useQuery<ServiceStatus[]>({
     queryKey: ['/api/azure/status'],
     refetchInterval: 30000, // Check every 30 seconds
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+  const services = data || [];
 
   const renderContent = () => {
     if (isLoading) {
@@ -43,7 +45,7 @@ export function AzureServicesStatus() {
       );
     }
 
-    return services?.map((service) => (
+    return services.map((service) => (
       <div key={service.name} className="flex justify-between items-center py-2">
         <StatusIndicator status={service.status} label={service.name} />
         {service.message && (
