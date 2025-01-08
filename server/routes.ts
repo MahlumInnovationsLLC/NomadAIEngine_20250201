@@ -1,12 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { equipment, equipmentTypes, floorPlans, documents, documentVersions, trainingModules, skills, skillAssessments, requiredSkills, userRoles, userSkills } from "@db/schema";
-import { eq, lt, gt, and, asc } from "drizzle-orm";
+import { equipment, equipmentTypes, floorPlans, documents, documentVersions, trainingModules, skills, skillAssessments, requiredSkills, userRoles, userSkills, notifications, userNotifications } from "@db/schema";
+import { eq, lt, gt, and, asc, desc } from "drizzle-orm";
 import { initializeOpenAI, checkOpenAIConnection } from "./services/azure/openai_service";
 import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 import multer from "multer";
 import { createHash } from "crypto";
+import { WebSocket, WebSocketServer } from 'ws';
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
@@ -134,6 +135,103 @@ async function listBlobContents(prefix: string = '') {
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
+
+  // Initialize WebSocket server
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+  // Store client connections
+  const clients = new Map<string, WebSocket>();
+
+  wss.on('connection', (ws, req) => {
+    const userId = req.url?.split('userId=')[1];
+    if (!userId) {
+      ws.close();
+      return;
+    }
+
+    clients.set(userId, ws);
+
+    ws.on('close', () => {
+      clients.delete(userId);
+    });
+  });
+
+  // Notification broadcast function
+  async function broadcastNotification(notification: typeof notifications.$inferInsert, userIds: string[]) {
+    try {
+      // Insert notification
+      const [createdNotification] = await db.insert(notifications)
+        .values(notification)
+        .returning();
+
+      // Create user notifications
+      await db.insert(userNotifications)
+        .values(userIds.map(userId => ({
+          userId,
+          notificationId: createdNotification.id,
+        })));
+
+      // Broadcast to connected clients
+      userIds.forEach(userId => {
+        const client = clients.get(userId);
+        if (client?.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'notification',
+            data: createdNotification,
+          }));
+        }
+      });
+
+      return createdNotification;
+    } catch (error) {
+      console.error('Error broadcasting notification:', error);
+      throw error;
+    }
+  }
+
+  // Notification Routes
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const userNotifs = await db.query.userNotifications.findMany({
+        where: eq(userNotifications.userId, userId),
+        with: {
+          notification: true,
+        },
+        orderBy: [desc(userNotifications.createdAt)],
+      });
+
+      res.json(userNotifs);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/notifications/mark-read", async (req, res) => {
+    try {
+      const { userId, notificationIds } = req.body;
+
+      await db.update(userNotifications)
+        .set({
+          read: true,
+          readAt: new Date(),
+        })
+        .where(and(
+          eq(userNotifications.userId, userId),
+          eq(userNotifications.notificationId, notificationIds)
+        ));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+      res.status(500).json({ error: "Failed to mark notifications as read" });
+    }
+  });
 
   // Document Management Routes
   app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
@@ -900,617 +998,95 @@ Containers in Azure Blob Storage are similar to directories but with additional 
   });
 
   // Generate sample documents
-  app.post("/api/documents/generate-samples", async (_req, res) => {
+  app.post("/api/training/generate-samples", async (_req, res) => {
     try {
-      // Sample document structure with real content
-      const sampleDocs = [
+      const sampleTrainingDocs = [
         {
-          title: "Gym Equipment Safety Guidelines",
-          content: `
-# Gym Equipment Safety Guidelines
-Last Updated: January 2025
-
-## 1. General Safety Rules
-- Always inspect equipment before use
-- Report any damaged equipment immediately
-- Clean equipment after use
-- Follow proper form and technique
-
-## 2. Equipment-Specific Guidelines
-### Cardio Equipment
-- Use emergency stop clips when provided
-- Start at a comfortable pace
-- Hold handrails when mounting/dismounting
-
-### Weight Equipment
-- Use spotters for free weights
-- Secure weight plates with clips
-- Never exceed weight limits
-
-## 3. Emergency Procedures
-Contact staff immediately in case of:
-- Equipment malfunction
-- Injury or medical emergency
-- Unusual sounds or smells
-
-## 4. Maintenance Schedule
-Daily:
-- Equipment inspection
-- Cleaning and sanitization
-
-Weekly:
-- Detailed safety check
-- Cable inspection
-- Belt tension check`,
-          folder: "policies",
-          type: "policy"
+          title: "Safety Protocols Training",
+          content: "Comprehensive guide to gym safety protocols...",
+          type: "training",
+          moduleLevel: 1
         },
         {
-          title: "Member Services Handbook",
-          content: `
-# Member Services Handbook
-Version: 2025.1
-
-## 1. Customer Service Standards
-- Greet all members by name when possible
-- Respond to inquiries within 10 minutes
-- Maintain professional appearance
-- Follow up on complaints within 24 hours
-
-## 2. Membership Types
-- Standard
-- Premium
-- Corporate
-- Student
-
-## 3. Check-in Procedures
-- Verify membership status
-- Scan membership card
-- Check photo ID if needed
-
-## 4. Common Scenarios
-### New Members
-- Facility tour
-- Equipment orientation
-- Class schedule review
-
-### Membership Renewal
-- Review benefits
-- Update contact info
-- Process payment`,
-          folder: "training",
-          type: "manual"
+          title: "Equipment Maintenance Guide",
+          content: "Detailed instructions for maintaining gym equipment...",
+          type: "training",
+          moduleLevel: 2
         },
         {
-          title: "Emergency Response Protocol",
-          content: `
-# Emergency Response Protocol
-Priority: Critical
-
-## 1. Medical Emergencies
-### Immediate Actions
-1. Assess the situation
-2. Call emergency services (911)
-3. Clear the area
-4. Provide first aid if qualified
-
-### Follow-up
-- Complete incident report
-- Contact management
-- Review security footage
-
-## 2. Facility Emergencies
-### Fire
-- Activate alarm
-- Begin evacuation
-- Meet at assembly point
-
-### Power Outage
-- Activate emergency lights
-- Assist members
-- Secure equipment`,
-          folder: "safety",
-          type: "procedure"
-        },
-        {
-          title: "Personal Trainer Guidelines",
-          content: `
-# Personal Trainer Guidelines
-Effective: January 2025
-
-## 1. Certification Requirements
-- Current CPT certification
-- First Aid/CPR certification
-- Liability insurance
-- Continuing education
-
-## 2. Session Protocols
-- Initial assessment
-- Goal setting
-- Progress tracking
-- Regular reassessment
-
-## 3. Documentation
-- Client records
-- Workout plans
-- Progress photos
-- Measurements
-
-## 4. Professional Standards
-- Punctuality
-- Dress code
-- Communication- Client confidentiality`,
-          folder: "training",
-          type: "manual"
-        },
-        {
-          title: "Equipment Maintenance Manual",
-          content: `
-# Equipment Maintenance Manual
-Reference: Tech-2025
-
-## 1. Daily Checks
-- Power connection
-- Display functionality
-- Moving parts
-- Safety features
-
-## 2. Weekly Maintenance
-- Belt alignment
-- Lubrication
-- Cable inspection
-- Computer diagnostics
-
-## 3. Monthly Service
-- Deep cleaning
-- Calibration
-- Software updates
-- Wear assessment
-
-## 4. Troubleshooting
-Common Issues:
-- Error codes
-- Strange noises
-- Power problems
-- Display issues`,
-          folder: "manuals",
-          type: "manual"
+          title: "Customer Service Best Practices",
+          content: "Guidelines for providing excellent customer service...",
+          type: "training",
+          moduleLevel: 1
         }
       ];
 
-      for (const doc of sampleDocs) {
-        // Convert content to a Word-like format using markdown
+      for (const doc of sampleTrainingDocs) {
         const buffer = Buffer.from(doc.content);
-        const fileName = `${doc.folder}/${doc.title.toLowerCase().replace(/\s+/g, '-')}.txt`;
+        const fileName = `${doc.title.toLowerCase().replace(/\s+/g, '-')}.txt`;
 
-        // Create folder if it doesn't exist
-        const folderPath = `${doc.folder}/.folder`;
-        let containerClient: ContainerClient | null = null;
-        try {
-          containerClient = await initializeBlobStorage();
-          const folderBlob = containerClient.getBlockBlobClient(folderPath);
-          await folderBlob.uploadData(Buffer.from(""));
-        } catch (error) {
-          console.error("Error creating folder:", error);
-        }
+        const uploadResult = await uploadDocument(buffer, fileName, {
+          type: doc.type,
+          moduleLevel: doc.moduleLevel
+        });
 
-        // Upload document
-        if (containerClient) {
-          const blockBlobClient = containerClient.getBlockBlobClient(fileName);
-          await blockBlobClient.upload(doc.content, doc.content.length, {
-            blobHTTPHeaders: {
-              blobContentType: 'text/markdown'
-            }
+        if (uploadResult) {
+          // Create document record
+          await db.insert(documents).values({
+            title: doc.title,
+            description: `Training document for ${doc.title}`,
+            blobStorageUrl: uploadResult.url,
+            blobStorageContainer: "documents",
+            blobStoragePath: uploadResult.path,
+            version: "1.0",
+            status: "released",
+            documentType: "training",
+            mimeType: "text/plain",
+            fileSize: buffer.length,
+            checksum: uploadResult.checksum,
+            createdBy: "system",
+            updatedBy: "system",
+            metadata: { moduleLevel: doc.moduleLevel },
+            tags: ["training", `level-${doc.moduleLevel}`],
           });
         }
-
-
-        // Create document record
-        await db.insert(documents).values({
-          title: doc.title,
-          description: `Sample ${doc.type} document`,
-          blobStorageUrl: containerClient ? containerClient.getBlockBlobClient(fileName).url : "",
-          blobStorageContainer: "documents",
-          blobStoragePath: fileName,
-          version: "1.0",
-          status: "released",
-          documentType: doc.type,
-          mimeType: "text/markdown",
-          fileSize: doc.content.length,
-          checksum: createHash('md5').update(doc.content).digest('hex'),
-          createdBy: "system",
-          updatedBy: "system",
-          metadata: { generated: true },
-          tags: [doc.type, doc.folder]
-        });
       }
 
-      res.json({ message: "Sample documents generated successfully" });
+      res.json({ message: "Sample training documents generated successfully" });
     } catch (error) {
       console.error("Error generating sample documents:", error);
       res.status(500).json({ error: "Failed to generate sample documents" });
     }
   });
 
-  // Browse blob storage contents
-  app.get("/api/documents/browse", async (req, res) => {
-    try {
-      const prefix = (req.query.path as string || '').replace(/^\//, '');
-      console.log("Browsing documents with prefix:", prefix);
-      const items = await listBlobContents(prefix);
-      res.json(items);
-    } catch (error) {
-      console.error("Error browsing documents:", error);
-      res.status(500).json({
-        error: "Failed to browse documents",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Create folder (marker blob)
-  app.post("/api/documents/folders", async (req, res) => {
-    try {
-      const { path } = req.body;
-      if (!path) {
-        return res.status(400).json({ error: "Path is required" });
-      }
-
-      const containerClient = await initializeBlobStorage();
-      const folderPath = path.replace(/^\/+|\/+$/g, '') + '/.folder';
-      const blockBlobClient = containerClient.getBlockBlobClient(folderPath);
-      await blockBlobClient.upload("", 0);
-
-      res.json({ success: true, path: folderPath });
-    } catch (error) {
-      console.error("Error creating folder:", error);
-      res.status(500).json({
-        error: "Failed to create folder",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Document version management routes
-  app.get("/api/documents/:id/versions", async (req, res) => {
-    try {
-      const documentId = parseInt(req.params.id);
-      const versions = await db.query.documentVersions.findMany({
-        where: eq(documentVersions.documentId, documentId),
-        orderBy: (versions, { desc }) => [desc(versions.createdAt)]
-      });
-      res.json(versions);
-    } catch (error) {
-      console.error("Error fetching document versions:", error);
-      res.status(500).json({ error: "Failed to fetch document versions" });
-    }
-  });
-
-  app.post("/api/documents/versions/:id/review", async (req, res) => {
-    try {
-      const versionId = parseInt(req.params.id);
-      const { approved, notes } = req.body;
-
-      const result = await db.update(documentVersions)
-        .set({
-          status: approved ? 'approved' : 'rejected',
-          reviewerNotes: notes,
-          reviewerUserId: 'system', // Replace with actual user ID
-          approvedAt: approved ? new Date() : null
-        })
-        .where(eq(documentVersions.id, versionId))
-        .returning();
-
-      res.json(result[0]);
-    } catch (error) {
-      console.error("Error reviewing document version:", error);
-      res.status(500).json({ error: "Failed to review document version" });
-    }
-  });
-
-  async function getDocumentMetadata(blobPath: string) {
-    try {
-      const containerClient = await initializeBlobStorage();
-      const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
-
-      const properties = await blockBlobClient.getProperties();
-      return properties.metadata;
-    } catch (error) {
-      console.error("Error getting document metadata:", error);
-      return null;
-    }
-  }
-
-  // Skill Assessment Routes
-  app.get("/api/skills", async (_req, res) => {
-    try {
-      const allSkills = await db.query.skills.findMany({
-        orderBy: (skills, { asc }) => [asc(skills.category), asc(skills.level)],
-      });
-      res.json(allSkills);
-    } catch (error) {
-      console.error("Error fetching skills:", error);
-      res.status(500).json({ error: "Failed to fetch skills" });
-    }
-  });
-
-  app.get("/api/skills/assessment/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-
-      // Get user's current role level
-      const userRole = await db.query.userRoles.findFirst({
-        where: eq(userRoles.userId, userId),
-        with: {
-          role: true,
-        },
-      });
-
-      if (!userRole) {
-        return res.status(404).json({ error: "User role not found" });
-      }
-
-      // Get required skills for user's role
-      const requiredSkillsForRole = await db.query.requiredSkills.findMany({
-        where: eq(requiredSkills.roleId, userRole.roleId),
-        with: {
-          skill: true,
-        },
-      });
-
-      // Get user's current skill levels
-      const userSkillLevels = await db.query.userSkills.findMany({
-        where: eq(userSkills.userId, userId),
-      });
-
-      // Identify skill gaps
-      const skillGaps = requiredSkillsForRole.map(required => {
-        const userSkill = userSkillLevels.find(us => us.skillId === required.skillId);
-        return {
-          skill: required.skill,
-          required: required.requiredLevel,
-          current: userSkill?.currentLevel ?? 0,
-          gap: required.requiredLevel - (userSkill?.currentLevel ?? 0),
-          importance: required.importance,
-        };
-      }).filter(gap => gap.gap > 0)
-        .sort((a, b) => {
-          // Sort by importance first, then by gap size
-          const importanceOrder = { critical: 0, important: 1, nice_to_have: 2 };
-          const importanceDiff = importanceOrder[a.importance] - importanceOrder[b.importance];
-          return importanceDiff !== 0 ? importanceDiff : b.gap - a.gap;
-        });
-
-      // Get relevant training modules based on skill gaps
-      const recommendedModules = await db.query.trainingModules.findMany({
-        where: and(
-          gt(trainingModules.requiredRoleLevel, userRole.role.level - 2),
-          lt(trainingModules.requiredRoleLevel, userRole.role.level + 2)
-        ),
-      });
-
-      res.json({
-        skillGaps,
-        recommendedModules,
-        currentRole: userRole.role,
-        assessmentDate: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("Error performing skill gap assessment:", error);
-      res.status(500).json({ error: "Failed to perform skill gap assessment" });
-    }
-  });
-
-  // Modified skill assessment route to work without requiring a user ID
-  app.get("/api/skills/assessment/current-user", async (_req, res) => {
-    try {
-      // For demo purposes, return sample data
-      const sampleData = {
-        skillGaps: [
-          {
-            skill: {
-              id: 1,
-              name: "Azure Cloud Services",
-              description: "Knowledge of Azure cloud platform and services",
-              category: "Cloud Computing",
-              level: 3
-            },
-            required: 4,
-            current: 2,
-            gap: 2,
-            importance: 'critical' as const
-          },
-          {
-            skill: {
-              id: 2,
-              name: "Data Security",
-              description: "Understanding of data security principles and practices",
-              category: "Security",
-              level: 2
-            },
-            required: 3,
-            current: 1,
-            gap: 2,
-            importance: 'important' as const
-          }
-        ],
-        recommendedModules: [
-          {
-            id: "azure-1",
-            title: "Azure Fundamentals",
-            description: "Learn the basics of Azure cloud services",
-            estimatedHours: 4,
-            difficulty: "Beginner"
-          },
-          {
-            id: "security-1",
-            title: "Data Security Essentials",
-            description: "Introduction to data security concepts",
-            estimatedHours: 3,
-            difficulty: "Intermediate"
-          }
-        ],
-        currentRole: {
-          name: "Junior Developer",
-          level: 1
-        }
-      };
-
-      res.json(sampleData);
-    } catch (error) {
-      console.error("Error performing skill gap assessment:", error);
-      res.status(500).json({ error: "Failed to perform skill gap assessment" });
-    }
-  });
-
-  app.post("/api/skills/assessment", async (req, res) => {
-    try {
-      const { userId, skillId, assessmentData } = req.body;
-
-      // Calculate score and confidence level based on assessment data
-      const score = calculateAssessmentScore(assessmentData);
-      const confidenceLevel = calculateConfidenceLevel(assessmentData);
-
-      // Create assessment record
-      const assessment = await db.insert(skillAssessments).values({
-        userId,
-        skillId,
-        score,
-        confidenceLevel,
-        assessmentData,
-        recommendedModules: await generateRecommendations(userId, skillId, score),
-      }).returning();
-
-      // Update user skill level
-      await db.insert(userSkills)
-        .values({
-          userId,
-          skillId,
-          currentLevel: Math.floor(score),
-          lastAssessedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [userSkills.userId, userSkills.skillId],
-          set: {
-            currentLevel: Math.floor(score),
-            lastAssessedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-
-      res.json(assessment[0]);
-    } catch (error) {
-      console.error("Error saving assessment:", error);
-      res.status(500).json({ error: "Failed to save assessment" });
-    }
-  });
-
-  // Helper functions for assessment calculations
-  function calculateAssessmentScore(assessmentData: any): number {
-    // Implement scoring logic based on assessment data
-    // This is a simplified example
-    const totalQuestions = assessmentData.answers.length;
-    const correctAnswers = assessmentData.answers.filter((a: any) => a.correct).length;
-    return (correctAnswers / totalQuestions) * 100;
-  }
-
-  function calculateConfidenceLevel(assessmentData: any): number {
-    // Implement confidence calculation logic
-    // This is a simplified example
-    const timeFactors = assessmentData.answers.map((a: any) => {
-      const responseTime = a.responseTime;
-      const maxExpectedTime = a.maxExpectedTime;
-      return Math.min(1, maxExpectedTime / responseTime);
-    });
-
-    return (timeFactors.reduce((sum: number, factor: number) => sum + factor, 0) / timeFactors.length) * 100;
-  }
-
-  async function generateRecommendations(userId: string, skillId: number, score: number) {
-    // Get modules that target this skill and are appropriate for the user's level
-    const relevantModules = await db.query.trainingModules.findMany({
-      where: eq(trainingModules.content.skillId, skillId),
-    });
-
-    // Sort and filter modules based on score and other factors
-    return relevantModules
-      .filter(module => module.requiredRoleLevel <= Math.ceil(score / 20))
-      .map(module => ({
-        moduleId: module.id,
-        relevance: calculateModuleRelevance(module, score),
-        estimatedTimeToMastery: calculateTimeToMastery(score, module.content),
-      }))
-      .sort((a, b) => b.relevance - a.relevance)
-      .slice(0, 3);
-  }
-
-  function calculateModuleRelevance(module: any, score: number): number {
-    // Implement module relevance calculation
-    // This is a simplified example
-    const levelDiff = Math.abs(module.requiredRoleLevel - Math.ceil(score / 20));
-    return 1 / (1 + levelDiff);
-  }
-
-  function calculateTimeToMastery(currentScore: number, moduleContent: any): number {
-    // Implement time to mastery estimation
-    // This is a simplified example
-    const targetScore = 90;
-    const scoreGap = targetScore - currentScore;
-    const baseHours = moduleContent.estimatedHours || 10;
-    return Math.ceil(baseHours * (scoreGap / 50));
-  }
-
-  // Add the module creation endpoint to properly save modules
-  app.post("/api/training/modules", async (req, res) => {
-    try {
-      const moduleData = req.body;
-
-      const module = await db.insert(trainingModules).values({
-        title: moduleData.title,
-        description: moduleData.description,
-        content: moduleData.blocks,
-        status: "active",
-        requiredRoleLevel: 1,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).returning();
-
-      res.json(module[0]);
-    } catch (error) {
-      console.error("Error saving module:", error);
-      res.status(500).json({ error: "Failed to save module" });
-    }
-  });
-
-  // Add these routes after the existing training routes
-
-  // Get team members
-  app.get("/api/team/members", async (_req, res) => {
-    try {
-      // For demo, return sample team members
-      const teamMembers = [
-        { id: "1", name: "John Doe", role: "Developer" },
-        { id: "2", name: "Jane Smith", role: "Designer" },
-        { id: "3", name: "Bob Johnson", role: "Manager" },
-      ];
-      res.json(teamMembers);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch team members" });
-    }
-  });
-
-  // Assign module to user
+  // Assign module to user (with notifications)
   app.post("/api/training/assign-module", async (req, res) => {
     try {
       const { userId, moduleId } = req.body;
 
-      // In a real implementation, you would:
-      // 1. Verify the module exists
-      // 2. Check if the user already has this module assigned
-      // 3. Create the assignment record
-      // 4. Send notification to the user
+      // Get module details
+      const module = await db.query.trainingModules.findFirst({
+        where: eq(trainingModules.id, parseInt(moduleId)),
+      });
 
-      // For demo, we'll just return success
+      if (!module) {
+        return res.status(404).json({ error: "Module not found" });
+      }
+
+      // Create notification
+      await broadcastNotification({
+        type: 'module_assigned',
+        title: 'New Training Module Assigned',
+        message: `You have been assigned the module: ${module.title}`,
+        link: `/training/modules/${moduleId}`,
+        priority: 'medium',
+        metadata: { moduleId },
+      }, [userId]);
+
+      // In a real implementation, you would also:
+      // 1. Check if the user already has this module assigned
+      // 2. Create the assignment record
+
       res.json({
         success: true,
         message: "Module assigned successfully",
@@ -1524,3 +1100,15 @@ Common Issues:
 
   return httpServer;
 }
+
+  async function getDocumentMetadata(blobPath: string) {
+    try {
+      const containerClient = await initializeBlobStorage();
+      const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
+      const properties = await blockBlobClient.getProperties();
+      return properties.metadata;
+    } catch (error) {
+      console.error("Error getting document metadata:", error);
+      return null;
+    }
+  }

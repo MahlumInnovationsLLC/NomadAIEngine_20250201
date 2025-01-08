@@ -221,6 +221,28 @@ export const userSkills = pgTable("user_skills", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Add after the existing tables
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  type: text("type", { enum: ['module_assigned', 'assessment_due', 'achievement_earned', 'module_completed', 'system'] }).notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  link: text("link"),
+  metadata: jsonb("metadata"),
+  priority: text("priority", { enum: ['low', 'medium', 'high', 'urgent'] }).notNull().default('medium'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+});
+
+export const userNotifications = pgTable("user_notifications", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  notificationId: integer("notification_id").references(() => notifications.id),
+  read: boolean("read").default(false).notNull(),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -337,6 +359,18 @@ export const userSkillsRelations = relations(userSkills, ({ one }) => ({
   }),
 }));
 
+// Add to relations section
+export const notificationsRelations = relations(notifications, ({ many }) => ({
+  userNotifications: many(userNotifications),
+}));
+
+export const userNotificationsRelations = relations(userNotifications, ({ one }) => ({
+  notification: one(notifications, {
+    fields: [userNotifications.notificationId],
+    references: [notifications.id],
+  }),
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -398,6 +432,13 @@ export const selectRequiredSkillSchema = createSelectSchema(requiredSkills);
 export const insertUserSkillSchema = createInsertSchema(userSkills);
 export const selectUserSkillSchema = createSelectSchema(userSkills);
 
+// Add to schemas section
+export const insertNotificationSchema = createInsertSchema(notifications);
+export const selectNotificationSchema = createSelectSchema(notifications);
+
+export const insertUserNotificationSchema = createInsertSchema(userNotifications);
+export const selectUserNotificationSchema = createSelectSchema(userNotifications);
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -422,3 +463,7 @@ export type Skill = typeof skills.$inferSelect;
 export type SkillAssessment = typeof skillAssessments.$inferSelect;
 export type RequiredSkill = typeof requiredSkills.$inferSelect;
 export type UserSkill = typeof userSkills.$inferSelect;
+
+// Add to types section
+export type Notification = typeof notifications.$inferSelect;
+export type UserNotification = typeof userNotifications.$inferSelect;

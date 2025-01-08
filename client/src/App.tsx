@@ -9,6 +9,7 @@ import Navbar from "@/components/layout/Navbar";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { ModuleSelector } from "@/components/layout/ModuleSelector";
+import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
 import { DocManagement } from "@/pages/DocManagement";
@@ -27,7 +28,14 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+      <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center px-4">
+          <Navbar />
+          <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+            <NotificationCenter />
+          </div>
+        </div>
+      </div>
       <main className="container mx-auto px-4 pt-16">
         <div className="flex gap-4">
           {showModuleSelector && (
