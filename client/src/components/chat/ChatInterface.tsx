@@ -23,8 +23,18 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
+  // Fetch existing messages for the current chat
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ['/api/messages', chatId],
+    queryFn: async () => {
+      const response = await fetch(`/api/messages/${chatId}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+      return response.json();
+    },
     enabled: !!chatId,
   });
 
@@ -47,6 +57,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     },
   });
 
+  // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       let targetChatId = chatId;
@@ -56,18 +67,20 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         const newChat = await createChat.mutateAsync(content);
         targetChatId = String(newChat.id);
         navigate(`/chat/${targetChatId}`);
+        return newChat.messages;
       }
 
-      // Add message optimistically
-      const optimisticMessage = {
+      // Add optimistic message
+      const optimisticUserMessage = {
         id: Date.now(),
         chatId: parseInt(targetChatId),
         role: 'user' as const,
         content,
         createdAt: new Date(),
       };
-      setLocalMessages(prev => [...prev, optimisticMessage]);
+      setLocalMessages(prev => [...prev, optimisticUserMessage]);
 
+      // Send message to server
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,20 +94,17 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       return response.json();
     },
-    onSuccess: (data) => {
-      // Remove optimistic update and add real message
-      setLocalMessages(prev => prev.filter(msg => msg.role === 'assistant'));
-      setLocalMessages(prev => [...prev, data]);
+    onSuccess: (messages) => {
+      // Remove optimistic messages and add real messages
+      setLocalMessages([]);
+      setInput("");
 
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/messages', chatId] });
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-
-      // Clear input after successful send
-      setInput("");
     },
     onError: (error) => {
-      // Remove optimistic update on error
+      // Remove optimistic message on error
       setLocalMessages(prev => prev.slice(0, -1));
       console.error('Failed to send message:', error);
       toast({

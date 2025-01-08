@@ -97,7 +97,7 @@ export function registerRoutes(app: Express): Server {
         .returning();
 
       // Create first message
-      const [message] = await db.insert(messages)
+      const [userMessage] = await db.insert(messages)
         .values({
           chatId: chat.id,
           role: 'user',
@@ -105,7 +105,19 @@ export function registerRoutes(app: Express): Server {
         })
         .returning();
 
-      res.json({ ...chat, messages: [message] });
+      // Get AI response
+      const aiResponse = `I'm here to help! Here's my response to: ${content}`;
+
+      // Save AI response
+      const [aiMessage] = await db.insert(messages)
+        .values({
+          chatId: chat.id,
+          role: 'assistant',
+          content: aiResponse,
+        })
+        .returning();
+
+      res.json({ ...chat, messages: [userMessage, aiMessage] });
     } catch (error) {
       console.error("Error creating chat:", error);
       res.status(500).json({ error: "Failed to create chat" });
@@ -149,34 +161,22 @@ export function registerRoutes(app: Express): Server {
         .set({ lastMessageAt: new Date() })
         .where(eq(chats.id, parseInt(chatId)));
 
-      // Simulate AI response
+      // Get AI response
+      const aiResponse = `Here's my response to: ${content}`;
+
+      // Save AI response
       const [aiMessage] = await db.insert(messages)
         .values({
           chatId: parseInt(chatId),
           role: 'assistant',
-          content: `Here's the AI response to: ${content}`,
+          content: aiResponse,
         })
         .returning();
 
-      res.json(aiMessage);
+      res.json([userMessage, aiMessage]);
     } catch (error) {
       console.error("Error processing message:", error);
       res.status(500).json({ error: "Failed to process message" });
-    }
-  });
-
-  // Get chat messages
-  app.get("/api/messages/:chatId", async (req, res) => {
-    try {
-      const chatMessages = await db.query.messages.findMany({
-        where: eq(messages.chatId, parseInt(req.params.chatId)),
-        orderBy: [messages.createdAt],
-      });
-
-      res.json(chatMessages);
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      res.status(500).json({ error: "Failed to fetch messages" });
     }
   });
 
