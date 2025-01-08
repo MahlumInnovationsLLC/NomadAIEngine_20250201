@@ -1,12 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, Award, Book, CheckCircle, Clock } from "lucide-react";
+import { Trophy, Award, Book, CheckCircle, Clock, PlusCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 import { ModuleCard } from "@/components/training/ModuleCard";
 import { ModuleViewer } from "@/components/training/ModuleViewer";
+import { ModuleCreator } from "@/components/training/ModuleCreator";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 
 // Types from the schema
 interface TrainingModule {
@@ -55,7 +57,8 @@ interface TrainingData {
 
 export default function TrainingModule() {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'achievements'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'achievements' | 'create'>('overview');
+  const [isCreating, setIsCreating] = useState(false);
 
   const { data: trainingData } = useQuery<TrainingData>({
     queryKey: ['/api/training/progress'],
@@ -63,12 +66,26 @@ export default function TrainingModule() {
 
   const handleModuleComplete = () => {
     setSelectedModuleId(null);
-    setActiveTab('modules'); //Added to switch back to modules tab after completion
-    // Refetch training data to update progress - uncomment if needed and implement queryClient
+    setActiveTab('modules');
     // queryClient.invalidateQueries({ queryKey: ['/api/training/progress'] });
   };
 
-  // If a module is selected, show the module viewer instead of the dashboard
+  // If creating a new module, show the creator interface
+  if (isCreating) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Create New Module</h2>
+          <Button variant="ghost" onClick={() => setIsCreating(false)}>
+            Cancel
+          </Button>
+        </div>
+        <ModuleCreator />
+      </div>
+    );
+  }
+
+  // If a module is selected, show the module viewer
   if (selectedModuleId) {
     return (
       <div className="space-y-6">
@@ -84,10 +101,16 @@ export default function TrainingModule() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5" />
-            Training Progress
-          </CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5" />
+              Training Progress
+            </CardTitle>
+            <Button onClick={() => setIsCreating(true)} className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
+              Create Module
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="space-y-4">
@@ -95,6 +118,7 @@ export default function TrainingModule() {
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="modules">Learning Modules</TabsTrigger>
               <TabsTrigger value="achievements">Achievements</TabsTrigger>
+              <TabsTrigger value="create">Create Module</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
@@ -111,8 +135,8 @@ export default function TrainingModule() {
                       <span>Experience</span>
                       <span>{trainingData?.currentExp ?? 0} / {trainingData?.nextLevelExp ?? 100} XP</span>
                     </div>
-                    <Progress 
-                      value={((trainingData?.currentExp ?? 0) / (trainingData?.nextLevelExp ?? 100)) * 100} 
+                    <Progress
+                      value={((trainingData?.currentExp ?? 0) / (trainingData?.nextLevelExp ?? 100)) * 100}
                     />
                   </div>
                 </div>
@@ -187,6 +211,10 @@ export default function TrainingModule() {
                 ))}
               </div>
             </TabsContent>
+            <TabsContent value="create">
+              <ModuleCreator />
+            </TabsContent>
+
           </Tabs>
         </CardContent>
       </Card>
