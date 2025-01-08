@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, HeadingLevel, TextRun, convertInchesToTwip, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, convertInchesToTwip, AlignmentType } from 'docx';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getChatCompletion } from './azure-openai';
@@ -77,7 +77,7 @@ export async function generateReport(topic: string): Promise<string> {
           // Process each section
           ...sections.map(section => {
             const [title, ...contentLines] = section.split('\n');
-            const content = contentLines.join('\n');
+            const content = contentLines.join('\n').trim();
 
             const paragraphs = [];
 
@@ -97,7 +97,8 @@ export async function generateReport(topic: string): Promise<string> {
             );
 
             // Process content by lines to handle bullet points and paragraphs
-            let currentParagraphLines = [];
+            let currentParagraphLines: string[] = [];
+
             content.split('\n').forEach(line => {
               const trimmedLine = line.trim();
               if (trimmedLine.startsWith('-')) {

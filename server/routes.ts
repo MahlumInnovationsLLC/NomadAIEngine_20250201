@@ -9,7 +9,6 @@ import { generateReport } from "./services/document-generator";
 import { join } from "path";
 import express from "express";
 
-
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   const wsServer = setupWebSocketServer(httpServer);
@@ -21,18 +20,6 @@ export function registerRoutes(app: Express): Server {
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
-
-  // Generate report endpoint
-  app.post("/api/generate-report", async (req, res) => {
-    try {
-      const { topic } = req.body;
-      const filename = await generateReport(topic);
-      res.json({ downloadUrl: `/uploads/${filename}` });
-    } catch (error) {
-      console.error("Error generating report:", error);
-      res.status(500).json({ error: "Failed to generate report" });
-    }
-  });
 
   // Chat message endpoint
   app.post("/api/messages", async (req, res) => {
@@ -67,7 +54,7 @@ export function registerRoutes(app: Express): Server {
       const response = await getChatCompletion([
         { 
           role: "system", 
-          content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance. Format your responses using Markdown:\n\n- Use # for main headings\n- Use ** for bold text\n- Use - for bullet points\n- Use 1. for numbered lists\n\nWhen users ask for a report or analysis, respond with: 'I can help you create a detailed report on [topic]. Would you like me to generate a downloadable Word document for you? Just let me know by saying \"Yes, generate the report\" and I'll create a comprehensive document that you can download.'"
+          content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance. Format your responses using Markdown:\n\n- Use # for main headings\n- Use ** for bold text\n- Use - for bullet points\n- Use 1. for numbered lists\n\nWhen users ask for a report or analysis, respond with: 'I can help you create a detailed report on [topic]. Would you like me to generate a downloadable Word document for you? Just let me know by saying \"Yes, generate the report\" and I'll create a comprehensive document that you can download.'\n\nFor reports, provide extensive detail including market analysis, trends, statistics, and in-depth explanations. Structure the content with clear sections and subsections."
         },
         { role: "user", content }
       ]);
@@ -82,6 +69,18 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error processing message:", error);
       res.status(500).json({ error: "Failed to process message" });
+    }
+  });
+
+  // Generate report endpoint
+  app.post("/api/generate-report", async (req, res) => {
+    try {
+      const { topic } = req.body;
+      const filename = await generateReport(topic);
+      res.json({ downloadUrl: `/uploads/${filename}` });
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ error: "Failed to generate report" });
     }
   });
 
