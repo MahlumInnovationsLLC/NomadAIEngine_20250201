@@ -23,8 +23,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  // Fetch existing messages for the current chat
-  const { data: chatData } = useQuery({
+  // Fetch existing chat data
+  const { data: chat } = useQuery({
     queryKey: ['/api/chats', chatId],
     enabled: !!chatId,
   });
@@ -55,20 +55,20 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       // Create a new chat if we don't have one
       if (!targetChatId) {
         const newChat = await createChat.mutateAsync(content);
-        targetChatId = String(newChat.id);
+        targetChatId = newChat.id;
         navigate(`/chat/${targetChatId}`);
-        return newChat.messages;
+        return newChat;
       }
 
       // Add optimistic user message
-      const optimisticUserMessage = {
+      const optimisticMessage = {
         id: Date.now(),
         chatId: parseInt(targetChatId),
-        role: 'user' as const,
+        role: 'user',
         content,
         createdAt: new Date(),
       };
-      setLocalMessages(prev => [...prev, optimisticUserMessage]);
+      setLocalMessages(prev => [...prev, optimisticMessage]);
 
       // Send message to server
       const response = await fetch('/api/messages', {
@@ -84,8 +84,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       return response.json();
     },
-    onSuccess: (messages) => {
-      // Remove optimistic messages and add real messages
+    onSuccess: () => {
+      // Clear local messages and input
       setLocalMessages([]);
       setInput("");
 
@@ -121,13 +121,13 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [chatData?.messages, localMessages]);
+  }, [chat?.messages, localMessages]);
 
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
   };
 
-  const messages = chatData?.messages ?? [];
+  const messages = chat?.messages ?? [];
   const allMessages = [...messages, ...localMessages];
 
   return (

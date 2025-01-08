@@ -66,9 +66,11 @@ export function registerRoutes(app: Express): Server {
       const userId = "user123"; // Mock user ID until auth is implemented
 
       const chatData = {
-        title: "New Chat",
+        id: Date.now().toString(), // Generate a unique ID
+        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""), // Generate title from content
         userKey: userId, // Using userKey as partition key
         messages: [{
+          id: Date.now(),
           role: 'user',
           content,
           createdAt: new Date().toISOString()
@@ -81,6 +83,7 @@ export function registerRoutes(app: Express): Server {
 
       // Add AI response
       const aiMessage = {
+        id: Date.now() + 1,
         role: 'assistant',
         content: `I'm here to help! Here's my response to: ${content}`,
         createdAt: new Date().toISOString()
@@ -126,6 +129,7 @@ export function registerRoutes(app: Express): Server {
 
       // Add user message
       const userMessage = {
+        id: Date.now(),
         role: 'user',
         content,
         createdAt: new Date().toISOString()
@@ -133,13 +137,14 @@ export function registerRoutes(app: Express): Server {
 
       // Add AI response
       const aiMessage = {
+        id: Date.now() + 1,
         role: 'assistant',
         content: `Here's my response to: ${content}`,
         createdAt: new Date().toISOString()
       };
 
       // Update chat with both messages
-      const updatedChat = await updateChat(userId, chatId, {
+      await updateChat(userId, chatId, {
         messages: [...chat.messages, userMessage, aiMessage],
         lastMessageAt: new Date().toISOString()
       });
