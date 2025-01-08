@@ -73,9 +73,14 @@ export async function createChat(chatData: any) {
     };
 
     console.log("Attempting to create chat with metadata:", chatWithMetadata); // Debug log
-    const { resource: createdChat } = await cont.items.create(chatWithMetadata);
-    console.log("Successfully created chat:", createdChat); // Debug log
-    return createdChat;
+    const { resource } = await cont.items.create(chatWithMetadata);
+
+    if (!resource) {
+      throw new Error("Failed to create chat resource");
+    }
+
+    console.log("Successfully created chat:", resource); // Debug log
+    return resource;
   } catch (error: any) {
     console.error("Error in createChat:", error); // Debug log
     if (error.code === 409) {
