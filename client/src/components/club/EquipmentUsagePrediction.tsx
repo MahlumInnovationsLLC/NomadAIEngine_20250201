@@ -20,7 +20,7 @@ interface EquipmentUsagePredictionProps {
 
 export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsagePredictionProps) {
   const { data: prediction, isLoading, isError, error } = useQuery<PredictionResponse>({
-    queryKey: ['/api/equipment', equipmentId, 'predictions'],
+    queryKey: [`/api/equipment/${equipmentId}/predictions`],
     retry: 2
   });
 
@@ -37,7 +37,7 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
     );
   }
 
-  if (isError) {
+  if (isError || !prediction) {
     return (
       <Card>
         <CardHeader>
@@ -55,24 +55,16 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
     );
   }
 
-  // Generate hourly data points for the chart
-  const chartData = prediction.peakTimes.map(time => {
-    const hour = parseInt(time.split(':')[0]);
-    return {
-      hour: `${hour}:00`,
-      usage: hour === parseInt(prediction.peakTimes[0]) || 
-             hour === parseInt(prediction.peakTimes[1]) 
-               ? prediction.usageHours 
-               : Math.floor(prediction.usageHours * 0.6)
-    };
-  });
-
-  // Add more data points for a smoother chart
+  // Now that we know prediction exists, we can safely use it
   const fullChartData = Array.from({ length: 24 }, (_, i) => {
-    const existingData = chartData.find(d => parseInt(d.hour) === i);
-    return existingData || {
-      hour: `${i}:00`,
-      usage: Math.floor(prediction.usageHours * 0.3)
+    const hour = `${i}:00`;
+    const isPeakHour = prediction.peakTimes.some(time => 
+      parseInt(time.split(':')[0]) === i
+    );
+
+    return {
+      hour,
+      usage: isPeakHour ? prediction.usageHours : Math.floor(prediction.usageHours * 0.3)
     };
   });
 
