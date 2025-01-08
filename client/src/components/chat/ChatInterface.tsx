@@ -18,7 +18,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -41,31 +41,21 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         throw new Error('Failed to create chat');
       }
 
-      const chat = await response.json();
-      navigate(`/chat/${chat.id}`);
-      return chat;
+      const data = await response.json();
+      return data;
     },
   });
 
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       let targetChatId = chatId;
-      if (!targetChatId) {
-        // Create a new chat if we don't have one
-        const chat = await createChat.mutateAsync(content);
-        targetChatId = chat.id.toString();
-      }
 
-      // Save user message
-      const userMessage: Message = {
-        id: Date.now(),
-        role: 'user',
-        content,
-        createdAt: new Date(),
-        chatId: parseInt(targetChatId),
-      };
-      setLocalMessages(prev => [...prev, userMessage]);
-      setInput(""); // Clear input immediately after sending
+      // Create a new chat if we don't have one
+      if (!targetChatId) {
+        const newChat = await createChat.mutateAsync(content);
+        targetChatId = String(newChat.id);
+        navigate(`/chat/${targetChatId}`);
+      }
 
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -82,9 +72,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     onSuccess: (data) => {
       setLocalMessages(prev => [...prev, data]);
       queryClient.invalidateQueries({ queryKey: ['/api/messages', chatId] });
-      if (!chatId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      setInput(""); // Clear input after successful send
     },
     onError: (error) => {
       console.error('Failed to send message:', error);
@@ -96,16 +85,21 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
-      sendMessage.mutate(input);
+      try {
+        await sendMessage.mutateAsync(input);
+      } catch (error) {
+        // Error is handled in the mutation's onError callback
+      }
     }
   };
 
+  // Scroll to bottom when messages change
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, localMessages]);
 
@@ -116,7 +110,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const allMessages = [...messages, ...localMessages];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] relative">
+    <div className="flex flex-col h-[calc(100vh-12rem)]">
       {allMessages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -125,11 +119,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           </div>
         </div>
       ) : (
-        <ScrollArea 
-          ref={scrollAreaRef} 
-          className="flex-1 px-4 py-4"
-        >
-          <div className="space-y-4">
+        <ScrollArea className="flex-1 px-4">
+          <div className="space-y-4 py-4">
             {allMessages.map((message) => (
               <ChatMessage
                 key={message.id}
@@ -137,11 +128,12 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
                 content={message.content}
               />
             ))}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       )}
 
-      <div className="border-t bg-background p-4">
+      <div className="border-t p-4 bg-background">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Button
             type="button"

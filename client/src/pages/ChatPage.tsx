@@ -86,7 +86,7 @@ export default function ChatPage() {
               className="flex items-center group hover:bg-accent rounded-lg p-2 cursor-pointer"
               onClick={() => navigate(`/chat/${chat.id}`)}
             >
-              {editingTitle === chat.id.toString() ? (
+              {editingTitle === String(chat.id) ? (
                 <form 
                   className="flex-1 flex gap-2"
                   onSubmit={(e) => {
@@ -115,7 +115,7 @@ export default function ChatPage() {
                     className="opacity-0 group-hover:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditingTitle(chat.id.toString());
+                      setEditingTitle(String(chat.id));
                     }}
                   >
                     <Pencil className="h-4 w-4" />
@@ -131,7 +131,7 @@ export default function ChatPage() {
       <div className="flex-1 flex flex-col">
         {currentChat && (
           <div className="border-b p-4 flex items-center gap-2">
-            {editingTitle === currentChat.id.toString() ? (
+            {editingTitle === String(currentChat.id) ? (
               <form 
                 className="flex-1 flex gap-2"
                 onSubmit={(e) => {
@@ -157,7 +157,7 @@ export default function ChatPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setEditingTitle(currentChat.id.toString())}
+                  onClick={() => setEditingTitle(String(currentChat.id))}
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
