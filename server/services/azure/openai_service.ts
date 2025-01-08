@@ -5,7 +5,6 @@ import OpenAI from "openai";
 let client: OpenAIClient | null = null;
 const deploymentName = "gpt-35-turbo"; // Update this with your actual deployment name
 
-// Initialize OpenAI API client for more advanced features
 export const openai = new OpenAI({
   apiKey: process.env.AZURE_OPENAI_API_KEY,
   baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4/`,
@@ -16,7 +15,7 @@ export const openai = new OpenAI({
 export function initializeOpenAI() {
   try {
     if (!process.env.AZURE_OPENAI_ENDPOINT || !process.env.AZURE_OPENAI_API_KEY) {
-      console.warn("Azure OpenAI credentials not configured. AI features will be disabled.");
+      console.warn("Azure OpenAI credentials not configured properly. Environment variables AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY are required.");
       return;
     }
 
@@ -24,11 +23,16 @@ export function initializeOpenAI() {
     const apiKey = process.env.AZURE_OPENAI_API_KEY.trim();
 
     if (!endpoint || !apiKey) {
-      console.warn("Azure OpenAI endpoint or API key is empty. AI features will be disabled.");
+      console.warn("Azure OpenAI endpoint or API key is empty after trimming.");
       return;
     }
 
-    console.log("Attempting to connect to Azure OpenAI...");
+    if (!endpoint.startsWith('https://')) {
+      console.warn("Azure OpenAI endpoint must start with https://");
+      return;
+    }
+
+    console.log("Initializing Azure OpenAI client...");
     client = new OpenAIClient(
       endpoint,
       new AzureKeyCredential(apiKey)
@@ -52,7 +56,25 @@ export async function checkOpenAIConnection() {
     if (!client) {
       return {
         status: "error",
-        message: "OpenAI client not initialized"
+        message: "OpenAI client not initialized. Check your Azure OpenAI credentials."
+      };
+    }
+
+    // List available deployments first
+    const deployments = await client.listDeployments();
+    let deploymentFound = false;
+
+    for await (const deployment of deployments) {
+      if (deployment.name === deploymentName) {
+        deploymentFound = true;
+        break;
+      }
+    }
+
+    if (!deploymentFound) {
+      return {
+        status: "error",
+        message: `Deployment '${deploymentName}' not found. Available deployments may take a few minutes to be ready.`
       };
     }
 
@@ -65,16 +87,33 @@ export async function checkOpenAIConnection() {
     if (result.choices && result.choices.length > 0) {
       return {
         status: "connected",
-        message: "Service is operational"
+        message: `Connected to Azure OpenAI - ${deploymentName}`
       };
     } else {
-      throw new Error("Invalid response from OpenAI");
+      throw new Error("Invalid response from OpenAI API");
     }
   } catch (error) {
     console.error("Error checking OpenAI connection:", error);
+    let errorMessage = "Failed to connect to OpenAI";
+
+    if (error instanceof Error) {
+      // Extract meaningful error messages for common cases
+      if (error.message.includes("401")) {
+        errorMessage = "Authentication failed. Check your API key.";
+      } else if (error.message.includes("403")) {
+        errorMessage = "Access denied. Verify your Azure OpenAI permissions.";
+      } else if (error.message.includes("404")) {
+        errorMessage = "API endpoint not found. Verify your Azure OpenAI endpoint URL.";
+      } else if (error.message.includes("429")) {
+        errorMessage = "Rate limit exceeded. Try again later.";
+      } else {
+        errorMessage = `Connection error: ${error.message}`;
+      }
+    }
+
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "Failed to connect to OpenAI"
+      message: errorMessage
     };
   }
 }

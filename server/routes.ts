@@ -183,7 +183,7 @@ export async function registerRoutes(app: Express): Server {
     }
   });
 
-  // Existing Azure Services Status endpoint
+  // Azure Services Status endpoint
   app.get("/api/azure/status", async (_req, res) => {
     try {
       // Check OpenAI connection
@@ -198,15 +198,22 @@ export async function registerRoutes(app: Express): Server {
       if (process.env.AZURE_BLOB_CONNECTION_STRING) {
         try {
           const containerClient = await initializeBlobStorage();
-          await containerClient.getProperties();
-          blobStatus = {
-            status: "connected",
-            message: "Connected to Azure Blob Storage"
-          };
+          if (containerClient) {
+            await containerClient.getProperties();
+            blobStatus = {
+              status: "connected",
+              message: "Connected to Azure Blob Storage"
+            };
+          } else {
+            blobStatus = {
+              status: "error",
+              message: "Failed to initialize Blob Storage"
+            };
+          }
         } catch (error) {
           blobStatus = {
             status: "error",
-            message: "Failed to connect to Blob Storage"
+            message: "Failed to connect to Blob Storage: " + (error instanceof Error ? error.message : "Unknown error")
           };
         }
       }
@@ -217,39 +224,42 @@ export async function registerRoutes(app: Express): Server {
         message: "Missing connection string"
       };
 
-      try {
-        await db.query.documents.findFirst();
-        dbStatus = {
-          status: "connected",
-          message: "Connected to Database"
-        };
-      } catch (error) {
-        dbStatus = {
-          status: "error",
-          message: "Failed to connect to Database"
-        };
+      if (process.env.DATABASE_URL) {
+        try {
+          await db.query.documents.findFirst();
+          dbStatus = {
+            status: "connected",
+            message: "Connected to Database"
+          };
+        } catch (error) {
+          dbStatus = {
+            status: "error",
+            message: "Failed to connect to Database: " + (error instanceof Error ? error.message : "Unknown error")
+          };
+        }
       }
 
-      const services = [
+      res.json([
         {
           name: "OpenAI",
-          ...openAIStatus
+          status: openAIStatus.status,
+          message: openAIStatus.message
         },
         {
           name: "Blob Storage",
-          ...blobStatus
+          status: blobStatus.status,
+          message: blobStatus.message
         },
         {
           name: "Database",
-          ...dbStatus
+          status: dbStatus.status,
+          message: dbStatus.message
         }
-      ];
-
-      res.json(services);
+      ]);
     } catch (error) {
-      console.error("Error fetching Azure services status:", error);
+      console.error("Error checking Azure services status:", error);
       res.status(500).json({
-        error: "Failed to fetch Azure services status",
+        error: "Failed to check Azure services status",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }
