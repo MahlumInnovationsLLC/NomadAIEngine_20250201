@@ -72,13 +72,10 @@ export function registerRoutes(app: Express): Server {
       }
 
       const userId = "user123"; // Mock user ID until auth is implemented
-      const chatId = uuidv4();
       const messageId = uuidv4();
 
-      console.log("Generated IDs:", { chatId, messageId });
-
+      console.log("Generating new chat");
       const chatData = {
-        id: chatId,
         userKey: userId,
         title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
         messages: [{
@@ -90,9 +87,8 @@ export function registerRoutes(app: Express): Server {
         lastMessageAt: new Date().toISOString()
       };
 
-      console.log("Attempting to create chat with data:", chatData);
+      console.log("Creating chat with data:", chatData);
       const chat = await createChat(chatData);
-      console.log("Chat created successfully:", chat);
 
       if (!chat || !Array.isArray(chat.messages)) {
         console.error("Invalid chat data received:", chat);
@@ -163,12 +159,12 @@ export function registerRoutes(app: Express): Server {
       };
 
       console.log("Updating chat with new messages:", { userMessage, aiMessage });
-      const updatedChat = await updateChat(userId, chatId, {
+      await updateChat(userId, chatId, {
         messages: [...chat.messages, userMessage, aiMessage],
         lastMessageAt: new Date().toISOString()
       });
 
-      console.log("Chat successfully updated:", updatedChat);
+      console.log("Messages created successfully");
       res.json([userMessage, aiMessage]);
     } catch (error: any) {
       console.error("Error processing message:", error);

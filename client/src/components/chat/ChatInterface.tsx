@@ -30,13 +30,14 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const [isFirstMessage, setIsFirstMessage] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
   // Fetch existing chat data
-  const { data: chat, error: chatError } = useQuery<Chat>({
+  const { data: chat } = useQuery<Chat>({
     queryKey: ['/api/chats', chatId],
     enabled: !!chatId,
   });
@@ -54,21 +55,23 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Failed to create chat:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
         throw new Error(`Failed to create chat: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log("Chat created successfully:", data);
       return data;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['/api/chats', data.id], data);
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
+      setIsFirstMessage(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -80,7 +83,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       // Create a new chat if we don't have one
       if (!targetChatId) {
-        console.log("No chatId provided, creating new chat");
         const newChat = await createChat.mutateAsync(content);
         targetChatId = newChat.id;
         navigate(`/chat/${targetChatId}`);
@@ -100,36 +102,24 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Failed to send message:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
         throw new Error(`Failed to send message: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log("Message sent successfully:", data);
       return data;
     },
     onSuccess: (newMessages) => {
-      // Update local messages immediately
       setLocalMessages(prev => [...prev, ...newMessages]);
-
-      // Clear input and refresh data
       setInput("");
-
-      // Invalidate queries to refresh data
       if (chatId) {
         queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
       }
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
     },
     onError: (error: Error) => {
-      console.error('Failed to send message:', error);
       toast({
         title: "Error",
-        description: `Failed to send message: ${error.message}`,
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -139,7 +129,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     e.preventDefault();
     if (input.trim()) {
       try {
-        // Add user message to local state immediately
         const userMessage: Message = {
           id: Date.now(),
           role: 'user',
@@ -147,7 +136,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           createdAt: new Date().toISOString(),
         };
         setLocalMessages(prev => [...prev, userMessage]);
-
         await sendMessage.mutateAsync(input);
       } catch (error) {
         console.error("Error in handleSubmit:", error);
@@ -162,27 +150,24 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     }
   }, [chat?.messages, localMessages]);
 
+  // Update local messages when chat data changes
+  useEffect(() => {
+    if (chat?.messages && chat.messages.length > 0) {
+      setLocalMessages(chat.messages);
+      setIsFirstMessage(false);
+    }
+  }, [chat?.messages]);
+
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
   };
 
-  if (chatError) {
-    console.error("Error loading chat:", chatError);
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center text-red-500">
-          Error loading chat: {chatError.message}
-        </div>
-      </div>
-    );
-  }
-
-  // Use local messages for immediate feedback, fall back to chat messages from server
-  const messages = localMessages.length > 0 ? localMessages : (chat?.messages || []);
+  // Show welcome screen only on first message
+  const showWelcome = isFirstMessage && localMessages.length === 0;
 
   return (
     <div className="flex flex-col h-[calc(100vh-14rem)]">
-      {messages.length === 0 ? (
+      {showWelcome ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">GYM AI Engine</h1>
@@ -192,7 +177,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       ) : (
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-4 py-4">
-            {messages.map((message) => (
+            {localMessages.map((message) => (
               <ChatMessage
                 key={message.id}
                 role={message.role}
