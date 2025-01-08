@@ -89,9 +89,7 @@ const EquipmentIcon = ({
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-2">
         <div className="p-2 rounded-md bg-muted relative">
-          <i 
-            className={`fa-kit fa-${equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'} text-2xl`}
-          />
+          <i className={`fa-kit fa-${equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'} text-2xl`} />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}

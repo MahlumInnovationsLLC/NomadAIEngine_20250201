@@ -35,26 +35,19 @@ export default function FloorPlanEditor({
   onSave,
   onEquipmentMove
 }: FloorPlanEditorProps) {
-  const [gridSize, setGridSize] = useState(floorPlan?.gridSize || 20);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>(
     floorPlan?.dimensions as { width: number; height: number } || { width: 800, height: 600 }
   );
   const [zones, setZones] = useState<Zone[]>(floorPlan?.zones || []);
   const [isSaving, setIsSaving] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
-  const dragControls = useDragControls();
   const { toast } = useToast();
 
   const handleDragEnd = async (equipmentId: number, info: any) => {
-    const { point } = info;
     if (editorRef.current) {
       const rect = editorRef.current.getBoundingClientRect();
-      const x = point.x - rect.left;
-      const y = point.y - rect.top;
-
-      // Snap to grid
-      const snappedX = Math.round(x / gridSize) * gridSize;
-      const snappedY = Math.round(y / gridSize) * gridSize;
+      const x = Math.max(0, Math.min(dimensions.width - 40, info.point.x - rect.left));
+      const y = Math.max(0, Math.min(dimensions.height - 40, info.point.y - rect.top));
 
       try {
         const response = await fetch(`/api/equipment/${equipmentId}`, {
@@ -63,7 +56,7 @@ export default function FloorPlanEditor({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            position: { x: snappedX, y: snappedY }
+            position: { x, y }
           }),
         });
 
@@ -71,7 +64,7 @@ export default function FloorPlanEditor({
           throw new Error('Failed to update equipment position');
         }
 
-        onEquipmentMove(equipmentId, { x: snappedX, y: snappedY });
+        onEquipmentMove(equipmentId, { x, y });
       } catch (error) {
         console.error('Failed to save equipment position:', error);
         toast({
@@ -104,8 +97,8 @@ export default function FloorPlanEditor({
         body: JSON.stringify({
           name: floorPlan?.name || 'Default Layout',
           description: floorPlan?.description || null,
-          gridSize,
           dimensions,
+          gridSize: 20, // Keep a default value for schema compatibility
           zones,
           metadata: floorPlan?.metadata || {},
           isActive: true
@@ -124,7 +117,6 @@ export default function FloorPlanEditor({
           description: "Floor plan saved successfully",
         });
         onSave({
-          gridSize,
           dimensions,
           zones,
           metadata: floorPlan?.metadata || {}
@@ -145,23 +137,6 @@ export default function FloorPlanEditor({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 flex-wrap bg-background p-4 rounded-lg border">
-        <div className="flex items-center gap-2">
-          <GridIcon className="h-4 w-4" />
-          <Select
-            value={gridSize.toString()}
-            onValueChange={(value) => setGridSize(parseInt(value))}
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue placeholder="Grid size" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10px</SelectItem>
-              <SelectItem value="20">20px</SelectItem>
-              <SelectItem value="40">40px</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Dimensions:</span>
           <Input
@@ -201,26 +176,6 @@ export default function FloorPlanEditor({
               width: dimensions.width
             }}
           >
-            {/* Grid background */}
-            <svg width="100%" height="100%" className="absolute pointer-events-none">
-              <defs>
-                <pattern
-                  id="grid"
-                  width={gridSize}
-                  height={gridSize}
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path
-                    d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeOpacity={0.1}
-                  />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-            </svg>
-
             {/* Zones */}
             {zones.map((zone) => (
               <div
@@ -247,9 +202,7 @@ export default function FloorPlanEditor({
                 <motion.div
                   key={item.id}
                   drag
-                  dragControls={dragControls}
                   dragMomentum={false}
-                  dragElastic={0}
                   onDragEnd={(_, info) => handleDragEnd(item.id, info)}
                   initial={false}
                   animate={{ x: position.x, y: position.y }}
@@ -258,11 +211,7 @@ export default function FloorPlanEditor({
                 >
                   <div className="relative w-10 h-10 bg-background rounded-lg border flex items-center justify-center">
                     <div className={`absolute -top-1 -right-1 w-2 h-2 ${statusColor} rounded-full border border-background`} />
-                    <FontAwesomeIcon
-                      iconName={item.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'}
-                      type="kit"
-                      size="lg"
-                    />
+                    <i className={`fa-kit fa-${item.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'} text-lg`} />
                   </div>
                 </motion.div>
               );
