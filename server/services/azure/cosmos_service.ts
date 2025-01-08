@@ -11,7 +11,6 @@ export async function initializeCosmosDB() {
       throw new Error("Azure Cosmos DB connection string not configured");
     }
 
-    // Trim the connection string to remove any whitespace
     const connectionString = process.env.AZURE_COSMOS_CONNECTION_STRING.trim();
 
     if (!connectionString) {
@@ -58,19 +57,21 @@ export async function createChat(chatData: any) {
     console.log("Creating chat with data:", chatData);
 
     // Validate required fields
-    if (!chatData.id || !chatData.userKey || !chatData.messages) {
-      throw new Error("Missing required fields in chat data");
+    if (!chatData.id) {
+      throw new Error("Chat ID is required");
     }
-
-    // Generate a unique ID for the chat if not provided
-    const chatId = chatData.id || uuidv4();
+    if (!chatData.userKey) {
+      throw new Error("User key is required");
+    }
+    if (!Array.isArray(chatData.messages)) {
+      throw new Error("Messages must be an array");
+    }
 
     // Add metadata fields and ensure proper structure
     const chatWithMetadata = {
       ...chatData,
-      id: chatId,
       title: chatData.title || "",
-      messages: Array.isArray(chatData.messages) ? chatData.messages : [],
+      messages: chatData.messages,
       lastMessageAt: chatData.lastMessageAt || new Date().toISOString(),
       _ts: Math.floor(Date.now() / 1000),
       type: 'chat'
@@ -78,7 +79,6 @@ export async function createChat(chatData: any) {
 
     console.log("Attempting to create chat with metadata:", chatWithMetadata);
 
-    // Try to create the chat, handle conflicts by generating a new ID
     try {
       const { resource } = await cont.items.create(chatWithMetadata);
       if (!resource) {

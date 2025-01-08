@@ -72,10 +72,12 @@ export function registerRoutes(app: Express): Server {
       }
 
       const userId = "user123"; // Mock user ID until auth is implemented
+      const chatId = uuidv4();
       const messageId = uuidv4();
 
       console.log("Generating new chat");
       const chatData = {
+        id: chatId,
         userKey: userId,
         title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
         messages: [{
