@@ -6,20 +6,53 @@ import { relations } from "drizzle-orm";
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  content: text("content").notNull(),
-  version: serial("version").notNull(),
-  chatId: integer("chat_id").references(() => chats.id),
+  description: text("description"),
+  blobStorageUrl: text("blob_storage_url").notNull(),
+  blobStorageContainer: text("blob_storage_container").notNull(),
+  blobStoragePath: text("blob_storage_path").notNull(),
+  version: text("version").notNull(),
+  status: text("status", { enum: ['draft', 'in_review', 'approved', 'released', 'archived'] }).notNull(),
+  documentType: text("document_type").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileSize: integer("file_size"),
+  checksum: text("checksum"),
+  createdBy: text("created_by").notNull(),
+  updatedBy: text("updated_by").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  searchableText: text("searchable_text"),
   metadata: jsonb("metadata"),
+  searchableText: text("searchable_text"),
+  tags: text("tags").array(),
+});
+
+export const documentVersions = pgTable("document_versions", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").references(() => documents.id),
+  version: text("version").notNull(),
+  blobStorageUrl: text("blob_storage_url").notNull(),
+  blobStoragePath: text("blob_storage_path").notNull(),
+  changelog: text("changelog"),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  metadata: jsonb("metadata"),
+});
+
+export const documentApprovals = pgTable("document_approvals", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").references(() => documents.id),
+  version: text("version").notNull(),
+  approverUserId: text("approver_user_id").notNull(),
+  status: text("status", { enum: ['pending', 'approved', 'rejected'] }).notNull(),
+  comments: text("comments"),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const documentCollaborators = pgTable("document_collaborators", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").references(() => documents.id),
   userId: text("user_id").notNull(),
-  canEdit: boolean("can_edit").default(true).notNull(),
+  role: text("role", { enum: ['viewer', 'editor', 'approver', 'owner'] }).notNull(),
   addedAt: timestamp("added_at").defaultNow().notNull(),
 });
 
@@ -47,7 +80,6 @@ export const documentWorkflows = pgTable("document_workflows", {
   completedAt: timestamp("completed_at"),
 });
 
-// New tables for Club Control
 export const equipmentTypes = pgTable("equipment_types", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -96,8 +128,23 @@ export const floorPlans = pgTable("floor_plans", {
 
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
+  versions: many(documentVersions),
+  approvals: many(documentApprovals),
   collaborators: many(documentCollaborators),
-  workflows: many(documentWorkflows),
+}));
+
+export const documentVersionsRelations = relations(documentVersions, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentVersions.documentId],
+    references: [documents.id],
+  }),
+}));
+
+export const documentApprovalsRelations = relations(documentApprovals, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentApprovals.documentId],
+    references: [documents.id],
+  }),
 }));
 
 export const documentCollaboratorsRelations = relations(documentCollaborators, ({ one }) => ({
@@ -137,6 +184,12 @@ export const equipmentRelations = relations(equipment, ({ one }) => ({
 export const insertDocumentSchema = createInsertSchema(documents);
 export const selectDocumentSchema = createSelectSchema(documents);
 
+export const insertDocumentVersionSchema = createInsertSchema(documentVersions);
+export const selectDocumentVersionSchema = createSelectSchema(documentVersions);
+
+export const insertDocumentApprovalSchema = createInsertSchema(documentApprovals);
+export const selectDocumentApprovalSchema = createSelectSchema(documentApprovals);
+
 export const insertDocumentCollaboratorSchema = createInsertSchema(documentCollaborators);
 export const selectDocumentCollaboratorSchema = createSelectSchema(documentCollaborators);
 
@@ -160,6 +213,8 @@ export const selectFloorPlanSchema = createSelectSchema(floorPlans);
 
 // Types
 export type Document = typeof documents.$inferSelect;
+export type DocumentVersion = typeof documentVersions.$inferSelect;
+export type DocumentApproval = typeof documentApprovals.$inferSelect;
 export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
