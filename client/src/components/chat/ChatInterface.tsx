@@ -55,6 +55,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         role: 'user',
         content,
         createdAt: new Date().toISOString(),
+        chatId: parseInt(chatId || '0'),
       };
       setLocalMessages(prev => [...prev, userMessage]);
       setInput(""); // Clear input immediately after sending
@@ -115,7 +116,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const allMessages = [...messages, ...localMessages];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 h-[calc(100vh-10rem)]">
       {allMessages.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -125,7 +126,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         </div>
       )}
 
-      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4">
         {allMessages.map((message) => (
           <ChatMessage
             key={message.id}
@@ -135,7 +136,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         ))}
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="border-t p-4">
+      <form onSubmit={handleSubmit} className="border-t p-4 bg-background">
         <div className="flex gap-2">
           <Button
             type="button"
