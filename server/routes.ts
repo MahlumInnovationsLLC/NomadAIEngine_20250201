@@ -1,14 +1,180 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { equipment, equipmentTypes, floorPlans } from "@db/schema";
+import { equipment, equipmentTypes, floorPlans, documents, documentVersions } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { initializeOpenAI, checkOpenAIConnection } from "./services/azure/openai_service";
+import { initializeBlobStorage, uploadDocument, downloadDocument, getDocumentMetadata } from "./services/blobStorage";
+import multer from "multer";
+import { createHash } from "crypto";
 
-export function registerRoutes(app: Express): Server {
+// Configure multer for memory storage
+const upload = multer({ storage: multer.memoryStorage() });
+
+export async function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
 
-  // Azure Services Status endpoint
+  // Initialize blob storage
+  await initializeBlobStorage().catch(console.error);
+
+  // Document Management Routes
+  app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+
+      const file = req.file;
+      const metadata = {
+        mimeType: file.mimetype,
+        originalName: file.originalname,
+        ...req.body,
+      };
+
+      const uploadResult = await uploadDocument(file.buffer, file.originalname, metadata);
+
+      // Create document record in database
+      const document = await db.insert(documents).values({
+        title: req.body.title || file.originalname,
+        description: req.body.description,
+        blobStorageUrl: uploadResult.url,
+        blobStorageContainer: "documents",
+        blobStoragePath: uploadResult.path,
+        version: "1.0",
+        status: "draft",
+        documentType: req.body.documentType || "general",
+        mimeType: file.mimetype,
+        fileSize: uploadResult.size,
+        checksum: uploadResult.checksum,
+        createdBy: req.body.userId || "system",
+        updatedBy: req.body.userId || "system",
+        metadata: req.body.metadata,
+        tags: req.body.tags,
+      }).returning();
+
+      res.json(document[0]);
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  });
+
+  app.get("/api/documents", async (req, res) => {
+    try {
+      const docs = await db.query.documents.findMany({
+        orderBy: (documents, { desc }) => [desc(documents.createdAt)],
+        with: {
+          versions: true,
+          approvals: true,
+          collaborators: true,
+        },
+      });
+      res.json(docs);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  app.get("/api/documents/:id", async (req, res) => {
+    try {
+      const doc = await db.query.documents.findFirst({
+        where: eq(documents.id, parseInt(req.params.id)),
+        with: {
+          versions: true,
+          approvals: true,
+          collaborators: true,
+        },
+      });
+
+      if (!doc) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      const metadata = await getDocumentMetadata(doc.blobStoragePath);
+      res.json({ ...doc, metadata });
+    } catch (error) {
+      console.error("Error fetching document:", error);
+      res.status(500).json({ error: "Failed to fetch document" });
+    }
+  });
+
+  app.get("/api/documents/:id/download", async (req, res) => {
+    try {
+      const doc = await db.query.documents.findFirst({
+        where: eq(documents.id, parseInt(req.params.id)),
+      });
+
+      if (!doc) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      const fileBuffer = await downloadDocument(doc.blobStoragePath);
+      res.setHeader("Content-Type", doc.mimeType);
+      res.setHeader("Content-Disposition", `attachment; filename="${doc.title}"`);
+      res.send(fileBuffer);
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      res.status(500).json({ error: "Failed to download document" });
+    }
+  });
+
+  // Create new version of a document
+  app.post("/api/documents/:id/versions", upload.single("file"), async (req, res) => {
+    try {
+      const documentId = parseInt(req.params.id);
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+
+      const doc = await db.query.documents.findFirst({
+        where: eq(documents.id, documentId),
+      });
+
+      if (!doc) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      const file = req.file;
+      const metadata = {
+        mimeType: file.mimetype,
+        originalName: file.originalname,
+        ...req.body,
+      };
+
+      const uploadResult = await uploadDocument(file.buffer, file.originalname, metadata);
+
+      // Create version record
+      const version = await db.insert(documentVersions).values({
+        documentId,
+        version: req.body.version,
+        blobStorageUrl: uploadResult.url,
+        blobStoragePath: uploadResult.path,
+        changelog: req.body.changelog,
+        createdBy: req.body.userId || "system",
+        metadata: req.body.metadata,
+      }).returning();
+
+      // Update document record
+      await db.update(documents)
+        .set({
+          version: req.body.version,
+          blobStorageUrl: uploadResult.url,
+          blobStoragePath: uploadResult.path,
+          updatedBy: req.body.userId || "system",
+          updatedAt: new Date(),
+        })
+        .where(eq(documents.id, documentId));
+
+      res.json(version[0]);
+    } catch (error) {
+      console.error("Error creating document version:", error);
+      res.status(500).json({ error: "Failed to create document version" });
+    }
+  });
+
+  // Existing Azure Services Status endpoint
   app.get("/api/azure/status", async (_req, res) => {
     try {
       // Check OpenAI connection
@@ -22,12 +188,8 @@ export function registerRoutes(app: Express): Server {
 
       if (process.env.AZURE_BLOB_CONNECTION_STRING) {
         try {
-          // Attempt to list containers to verify connection
-          const { BlobServiceClient } = await import("@azure/storage-blob");
-          const blobServiceClient = BlobServiceClient.fromConnectionString(
-            process.env.AZURE_BLOB_CONNECTION_STRING
-          );
-          await blobServiceClient.getAccountInfo();
+          const containerClient = await initializeBlobStorage();
+          await containerClient.getProperties();
           blobStatus = {
             status: "connected",
             message: "Connected to Azure Blob Storage"
@@ -47,7 +209,7 @@ export function registerRoutes(app: Express): Server {
       };
 
       try {
-        await db.query.equipmentTypes.findFirst();
+        await db.query.documents.findFirst();
         dbStatus = {
           status: "connected",
           message: "Connected to Database"
