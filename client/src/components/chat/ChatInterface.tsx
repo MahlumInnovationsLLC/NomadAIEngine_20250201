@@ -49,23 +49,23 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
-      // First add the user message locally
-      const userMessage: Message = {
-        id: Date.now(),
-        role: 'user',
-        content,
-        createdAt: new Date().toISOString(),
-        chatId: parseInt(chatId || '0'),
-      };
-      setLocalMessages(prev => [...prev, userMessage]);
-      setInput(""); // Clear input immediately after sending
-
       let targetChatId = chatId;
       if (!targetChatId) {
         // Create a new chat if we don't have one
         const chat = await createChat.mutateAsync(content);
         targetChatId = chat.id.toString();
       }
+
+      // Save user message
+      const userMessage: Message = {
+        id: Date.now(),
+        role: 'user',
+        content,
+        createdAt: new Date(),
+        chatId: parseInt(targetChatId),
+      };
+      setLocalMessages(prev => [...prev, userMessage]);
+      setInput(""); // Clear input immediately after sending
 
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -107,7 +107,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [localMessages]);
+  }, [messages, localMessages]);
 
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
@@ -116,28 +116,33 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const allMessages = [...messages, ...localMessages];
 
   return (
-    <div className="flex flex-col flex-1 h-[calc(100vh-10rem)]">
-      {allMessages.length === 0 && (
+    <div className="flex flex-col h-[calc(100vh-12rem)] relative">
+      {allMessages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">GYM AI Engine</h1>
             <p className="text-muted-foreground">I'm here to help! Ask me anything.</p>
           </div>
         </div>
+      ) : (
+        <ScrollArea 
+          ref={scrollAreaRef} 
+          className="flex-1 px-4 py-4"
+        >
+          <div className="space-y-4">
+            {allMessages.map((message) => (
+              <ChatMessage
+                key={message.id}
+                role={message.role}
+                content={message.content}
+              />
+            ))}
+          </div>
+        </ScrollArea>
       )}
 
-      <ScrollArea className="flex-1 p-4">
-        {allMessages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            role={message.role}
-            content={message.content}
-          />
-        ))}
-      </ScrollArea>
-
-      <form onSubmit={handleSubmit} className="border-t p-4 bg-background">
-        <div className="flex gap-2">
+      <div className="border-t bg-background p-4">
+        <form onSubmit={handleSubmit} className="flex gap-2">
           <Button
             type="button"
             variant="outline"
@@ -160,8 +165,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           >
             <Send className="h-4 w-4" />
           </Button>
-        </div>
-      </form>
+        </form>
+      </div>
 
       {showFileUpload && (
         <FileUpload
