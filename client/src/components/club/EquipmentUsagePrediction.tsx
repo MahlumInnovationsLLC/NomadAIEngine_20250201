@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import PredictiveUsageMiniDashboard from "./PredictiveUsageMiniDashboard";
 
 interface PredictionResponse {
   usageHours: number;
@@ -69,51 +70,55 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Usage Prediction</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="h-[200px] w-full">
-            <ResponsiveContainer>
-              <LineChart data={fullChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="hour"
-                  interval={3} 
-                  tickFormatter={(value) => value.split(':')[0]}
-                />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="usage"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  name="Predicted Usage (hours)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage Prediction</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer>
+                <LineChart data={fullChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="hour"
+                    interval={3} 
+                    tickFormatter={(value) => value.split(':')[0]}
+                  />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="usage"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    name="Predicted Usage (hours)"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
 
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Peak Hours:</span>
-              <span>{prediction.peakTimes.join(' & ')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Daily Usage:</span>
-              <span>{prediction.usageHours} hours</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Maintenance:</span>
-              <span>{prediction.maintenanceRecommendation}</span>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Peak Hours:</span>
+                <span>{prediction.peakTimes.join(' & ')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Daily Usage:</span>
+                <span>{prediction.usageHours} hours</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Maintenance:</span>
+                <span>{prediction.maintenanceRecommendation}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <PredictiveUsageMiniDashboard equipmentId={equipmentId} />
+    </div>
   );
 }

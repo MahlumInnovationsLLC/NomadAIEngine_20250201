@@ -131,6 +131,50 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add this new endpoint for predictive usage
+  app.get("/api/equipment/:id/predictive-usage", async (req, res) => {
+    try {
+      const equipmentId = parseInt(req.params.id);
+      const item = await db.query.equipment.findFirst({
+        where: eq(equipment.id, equipmentId),
+        with: {
+          type: true
+        }
+      });
+
+      if (!item) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+
+      // Generate mock predictive usage data
+      // In a real application, this would come from ML models and historical data
+      const currentHour = new Date().getHours();
+      const peakHours = [9, 17]; // 9 AM and 5 PM are typical peak hours
+      const nextPeakHour = peakHours.find(h => h > currentHour) || peakHours[0];
+      const minutesToPeak = nextPeakHour > currentHour 
+        ? (nextPeakHour - currentHour) * 60 
+        : (24 - currentHour + nextPeakHour) * 60;
+
+      const predictiveData = {
+        currentCapacity: Math.floor(Math.random() * 40) + 30, // 30-70%
+        predictedPeakTime: "17:00",
+        predictedQuietTime: "14:00",
+        utilizationRate: Math.floor(Math.random() * 30) + 60, // 60-90%
+        nextPeakIn: minutesToPeak,
+        recommendations: [
+          "Schedule maintenance during predicted quiet period",
+          "Prepare for increased usage in 2 hours",
+          "Consider redistributing load to similar equipment"
+        ]
+      };
+
+      res.json(predictiveData);
+    } catch (error) {
+      console.error("Error generating predictive usage data:", error);
+      res.status(500).json({ error: "Failed to generate predictive usage data" });
+    }
+  });
+
   // Performance Report endpoint
   app.post("/api/equipment/report", async (req, res) => {
     try {
