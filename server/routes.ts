@@ -22,7 +22,10 @@ export function registerRoutes(app: Express): Server {
 
       // Get chat completion from Azure OpenAI
       const response = await getChatCompletion([
-        { role: "system", content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance." },
+        { 
+          role: "system", 
+          content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance. Format your responses using Markdown:\n\n- Use # for main headings\n- Use ** for bold text\n- Use - for bullet points\n- Use 1. for numbered lists\n- Create well-formatted, structured responses\n- When asked to generate a report, mention that you can help create a detailed Word document and guide the user to request it specifically."
+        },
         { role: "user", content }
       ]);
 

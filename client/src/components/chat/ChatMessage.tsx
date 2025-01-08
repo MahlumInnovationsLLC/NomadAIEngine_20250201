@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import FilePreview from "@/components/document/FilePreview";
+import ReactMarkdown from 'react-markdown';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -20,7 +21,7 @@ export default function ChatMessage({ role, content, files }: ChatMessageProps) 
       <Avatar className="h-8 w-8">
         <div className={cn(
           "w-full h-full flex items-center justify-center text-xs font-medium",
-          role === 'assistant' ? "bg-primary" : "bg-secondary"
+          role === 'assistant' ? "bg-primary text-primary-foreground" : "bg-secondary"
         )}>
           {role === 'assistant' ? 'AI' : 'You'}
         </div>
@@ -30,8 +31,10 @@ export default function ChatMessage({ role, content, files }: ChatMessageProps) 
         "p-3 max-w-[80%]",
         role === 'assistant' ? "bg-primary text-primary-foreground" : "bg-secondary"
       )}>
-        <div className="whitespace-pre-wrap">{content}</div>
-        
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <ReactMarkdown>{content}</ReactMarkdown>
+        </div>
+
         {files && files.length > 0 && (
           <div className="mt-2 space-y-2">
             {files.map((file, index) => (
