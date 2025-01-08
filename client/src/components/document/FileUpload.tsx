@@ -2,99 +2,157 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Upload, X, FolderTree } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { Upload, X, Check, AlertCircle } from "lucide-react";
 
 interface FileUploadProps {
-  onUpload: (files: File[]) => void;
+  onUpload: (files: File[], version: string, notes: string) => void;
   onClose: () => void;
+  currentVersion?: string;
 }
 
-interface FolderStructure {
-  id: string;
-  name: string;
-  path: string;
-  type: 'folder' | 'file';
-}
-
-export default function FileUpload({ onUpload, onClose }: FileUploadProps) {
+export default function FileUpload({ onUpload, onClose, currentVersion = "1.0" }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<string>("/");
+  const [isDragging, setIsDragging] = useState(false);
+  const [version, setVersion] = useState("");
+  const [notes, setNotes] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-  const { data: folders = [] } = useQuery<FolderStructure[]>({
-    queryKey: ['/api/documents/folders'],
-  });
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragging(false);
     const droppedFiles = Array.from(e.dataTransfer.files);
-    setFiles(prev => [...prev, ...droppedFiles]);
+    if (droppedFiles.length > 0) {
+      validateAndAddFiles(droppedFiles);
+    }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...selectedFiles]);
+      validateAndAddFiles(selectedFiles);
     }
   };
 
-  const handleSubmit = async () => {
-    try {
-      const formData = new FormData();
-      files.forEach(file => {
-        formData.append('files[]', file);
-      });
-      formData.append('folder', selectedFolder);
-
-      const response = await fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
+  const validateAndAddFiles = (newFiles: File[]) => {
+    const validFiles = newFiles.filter(file => {
+      // Add your file type validation here
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxSize) {
+        toast({
+          title: "File too large",
+          description: `${file.name} exceeds the 50MB size limit`,
+          variant: "destructive",
+        });
+        return false;
       }
+      return true;
+    });
 
-      onUpload(files);
-      setFiles([]);
-    } catch (error) {
-      console.error('Upload error:', error);
-    }
+    setFiles(prev => [...prev, ...validFiles]);
   };
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleSubmit = async () => {
+    if (files.length === 0 || !version.trim() || !notes.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please provide all required information",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      await onUpload(files, version, notes);
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      toast({
+        title: "Upload successful",
+        description: "Files have been uploaded successfully",
+      });
+
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "An error occurred during upload",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Calculate next version based on current version
+  const suggestedNextVersion = (() => {
+    const parts = currentVersion.split('.');
+    if (parts.length === 2) {
+      const [major, minor] = parts.map(Number);
+      return `${major}.${minor + 1}`;
+    }
+    return "1.0";
+  })();
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Upload Files</DialogTitle>
+          <DialogTitle>Upload New Version</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <FolderTree className="h-4 w-4" />
-            <select
-              value={selectedFolder}
-              onChange={(e) => setSelectedFolder(e.target.value)}
-              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-            >
-              <option value="/">/</option>
-              {folders.map(folder => (
-                <option key={folder.id} value={folder.path}>
-                  {folder.path}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Version</label>
+              <Input
+                placeholder={suggestedNextVersion}
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+              />
+            </div>
           </div>
 
           <div
-            onDrop={handleDrop}
+            onDragEnter={handleDragEnter}
             onDragOver={(e) => e.preventDefault()}
-            className="border-2 border-dashed rounded-lg p-6 text-center"
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`
+              border-2 border-dashed rounded-lg p-6 text-center transition-colors
+              ${isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
+              ${files.length > 0 ? 'bg-accent/50' : ''}
+            `}
           >
             <input
               type="file"
@@ -104,17 +162,20 @@ export default function FileUpload({ onUpload, onClose }: FileUploadProps) {
               className="hidden"
             />
 
-            <Button
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Choose Files
-            </Button>
-
-            <p className="text-sm text-muted-foreground mt-2">
-              or drag and drop files here
-            </p>
+            <div className="flex flex-col items-center gap-2">
+              <Upload className={`h-8 w-8 ${isDragging ? 'text-primary' : 'text-muted-foreground/50'}`} />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                Choose Files
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                or drag and drop files here
+              </p>
+            </div>
           </div>
 
           {files.length > 0 && (
@@ -122,15 +183,13 @@ export default function FileUpload({ onUpload, onClose }: FileUploadProps) {
               <h4 className="text-sm font-medium mb-2">Selected Files</h4>
               <ul className="space-y-2">
                 {files.map((file, index) => (
-                  <li key={index} className="flex items-center justify-between text-sm">
-                    <span className="truncate flex-1">
-                      <span className="text-muted-foreground">{selectedFolder}/</span>
-                      {file.name}
-                    </span>
+                  <li key={index} className="flex items-center justify-between bg-accent/50 p-2 rounded-md">
+                    <span className="text-sm truncate flex-1">{file.name}</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(index)}
+                      disabled={isUploading}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -139,15 +198,45 @@ export default function FileUpload({ onUpload, onClose }: FileUploadProps) {
               </ul>
             </div>
           )}
-        </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={files.length === 0}>
-            Upload
-          </Button>
+          <div>
+            <label className="text-sm font-medium">Version Notes</label>
+            <Textarea
+              placeholder="Describe the changes in this version..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          {isUploading && (
+            <div className="space-y-2">
+              <Progress value={uploadProgress} />
+              <p className="text-sm text-center text-muted-foreground">
+                Uploading... {uploadProgress}%
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose} disabled={isUploading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={files.length === 0 || !version || !notes || isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <span className="mr-2">Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Upload Version
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
