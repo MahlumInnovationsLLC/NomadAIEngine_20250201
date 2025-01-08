@@ -23,20 +23,27 @@ export async function initializeCosmosDB() {
 
     // Create database if it doesn't exist
     const { database: db } = await client.databases.createIfNotExists({
-      id: "documents-db"
+      id: "GYMAIEngineDB"
     });
     database = db;
 
-    // Create container if it doesn't exist
+    // Create container if it doesn't exist with the specified partition key
     const { container: cont } = await database.containers.createIfNotExists({
-      id: "documents",
-      partitionKey: "/id"
+      id: "chats",
+      partitionKey: "/userKey"
     });
     container = cont;
 
     console.log("Successfully connected to Azure Cosmos DB");
   } catch (error) {
     console.error("Error initializing Cosmos DB:", error);
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+    }
     client = null;
     database = null;
     container = null;
@@ -46,63 +53,98 @@ export async function initializeCosmosDB() {
 // Initialize on module load
 initializeCosmosDB().catch(console.error);
 
-export async function storeDocument(document: any) {
+// Chat-specific operations
+export async function createChat(chatData: any) {
   if (!container) {
     throw new Error("Cosmos DB not initialized. Please check your connection string.");
   }
 
   try {
-    const { resource: createdDocument } = await container.items.create(document);
-    return createdDocument;
+    const { resource: createdChat } = await container.items.create({
+      ...chatData,
+      type: 'chat', // Add a type identifier
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    return createdChat;
   } catch (error) {
-    console.error("Error storing document in Cosmos DB:", error);
+    console.error("Error creating chat in Cosmos DB:", error);
     throw error;
   }
 }
 
-export async function getDocument(id: string) {
+export async function getChat(userId: string, chatId: string) {
   if (!container) {
     throw new Error("Cosmos DB not initialized. Please check your connection string.");
   }
 
   try {
-    const { resource: document } = await container.item(id).read();
-    return document;
+    const { resource: chat } = await container.item(chatId, userId).read();
+    return chat;
   } catch (error) {
     if ((error as any).code === 404) {
       return null;
     }
-    console.error("Error retrieving document from Cosmos DB:", error);
+    console.error("Error retrieving chat from Cosmos DB:", error);
     throw error;
   }
 }
 
-export async function updateDocument(id: string, document: any) {
+export async function updateChat(userId: string, chatId: string, updates: any) {
   if (!container) {
     throw new Error("Cosmos DB not initialized. Please check your connection string.");
   }
 
   try {
-    const { resource: updatedDocument } = await container.item(id).replace(document);
-    return updatedDocument;
+    const { resource: existingChat } = await container.item(chatId, userId).read();
+    const updatedChat = {
+      ...existingChat,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    const { resource: result } = await container.item(chatId, userId).replace(updatedChat);
+    return result;
   } catch (error) {
-    console.error("Error updating document in Cosmos DB:", error);
+    console.error("Error updating chat in Cosmos DB:", error);
     throw error;
   }
 }
 
-export async function listDocuments(querySpec: any) {
+export async function deleteChat(userId: string, chatId: string) {
   if (!container) {
     throw new Error("Cosmos DB not initialized. Please check your connection string.");
   }
 
   try {
-    const { resources: documents } = await container.items
+    await container.item(chatId, userId).delete();
+  } catch (error) {
+    console.error("Error deleting chat from Cosmos DB:", error);
+    throw error;
+  }
+}
+
+export async function listChats(userId: string) {
+  if (!container) {
+    throw new Error("Cosmos DB not initialized. Please check your connection string.");
+  }
+
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.type = 'chat' AND c.userKey = @userId ORDER BY c.updatedAt DESC",
+      parameters: [
+        {
+          name: "@userId",
+          value: userId
+        }
+      ]
+    };
+
+    const { resources: chats } = await container.items
       .query(querySpec)
       .fetchAll();
-    return documents;
+    return chats;
   } catch (error) {
-    console.error("Error listing documents from Cosmos DB:", error);
+    console.error("Error listing chats from Cosmos DB:", error);
     throw error;
   }
 }

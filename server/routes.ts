@@ -1,11 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { db } from "@db";
-import { chats, messages } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
+import { createChat, updateChat, deleteChat, getChat, listChats } from "./services/azure/cosmos_service";
 import { setupWebSocketServer } from "./services/websocket";
-import { getChatCompletion } from "./services/azure-openai";
-import { generateReport } from "./services/document-generator";
 import { join } from "path";
 import express from "express";
 
@@ -26,18 +22,8 @@ export function registerRoutes(app: Express): Server {
     try {
       // For now, using a mock user ID until auth is implemented
       const userId = "user123";
-      const userChats = await db.query.chats.findMany({
-        where: eq(chats.userId, userId),
-        orderBy: [desc(chats.lastMessageAt)],
-        with: {
-          messages: {
-            limit: 1,
-            orderBy: [desc(messages.createdAt)],
-          },
-        },
-      });
-
-      res.json(userChats);
+      const chats = await listChats(userId);
+      res.json(chats);
     } catch (error) {
       console.error("Error fetching chats:", error);
       res.status(500).json({ error: "Failed to fetch chats" });
@@ -47,12 +33,8 @@ export function registerRoutes(app: Express): Server {
   // Delete a chat
   app.delete("/api/chats/:id", async (req, res) => {
     try {
-      await db.delete(messages)
-        .where(eq(messages.chatId, parseInt(req.params.id)));
-
-      await db.delete(chats)
-        .where(eq(chats.id, parseInt(req.params.id)));
-
+      const userId = "user123"; // Mock user ID until auth is implemented
+      await deleteChat(userId, req.params.id);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting chat:", error);
@@ -63,12 +45,8 @@ export function registerRoutes(app: Express): Server {
   // Get a specific chat
   app.get("/api/chats/:id", async (req, res) => {
     try {
-      const chat = await db.query.chats.findFirst({
-        where: eq(chats.id, parseInt(req.params.id)),
-        with: {
-          messages: true,
-        },
-      });
+      const userId = "user123"; // Mock user ID until auth is implemented
+      const chat = await getChat(userId, req.params.id);
 
       if (!chat) {
         return res.status(404).json({ error: "Chat not found" });
@@ -87,37 +65,33 @@ export function registerRoutes(app: Express): Server {
       const { content } = req.body;
       const userId = "user123"; // Mock user ID until auth is implemented
 
-      // Create new chat with initial title
-      const [chat] = await db.insert(chats)
-        .values({
-          title: "New Chat",
-          userId,
-          lastMessageAt: new Date(),
-        })
-        .returning();
-
-      // Create first message
-      const [userMessage] = await db.insert(messages)
-        .values({
-          chatId: chat.id,
+      const chatData = {
+        title: "New Chat",
+        userKey: userId, // Using userKey as partition key
+        messages: [{
           role: 'user',
           content,
-        })
-        .returning();
+          createdAt: new Date().toISOString()
+        }],
+        lastMessageAt: new Date().toISOString()
+      };
 
-      // Get AI response
-      const aiResponse = `I'm here to help! Here's my response to: ${content}`;
+      // Create chat in Cosmos DB
+      const chat = await createChat(chatData);
 
-      // Save AI response
-      const [aiMessage] = await db.insert(messages)
-        .values({
-          chatId: chat.id,
-          role: 'assistant',
-          content: aiResponse,
-        })
-        .returning();
+      // Add AI response
+      const aiMessage = {
+        role: 'assistant',
+        content: `I'm here to help! Here's my response to: ${content}`,
+        createdAt: new Date().toISOString()
+      };
 
-      res.json({ ...chat, messages: [userMessage, aiMessage] });
+      // Update chat with AI response
+      const updatedChat = await updateChat(userId, chat.id, {
+        messages: [...chat.messages, aiMessage]
+      });
+
+      res.json(updatedChat);
     } catch (error) {
       console.error("Error creating chat:", error);
       res.status(500).json({ error: "Failed to create chat" });
@@ -128,13 +102,9 @@ export function registerRoutes(app: Express): Server {
   app.patch("/api/chats/:id", async (req, res) => {
     try {
       const { title } = req.body;
-      const chatId = parseInt(req.params.id);
+      const userId = "user123"; // Mock user ID until auth is implemented
 
-      const [updatedChat] = await db.update(chats)
-        .set({ title })
-        .where(eq(chats.id, chatId))
-        .returning();
-
+      const updatedChat = await updateChat(userId, req.params.id, { title });
       res.json(updatedChat);
     } catch (error) {
       console.error("Error updating chat:", error);
@@ -146,32 +116,33 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/messages", async (req, res) => {
     try {
       const { content, chatId } = req.body;
+      const userId = "user123"; // Mock user ID until auth is implemented
 
-      // Save user message
-      const [userMessage] = await db.insert(messages)
-        .values({
-          chatId: parseInt(chatId),
-          role: 'user',
-          content,
-        })
-        .returning();
+      // Get current chat
+      const chat = await getChat(userId, chatId);
+      if (!chat) {
+        return res.status(404).json({ error: "Chat not found" });
+      }
 
-      // Update chat's last message timestamp
-      await db.update(chats)
-        .set({ lastMessageAt: new Date() })
-        .where(eq(chats.id, parseInt(chatId)));
+      // Add user message
+      const userMessage = {
+        role: 'user',
+        content,
+        createdAt: new Date().toISOString()
+      };
 
-      // Get AI response
-      const aiResponse = `Here's my response to: ${content}`;
+      // Add AI response
+      const aiMessage = {
+        role: 'assistant',
+        content: `Here's my response to: ${content}`,
+        createdAt: new Date().toISOString()
+      };
 
-      // Save AI response
-      const [aiMessage] = await db.insert(messages)
-        .values({
-          chatId: parseInt(chatId),
-          role: 'assistant',
-          content: aiResponse,
-        })
-        .returning();
+      // Update chat with both messages
+      const updatedChat = await updateChat(userId, chatId, {
+        messages: [...chat.messages, userMessage, aiMessage],
+        lastMessageAt: new Date().toISOString()
+      });
 
       res.json([userMessage, aiMessage]);
     } catch (error) {
