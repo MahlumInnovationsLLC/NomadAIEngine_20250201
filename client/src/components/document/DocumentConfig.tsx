@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X, Clock, Send, History, FileText, AlertCircle, Download, Eye } from "lucide-react";
+import { Check, X, Clock, Send, History, FileText, AlertCircle, Download, Eye, Settings, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import FileUpload from "./FileUpload";
 
 interface DocumentVersion {
   id: number;
@@ -45,6 +53,12 @@ interface Document {
   id: number;
   title: string;
   version: string;
+  workflow?: {
+    requiredApprovers: number;
+    allowedReviewers: string[];
+    autoExpireHours?: number;
+    notifyOnUpload?: boolean;
+  };
 }
 
 interface DocumentConfigProps {
@@ -53,9 +67,14 @@ interface DocumentConfigProps {
 
 export function DocumentConfig({ documentId }: DocumentConfigProps) {
   const [reviewNotes, setReviewNotes] = useState("");
-  const [newVersion, setNewVersion] = useState<File | null>(null);
-  const [changelog, setChangelog] = useState("");
   const [comment, setComment] = useState("");
+  const [workflowConfig, setWorkflowConfig] = useState({
+    requiredApprovers: 1,
+    allowedReviewers: [] as string[],
+    autoExpireHours: 48,
+    notifyOnUpload: true
+  });
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -89,28 +108,22 @@ export function DocumentConfig({ documentId }: DocumentConfigProps) {
     },
   });
 
-  const uploadVersionMutation = useMutation({
-    mutationFn: async () => {
-      if (!newVersion) return;
-      const formData = new FormData();
-      formData.append('file', newVersion);
-      formData.append('changelog', changelog);
-
-      const response = await fetch(`/api/documents/${documentId}/versions`, {
-        method: 'POST',
-        body: formData,
+  const updateWorkflowMutation = useMutation({
+    mutationFn: async (config: typeof workflowConfig) => {
+      const response = await fetch(`/api/documents/${documentId}/workflow`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
       });
-      if (!response.ok) throw new Error('Failed to upload new version');
+      if (!response.ok) throw new Error('Failed to update workflow configuration');
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}/versions`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}`] });
       toast({
-        title: "Version uploaded",
-        description: "New version has been uploaded successfully",
+        title: "Workflow updated",
+        description: "Document workflow configuration has been updated successfully",
       });
-      setNewVersion(null);
-      setChangelog("");
     },
   });
 
@@ -152,13 +165,13 @@ export function DocumentConfig({ documentId }: DocumentConfigProps) {
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
       a.download = `${document?.title || 'document'}_v${version.version}`;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      window.document.body.removeChild(a);
     } catch (error) {
       toast({
         title: "Download failed",
@@ -167,6 +180,36 @@ export function DocumentConfig({ documentId }: DocumentConfigProps) {
       });
     }
   };
+
+  const handleFileUpload = async (files: File[], version: string, notes: string) => {
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+      formData.append('version', version);
+      formData.append('notes', notes);
+
+      const response = await fetch(`/api/documents/${documentId}/versions`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to upload files');
+
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}/versions`] });
+      toast({
+        title: "Files uploaded",
+        description: "New version has been created successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload files",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
 
   if (isLoadingDocument || isLoadingVersions) {
     return (
@@ -186,8 +229,8 @@ export function DocumentConfig({ documentId }: DocumentConfigProps) {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
-            <History className="mr-2 h-5 w-5" />
-            Document Configuration & Approval
+            <Settings className="mr-2 h-5 w-5" />
+            Document Configuration & Workflow
           </div>
           {document && (
             <Badge variant="outline" className="text-xs">
@@ -197,198 +240,241 @@ export function DocumentConfig({ documentId }: DocumentConfigProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          {/* Upload New Version */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="w-full">
-                <FileText className="mr-2 h-4 w-4" />
-                Upload New Version
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Upload New Version</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <Input
-                  type="file"
-                  onChange={(e) => setNewVersion(e.target.files?.[0] || null)}
+        <Tabs defaultValue="versions">
+          <TabsList className="mb-4">
+            <TabsTrigger value="versions">Version History</TabsTrigger>
+            <TabsTrigger value="workflow">Workflow Configuration</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="versions">
+            <div className="space-y-4">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="w-full">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload New Version
+                  </Button>
+                </DialogTrigger>
+                <FileUpload
+                  onUpload={handleFileUpload}
+                  onClose={() => {}}
+                  currentVersion={document?.version}
                 />
-                <Textarea
-                  placeholder="Describe the changes in this version..."
-                  value={changelog}
-                  onChange={(e) => setChangelog(e.target.value)}
-                />
-                <Button 
-                  onClick={() => uploadVersionMutation.mutate()}
-                  disabled={!newVersion || !changelog}
-                  className="w-full"
-                >
-                  <Send className="mr-2 h-4 w-4" />
-                  Upload Version
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Version History */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Version History</h3>
-            <ScrollArea className="h-[600px] pr-4">
-              <Accordion type="single" collapsible className="space-y-4">
-                {versions.map((version) => (
-                  <AccordionItem key={version.id} value={`version-${version.id}`} className="border rounded-lg">
-                    <AccordionTrigger className="px-4 py-2 hover:no-underline">
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center">
-                          <span className="font-medium">Version {version.version}</span>
-                          <span className="text-sm text-muted-foreground ml-4">
-                            {new Date(version.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {getStatusBadge(version.status)}
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-4 pb-4">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-muted-foreground">
-                            Created by {version.createdBy}
-                          </p>
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => downloadVersion(version)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(version.blobStorageUrl, '_blank')}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Preview
-                            </Button>
+              </Dialog>
+              <ScrollArea className="h-[600px] pr-4">
+                <Accordion type="single" collapsible className="space-y-4">
+                  {versions.map((version) => (
+                    <AccordionItem key={version.id} value={`version-${version.id}`} className="border rounded-lg">
+                      <AccordionTrigger className="px-4 py-2 hover:no-underline">
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center">
+                            <span className="font-medium">Version {version.version}</span>
+                            <span className="text-sm text-muted-foreground ml-4">
+                              {new Date(version.createdAt).toLocaleDateString()}
+                            </span>
                           </div>
+                          {getStatusBadge(version.status)}
                         </div>
-
-                        {version.changelog && (
-                          <div>
-                            <h4 className="text-sm font-medium mb-1">Changelog</h4>
-                            <p className="text-sm text-muted-foreground">{version.changelog}</p>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 pb-4">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-muted-foreground">
+                              Created by {version.createdBy}
+                            </p>
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => downloadVersion(version)}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(version.blobStorageUrl, '_blank')}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                              </Button>
+                            </div>
                           </div>
-                        )}
 
-                        {version.status === 'pending' && (
-                          <div className="space-y-4">
-                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                              <div className="flex">
-                                <AlertCircle className="h-5 w-5 text-yellow-400" />
-                                <div className="ml-3">
-                                  <p className="text-sm text-yellow-700">
-                                    This version is pending review. Add your review notes and approve or reject the changes.
-                                  </p>
+                          {version.changelog && (
+                            <div>
+                              <h4 className="text-sm font-medium mb-1">Changelog</h4>
+                              <p className="text-sm text-muted-foreground">{version.changelog}</p>
+                            </div>
+                          )}
+
+                          {version.status === 'pending' && (
+                            <div className="space-y-4">
+                              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                                <div className="flex">
+                                  <AlertCircle className="h-5 w-5 text-yellow-400" />
+                                  <div className="ml-3">
+                                    <p className="text-sm text-yellow-700">
+                                      This version is pending review. Add your review notes and approve or reject the changes.
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <Textarea
-                              placeholder="Enter review notes..."
-                              value={reviewNotes}
-                              onChange={(e) => setReviewNotes(e.target.value)}
-                            />
-                            <div className="flex space-x-2">
-                              <Button
-                                onClick={() => approveMutation.mutate({
-                                  versionId: version.id,
-                                  approved: true,
-                                  notes: reviewNotes
-                                })}
-                                className="flex-1"
-                              >
-                                <Check className="mr-2 h-4 w-4" />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                onClick={() => approveMutation.mutate({
-                                  versionId: version.id,
-                                  approved: false,
-                                  notes: reviewNotes
-                                })}
-                                className="flex-1"
-                              >
-                                <X className="mr-2 h-4 w-4" />
-                                Reject
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {version.reviewerNotes && (
-                          <div className="bg-gray-50 p-4 rounded-md">
-                            <h4 className="text-sm font-medium mb-1">Review Notes</h4>
-                            <p className="text-sm text-muted-foreground">{version.reviewerNotes}</p>
-                            {version.approvedBy && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                Reviewed by {version.approvedBy} on{' '}
-                                {new Date(version.approvedAt!).toLocaleDateString()}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Comments Section */}
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium mb-2">Comments</h4>
-                          <div className="space-y-2">
-                            {version.comments?.map((comment) => (
-                              <div key={comment.id} className="bg-gray-50 p-3 rounded-md">
-                                <p className="text-sm">{comment.text}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  By {comment.userId} on {new Date(comment.createdAt).toLocaleString()}
-                                </p>
-                              </div>
-                            ))}
-                            <div className="flex space-x-2">
-                              <Input
-                                placeholder="Add a comment..."
-                                value={comment}
-                                onChange={(e) => setComment(e.target.value)}
+                              <Textarea
+                                placeholder="Enter review notes..."
+                                value={reviewNotes}
+                                onChange={(e) => setReviewNotes(e.target.value)}
                               />
-                              <Button
-                                size="sm"
-                                onClick={() => addCommentMutation.mutate(version.id)}
-                                disabled={!comment.trim()}
-                              >
-                                Comment
-                              </Button>
+                              <div className="flex space-x-2">
+                                <Button
+                                  onClick={() => approveMutation.mutate({
+                                    versionId: version.id,
+                                    approved: true,
+                                    notes: reviewNotes
+                                  })}
+                                  className="flex-1"
+                                >
+                                  <Check className="mr-2 h-4 w-4" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => approveMutation.mutate({
+                                    versionId: version.id,
+                                    approved: false,
+                                    notes: reviewNotes
+                                  })}
+                                  className="flex-1"
+                                >
+                                  <X className="mr-2 h-4 w-4" />
+                                  Reject
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {version.reviewerNotes && (
+                            <div className="bg-gray-50 p-4 rounded-md">
+                              <h4 className="text-sm font-medium mb-1">Review Notes</h4>
+                              <p className="text-sm text-muted-foreground">{version.reviewerNotes}</p>
+                              {version.approvedBy && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Reviewed by {version.approvedBy} on{' '}
+                                  {new Date(version.approvedAt!).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Comments Section */}
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium mb-2">Comments</h4>
+                            <div className="space-y-2">
+                              {version.comments?.map((comment) => (
+                                <div key={comment.id} className="bg-gray-50 p-3 rounded-md">
+                                  <p className="text-sm">{comment.text}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    By {comment.userId} on {new Date(comment.createdAt).toLocaleString()}
+                                  </p>
+                                </div>
+                              ))}
+                              <div className="flex space-x-2">
+                                <Input
+                                  placeholder="Add a comment..."
+                                  value={comment}
+                                  onChange={(e) => setComment(e.target.value)}
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => addCommentMutation.mutate(version.id)}
+                                  disabled={!comment.trim()}
+                                >
+                                  Comment
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </ScrollArea>
+            </div>
+          </TabsContent>
 
-              {versions.length === 0 && (
-                <div className="text-center py-8">
-                  <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    No versions available for this document.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Upload a new version to start the review process.
-                  </p>
+          <TabsContent value="workflow">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium mb-4">Workflow Configuration</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Required Approvers</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={workflowConfig.requiredApprovers}
+                      onChange={(e) => setWorkflowConfig(prev => ({
+                        ...prev,
+                        requiredApprovers: parseInt(e.target.value)
+                      }))}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Auto-expire Time (hours)</label>
+                    <Input
+                      type="number"
+                      value={workflowConfig.autoExpireHours}
+                      onChange={(e) => setWorkflowConfig(prev => ({
+                        ...prev,
+                        autoExpireHours: parseInt(e.target.value)
+                      }))}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={workflowConfig.notifyOnUpload}
+                      onChange={(e) => setWorkflowConfig(prev => ({
+                        ...prev,
+                        notifyOnUpload: e.target.checked
+                      }))}
+                      className="rounded border-gray-300"
+                    />
+                    <label className="text-sm font-medium">
+                      Notify reviewers on new version upload
+                    </label>
+                  </div>
+
+                  <Button
+                    onClick={() => updateWorkflowMutation.mutate(workflowConfig)}
+                    className="w-full mt-4"
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Save Workflow Configuration
+                  </Button>
                 </div>
-              )}
-            </ScrollArea>
-          </div>
-        </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="text-lg font-medium mb-4">Document Information</h3>
+                <div className="space-y-2 text-sm">
+                  <p><strong>Document ID:</strong> {document?.id}</p>
+                  <p><strong>Title:</strong> {document?.title}</p>
+                  <p><strong>Current Version:</strong> v{document?.version}</p>
+                  <p><strong>Total Versions:</strong> {versions.length}</p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

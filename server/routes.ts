@@ -395,7 +395,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Usage Prediction endpoint
+  // Usage Prediction endpoint with fixed type errors
   app.get("/api/equipment/:id/predictions", async (req, res) => {
     try {
       const equipmentId = parseInt(req.params.id);
@@ -410,11 +410,11 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Equipment not found" });
       }
 
-      // Generate mock prediction data
+      // Generate mock prediction data with proper type handling
       const predictions = {
         usageHours: Math.floor(Math.random() * 8) + 2,
         peakTimes: ["09:00", "17:00"],
-        maintenanceRecommendation: item.maintenanceScore && item.maintenanceScore < 70
+        maintenanceRecommendation: item.maintenanceScore && Number(item.maintenanceScore) < 70
           ? "Schedule maintenance soon"
           : "No immediate maintenance required",
         nextPredictedMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -471,7 +471,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Performance Report endpoint
+  // Performance Report endpoint with fixed type errors
   app.post("/api/equipment/report", async (req, res) => {
     try {
       const { equipmentIds } = req.body;
@@ -481,7 +481,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       const items = await db.query.equipment.findMany({
-        where: eq(equipment.id, equipmentIds[0]), // For now, just use the first ID
+        where: eq(equipment.id, equipmentIds[0]),
         with: {
           type: true
         }
@@ -491,15 +491,15 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "No equipment found" });
       }
 
-      // Generate mock report data
+      // Generate mock report data with proper type handling
       const report = {
         generatedAt: new Date().toISOString(),
         equipment: items.map(item => ({
           id: item.id,
           name: item.name,
           type: item.type?.name || "Unknown",
-          healthScore: item.healthScore || 0,
-          maintenanceScore: item.maintenanceScore || 0,
+          healthScore: Number(item.healthScore || 0),
+          maintenanceScore: Number(item.maintenanceScore || 0),
           lastMaintenance: item.lastMaintenance,
           metrics: {
             uptime: Math.floor(Math.random() * 100),
@@ -531,8 +531,8 @@ export function registerRoutes(app: Express): Server {
         },
         summary: {
           totalEquipment: items.length,
-          averageHealth: items.reduce((acc, item) => acc + (item.healthScore || 0), 0) / items.length,
-          requiresMaintenance: items.filter(item => (item.maintenanceScore || 0) < 70).length,
+          averageHealth: items.reduce((acc, item) => acc + Number(item.healthScore || 0), 0) / items.length,
+          requiresMaintenance: items.filter(item => Number(item.maintenanceScore || 0) < 70).length,
           offline: items.filter(item => item.status === 'offline').length
         }
       };
@@ -952,7 +952,7 @@ Common Issues:
       res.json(items);
     } catch (error) {
       console.error("Error browsing documents:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to browse documents",
         details: error instanceof Error ? error.message : "Unknown error"
       });
@@ -975,7 +975,7 @@ Common Issues:
       res.json({ success: true, path: folderPath });
     } catch (error) {
       console.error("Error creating folder:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to create folder",
         details: error instanceof Error ? error.message : "Unknown error"
       });
@@ -1030,7 +1030,7 @@ Common Issues:
       console.error("Error getting document metadata:", error);
       return null;
     }
-}
+  }
 
   return httpServer;
 }

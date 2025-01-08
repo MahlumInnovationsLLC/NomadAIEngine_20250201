@@ -15,13 +15,13 @@ const modules = [
     id: "docmanagement",
     label: "DocManagement",
     icon: <Settings className="h-5 w-5" />,
-    description: "Configure workflows and approvals"
+    description: "Document Management"
   },
   {
     id: "training",
     label: "Training Module",
     icon: <Trophy className="h-5 w-5" />,
-    description: "View training progress and achievements"
+    description: "View Training Progress"
   }
 ];
 
@@ -31,7 +31,7 @@ interface ModuleSelectorProps {
 }
 
 export function ModuleSelector({ activeModule, onModuleChange }: ModuleSelectorProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded] = useState(true);
 
   return (
     <Card className="p-2 bg-card">

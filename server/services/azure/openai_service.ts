@@ -2,12 +2,12 @@ import { OpenAIClient } from "@azure/openai";
 import { AzureKeyCredential } from "@azure/core-auth";
 
 let client: OpenAIClient | null = null;
-const deploymentName = "gpt-35-turbo";
+const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-35-turbo";
 
 export async function initializeOpenAI() {
   try {
     if (!process.env.AZURE_OPENAI_ENDPOINT || !process.env.AZURE_OPENAI_API_KEY) {
-      console.warn("Azure OpenAI credentials not configured");
+      console.warn("Azure OpenAI credentials not configured - AI features will be disabled");
       return null;
     }
 
@@ -15,7 +15,7 @@ export async function initializeOpenAI() {
     const apiKey = process.env.AZURE_OPENAI_API_KEY.trim();
 
     if (!endpoint || !apiKey) {
-      console.warn("Azure OpenAI endpoint or API key is empty");
+      console.warn("Azure OpenAI endpoint or API key is empty - AI features will be disabled");
       return null;
     }
 
@@ -24,19 +24,25 @@ export async function initializeOpenAI() {
       new AzureKeyCredential(apiKey)
     );
 
-    // Test the connection immediately
-    const testResult = await client.getChatCompletions(deploymentName, [
-      { role: "system", content: "Test connection" }
-    ]);
+    // Optional connection test
+    try {
+      const testResult = await client.getChatCompletions(deploymentName, [
+        { role: "system", content: "Test connection" }
+      ]);
 
-    if (!testResult.choices || testResult.choices.length === 0) {
-      console.warn("OpenAI connection test failed - invalid response");
+      if (!testResult.choices || testResult.choices.length === 0) {
+        console.warn("OpenAI connection test failed - AI features will be disabled");
+        return null;
+      }
+
+      console.log("Successfully connected to Azure OpenAI");
+      return client;
+    } catch (error) {
+      console.warn("OpenAI deployment not found or not ready - AI features will be disabled:", error);
       return null;
     }
-
-    return client;
   } catch (error) {
-    console.error("Error initializing Azure OpenAI:", error);
+    console.warn("Error initializing Azure OpenAI - AI features will be disabled:", error);
     return null;
   }
 }
@@ -44,13 +50,9 @@ export async function initializeOpenAI() {
 export async function checkOpenAIConnection() {
   try {
     if (!client) {
-      client = await initializeOpenAI();
-    }
-
-    if (!client) {
       return {
-        status: "error",
-        message: "OpenAI client not initialized"
+        status: "disabled",
+        message: "Azure OpenAI not configured - AI features are disabled"
       };
     }
 
@@ -59,7 +61,6 @@ export async function checkOpenAIConnection() {
       message: "Connected to Azure OpenAI"
     };
   } catch (error) {
-    console.error("Error checking OpenAI connection:", error);
     return {
       status: "error",
       message: "Failed to connect to OpenAI"
@@ -67,12 +68,19 @@ export async function checkOpenAIConnection() {
   }
 }
 
-// Initialize on module load
-initializeOpenAI();
+// Don't initialize on module load, let the application decide when to initialize
+// This prevents blocking app startup
+export async function ensureInitialized() {
+  if (!client) {
+    client = await initializeOpenAI();
+  }
+  return client;
+}
 
 export async function generateEmbeddings(text: string) {
+  await ensureInitialized();
   if (!client) {
-    console.warn("OpenAI client not initialized");
+    console.warn("OpenAI client not initialized - embeddings generation skipped");
     return null;
   }
 
@@ -80,14 +88,15 @@ export async function generateEmbeddings(text: string) {
     const result = await client.getEmbeddings(deploymentName, [text]);
     return result.data[0].embedding;
   } catch (error) {
-    console.error("Error generating embeddings:", error);
+    console.warn("Error generating embeddings:", error);
     return null;
   }
 }
 
 export async function analyzeDocument(content: string) {
+  await ensureInitialized();
   if (!client) {
-    console.warn("OpenAI client not initialized");
+    console.warn("OpenAI client not initialized - document analysis skipped");
     return null;
   }
 
@@ -98,14 +107,15 @@ export async function analyzeDocument(content: string) {
     ]);
     return result.choices[0].message?.content;
   } catch (error) {
-    console.error("Error analyzing document:", error);
+    console.warn("Error analyzing document:", error);
     return null;
   }
 }
 
 export async function generateSummary(content: string) {
+  await ensureInitialized();
   if (!client) {
-    console.warn("OpenAI client not initialized");
+    console.warn("OpenAI client not initialized - summary generation skipped");
     return null;
   }
 
@@ -116,7 +126,7 @@ export async function generateSummary(content: string) {
     ]);
     return result.choices[0].message?.content;
   } catch (error) {
-    console.error("Error generating summary:", error);
+    console.warn("Error generating summary:", error);
     return null;
   }
 }
