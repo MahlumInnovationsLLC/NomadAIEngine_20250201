@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface UsagePrediction {
-  equipment_id: number;
-  timestamp: string;
-  predicted_usage: number;
-  confidence: number;
+interface PredictionResponse {
+  usageHours: number;
+  peakTimes: string[];
+  maintenanceRecommendation: string;
+  nextPredictedMaintenance: string;
 }
 
 interface EquipmentUsagePredictionProps {
@@ -19,32 +19,9 @@ interface EquipmentUsagePredictionProps {
 }
 
 export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsagePredictionProps) {
-  const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
-
-  const { data: predictions, isLoading, isError, error } = useQuery<UsagePrediction[]>({
-    queryKey: ['/api/equipment/predictions', equipmentId, timeRange],
-    queryFn: async () => {
-      const response = await fetch(`/api/equipment/${equipmentId}/predictions?timeRange=${timeRange}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch predictions');
-      }
-      return response.json();
-    }
-  });
-
-  const generatePredictionMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(`/api/equipment/${equipmentId}/generate-prediction`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timeRange }),
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to generate prediction');
-      return response.json();
-    },
+  const { data: prediction, isLoading, isError, error } = useQuery<PredictionResponse>({
+    queryKey: ['/api/equipment', equipmentId, 'predictions'],
+    retry: 2
   });
 
   if (isLoading) {
@@ -68,6 +45,7 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {error instanceof Error ? error.message : 'Error loading predictions'}
             </AlertDescription>
@@ -77,76 +55,71 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
     );
   }
 
-  const formattedData = predictions?.map(pred => ({
-    timestamp: new Date(pred.timestamp).toLocaleDateString(),
-    usage: Math.round(pred.predicted_usage),
-    confidence: Math.round(pred.confidence * 100)
-  }));
+  // Generate hourly data points for the chart
+  const chartData = prediction.peakTimes.map(time => {
+    const hour = parseInt(time.split(':')[0]);
+    return {
+      hour: `${hour}:00`,
+      usage: hour === parseInt(prediction.peakTimes[0]) || 
+             hour === parseInt(prediction.peakTimes[1]) 
+               ? prediction.usageHours 
+               : Math.floor(prediction.usageHours * 0.6)
+    };
+  });
+
+  // Add more data points for a smoother chart
+  const fullChartData = Array.from({ length: 24 }, (_, i) => {
+    const existingData = chartData.find(d => parseInt(d.hour) === i);
+    return existingData || {
+      hour: `${i}:00`,
+      usage: Math.floor(prediction.usageHours * 0.3)
+    };
+  });
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle>Usage Prediction</CardTitle>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className={timeRange === '24h' ? 'bg-primary text-primary-foreground' : ''}
-            onClick={() => setTimeRange('24h')}
-          >
-            24h
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className={timeRange === '7d' ? 'bg-primary text-primary-foreground' : ''}
-            onClick={() => setTimeRange('7d')}
-          >
-            7d
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className={timeRange === '30d' ? 'bg-primary text-primary-foreground' : ''}
-            onClick={() => setTimeRange('30d')}
-          >
-            30d
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => generatePredictionMutation.mutate()}
-            disabled={generatePredictionMutation.isPending}
-          >
-            <RefreshCw className={`h-4 w-4 ${generatePredictionMutation.isPending ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[200px] w-full">
-          <ResponsiveContainer>
-            <LineChart data={formattedData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="timestamp" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="usage"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                name="Predicted Usage (%)"
-              />
-              <Line
-                type="monotone"
-                dataKey="confidence"
-                stroke="hsl(var(--muted-foreground))"
-                strokeDasharray="5 5"
-                name="Confidence (%)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="space-y-4">
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer>
+              <LineChart data={fullChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="hour"
+                  interval={3} 
+                  tickFormatter={(value) => value.split(':')[0]}
+                />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="usage"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  name="Predicted Usage (hours)"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Peak Hours:</span>
+              <span>{prediction.peakTimes.join(' & ')}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Daily Usage:</span>
+              <span>{prediction.usageHours} hours</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Maintenance:</span>
+              <span>{prediction.maintenanceRecommendation}</span>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>
