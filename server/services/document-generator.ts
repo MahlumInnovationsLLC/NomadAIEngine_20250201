@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, convertInchesToTwip, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, convertInchesToTwip, AlignmentType, HeadingLevel } from 'docx';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getChatCompletion } from './azure-openai';
@@ -15,23 +15,46 @@ export async function generateReport(topic: string): Promise<string> {
     const response = await getChatCompletion([
       {
         role: "system",
-        content: "Generate a detailed, professional report in markdown format with the following structure:\n\n" +
+        content: "Generate a highly detailed, comprehensive report in markdown format. The report should be extensive and thorough, covering all aspects in depth. Use the following structure and markdown formatting:\n\n" +
                 "# Comprehensive Report: Latest Fitness Trends in the Industry\n\n" +
                 "# Introduction\n" +
-                "[Brief overview of the current state and importance of the topic]\n\n" +
-                "# Overview\n" +
-                "[Key points about current trends]\n\n" +
+                "[Detailed introduction with context and importance]\n\n" +
+                "## Market Overview\n" +
+                "[In-depth market analysis with statistics and trends]\n\n" +
+                "## Current Landscape\n" +
+                "[Comprehensive overview of current state]\n\n" +
                 "# Key Innovations\n" +
-                "- [Innovation 1 with details]\n" +
-                "- [Innovation 2 with details]\n" +
-                "- [Innovation 3 with details]\n\n" +
-                "Use proper markdown formatting with headers (#) and lists (-). Be thorough and analytical."
+                "## Innovation 1: [Title]\n" +
+                "- [Detailed point 1]\n" +
+                "- [Detailed point 2]\n" +
+                "### Technical Details\n" +
+                "[In-depth technical analysis]\n\n" +
+                "## Innovation 2: [Title]\n" +
+                "- [Detailed points]\n\n" +
+                "Use proper markdown formatting:\n" +
+                "- # for main sections\n" +
+                "- ## for subsections\n" +
+                "- ### for detailed subsections\n" +
+                "- **text** for bold emphasis\n" +
+                "- - for bullet points\n" +
+                "- 1. for numbered lists\n\n" +
+                "Provide extensive detail, statistics, and analysis in each section."
       },
       { role: "user", content: `Create a comprehensive report about: ${topic}` }
     ]);
 
-    // Parse the markdown response and create document sections
-    const sections = response.split('\n#').filter(Boolean);
+    // Parse the markdown response
+    const lines = response.split('\n');
+    let docTitle = "Generated Report";
+
+    // Find the document title
+    for (const line of lines) {
+      const stripped = line.trim();
+      if (stripped.startsWith('# ')) {
+        docTitle = stripped.substring(2).trim();
+        break;
+      }
+    }
 
     // Create a new document with proper styling
     const doc = new Document({
@@ -47,12 +70,12 @@ export async function generateReport(topic: string): Promise<string> {
           },
         },
         children: [
-          // Title paragraph
+          // Title
           new Paragraph({
             children: [
               new TextRun({
-                text: "Comprehensive Report: Latest Fitness Trends in the Industry",
-                size: 48, // Larger size for main title
+                text: docTitle,
+                size: 48,
                 bold: true,
                 font: "Calibri",
               }),
@@ -61,108 +84,111 @@ export async function generateReport(topic: string): Promise<string> {
             spacing: { after: 300 },
           }),
 
-          // Date paragraph
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: new Date().toLocaleDateString(),
-                size: 24,
-                color: "666666",
-                font: "Calibri",
-              }),
-            ],
-            spacing: { after: 400 },
-          }),
+          // Process each line
+          ...lines.map(line => {
+            const stripped = line.trim();
+            if (!stripped) {
+              return new Paragraph({
+                spacing: { after: 100 },
+              });
+            }
 
-          // Process each section
-          ...sections.map(section => {
-            const [title, ...contentLines] = section.split('\n');
-            const content = contentLines.join('\n').trim();
-
-            const paragraphs = [];
-
-            // Section header
-            paragraphs.push(
-              new Paragraph({
+            // Handle headers
+            if (stripped.startsWith('### ')) {
+              return new Paragraph({
                 children: [
                   new TextRun({
-                    text: title.trim(),
+                    text: stripped.substring(4).trim(),
+                    size: 28,
+                    bold: true,
+                    font: "Calibri",
+                  }),
+                ],
+                spacing: { before: 240, after: 120 },
+                heading: HeadingLevel.HEADING_3,
+              });
+            } else if (stripped.startsWith('## ')) {
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: stripped.substring(3).trim(),
                     size: 32,
                     bold: true,
                     font: "Calibri",
                   }),
                 ],
+                spacing: { before: 320, after: 160 },
+                heading: HeadingLevel.HEADING_2,
+              });
+            } else if (stripped.startsWith('# ')) {
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: stripped.substring(2).trim(),
+                    size: 36,
+                    bold: true,
+                    font: "Calibri",
+                  }),
+                ],
                 spacing: { before: 400, after: 200 },
-              })
-            );
-
-            // Process content by lines to handle bullet points and paragraphs
-            let currentParagraphLines: string[] = [];
-
-            content.split('\n').forEach(line => {
-              const trimmedLine = line.trim();
-              if (trimmedLine.startsWith('-')) {
-                // If we have accumulated regular paragraph lines, add them first
-                if (currentParagraphLines.length > 0) {
-                  paragraphs.push(
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: currentParagraphLines.join('\n'),
-                          size: 24,
-                          font: "Calibri",
-                        }),
-                      ],
-                      spacing: { after: 200 },
-                    })
-                  );
-                  currentParagraphLines = [];
-                }
-
-                // Add bullet point
-                paragraphs.push(
-                  new Paragraph({
-                    children: [
-                      new TextRun({
-                        text: trimmedLine.substring(1).trim(),
-                        size: 24,
-                        font: "Calibri",
-                      }),
-                    ],
-                    bullet: {
-                      level: 0,
-                    },
-                    spacing: { after: 100 },
-                  })
-                );
-              } else if (trimmedLine) {
-                currentParagraphLines.push(trimmedLine);
-              }
-            });
-
-            // Add any remaining paragraph lines
-            if (currentParagraphLines.length > 0) {
-              paragraphs.push(
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: currentParagraphLines.join('\n'),
-                      size: 24,
-                      font: "Calibri",
-                    }),
-                  ],
-                  spacing: { after: 200 },
-                })
-              );
+                heading: HeadingLevel.HEADING_1,
+              });
             }
 
-            return paragraphs;
-          }).flat(),
+            // Handle bullet points
+            if (stripped.startsWith('- ')) {
+              return new Paragraph({
+                children: stripped.substring(2)
+                  .split('**')
+                  .map((segment, index) => new TextRun({
+                    text: segment,
+                    size: 24,
+                    bold: index % 2 === 1,
+                    font: "Calibri",
+                  })),
+                bullet: { level: 0 },
+                spacing: { after: 120 },
+              });
+            }
+
+            // Handle numbered lists
+            const numberedMatch = stripped.match(/^\d+\.\s+(.+)/);
+            if (numberedMatch) {
+              return new Paragraph({
+                children: numberedMatch[1]
+                  .split('**')
+                  .map((segment, index) => new TextRun({
+                    text: segment,
+                    size: 24,
+                    bold: index % 2 === 1,
+                    font: "Calibri",
+                  })),
+                numbering: {
+                  reference: 'default-numbering',
+                  level: 0,
+                },
+                spacing: { after: 120 },
+              });
+            }
+
+            // Regular paragraph with bold text support
+            return new Paragraph({
+              children: stripped
+                .split('**')
+                .map((segment, index) => new TextRun({
+                  text: segment,
+                  size: 24,
+                  bold: index % 2 === 1,
+                  font: "Calibri",
+                })),
+              spacing: { after: 120 },
+            });
+          }),
         ],
       }],
     });
 
-    // Generate unique filename
+    // Generate filename
     const filename = `report-${Date.now()}.docx`;
     const filepath = join(uploadsDir, filename);
 
