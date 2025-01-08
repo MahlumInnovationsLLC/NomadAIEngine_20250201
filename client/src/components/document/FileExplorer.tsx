@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Folder, File, Upload, Plus, FolderPlus, RefreshCw } from "lucide-react";
+import { Folder, File, Upload, FolderPlus, RefreshCw } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,7 +15,11 @@ interface BlobItem {
   lastModified?: string;
 }
 
-export function FileExplorer() {
+interface FileExplorerProps {
+  onSelectDocument?: (id: number) => void;
+}
+
+export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState<string>("/");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [newFolderName, setNewFolderName] = useState('');
@@ -23,7 +27,7 @@ export function FileExplorer() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: items = [], isLoading, refetch } = useQuery<BlobItem[]>({
+  const { data: items = [], isLoading } = useQuery<BlobItem[]>({
     queryKey: ['/api/documents/browse', currentPath],
   });
 
@@ -101,6 +105,22 @@ export function FileExplorer() {
     setCurrentPath(parentPath);
   };
 
+  const handleSelectDocument = async (path: string) => {
+    if (onSelectDocument) {
+      try {
+        const response = await fetch(`/api/documents?path=${encodeURIComponent(path)}`);
+        if (response.ok) {
+          const document = await response.json();
+          if (document && document.id) {
+            onSelectDocument(document.id);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching document details:", error);
+      }
+    }
+  };
+
   return (
     <Card className="h-[600px] flex flex-col">
       <CardContent className="flex-1 p-4">
@@ -136,7 +156,7 @@ export function FileExplorer() {
                 </div>
               </DialogContent>
             </Dialog>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/documents/browse'] })}>
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
@@ -159,7 +179,7 @@ export function FileExplorer() {
                 <div
                   key={item.path}
                   className="flex items-center p-2 hover:bg-accent rounded-md cursor-pointer"
-                  onClick={() => item.type === 'folder' && navigateToFolder(item.path)}
+                  onClick={() => item.type === 'folder' ? navigateToFolder(item.path) : handleSelectDocument(item.path)}
                 >
                   {item.type === 'folder' ? (
                     <Folder className="h-4 w-4 mr-2" />
