@@ -19,47 +19,44 @@ import TrainingModule from "@/pages/TrainingModule";
 
 function App() {
   const [location] = useLocation();
-  const currentPath = location.split('/')[1] || '';
+  // Safely get the current path, defaulting to empty string if undefined
+  const currentPath = location?.split('/')[1] || '';
 
   // Only show ModuleSelector in document training & control section
   const showModuleSelector = ['documents', 'docmanagement', 'training'].includes(currentPath);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <OnboardingProvider>
-        <div className="min-h-screen bg-background">
-          <Navbar />
-          <main className="container mx-auto px-4 pt-16">
-            <div className="flex gap-4">
-              {showModuleSelector && (
-                <ModuleSelector 
-                  activeModule={currentPath || 'documents'} 
-                  onModuleChange={(moduleId) => {
-                    window.location.href = `/${moduleId}`;
-                  }}
-                />
-              )}
-              <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
-                <AnimatePresence mode="wait">
-                  <Switch key={location}>
-                    <Route path="/" component={Home} />
-                    <Route path="/dashboard" component={DashboardPage} />
-                    <Route path="/chat/:id?" component={ChatPage} />
-                    <Route path="/documents" component={DocumentExplorer} />
-                    <Route path="/docmanagement" component={DocManagement} />
-                    <Route path="/training" component={TrainingModule} />
-                    <Route path="/club-control" component={ClubControlPage} />
-                    <Route component={NotFound} />
-                  </Switch>
-                </AnimatePresence>
-              </div>
-            </div>
-          </main>
-          <OnboardingTour />
-          <Toaster />
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <main className="container mx-auto px-4 pt-16">
+        <div className="flex gap-4">
+          {showModuleSelector && (
+            <ModuleSelector 
+              activeModule={currentPath || 'documents'} 
+              onModuleChange={(moduleId) => {
+                window.location.href = `/${moduleId}`;
+              }}
+            />
+          )}
+          <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
+            <AnimatePresence mode="wait">
+              <Switch key={location}>
+                <Route path="/" component={Home} />
+                <Route path="/dashboard" component={DashboardPage} />
+                <Route path="/chat/:id?" component={ChatPage} />
+                <Route path="/documents" component={DocumentExplorer} />
+                <Route path="/docmanagement" component={DocManagement} />
+                <Route path="/training" component={TrainingModule} />
+                <Route path="/club-control" component={ClubControlPage} />
+                <Route component={NotFound} />
+              </Switch>
+            </AnimatePresence>
+          </div>
         </div>
-      </OnboardingProvider>
-    </QueryClientProvider>
+      </main>
+      <OnboardingTour />
+      <Toaster />
+    </div>
   );
 }
 
@@ -80,4 +77,12 @@ function NotFound() {
   );
 }
 
-export default App;
+export default function AppWrapper() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <OnboardingProvider>
+        <App />
+      </OnboardingProvider>
+    </QueryClientProvider>
+  );
+}
