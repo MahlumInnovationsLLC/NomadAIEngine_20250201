@@ -31,7 +31,7 @@ export default function ChatMessage({ role, content, files }: ChatMessageProps) 
         "p-3 max-w-[80%]",
         role === 'assistant' ? "bg-primary text-primary-foreground" : "bg-secondary"
       )}>
-        <div className="prose prose-sm dark:prose-invert max-w-none">
+        <div className="prose prose-sm dark:prose-invert max-w-none text-white">
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
 

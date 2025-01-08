@@ -1,10 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { notifications, userNotifications, equipment, equipmentTypes, floorPlans } from "@db/schema";
+import { notifications, userNotifications } from "@db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
 import { getChatCompletion } from "./services/azure-openai";
+import { generateReport } from "./services/document-generator";
+import { join } from "path";
+import express from "express";
+
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -13,6 +17,21 @@ export function registerRoutes(app: Express): Server {
   // Clean up WebSocket server when HTTP server closes
   httpServer.on('close', () => {
     wsServer.close();
+  });
+
+  // Add uploads directory for serving generated files
+  app.use('/uploads', express.static('uploads'));
+
+  // Generate report endpoint
+  app.post("/api/generate-report", async (req, res) => {
+    try {
+      const { topic } = req.body;
+      const filename = await generateReport(topic);
+      res.json({ downloadUrl: `/uploads/${filename}` });
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ error: "Failed to generate report" });
+    }
   });
 
   // Chat message endpoint
