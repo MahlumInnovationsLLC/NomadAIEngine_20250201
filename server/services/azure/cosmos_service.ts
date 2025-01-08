@@ -37,16 +37,7 @@ export async function initializeCosmosDB() {
     console.log("Successfully connected to Azure Cosmos DB");
   } catch (error) {
     console.error("Error initializing Cosmos DB:", error);
-    if (error instanceof Error) {
-      console.error("Error details:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
-      });
-    }
-    client = null;
-    database = null;
-    container = null;
+    throw error;
   }
 }
 
@@ -60,14 +51,14 @@ export async function createChat(chatData: any) {
   }
 
   try {
-    const { resource: createdChat } = await container.items.create({
-      ...chatData,
-      type: 'chat', // Add a type identifier
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+    const { resource: createdChat } = await container.items.create(chatData);
     return createdChat;
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 409) {
+      // If document already exists, try to get it
+      const { resource: existingChat } = await container.item(chatData.id, chatData.userKey).read();
+      return existingChat;
+    }
     console.error("Error creating chat in Cosmos DB:", error);
     throw error;
   }
@@ -81,8 +72,8 @@ export async function getChat(userId: string, chatId: string) {
   try {
     const { resource: chat } = await container.item(chatId, userId).read();
     return chat;
-  } catch (error) {
-    if ((error as any).code === 404) {
+  } catch (error: any) {
+    if (error.code === 404) {
       return null;
     }
     console.error("Error retrieving chat from Cosmos DB:", error);
@@ -97,11 +88,18 @@ export async function updateChat(userId: string, chatId: string, updates: any) {
 
   try {
     const { resource: existingChat } = await container.item(chatId, userId).read();
+
+    // If the chat doesn't exist, throw an error
+    if (!existingChat) {
+      throw new Error("Chat not found");
+    }
+
     const updatedChat = {
       ...existingChat,
       ...updates,
       updatedAt: new Date().toISOString()
     };
+
     const { resource: result } = await container.item(chatId, userId).replace(updatedChat);
     return result;
   } catch (error) {
@@ -130,7 +128,7 @@ export async function listChats(userId: string) {
 
   try {
     const querySpec = {
-      query: "SELECT * FROM c WHERE c.type = 'chat' AND c.userKey = @userId ORDER BY c.updatedAt DESC",
+      query: "SELECT * FROM c WHERE c.userKey = @userId ORDER BY c.lastMessageAt DESC",
       parameters: [
         {
           name: "@userId",
@@ -142,6 +140,7 @@ export async function listChats(userId: string) {
     const { resources: chats } = await container.items
       .query(querySpec)
       .fetchAll();
+
     return chats;
   } catch (error) {
     console.error("Error listing chats from Cosmos DB:", error);
