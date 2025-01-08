@@ -63,7 +63,16 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-[calc(100vh-10rem)]">
+      {messages.length === 0 && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-2">GYM AI Engine</h1>
+            <p className="text-muted-foreground">I'm here to help! Ask me anything.</p>
+          </div>
+        </div>
+      )}
+
       <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
         {messages.map((message) => (
           <ChatMessage
