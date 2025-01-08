@@ -47,6 +47,38 @@ export function initializeOpenAI() {
   }
 }
 
+export async function checkOpenAIConnection() {
+  try {
+    if (!client) {
+      return {
+        status: "error",
+        message: "OpenAI client not initialized"
+      };
+    }
+
+    // Test the connection by making a simple completion request
+    const result = await client.getChatCompletions(deploymentName, [
+      { role: "system", content: "You are a helpful assistant." },
+      { role: "user", content: "Hello" }
+    ]);
+
+    if (result.choices && result.choices.length > 0) {
+      return {
+        status: "connected",
+        message: "Service is operational"
+      };
+    } else {
+      throw new Error("Invalid response from OpenAI");
+    }
+  } catch (error) {
+    console.error("Error checking OpenAI connection:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Failed to connect to OpenAI"
+    };
+  }
+}
+
 // Initialize on module load
 initializeOpenAI();
 

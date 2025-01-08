@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { db } from "@db";
 import { equipment, equipmentTypes, floorPlans } from "@db/schema";
 import { eq } from "drizzle-orm";
-import { initializeOpenAI } from "./services/azure/openai_service";
+import { initializeOpenAI, checkOpenAIConnection } from "./services/azure/openai_service";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -11,28 +11,76 @@ export function registerRoutes(app: Express): Server {
   // Azure Services Status endpoint
   app.get("/api/azure/status", async (_req, res) => {
     try {
+      // Check OpenAI connection
+      const openAIStatus = await checkOpenAIConnection();
+
+      // Check Blob Storage connection
+      let blobStatus = {
+        status: "error",
+        message: "Missing connection string"
+      };
+
+      if (process.env.AZURE_BLOB_CONNECTION_STRING) {
+        try {
+          // Attempt to list containers to verify connection
+          const { BlobServiceClient } = await import("@azure/storage-blob");
+          const blobServiceClient = BlobServiceClient.fromConnectionString(
+            process.env.AZURE_BLOB_CONNECTION_STRING
+          );
+          await blobServiceClient.getAccountInfo();
+          blobStatus = {
+            status: "connected",
+            message: "Connected to Azure Blob Storage"
+          };
+        } catch (error) {
+          blobStatus = {
+            status: "error",
+            message: "Failed to connect to Blob Storage"
+          };
+        }
+      }
+
+      // Check Database connection
+      let dbStatus = {
+        status: "error",
+        message: "Missing connection string"
+      };
+
+      try {
+        await db.query.equipmentTypes.findFirst();
+        dbStatus = {
+          status: "connected",
+          message: "Connected to Database"
+        };
+      } catch (error) {
+        dbStatus = {
+          status: "error",
+          message: "Failed to connect to Database"
+        };
+      }
+
       const services = [
         {
           name: "OpenAI",
-          status: "connected",
-          message: "Service is operational"
+          ...openAIStatus
         },
         {
           name: "Blob Storage",
-          status: process.env.AZURE_BLOB_CONNECTION_STRING ? "connected" : "error",
-          message: process.env.AZURE_BLOB_CONNECTION_STRING ? "Connected to Azure Blob Storage" : "Missing connection string"
+          ...blobStatus
         },
         {
-          name: "Cosmos DB",
-          status: process.env.AZURE_COSMOS_CONNECTION_STRING ? "connected" : "error",
-          message: process.env.AZURE_COSMOS_CONNECTION_STRING ? "Connected to Cosmos DB" : "Missing connection string"
+          name: "Database",
+          ...dbStatus
         }
       ];
 
       res.json(services);
     } catch (error) {
       console.error("Error fetching Azure services status:", error);
-      res.status(500).json({ error: "Failed to fetch Azure services status" });
+      res.status(500).json({ 
+        error: "Failed to fetch Azure services status",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
