@@ -35,6 +35,10 @@ export const documentVersions = pgTable("document_versions", {
   createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   metadata: jsonb("metadata"),
+  status: text("status", { enum: ['pending', 'approved', 'rejected'] }).notNull().default('pending'),
+  reviewerUserId: text("reviewer_user_id"),
+  reviewerNotes: text("reviewer_notes"),
+  approvedAt: timestamp("approved_at"),
 });
 
 export const documentApprovals = pgTable("document_approvals", {

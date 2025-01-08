@@ -84,6 +84,59 @@ async function getDocumentMetadata(blobPath: string) {
   }
 }
 
+async function listBlobContents(prefix: string = '') {
+  try {
+    if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+      throw new Error("Azure Blob Storage connection string not configured");
+    }
+
+    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_BLOB_CONNECTION_STRING);
+    const containerClient = blobServiceClient.getContainerClient('documents');
+    const items: Array<{
+      name: string;
+      path: string;
+      type: 'folder' | 'file';
+      size?: number;
+      lastModified?: string;
+    }> = [];
+    const processedFolders = new Set<string>();
+
+    for await (const blob of containerClient.listBlobsFlat({ prefix })) {
+      const relativePath = blob.name.slice(prefix.length);
+      const parts = relativePath.split('/');
+
+      if (parts.length > 1 && parts[0]) {
+        // This is a nested item, create a folder entry
+        const folderName = parts[0];
+        const folderPath = prefix + folderName;
+
+        if (!processedFolders.has(folderPath)) {
+          processedFolders.add(folderPath);
+          items.push({
+            name: folderName,
+            path: folderPath,
+            type: 'folder'
+          });
+        }
+      } else if (parts[0]) {
+        // This is a file
+        items.push({
+          name: parts[0],
+          path: blob.name,
+          type: 'file',
+          size: blob.properties.contentLength,
+          lastModified: blob.properties.lastModified?.toISOString()
+        });
+      }
+    }
+
+    return items;
+  } catch (error) {
+    console.error("Error listing blob contents:", error);
+    throw error;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
@@ -902,36 +955,8 @@ Common Issues:
   app.get("/api/documents/browse", async (req, res) => {
     try {
       const prefix = (req.query.path as string || '').replace(/^\//, '');
-      const result: Array<{ name: string; path: string; type: 'folder' | 'file'; size?: number; lastModified?: string }> = [];
-
-      // List all blobs with the prefix
-      for await (const blob of containerClient.listBlobsFlat({ prefix })) {
-        const relativePath = blob.name.slice(prefix.length);
-        const parts = relativePath.split('/');
-
-        if (parts.length > 1 && parts[0]) {
-          // This is a folder
-          const folderName = parts[0];
-          if (!result.find(item => item.name === folderName && item.type === 'folder')) {
-            result.push({
-              name: folderName,
-              path: `${prefix}${folderName}`,
-              type: 'folder'
-            });
-          }
-        } else if (parts[0]) {
-          // This is a file
-          result.push({
-            name: parts[0],
-            path: blob.name,
-            type: 'file',
-            size: blob.properties.contentLength,
-            lastModified: blob.properties.lastModified?.toISOString()
-          });
-        }
-      }
-
-      res.json(result);
+      const items = await listBlobContents(prefix);
+      res.json(items);
     } catch (error) {
       console.error("Error browsing documents:", error);
       res.status(500).json({ error: "Failed to browse documents" });
