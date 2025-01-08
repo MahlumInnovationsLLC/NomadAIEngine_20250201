@@ -1,4 +1,5 @@
 import { CosmosClient, Container, Database } from "@azure/cosmos";
+import { v4 as uuidv4 } from 'uuid';
 
 let client: CosmosClient | null = null;
 let database: Database | null = null;
@@ -61,24 +62,13 @@ export async function createChat(chatData: any) {
       throw new Error("Missing required fields in chat data");
     }
 
-    // Check if chat already exists
-    try {
-      const { resource: existingChat } = await cont.item(chatData.id, chatData.userKey).read();
-      if (existingChat) {
-        console.log("Chat already exists, returning existing chat:", existingChat);
-        return existingChat;
-      }
-    } catch (error: any) {
-      // Only proceed if the error is "not found"
-      if (error.code !== 404) {
-        throw error;
-      }
-    }
+    // Generate a unique ID for the chat if not provided
+    const chatId = chatData.id || uuidv4();
 
     // Add metadata fields and ensure proper structure
     const chatWithMetadata = {
-      id: chatData.id,
-      userKey: chatData.userKey,
+      ...chatData,
+      id: chatId,
       title: chatData.title || "",
       messages: Array.isArray(chatData.messages) ? chatData.messages : [],
       lastMessageAt: chatData.lastMessageAt || new Date().toISOString(),
@@ -87,14 +77,26 @@ export async function createChat(chatData: any) {
     };
 
     console.log("Attempting to create chat with metadata:", chatWithMetadata);
-    const { resource } = await cont.items.create(chatWithMetadata);
 
-    if (!resource) {
-      throw new Error("Failed to create chat resource");
+    // Try to create the chat, handle conflicts by generating a new ID
+    try {
+      const { resource } = await cont.items.create(chatWithMetadata);
+      if (!resource) {
+        throw new Error("Failed to create chat resource");
+      }
+      return resource;
+    } catch (error: any) {
+      if (error.code === 409) { // Conflict error
+        console.log("Chat ID conflict, generating new ID and retrying");
+        chatWithMetadata.id = uuidv4();
+        const { resource } = await cont.items.create(chatWithMetadata);
+        if (!resource) {
+          throw new Error("Failed to create chat resource after retry");
+        }
+        return resource;
+      }
+      throw error;
     }
-
-    console.log("Successfully created chat:", resource);
-    return resource;
   } catch (error: any) {
     console.error("Error in createChat:", error);
     throw error;
@@ -145,6 +147,32 @@ export async function updateChat(userId: string, chatId: string, updates: any) {
     return result;
   } catch (error) {
     console.error("Error updating chat:", error);
+    throw error;
+  }
+}
+
+export async function deleteChat(userId: string, chatId: string) {
+  const cont = ensureContainer();
+
+  try {
+    // Verify chat exists and belongs to user before deletion
+    const { resource: chat } = await cont.item(chatId, userId).read();
+
+    if (!chat) {
+      throw new Error("Chat not found");
+    }
+
+    if (chat.userKey !== userId) {
+      throw new Error("Unauthorized to delete this chat");
+    }
+
+    await cont.item(chatId, userId).delete();
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting chat:", error);
+    if (error.code === 404) {
+      throw new Error("Chat not found");
+    }
     throw error;
   }
 }

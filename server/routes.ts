@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createChat, updateChat, getChat, listChats } from "./services/azure/cosmos_service";
+import { createChat, updateChat, deleteChat, getChat, listChats } from "./services/azure/cosmos_service";
 import { setupWebSocketServer } from "./services/websocket";
 import { join } from "path";
 import express from "express";
@@ -16,13 +16,30 @@ export function registerRoutes(app: Express): Server {
   // Get all chats for the current user
   app.get("/api/chats", async (req, res) => {
     try {
-      // For now, using a mock user ID until auth is implemented
-      const userId = "user123";
+      const userId = "user123"; // Mock user ID until auth is implemented
       const chats = await listChats(userId);
       res.json(chats);
     } catch (error) {
       console.error("Error fetching chats:", error);
       res.status(500).json({ error: "Failed to fetch chats" });
+    }
+  });
+
+  // Delete a chat
+  app.delete("/api/chats/:id", async (req, res) => {
+    try {
+      const userId = "user123"; // Mock user ID until auth is implemented
+      const result = await deleteChat(userId, req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error deleting chat:", error);
+      if (error.message === "Chat not found") {
+        return res.status(404).json({ error: "Chat not found" });
+      }
+      if (error.message === "Unauthorized to delete this chat") {
+        return res.status(403).json({ error: "Unauthorized to delete this chat" });
+      }
+      res.status(500).json({ error: "Failed to delete chat" });
     }
   });
 
@@ -91,7 +108,7 @@ export function registerRoutes(app: Express): Server {
       };
 
       console.log("Adding AI response:", aiMessage);
-      const updatedChat = await updateChat(userId, chatId, {
+      const updatedChat = await updateChat(userId, chat.id, {
         messages: [...chat.messages, aiMessage],
         lastMessageAt: new Date().toISOString()
       });
@@ -172,5 +189,6 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: "Failed to update chat" });
     }
   });
+
   return httpServer;
 }
