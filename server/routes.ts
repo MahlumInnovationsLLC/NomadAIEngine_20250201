@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createChat, updateChat, deleteChat, getChat, listChats } from "./services/azure/cosmos_service";
+import { createChat, updateChat, deleteChat, getChat, listChats, initializeCosmosDB } from "./services/azure/cosmos_service";
 import { setupWebSocketServer } from "./services/websocket";
 import { join } from "path";
 import express from "express";
@@ -9,6 +9,12 @@ import { v4 as uuidv4 } from 'uuid';
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   const wsServer = setupWebSocketServer(httpServer);
+
+  // Initialize Cosmos DB before setting up routes
+  initializeCosmosDB().catch((error) => {
+    console.error("Failed to initialize Cosmos DB:", error);
+    process.exit(1);
+  });
 
   // Clean up WebSocket server when HTTP server closes
   httpServer.on('close', () => {
@@ -64,6 +70,10 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/chats", async (req, res) => {
     try {
       const { content } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+
       const userId = "user123"; // Mock user ID until auth is implemented
 
       const chatId = uuidv4(); // Generate a unique UUID for the chat
@@ -82,7 +92,6 @@ export function registerRoutes(app: Express): Server {
         lastMessageAt: new Date().toISOString()
       };
 
-      // Create chat in Cosmos DB
       const chat = await createChat(chatData);
 
       // Add AI response
@@ -93,9 +102,9 @@ export function registerRoutes(app: Express): Server {
         createdAt: new Date().toISOString()
       };
 
-      // Update chat with AI response
       const updatedChat = await updateChat(userId, chatId, {
-        messages: [...chat.messages, aiMessage]
+        messages: [...chat.messages, aiMessage],
+        lastMessageAt: new Date().toISOString()
       });
 
       res.json(updatedChat);
@@ -123,6 +132,10 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/messages", async (req, res) => {
     try {
       const { content, chatId } = req.body;
+      if (!content || !chatId) {
+        return res.status(400).json({ error: "Content and chatId are required" });
+      }
+
       const userId = "user123"; // Mock user ID until auth is implemented
 
       // Get current chat
@@ -148,7 +161,7 @@ export function registerRoutes(app: Express): Server {
       };
 
       // Update chat with both messages
-      await updateChat(userId, chatId, {
+      const updatedChat = await updateChat(userId, chatId, {
         messages: [...chat.messages, userMessage, aiMessage],
         lastMessageAt: new Date().toISOString()
       });

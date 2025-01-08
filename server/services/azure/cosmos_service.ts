@@ -7,16 +7,14 @@ let container: Container | null = null;
 export async function initializeCosmosDB() {
   try {
     if (!process.env.AZURE_COSMOS_CONNECTION_STRING) {
-      console.warn("Azure Cosmos DB connection string not configured. Document storage will use local database.");
-      return;
+      throw new Error("Azure Cosmos DB connection string not configured");
     }
 
     // Trim the connection string to remove any whitespace
     const connectionString = process.env.AZURE_COSMOS_CONNECTION_STRING.trim();
 
     if (!connectionString) {
-      console.warn("Azure Cosmos DB connection string is empty. Document storage will use local database.");
-      return;
+      throw new Error("Azure Cosmos DB connection string is empty");
     }
 
     client = new CosmosClient(connectionString);
@@ -30,7 +28,7 @@ export async function initializeCosmosDB() {
     // Create container if it doesn't exist with the specified partition key
     const { container: cont } = await database.containers.createIfNotExists({
       id: "chats",
-      partitionKey: "/userKey"
+      partitionKey: { paths: ["/userKey"] }
     });
     container = cont;
 
@@ -44,52 +42,60 @@ export async function initializeCosmosDB() {
 // Initialize on module load
 initializeCosmosDB().catch(console.error);
 
+// Helper function to check container availability
+function ensureContainer() {
+  if (!container) {
+    throw new Error("Cosmos DB not initialized. Please check your connection.");
+  }
+  return container;
+}
+
 // Chat-specific operations
 export async function createChat(chatData: any) {
-  if (!container) {
-    throw new Error("Cosmos DB not initialized. Please check your connection string.");
-  }
+  const cont = ensureContainer();
 
   try {
-    const { resource: createdChat } = await container.items.create(chatData);
+    // Add metadata fields
+    const chatWithMetadata = {
+      ...chatData,
+      _ts: Math.floor(Date.now() / 1000),
+      type: 'chat'
+    };
+
+    const { resource: createdChat } = await cont.items.create(chatWithMetadata);
     return createdChat;
   } catch (error: any) {
     if (error.code === 409) {
       // If document already exists, try to get it
-      const { resource: existingChat } = await container.item(chatData.id, chatData.userKey).read();
+      const { resource: existingChat } = await cont.item(chatData.id, chatData.userKey).read();
       return existingChat;
     }
-    console.error("Error creating chat in Cosmos DB:", error);
+    console.error("Error creating chat:", error);
     throw error;
   }
 }
 
 export async function getChat(userId: string, chatId: string) {
-  if (!container) {
-    throw new Error("Cosmos DB not initialized. Please check your connection string.");
-  }
+  const cont = ensureContainer();
 
   try {
-    const { resource: chat } = await container.item(chatId, userId).read();
+    const { resource: chat } = await cont.item(chatId, userId).read();
     return chat;
   } catch (error: any) {
     if (error.code === 404) {
       return null;
     }
-    console.error("Error retrieving chat from Cosmos DB:", error);
+    console.error("Error retrieving chat:", error);
     throw error;
   }
 }
 
 export async function updateChat(userId: string, chatId: string, updates: any) {
-  if (!container) {
-    throw new Error("Cosmos DB not initialized. Please check your connection string.");
-  }
+  const cont = ensureContainer();
 
   try {
-    const { resource: existingChat } = await container.item(chatId, userId).read();
+    const { resource: existingChat } = await cont.item(chatId, userId).read();
 
-    // If the chat doesn't exist, throw an error
     if (!existingChat) {
       throw new Error("Chat not found");
     }
@@ -97,38 +103,34 @@ export async function updateChat(userId: string, chatId: string, updates: any) {
     const updatedChat = {
       ...existingChat,
       ...updates,
-      updatedAt: new Date().toISOString()
+      _ts: Math.floor(Date.now() / 1000)
     };
 
-    const { resource: result } = await container.item(chatId, userId).replace(updatedChat);
+    const { resource: result } = await cont.item(chatId, userId).replace(updatedChat);
     return result;
   } catch (error) {
-    console.error("Error updating chat in Cosmos DB:", error);
+    console.error("Error updating chat:", error);
     throw error;
   }
 }
 
 export async function deleteChat(userId: string, chatId: string) {
-  if (!container) {
-    throw new Error("Cosmos DB not initialized. Please check your connection string.");
-  }
+  const cont = ensureContainer();
 
   try {
-    await container.item(chatId, userId).delete();
+    await cont.item(chatId, userId).delete();
   } catch (error) {
-    console.error("Error deleting chat from Cosmos DB:", error);
+    console.error("Error deleting chat:", error);
     throw error;
   }
 }
 
 export async function listChats(userId: string) {
-  if (!container) {
-    throw new Error("Cosmos DB not initialized. Please check your connection string.");
-  }
+  const cont = ensureContainer();
 
   try {
     const querySpec = {
-      query: "SELECT * FROM c WHERE c.userKey = @userId ORDER BY c.lastMessageAt DESC",
+      query: "SELECT * FROM c WHERE c.type = 'chat' AND c.userKey = @userId ORDER BY c._ts DESC",
       parameters: [
         {
           name: "@userId",
@@ -137,13 +139,13 @@ export async function listChats(userId: string) {
       ]
     };
 
-    const { resources: chats } = await container.items
+    const { resources: chats } = await cont.items
       .query(querySpec)
       .fetchAll();
 
     return chats;
   } catch (error) {
-    console.error("Error listing chats from Cosmos DB:", error);
+    console.error("Error listing chats:", error);
     throw error;
   }
 }
