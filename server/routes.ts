@@ -99,6 +99,83 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Usage Prediction endpoint
+  app.get("/api/equipment/:id/predictions", async (req, res) => {
+    try {
+      const equipmentId = parseInt(req.params.id);
+      const item = await db.query.equipment.findFirst({
+        where: eq(equipment.id, equipmentId),
+        with: {
+          type: true
+        }
+      });
+
+      if (!item) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+
+      // Generate mock prediction data
+      const predictions = {
+        usageHours: Math.floor(Math.random() * 8) + 2,
+        peakTimes: ["09:00", "17:00"],
+        maintenanceRecommendation: item.maintenanceScore && item.maintenanceScore < 70 
+          ? "Schedule maintenance soon" 
+          : "No immediate maintenance required",
+        nextPredictedMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      };
+
+      res.json(predictions);
+    } catch (error) {
+      console.error("Error generating predictions:", error);
+      res.status(500).json({ error: "Failed to generate predictions" });
+    }
+  });
+
+  // Performance Report endpoint
+  app.post("/api/equipment/report", async (req, res) => {
+    try {
+      const { equipmentIds } = req.body;
+
+      if (!Array.isArray(equipmentIds)) {
+        return res.status(400).json({ error: "Invalid equipment IDs" });
+      }
+
+      const items = await db.query.equipment.findMany({
+        where: eq(equipment.id, equipmentIds[0]), // For now, just use the first ID
+        with: {
+          type: true
+        }
+      });
+
+      if (!items.length) {
+        return res.status(404).json({ error: "No equipment found" });
+      }
+
+      // Generate mock report data
+      const report = {
+        generatedAt: new Date().toISOString(),
+        equipment: items.map(item => ({
+          id: item.id,
+          name: item.name,
+          type: item.type?.name || "Unknown",
+          healthScore: item.healthScore || 0,
+          maintenanceScore: item.maintenanceScore || 0,
+          lastMaintenance: item.lastMaintenance,
+          metrics: {
+            uptime: Math.floor(Math.random() * 100),
+            efficiency: Math.floor(Math.random() * 100),
+            utilization: Math.floor(Math.random() * 100)
+          }
+        }))
+      };
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
   // Save floor plan
   app.post("/api/floor-plans", async (req, res) => {
     try {
