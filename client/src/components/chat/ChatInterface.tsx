@@ -8,7 +8,17 @@ import { Send, FileText } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
-import type { Message } from "@db/schema";
+
+interface Chat {
+  id: string;
+  title: string;
+  messages: Array<{
+    id: string | number;
+    role: 'user' | 'assistant';
+    content: string;
+    createdAt: string | Date;
+  }>;
+}
 
 interface ChatInterfaceProps {
   chatId?: string;
@@ -17,14 +27,13 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
-  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
   // Fetch existing chat data
-  const { data: chat } = useQuery({
+  const { data: chat } = useQuery<Chat>({
     queryKey: ['/api/chats', chatId],
     enabled: !!chatId,
   });
@@ -60,16 +69,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         return newChat.messages;
       }
 
-      // Add optimistic user message
-      const optimisticMessage = {
-        id: Date.now(),
-        chatId: null,
-        role: 'user' as const,
-        content,
-        createdAt: new Date(),
-      };
-      setLocalMessages(prev => [...prev, optimisticMessage]);
-
       // Send message to server
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -88,17 +87,13 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       return response.json();
     },
     onSuccess: () => {
-      // Clear local messages and input
-      setLocalMessages([]);
+      // Clear input and refresh data
       setInput("");
-
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
     },
     onError: (error) => {
-      // Remove optimistic message on error
-      setLocalMessages(prev => prev.slice(0, -1));
       console.error('Failed to send message:', error);
       toast({
         title: "Error",
@@ -124,18 +119,17 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [chat?.messages, localMessages]);
+  }, [chat?.messages]);
 
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
   };
 
-  const messages = chat?.messages ?? [];
-  const allMessages = [...messages, ...localMessages];
+  const messages = chat?.messages || [];
 
   return (
     <div className="flex flex-col h-[calc(100vh-14rem)]">
-      {allMessages.length === 0 ? (
+      {messages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">GYM AI Engine</h1>
@@ -145,7 +139,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       ) : (
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-4 py-4">
-            {allMessages.map((message) => (
+            {messages.map((message) => (
               <ChatMessage
                 key={message.id}
                 role={message.role}
