@@ -41,11 +41,12 @@ export function registerRoutes(app: Express): Server {
 
       // Check if this is a direct request for a report
       if (content.toLowerCase().includes('yes, generate') || 
-          content.toLowerCase().includes('yes, create') ||
+          content.toLowerCase().includes('yes, give me') ||
           content.toLowerCase().includes('generate a downloadable') ||
           content.toLowerCase().includes('create a downloadable')) {
         try {
-          const filename = await generateReport(content);
+          const reportTopic = content.replace(/yes,?\s*(generate|create|give me)\s*(a|the)?\s*report/i, '').trim();
+          const filename = await generateReport(reportTopic);
           const message = {
             id: Date.now(),
             content: `I've prepared a detailed report based on your request. You can download it here:\n\n[Click here to download the report](/uploads/${filename})`,

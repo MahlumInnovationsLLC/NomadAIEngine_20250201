@@ -15,7 +15,17 @@ export async function generateReport(topic: string): Promise<string> {
     const response = await getChatCompletion([
       {
         role: "system",
-        content: "Generate a detailed, professional report in markdown format. Include these sections: Executive Summary, Key Findings, Detailed Analysis, Recommendations, and Conclusion. Use proper markdown formatting with headers (#) and lists (-). Be thorough and analytical."
+        content: "Generate a detailed, professional report in markdown format with the following structure:\n\n" +
+                "# Comprehensive Report: Latest Fitness Trends in the Industry\n\n" +
+                "# Introduction\n" +
+                "[Brief overview of the current state and importance of the topic]\n\n" +
+                "# Overview\n" +
+                "[Key points about current trends]\n\n" +
+                "# Key Innovations\n" +
+                "- [Innovation 1 with details]\n" +
+                "- [Innovation 2 with details]\n" +
+                "- [Innovation 3 with details]\n\n" +
+                "Use proper markdown formatting with headers (#) and lists (-). Be thorough and analytical."
       },
       { role: "user", content: `Create a comprehensive report about: ${topic}` }
     ]);
@@ -39,16 +49,18 @@ export async function generateReport(topic: string): Promise<string> {
         children: [
           // Title
           new Paragraph({
-            text: "GYM AI Engine - Generated Report",
-            heading: HeadingLevel.TITLE,
-            spacing: { after: 300 },
+            children: [
+              new TextRun({
+                text: "Comprehensive Report: Latest Fitness Trends in the Industry",
+                font: {
+                  name: "Calibri",
+                  bold: true,
+                  size: 32,
+                },
+              }),
+            ],
             alignment: AlignmentType.CENTER,
-            style: {
-              font: {
-                name: "Calibri",
-                size: 36,
-              },
-            },
+            spacing: { after: 300 },
           }),
           // Date
           new Paragraph({
@@ -62,18 +74,12 @@ export async function generateReport(topic: string): Promise<string> {
                 },
               }),
             ],
-            alignment: AlignmentType.CENTER,
+            alignment: AlignmentType.LEFT,
             spacing: { after: 400 },
           }),
           // Content sections
           ...sections.map(section => {
             const [title, ...content] = section.split('\n');
-
-            // Process content to handle markdown elements
-            const processedContent = content.join('\n')
-              .replace(/\*\*(.*?)\*\*/g, '${bold}$1${normal}') // Bold text
-              .replace(/- (.*?)(?=\n|$)/g, '• $1\n')  // Bullet points
-              .replace(/(\d+)\. (.*?)(?=\n|$)/g, '$1. $1\n'); // Numbered lists
 
             return [
               // Section title
@@ -83,36 +89,27 @@ export async function generateReport(topic: string): Promise<string> {
                     text: title.trim(),
                     font: {
                       name: "Calibri",
-                      size: 28,
                       bold: true,
+                      size: 28,
                     },
                   }),
                 ],
-                heading: HeadingLevel.HEADING_1,
                 spacing: { before: 400, after: 200 },
               }),
               // Section content
               new Paragraph({
-                children: processedContent.split('${bold}').map((part, index) => {
-                  if (index % 2 === 0) {
-                    return new TextRun({
-                      text: part.split('${normal}')[0],
-                      font: {
-                        name: "Calibri",
-                        size: 24,
-                      },
-                    });
-                  } else {
-                    return new TextRun({
-                      text: part.split('${normal}')[0],
-                      bold: true,
-                      font: {
-                        name: "Calibri",
-                        size: 24,
-                      },
-                    });
-                  }
-                }),
+                children: [
+                  new TextRun({
+                    text: content.join('\n')
+                      .replace(/\*\*(.*?)\*\*/g, '$1') // Handle bold text
+                      .replace(/^\s*-\s*/gm, '• ') // Convert dashes to bullets
+                      .trim(),
+                    font: {
+                      name: "Calibri",
+                      size: 24,
+                    },
+                  }),
+                ],
                 spacing: { after: 200 },
               }),
             ];
