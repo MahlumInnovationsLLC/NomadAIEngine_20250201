@@ -33,7 +33,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [, navigate] = useLocation();
 
   // Fetch existing chat data
-  const { data: chat } = useQuery<Chat>({
+  const { data: chat, error: chatError } = useQuery<Chat>({
     queryKey: ['/api/chats', chatId],
     enabled: !!chatId,
   });
@@ -41,6 +41,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   // Create new chat mutation
   const createChat = useMutation({
     mutationFn: async (content: string) => {
+      console.log("Creating new chat with content:", content);
       const response = await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -49,20 +50,30 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create chat');
+        const errorText = await response.text();
+        console.error("Failed to create chat:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`Failed to create chat: ${errorText}`);
       }
 
-      return response.json();
+      const data = await response.json();
+      console.log("Chat created successfully:", data);
+      return data;
     },
   });
 
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
+      console.log("Sending message:", { content, chatId });
       let targetChatId = chatId;
 
       // Create a new chat if we don't have one
       if (!targetChatId) {
+        console.log("No chatId provided, creating new chat");
         const newChat = await createChat.mutateAsync(content);
         targetChatId = newChat.id;
         navigate(`/chat/${targetChatId}`);
@@ -81,10 +92,18 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        const errorText = await response.text();
+        console.error("Failed to send message:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`Failed to send message: ${errorText}`);
       }
 
-      return response.json();
+      const data = await response.json();
+      console.log("Message sent successfully:", data);
+      return data;
     },
     onSuccess: () => {
       // Clear input and refresh data
@@ -93,11 +112,11 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('Failed to send message:', error);
       toast({
         title: "Error",
-        description: "Failed to send message. Please try again.",
+        description: `Failed to send message: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -110,6 +129,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         await sendMessage.mutateAsync(input);
       } catch (error) {
         // Error is handled in the mutation's onError callback
+        console.error("Error in handleSubmit:", error);
       }
     }
   };
@@ -124,6 +144,17 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
   };
+
+  if (chatError) {
+    console.error("Error loading chat:", chatError);
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center text-red-500">
+          Error loading chat: {chatError.message}
+        </div>
+      </div>
+    );
+  }
 
   const messages = chat?.messages || [];
 

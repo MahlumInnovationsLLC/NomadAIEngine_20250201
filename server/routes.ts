@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createChat, updateChat, deleteChat, getChat, listChats, initializeCosmosDB } from "./services/azure/cosmos_service";
+import { createChat, updateChat, deleteChat, getChat, listChats } from "./services/azure/cosmos_service";
 import { setupWebSocketServer } from "./services/websocket";
 import { join } from "path";
 import express from "express";
@@ -9,17 +9,6 @@ import { v4 as uuidv4 } from 'uuid';
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   const wsServer = setupWebSocketServer(httpServer);
-
-  // Initialize Cosmos DB before setting up routes
-  initializeCosmosDB().catch((error) => {
-    console.error("Failed to initialize Cosmos DB:", error);
-    process.exit(1);
-  });
-
-  // Clean up WebSocket server when HTTP server closes
-  httpServer.on('close', () => {
-    wsServer.close();
-  });
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
@@ -69,17 +58,20 @@ export function registerRoutes(app: Express): Server {
   // Create a new chat
   app.post("/api/chats", async (req, res) => {
     try {
+      console.log("Received chat creation request:", req.body);
       const { content } = req.body;
+
       if (!content) {
+        console.log("Missing content in request");
         return res.status(400).json({ error: "Content is required" });
       }
 
       const userId = "user123"; // Mock user ID until auth is implemented
+      const chatId = uuidv4();
+      const messageId = uuidv4();
 
-      const chatId = uuidv4(); // Generate a unique UUID for the chat
-      const messageId = uuidv4(); // Generate a unique UUID for the message
+      console.log("Generated IDs:", { chatId, messageId });
 
-      // Create initial chat data with first message
       const chatData = {
         id: chatId,
         userKey: userId,
@@ -93,11 +85,12 @@ export function registerRoutes(app: Express): Server {
         lastMessageAt: new Date().toISOString()
       };
 
-      // Create chat in Cosmos DB
+      console.log("Attempting to create chat with data:", chatData);
       const chat = await createChat(chatData);
-      console.log("Created chat:", chat); // Debug log
+      console.log("Chat created successfully:", chat);
 
       if (!chat || !Array.isArray(chat.messages)) {
+        console.error("Invalid chat data received:", chat);
         throw new Error("Invalid chat data received from database");
       }
 
@@ -109,16 +102,17 @@ export function registerRoutes(app: Express): Server {
         createdAt: new Date().toISOString()
       };
 
-      // Update chat with AI response
+      console.log("Adding AI response:", aiMessage);
       const updatedChat = await updateChat(userId, chatId, {
         messages: [...chat.messages, aiMessage],
         lastMessageAt: new Date().toISOString()
       });
 
+      console.log("Chat updated with AI response:", updatedChat);
       res.json(updatedChat);
     } catch (error) {
-      console.error("Error creating chat:", error);
-      res.status(500).json({ error: "Failed to create chat" });
+      console.error("Error in chat creation:", error);
+      res.status(500).json({ error: "Failed to create chat", details: error.message });
     }
   });
 
@@ -139,20 +133,25 @@ export function registerRoutes(app: Express): Server {
   // Send a message
   app.post("/api/messages", async (req, res) => {
     try {
+      console.log("Received message request:", req.body);
       const { content, chatId } = req.body;
+
       if (!content || !chatId) {
+        console.log("Missing required fields:", { content, chatId });
         return res.status(400).json({ error: "Content and chatId are required" });
       }
 
-      const userId = "user123"; // Mock user ID until auth is implemented
-
-      // Get current chat
+      const userId = "user123";
+      console.log("Fetching chat:", { userId, chatId });
       const chat = await getChat(userId, chatId);
+
       if (!chat) {
+        console.log("Chat not found:", { userId, chatId });
         return res.status(404).json({ error: "Chat not found" });
       }
 
       if (!Array.isArray(chat.messages)) {
+        console.error("Invalid chat data:", chat);
         throw new Error("Invalid chat data: messages array is missing");
       }
 
@@ -172,16 +171,17 @@ export function registerRoutes(app: Express): Server {
         createdAt: new Date().toISOString()
       };
 
-      // Update chat with both messages
+      console.log("Updating chat with new messages:", { userMessage, aiMessage });
       const updatedChat = await updateChat(userId, chatId, {
         messages: [...chat.messages, userMessage, aiMessage],
         lastMessageAt: new Date().toISOString()
       });
 
+      console.log("Chat successfully updated:", updatedChat);
       res.json([userMessage, aiMessage]);
     } catch (error) {
       console.error("Error processing message:", error);
-      res.status(500).json({ error: "Failed to process message" });
+      res.status(500).json({ error: "Failed to process message", details: error.message });
     }
   });
 
