@@ -1,31 +1,66 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, Clock, Award } from "lucide-react";
+import { Trophy, Award, Book, CheckCircle, Clock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
+import { ModuleCard } from "@/components/training/ModuleCard";
+import { QuizCard } from "@/components/training/QuizCard";
+import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
+// Types from the schema
 interface TrainingModule {
   id: string;
-  name: string;
+  title: string;
+  description: string;
   completedLessons: number;
   totalLessons: number;
+  requiredLevel: number;
+  content: {
+    lessons: Array<{
+      id: string;
+      title: string;
+      content: string;
+    }>;
+    quizzes: Array<{
+      id: string;
+      question: string;
+      options: string[];
+      correctAnswer: number;
+      explanation: string;
+    }>;
+  };
 }
 
 interface Activity {
   id: string;
   description: string;
   timestamp: string;
+  type: 'completion' | 'quiz' | 'lesson';
 }
 
 interface TrainingData {
   currentLevel: number;
+  currentExp: number;
+  nextLevelExp: number;
   modules: TrainingModule[];
   recentActivity: Activity[];
+  achievements: Array<{
+    id: string;
+    name: string;
+    description: string;
+    unlockedAt?: string;
+  }>;
 }
 
 export default function TrainingModule() {
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+
   const { data: trainingData } = useQuery<TrainingData>({
     queryKey: ['/api/training/progress'],
   });
+
+  const selectedModule = trainingData?.modules.find(m => m.id === selectedModuleId);
 
   return (
     <div className="space-y-6">
@@ -37,50 +72,104 @@ export default function TrainingModule() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {/* Current Role Level */}
-            <div>
-              <h3 className="text-lg font-medium mb-2">Current Role Level</h3>
-              <div className="flex items-center gap-2 text-2xl font-bold">
-                <Award className="h-6 w-6 text-primary" />
-                <span>Level {trainingData?.currentLevel ?? 1}</span>
-              </div>
-            </div>
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="modules">Learning Modules</TabsTrigger>
+              <TabsTrigger value="achievements">Achievements</TabsTrigger>
+            </TabsList>
 
-            {/* Training Progress */}
-            <div>
-              <h3 className="text-lg font-medium mb-4">Training Modules</h3>
-              <div className="space-y-4">
-                {trainingData?.modules?.map((module) => (
-                  <div key={module.id} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">{module.name}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {module.completedLessons}/{module.totalLessons} Completed
-                      </span>
+            <TabsContent value="overview">
+              <div className="grid gap-6">
+                {/* Current Level Progress */}
+                <div className="bg-card rounded-lg p-6 border">
+                  <h3 className="text-lg font-medium mb-2">Current Progress</h3>
+                  <div className="flex items-center gap-2 text-2xl font-bold mb-4">
+                    <Award className="h-6 w-6 text-primary" />
+                    <span>Level {trainingData?.currentLevel ?? 1}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Experience</span>
+                      <span>{trainingData?.currentExp ?? 0} / {trainingData?.nextLevelExp ?? 100} XP</span>
                     </div>
-                    <Progress value={(module.completedLessons / module.totalLessons) * 100} />
+                    <Progress 
+                      value={((trainingData?.currentExp ?? 0) / (trainingData?.nextLevelExp ?? 100)) * 100} 
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            {/* Recent Activity */}
-            <div>
-              <h3 className="text-lg font-medium mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                {trainingData?.recentActivity?.map((activity) => (
-                  <div key={activity.id} className="flex items-center gap-2 text-sm">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{activity.description}</span>
-                    <span className="text-muted-foreground ml-auto">
-                      {new Date(activity.timestamp).toLocaleDateString()}
-                    </span>
-                  </div>
+                {/* Recent Activity */}
+                <div className="bg-card rounded-lg p-6 border">
+                  <h3 className="text-lg font-medium mb-4">Recent Activity</h3>
+                  <ScrollArea className="h-[200px] pr-4">
+                    <div className="space-y-3">
+                      {trainingData?.recentActivity?.map((activity) => (
+                        <div key={activity.id} className="flex items-center gap-2 text-sm">
+                          {activity.type === 'completion' ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : activity.type === 'quiz' ? (
+                            <Trophy className="h-4 w-4 text-yellow-500" />
+                          ) : (
+                            <Book className="h-4 w-4 text-blue-500" />
+                          )}
+                          <span>{activity.description}</span>
+                          <span className="text-muted-foreground ml-auto">
+                            {new Date(activity.timestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="modules">
+              <div className="grid gap-6 md:grid-cols-2">
+                {trainingData?.modules?.map((module) => (
+                  <ModuleCard
+                    key={module.id}
+                    moduleId={module.id}
+                    title={module.title}
+                    description={module.description}
+                    totalLessons={module.totalLessons}
+                    completedLessons={module.completedLessons}
+                    isLocked={module.requiredLevel > (trainingData?.currentLevel ?? 1)}
+                    requiredLevel={module.requiredLevel}
+                    onStart={() => setSelectedModuleId(module.id)}
+                  />
                 ))}
               </div>
-            </div>
-          </div>
+            </TabsContent>
+
+            <TabsContent value="achievements">
+              <div className="grid gap-4 md:grid-cols-2">
+                {trainingData?.achievements?.map((achievement) => (
+                  <Card key={achievement.id} className={`${!achievement.unlockedAt && 'opacity-50'}`}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2">
+                        <Trophy className={`h-5 w-5 ${
+                          achievement.unlockedAt ? 'text-yellow-500' : 'text-gray-400'
+                        }`} />
+                        <div>
+                          <h4 className="font-medium">{achievement.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {achievement.description}
+                          </p>
+                          {achievement.unlockedAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Unlocked on {new Date(achievement.unlockedAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
