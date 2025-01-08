@@ -26,42 +26,12 @@ function App() {
           <main className="container mx-auto px-4 pt-16">
             <AnimatePresence mode="wait">
               <Switch key={location}>
-                <Route path="/">
-                  <PageTransition>
-                    <Home />
-                  </PageTransition>
-                </Route>
-                <Route path="/dashboard">
-                  <PageTransition>
-                    <div data-tour="dashboard-section">
-                      <DashboardPage />
-                    </div>
-                  </PageTransition>
-                </Route>
-                <Route path="/chat/:id?">
-                  <PageTransition>
-                    <div data-tour="chat-section">
-                      <ChatPage />
-                    </div>
-                  </PageTransition>
-                </Route>
-                <Route path="/documents">
-                  <PageTransition>
-                    <div data-tour="document-section">
-                      <DocumentManagement />
-                    </div>
-                  </PageTransition>
-                </Route>
-                <Route path="/club-control">
-                  <PageTransition>
-                    <div data-tour="club-control-section">
-                      <ClubControlPage />
-                    </div>
-                  </PageTransition>
-                </Route>
-                <Route>
-                  <NotFound />
-                </Route>
+                <Route path="/" component={Home} />
+                <Route path="/dashboard" component={DashboardPage} />
+                <Route path="/chat/:id?" component={ChatPage} />
+                <Route path="/documents" component={DocumentManagement} />
+                <Route path="/club-control" component={ClubControlPage} />
+                <Route component={NotFound} />
               </Switch>
             </AnimatePresence>
           </main>
