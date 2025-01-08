@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 
 interface TreeProps {
   children?: React.ReactNode;
-  onNodeSelect?: (node: string) => void;
   className?: string;
 }
 
@@ -12,9 +11,10 @@ interface TreeNodeProps {
   label: string;
   icon?: React.ReactNode;
   children?: React.ReactNode;
+  onClick?: () => void;
 }
 
-export function Tree({ children, onNodeSelect, className }: TreeProps) {
+export function Tree({ children, className }: TreeProps) {
   return (
     <div className={cn("space-y-2", className)}>
       {children}
@@ -22,17 +22,24 @@ export function Tree({ children, onNodeSelect, className }: TreeProps) {
   );
 }
 
-export function TreeNode({ id, label, icon, children }: TreeNodeProps) {
+export function TreeNode({ id, label, icon, children, onClick }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
+
+  const handleClick = () => {
+    if (children) {
+      setIsExpanded(!isExpanded);
+    }
+    onClick?.();
+  };
 
   return (
     <div>
       <div
         className={cn(
-          "flex items-center p-2 rounded-lg cursor-pointer hover:bg-accent",
-          children && "cursor-pointer"
+          "flex items-center p-2 rounded-lg hover:bg-accent",
+          (onClick || children) && "cursor-pointer"
         )}
-        onClick={() => children && setIsExpanded(!isExpanded)}
+        onClick={handleClick}
       >
         {icon && <span className="mr-2">{icon}</span>}
         <span className="flex-1 text-sm">{label}</span>

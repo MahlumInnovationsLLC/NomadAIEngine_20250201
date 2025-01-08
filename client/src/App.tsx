@@ -11,7 +11,7 @@ import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
-import DocumentControl from "@/pages/DocumentControl";
+import { DocumentManagement } from "@/pages/DocumentManagement";
 import DashboardPage from "@/pages/DashboardPage";
 import ClubControlPage from "@/pages/ClubControlPage";
 
@@ -48,7 +48,7 @@ function App() {
                 <Route path="/documents">
                   <PageTransition>
                     <div data-tour="document-section">
-                      <DocumentControl />
+                      <DocumentManagement />
                     </div>
                   </PageTransition>
                 </Route>
