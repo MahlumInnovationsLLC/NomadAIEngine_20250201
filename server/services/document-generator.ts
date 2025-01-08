@@ -1,7 +1,13 @@
-import { Document, Paragraph, TextRun } from 'docx';
-import { writeFileSync } from 'fs';
+import { Document, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getChatCompletion } from './azure-openai';
+
+// Ensure uploads directory exists
+const uploadsDir = join(process.cwd(), 'uploads');
+if (!existsSync(uploadsDir)) {
+  mkdirSync(uploadsDir, { recursive: true });
+}
 
 export async function generateReport(topic: string): Promise<string> {
   try {
@@ -9,55 +15,55 @@ export async function generateReport(topic: string): Promise<string> {
     const response = await getChatCompletion([
       {
         role: "system",
-        content: "Generate a detailed, professional report on the given topic. Structure it with sections, bullet points, and clear explanations."
+        content: "Generate a detailed, professional report on the given topic. Structure it with clear sections, headings, bullet points, and thorough explanations. Format the response in markdown with # for main sections and ## for subsections."
       },
-      { role: "user", content: `Create a detailed report about: ${topic}` }
+      { role: "user", content: `Create a comprehensive report about: ${topic}` }
     ]);
+
+    // Parse the markdown response and create document sections
+    const sections = response.split('\n# ').filter(Boolean);
 
     // Create a new document
     const doc = new Document({
       sections: [{
         properties: {},
         children: [
+          // Title
           new Paragraph({
-            children: [
-              new TextRun({
-                text: "GYM AI Engine Report",
-                bold: true,
-                size: 32,
-              }),
-            ],
+            text: "GYM AI Engine Report",
+            heading: HeadingLevel.TITLE,
+            spacing: { after: 300 },
           }),
           new Paragraph({
-            children: [
-              new TextRun({
-                text: new Date().toLocaleDateString(),
-                size: 24,
-                color: "666666",
-              }),
-            ],
+            text: new Date().toLocaleDateString(),
+            spacing: { after: 300 },
           }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: response,
-                size: 24,
+          ...sections.map(section => {
+            const [title, ...content] = section.split('\n');
+            return [
+              new Paragraph({
+                text: title.trim(),
+                heading: HeadingLevel.HEADING_1,
+                spacing: { before: 400, after: 200 },
               }),
-            ],
-          }),
+              new Paragraph({
+                text: content.join('\n').trim(),
+                spacing: { after: 200 },
+              }),
+            ];
+          }).flat(),
         ],
       }],
     });
 
     // Generate unique filename
     const filename = `report-${Date.now()}.docx`;
-    const filepath = join('uploads', filename);
+    const filepath = join(uploadsDir, filename);
 
-    // Save the document
+    // Write the document to file
     const buffer = await doc.save();
     writeFileSync(filepath, buffer);
 
-    // Return the filename that can be used to download the file
     return filename;
   } catch (error) {
     console.error("Error generating report:", error);

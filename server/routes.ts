@@ -43,12 +43,27 @@ export function registerRoutes(app: Express): Server {
       const response = await getChatCompletion([
         { 
           role: "system", 
-          content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance. Format your responses using Markdown:\n\n- Use # for main headings\n- Use ** for bold text\n- Use - for bullet points\n- Use 1. for numbered lists\n- Create well-formatted, structured responses\n- When asked to generate a report, mention that you can help create a detailed Word document and guide the user to request it specifically."
+          content: "You are GYM AI Engine, an intelligent assistant helping users with gym management, training, and equipment maintenance. Format your responses using Markdown:\n\n- Use # for main headings\n- Use ** for bold text\n- Use - for bullet points\n- Use 1. for numbered lists\n\nWhen users ask for a report, respond with: 'I can help you create a detailed report on [topic]. Would you like me to generate a downloadable Word document for you? Just let me know and I'll create a comprehensive report that you can download.'"
         },
         { role: "user", content }
       ]);
 
-      // For now, we'll create a simple message structure
+      // Check if the user is requesting a report
+      if (content.toLowerCase().includes('report') || content.toLowerCase().includes('download')) {
+        try {
+          const filename = await generateReport(content);
+          const message = {
+            id: Date.now(),
+            content: `I've prepared a detailed report based on your request. You can download it here: [Download Report](/uploads/${filename})`,
+            role: 'assistant'
+          };
+          return res.json(message);
+        } catch (error) {
+          console.error("Error generating report:", error);
+        }
+      }
+
+      // For regular messages
       const message = {
         id: Date.now(),
         content: response,

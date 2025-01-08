@@ -29,9 +29,11 @@ export default function ChatMessage({ role, content, files }: ChatMessageProps) 
 
       <Card className={cn(
         "p-3 max-w-[80%]",
-        role === 'assistant' ? "bg-primary text-primary-foreground" : "bg-secondary"
+        role === 'assistant' 
+          ? "bg-primary text-primary-foreground [&_*]:text-primary-foreground" 
+          : "bg-secondary text-foreground"
       )}>
-        <div className="prose prose-sm dark:prose-invert max-w-none text-white">
+        <div className="prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
 
