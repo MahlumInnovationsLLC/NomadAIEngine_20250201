@@ -7,17 +7,16 @@ import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PredictionResponse {
-  equipmentId: number;
-  predictions: {
-    maintenanceScore: number;
-    nextFailureProbability: number;
-    recommendedActions: string[];
-    usagePattern: {
-      morning: number;
-      afternoon: number;
-      evening: number;
-    };
+  equipment: {
+    id: string;
+    name: string;
   };
+  predictions: Array<{
+    timestamp: string;
+    predictedUsage: number;
+    confidence: number;
+  }>;
+  lastUpdated: string;
 }
 
 interface EquipmentUsagePredictionProps {
@@ -62,11 +61,18 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
   }
 
   // Transform the prediction data for the chart
-  const chartData = [
-    { time: '06:00', usage: prediction.predictions.usagePattern.morning },
-    { time: '14:00', usage: prediction.predictions.usagePattern.afternoon },
-    { time: '20:00', usage: prediction.predictions.usagePattern.evening }
-  ];
+  const chartData = prediction.predictions.map(p => ({
+    time: new Date(p.timestamp).toLocaleTimeString('en-US', { 
+      hour: 'numeric',
+      hour12: true 
+    }),
+    usage: p.predictedUsage,
+    confidence: p.confidence
+  }));
+
+  // Calculate average usage and confidence
+  const avgUsage = chartData.reduce((acc, curr) => acc + curr.usage, 0) / chartData.length;
+  const avgConfidence = chartData.reduce((acc, curr) => acc + curr.confidence, 0) / chartData.length;
 
   return (
     <Card>
@@ -79,7 +85,12 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
             <ResponsiveContainer>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" />
+                <XAxis 
+                  dataKey="time"
+                  interval={3}  // Show every 4th label to prevent overcrowding
+                  angle={-45}
+                  textAnchor="end"
+                />
                 <YAxis />
                 <Tooltip />
                 <Legend />
@@ -88,7 +99,7 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
                   dataKey="usage"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
-                  name="Predicted Usage"
+                  name="Predicted Usage %"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -96,20 +107,16 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Maintenance Score:</span>
-              <span>{prediction.predictions.maintenanceScore.toFixed(1)}</span>
+              <span className="text-muted-foreground">Average Usage:</span>
+              <span>{avgUsage.toFixed(1)}%</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Failure Probability:</span>
-              <span>{(prediction.predictions.nextFailureProbability * 100).toFixed(1)}%</span>
+              <span className="text-muted-foreground">Prediction Confidence:</span>
+              <span>{(avgConfidence * 100).toFixed(1)}%</span>
             </div>
-            <div className="flex flex-col gap-1 mt-2">
-              <span className="text-muted-foreground">Recommended Actions:</span>
-              <ul className="list-disc list-inside space-y-1">
-                {prediction.predictions.recommendedActions.map((action, index) => (
-                  <li key={index} className="text-sm">{action}</li>
-                ))}
-              </ul>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Last Updated:</span>
+              <span>{new Date(prediction.lastUpdated).toLocaleString()}</span>
             </div>
           </div>
         </div>
