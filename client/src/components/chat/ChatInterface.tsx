@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, FileText } from "lucide-react";
+import { Send, FileText, Square, Loader2 } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -26,10 +27,14 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
+      // Create new AbortController for this request
+      abortControllerRef.current = new AbortController();
+
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
+        signal: abortControllerRef.current.signal,
         credentials: 'include',
       });
 
@@ -45,11 +50,14 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       addMessages(newMessages);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Only show error toast if it's not an abort error
+      if (error.name !== 'AbortError') {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -61,6 +69,13 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       await sendMessage.mutateAsync(input);
     } catch (error) {
       console.error("Error in handleSubmit:", error);
+    }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
   };
 
@@ -90,11 +105,17 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-4 py-4">
             {messages.map((message, index) => (
-              <ChatMessage
-                key={`${message.id}-${index}`}
-                role={message.role}
-                content={message.content}
-              />
+              <div key={`${message.id}-${index}`} className="relative">
+                <ChatMessage
+                  role={message.role}
+                  content={message.content}
+                />
+                {message.role === 'assistant' && index === messages.length - 1 && sendMessage.isPending && (
+                  <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-background/50">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                )}
+              </div>
             ))}
             <div ref={messagesEndRef} />
           </div>
@@ -118,13 +139,25 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
             placeholder="Type your message..."
             className="flex-1"
           />
-          <Button
-            type="submit"
-            disabled={!input.trim() || sendMessage.isPending}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+          {sendMessage.isPending ? (
+            <Button
+              type="button"
+              onClick={handleStop}
+              variant="destructive"
+              size="icon"
+              className="aspect-square"
+            >
+              <Square className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              disabled={!input.trim() || sendMessage.isPending}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
         </form>
       </div>
 
