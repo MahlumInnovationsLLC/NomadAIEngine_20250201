@@ -5,7 +5,7 @@ import { checkContainerAvailability } from "./cosmos_service";
 import { checkBlobStorageConnection } from "./blob_service";
 
 let client: OpenAIClient | null = null;
-const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-35-turbo";
+const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4";
 
 export async function initializeOpenAI() {
   try {
