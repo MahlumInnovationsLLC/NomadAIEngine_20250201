@@ -16,10 +16,12 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dumbbell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Equipment } from "@db/schema";
 
 interface EquipmentQuickAddProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEquipmentAdded?: (equipment: Equipment) => void;
 }
 
 const equipmentPresets = [
@@ -90,7 +92,7 @@ const equipmentPresets = [
   }
 ];
 
-export function EquipmentQuickAdd({ open, onOpenChange }: EquipmentQuickAddProps) {
+export function EquipmentQuickAdd({ open, onOpenChange, onEquipmentAdded }: EquipmentQuickAddProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -128,9 +130,12 @@ export function EquipmentQuickAdd({ open, onOpenChange }: EquipmentQuickAddProps
 
       return equipmentResponse.json();
     },
-    onSuccess: () => {
+    onSuccess: (newEquipment) => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
       onOpenChange(false);
+      if (onEquipmentAdded) {
+        onEquipmentAdded(newEquipment);
+      }
       toast({
         title: "Equipment Added",
         description: "New equipment has been successfully added.",

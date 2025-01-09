@@ -267,6 +267,10 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
     console.log('Equipment reordered:', reorderedEquipment);
   };
 
+  const handleEquipmentAdded = (newEquipment: Equipment) => {
+    setEditEquipment(newEquipment);
+  };
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center">
@@ -476,6 +480,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
       <EquipmentQuickAdd
         open={showQuickAdd}
         onOpenChange={setShowQuickAdd}
+        onEquipmentAdded={handleEquipmentAdded}
       />
     </div>
   );

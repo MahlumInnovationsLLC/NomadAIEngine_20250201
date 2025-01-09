@@ -29,7 +29,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface EquipmentEditDialogProps {
@@ -43,6 +42,9 @@ const equipmentEditSchema = z.object({
   deviceType: z.string().optional(),
   deviceIdentifier: z.string().optional(),
   deviceConnectionStatus: z.enum(['connected', 'disconnected', 'pairing']).optional(),
+  serialNumber: z.string().optional(),
+  modelNumber: z.string().optional(),
+  modelYear: z.number().min(1900).max(new Date().getFullYear() + 1).optional(),
 });
 
 type EquipmentEditValues = z.infer<typeof equipmentEditSchema>;
@@ -62,6 +64,9 @@ export function EquipmentEditDialog({
       deviceType: equipment.deviceType || undefined,
       deviceIdentifier: equipment.deviceIdentifier || undefined,
       deviceConnectionStatus: equipment.deviceConnectionStatus || undefined,
+      serialNumber: equipment.serialNumber || undefined,
+      modelNumber: equipment.modelNumber || undefined,
+      modelYear: equipment.modelYear || undefined,
     },
   });
 
@@ -146,6 +151,53 @@ export function EquipmentEditDialog({
                   <FormLabel>Name</FormLabel>
                   <FormControl>
                     <Input {...field} placeholder="Enter equipment name" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="serialNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Serial Number</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Enter serial number" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="modelNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Model Number</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Enter model number" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="modelYear"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Model Year</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      {...field} 
+                      onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                      placeholder="Enter model year" 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

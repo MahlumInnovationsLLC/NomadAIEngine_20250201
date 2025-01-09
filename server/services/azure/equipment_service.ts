@@ -34,6 +34,9 @@ export interface Equipment {
   position?: { x: number; y: number };
   riskFactors?: unknown[];
   lastPredictionUpdate?: string;
+  serialNumber?: string;
+  modelNumber?: string;
+  modelYear?: number;
   createdAt: string;
   updatedAt: string;
 }

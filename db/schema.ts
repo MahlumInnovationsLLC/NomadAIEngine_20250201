@@ -101,6 +101,8 @@ export const equipment = pgTable("equipment", {
   name: text("name").notNull(),
   equipmentTypeId: integer("equipment_type_id").references(() => equipmentTypes.id),
   serialNumber: text("serial_number"),
+  modelNumber: text("model_number"),
+  modelYear: integer("model_year"),
   lastMaintenance: timestamp("last_maintenance"),
   nextMaintenance: timestamp("next_maintenance"),
   status: text("status", { enum: ['active', 'maintenance', 'offline', 'error'] }).notNull(),
