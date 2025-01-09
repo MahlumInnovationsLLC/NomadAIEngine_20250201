@@ -1,4 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
