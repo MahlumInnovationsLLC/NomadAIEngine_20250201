@@ -4,13 +4,16 @@ import ChatInterface from "@/components/chat/ChatInterface";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { useChatHistory } from "@/hooks/use-chat-history";
 
 export default function ChatPage() {
   const [match, params] = useRoute("/chat/:id?");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const { messages, clearMessages } = useChatHistory(params?.id);
 
   const handleNewChat = () => {
-    if (params?.id) {
+    // Only show confirmation if there are messages
+    if (messages.length > 0) {
       setShowConfirmDialog(true);
     } else {
       window.location.href = '/chat';
@@ -18,6 +21,7 @@ export default function ChatPage() {
   };
 
   const confirmNewChat = () => {
+    clearMessages();
     setShowConfirmDialog(false);
     window.location.href = '/chat';
   };
@@ -48,7 +52,7 @@ export default function ChatPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Start New Chat?</AlertDialogTitle>
             <AlertDialogDescription>
-              Starting a new chat will end your current conversation. Are you sure you want to continue?
+              Starting a new chat will clear your current conversation. This action cannot be undone. Are you sure you want to continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
