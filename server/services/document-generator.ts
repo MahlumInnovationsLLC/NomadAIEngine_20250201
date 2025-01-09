@@ -1,7 +1,7 @@
 import { Document, Packer, Paragraph, TextRun, convertInchesToTwip, AlignmentType, HeadingLevel } from 'docx';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { getChatCompletion } from './azure-openai';
+import { analyzeDocument } from './azure/openai_service';
 
 // Ensure uploads directory exists
 const uploadsDir = join(process.cwd(), 'uploads');
@@ -12,36 +12,33 @@ if (!existsSync(uploadsDir)) {
 export async function generateReport(topic: string): Promise<string> {
   try {
     // Get detailed report content from Azure OpenAI
-    const response = await getChatCompletion([
-      {
-        role: "system",
-        content: "Generate a highly detailed, comprehensive report in markdown format. The report should be extensive and thorough, covering all aspects in depth. Use the following structure and markdown formatting:\n\n" +
-                "# [Generate a clear, professional title that reflects the content]\n\n" +
-                "# Introduction\n" +
-                "[Detailed introduction with context and importance]\n\n" +
-                "## Market Overview\n" +
-                "[In-depth market analysis with statistics and trends]\n\n" +
-                "## Current Landscape\n" +
-                "[Comprehensive overview of current state]\n\n" +
-                "# Key Innovations\n" +
-                "## Innovation 1: [Title]\n" +
-                "- [Detailed point 1]\n" +
-                "- [Detailed point 2]\n" +
-                "### Technical Details\n" +
-                "[In-depth technical analysis]\n\n" +
-                "## Innovation 2: [Title]\n" +
-                "- [Detailed points]\n\n" +
-                "Use proper markdown formatting:\n" +
-                "- # for main sections\n" +
-                "- ## for subsections\n" +
-                "- ### for detailed subsections\n" +
-                "- **text** for bold emphasis\n" +
-                "- - for bullet points\n" +
-                "- 1. for numbered lists\n\n" +
-                "Provide extensive detail, statistics, and analysis in each section. Include market trends, adoption rates, technical specifications, and impact analysis. The report should be comprehensive enough to serve as a detailed industry analysis document."
-      },
-      { role: "user", content: `Create a comprehensive report about: ${topic}` }
-    ]);
+    const response = await analyzeDocument(`Generate a comprehensive and professional report about: ${topic}. 
+    The report should follow this structure:
+    # [Professional Title]
+
+    ## Executive Summary
+    [Brief overview]
+
+    ## Detailed Analysis
+    [In-depth examination]
+
+    ### Key Findings
+    [Important discoveries]
+
+    ### Impact Assessment
+    [Effects and implications]
+
+    ## Recommendations
+    [Actionable items]
+
+    ## Next Steps
+    [Implementation plan]
+
+    Please use markdown formatting for sections and emphasis.`);
+
+    if (!response) {
+      throw new Error("Failed to generate report content");
+    }
 
     // Parse the markdown response
     const lines = response.split('\n');
@@ -52,12 +49,6 @@ export async function generateReport(topic: string): Promise<string> {
       const stripped = line.trim();
       if (stripped.startsWith("# ")) {
         docTitle = stripped.substring(2).trim();
-        break;
-      } else if (stripped.startsWith("## ")) {
-        docTitle = stripped.substring(3).trim();
-        break;
-      } else if (stripped.startsWith("### ")) {
-        docTitle = stripped.substring(4).trim();
         break;
       }
     }

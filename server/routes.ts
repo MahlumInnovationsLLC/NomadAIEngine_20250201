@@ -4,6 +4,7 @@ import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_
 import { setupWebSocketServer } from "./services/websocket";
 import { v4 as uuidv4 } from 'uuid';
 import express from "express";
+import { generateReport } from "./services/document-generator";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -11,6 +12,36 @@ export function registerRoutes(app: Express): Server {
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
+
+  // Generate detailed report endpoint
+  app.post("/api/generate-report", async (req, res) => {
+    try {
+      const { topic } = req.body;
+
+      if (!topic) {
+        return res.status(400).json({ error: "Topic is required" });
+      }
+
+      console.log(`Generating report for topic: ${topic}`);
+      const filename = await generateReport(topic);
+
+      if (!filename) {
+        throw new Error("Failed to generate report");
+      }
+
+      res.json({ 
+        success: true, 
+        filename,
+        downloadUrl: `/uploads/${filename}` 
+      });
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ 
+        error: "Failed to generate report", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
 
   // Check Azure OpenAI connection status
   app.get("/api/azure/status", async (req, res) => {
