@@ -59,10 +59,11 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
 
   const createFolderMutation = useMutation({
     mutationFn: async (folderName: string) => {
+      const fullPath = currentPath ? `${currentPath}/${folderName}` : folderName;
       const response = await fetch('/api/documents/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: `${currentPath}/${folderName}`.replace(/\/+/g, '/') }),
+        body: JSON.stringify({ path: fullPath }),
       });
       if (!response.ok) throw new Error('Failed to create folder');
       return response.json();
@@ -96,13 +97,17 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
     }
   };
 
-  const navigateToFolder = (path: string) => {
-    setCurrentPath(path);
+  const navigateToFolder = (folderPath: string) => {
+    // Remove the trailing slash if present for consistent navigation
+    const cleanPath = folderPath.endsWith('/') ? folderPath.slice(0, -1) : folderPath;
+    setCurrentPath(cleanPath);
   };
 
   const navigateUp = () => {
-    const parentPath = currentPath.split('/').slice(0, -1).join('/');
-    setCurrentPath(parentPath);
+    if (!currentPath) return;
+    const segments = currentPath.split('/');
+    segments.pop(); // Remove the last segment
+    setCurrentPath(segments.join('/'));
   };
 
   return (
