@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, FileText, Download } from "lucide-react";
+import { Send, FileText } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
@@ -16,73 +15,24 @@ interface Message {
   createdAt: string;
 }
 
-interface Chat {
-  id: string;
-  title: string;
-  messages: Message[];
-}
-
 interface ChatInterfaceProps {
   chatId?: string;
 }
 
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
   const [showFileUpload, setShowFileUpload] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [, navigate] = useLocation();
-
-  // Fetch existing chat data
-  const { data: chat } = useQuery<Chat>({
-    queryKey: ['/api/chats', chatId],
-    enabled: !!chatId,
-  });
-
-  // Create new chat mutation
-  const createChat = useMutation({
-    mutationFn: async (content: string) => {
-      const response = await fetch('/api/chats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to create chat: ${errorText}`);
-      }
-
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(['/api/chats', data.id], data);
-      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-      navigate(`/chat/${data.id}`);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
-      if (!chatId) {
-        const newChat = await createChat.mutateAsync(content);
-        return newChat.messages;
-      }
-
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, content }),
+        body: JSON.stringify({ content }),
         credentials: 'include',
       });
 
@@ -93,51 +43,9 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (newMessage) => {
       setInput("");
-      if (chatId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
-      }
-      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Generate report mutation
-  const generateReport = useMutation({
-    mutationFn: async () => {
-      const response = await fetch('/api/reports/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate report');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'report.pdf';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Report generated and downloaded successfully",
-      });
+      setMessages(prev => [...prev, newMessage]);
     },
     onError: (error: Error) => {
       toast({
@@ -164,13 +72,13 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [chat?.messages]);
+  }, [messages]);
 
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
   };
 
-  const showWelcome = !chatId && (!chat?.messages || chat.messages.length === 0);
+  const showWelcome = messages.length === 0;
 
   return (
     <div className="flex flex-col h-[calc(100vh-14rem)]">
@@ -184,7 +92,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       ) : (
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-4 py-4">
-            {chat?.messages?.map((message) => (
+            {messages.map((message) => (
               <ChatMessage
                 key={message.id}
                 role={message.role}
@@ -220,18 +128,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           >
             <Send className="h-4 w-4" />
           </Button>
-          {chat?.messages && chat.messages.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => generateReport.mutate()}
-              disabled={generateReport.isPending}
-              className="shrink-0"
-            >
-              <Download className="h-4 w-4" />
-            </Button>
-          )}
         </form>
       </div>
 

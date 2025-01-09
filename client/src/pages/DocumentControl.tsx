@@ -53,8 +53,11 @@ export default function DocumentControl() {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Document Training & Control</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
+        <p className="text-muted-foreground">
+          Manage, review, and approve documents with version control and workflow management.
+        </p>
       </div>
 
       <div className="mb-8">
