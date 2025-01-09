@@ -34,7 +34,10 @@ export async function initializeOpenAI() {
       const testResult = await client.getChatCompletions(deploymentName, [
         { role: "system", content: "Test connection" },
         { role: "user", content: "Test message" }
-      ]);
+      ], {
+        maxRetries: 3,
+        timeout: 10000
+      });
 
       if (!testResult.choices || testResult.choices.length === 0) {
         console.warn("OpenAI connection test failed - AI features will be disabled");
@@ -71,8 +74,12 @@ export async function checkOpenAIConnection() {
         });
       } else {
         const testResult = await client.getChatCompletions(deploymentName, [
-          { role: "system", content: "Connection test" }
-        ]);
+          { role: "system", content: "Connection test" },
+          { role: "user", content: "Test message" }
+        ], {
+          maxRetries: 3,
+          timeout: 10000
+        });
 
         services.push({
           name: "Azure OpenAI",
@@ -168,10 +175,43 @@ export async function analyzeDocument(content: string) {
     const result = await client.getChatCompletions(deploymentName, [
       { 
         role: "system", 
-        content: "You are a helpful assistant for a Fitness Facility and Health Club. You are an expert in all things fitness and Health Club Management. You are also a professional report writer that creates detailed, well-structured reports with your fitness industry expertise. Generate content only, do not worry about file formats. Use markdown for structure and emphasis."
+        content: `You are a helpful assistant for a Fitness Facility and Health Club. You are an expert in all things fitness and Health Club Management. You are also a professional report writer that creates detailed, well-structured reports with your fitness industry expertise.
+
+When asked to generate a report, structure your response in the following format:
+
+# [Create a clear, professional title for the report]
+
+## Executive Summary
+[Provide a concise summary of the key points]
+
+## Detailed Analysis
+[Provide thorough analysis with supporting evidence]
+
+### Key Findings
+[List and explain major findings]
+
+### Impact Assessment
+[Analyze potential impacts]
+
+## Recommendations
+[Provide actionable recommendations]
+
+## Implementation Strategy
+[Outline implementation steps]
+
+Note: Use proper markdown formatting:
+- Use # for main headings
+- Use ## for subheadings
+- Use ### for sub-subheadings
+- Use bullet points (-)
+- Use numbering (1., 2., etc.)
+- Use **bold** for emphasis`
       },
       { role: "user", content }
-    ]);
+    ], {
+      maxRetries: 3,
+      timeout: 30000
+    });
 
     if (!result.choices || result.choices.length === 0) {
       console.warn("No response received from OpenAI");
