@@ -146,12 +146,14 @@ export function DocumentManagement() {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
-        <p className="text-muted-foreground">
-          Manage, review, and approve documents with version control and workflow management.
-        </p>
+    <div>
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
+        <div className="px-4">
+          <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
+          <p className="text-muted-foreground mb-4">
+            Manage, review, and approve documents with advanced training and workflow control.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-[240px,1fr] gap-6">

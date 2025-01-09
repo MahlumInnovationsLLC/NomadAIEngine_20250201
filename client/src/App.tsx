@@ -34,14 +34,14 @@ function App() {
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center px-4">
+        <div className="container flex h-14 items-center">
           <Navbar />
           <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
             <NotificationCenter />
           </div>
         </div>
       </div>
-      <main className="container mx-auto px-4 pt-8">
+      <main className="container mx-auto pt-4">
         <div className="flex gap-4">
           {showModuleSelector && (
             <ModuleSelector 
@@ -94,11 +94,9 @@ function NotFound() {
 export default function AppWrapper() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <OnboardingProvider>
-          <App />
-        </OnboardingProvider>
-      </ThemeProvider>
+      <OnboardingProvider>
+        <App />
+      </OnboardingProvider>
     </QueryClientProvider>
   );
 }
