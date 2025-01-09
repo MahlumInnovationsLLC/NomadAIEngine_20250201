@@ -29,11 +29,15 @@ export default function ChatPage() {
     mutationFn: async (chatId: string) => {
       const response = await fetch(`/api/chats/${chatId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete chat');
+        const errorText = await response.text();
+        throw new Error(`Failed to delete chat: ${errorText}`);
       }
 
       return response.json();
@@ -48,10 +52,11 @@ export default function ChatPage() {
         description: "Chat deleted successfully",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      console.error('Delete chat error:', error);
       toast({
         title: "Error",
-        description: "Failed to delete chat",
+        description: error.message,
         variant: "destructive",
       });
     },
