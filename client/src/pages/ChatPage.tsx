@@ -105,14 +105,7 @@ export default function ChatPage() {
       </div>
 
       {/* Main chat area */}
-      <div className="flex-1 flex flex-col">
-        {/* Chat Title Header */}
-        {currentChat && (
-          <div className="p-4 bg-background border-b">
-            <h1 className="text-xl font-semibold">{currentChat.title}</h1>
-          </div>
-        )}
-
+      <div className="flex-1">
         <ChatInterface chatId={params?.id} />
       </div>
     </div>
