@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, FileText } from "lucide-react";
+import { Send, FileText, Download } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +29,6 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
-  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -109,7 +108,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       return data;
     },
     onSuccess: (newMessages) => {
-      setLocalMessages(prev => [...prev, ...newMessages]);
       setInput("");
       if (chatId) {
         queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
@@ -125,21 +123,53 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     },
   });
 
+  // Generate report mutation
+  const generateReport = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Report generated and downloaded successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim()) {
-      try {
-        const userMessage: Message = {
-          id: Date.now(),
-          role: 'user',
-          content: input.trim(),
-          createdAt: new Date().toISOString(),
-        };
-        setLocalMessages(prev => [...prev, userMessage]);
-        await sendMessage.mutateAsync(input);
-      } catch (error) {
-        console.error("Error in handleSubmit:", error);
-      }
+    if (!input.trim()) return;
+
+    try {
+      await sendMessage.mutateAsync(input);
+    } catch (error) {
+      console.error("Error in handleSubmit:", error);
     }
   };
 
@@ -148,22 +178,14 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [chat?.messages, localMessages]);
-
-  // Update local messages when chat data changes
-  useEffect(() => {
-    if (chat?.messages && chat.messages.length > 0) {
-      setLocalMessages(chat.messages);
-      setIsFirstMessage(false);
-    }
   }, [chat?.messages]);
+
+  // Show welcome screen only on first message
+  const showWelcome = isFirstMessage && (!chat?.messages || chat.messages.length === 0);
 
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
   };
-
-  // Show welcome screen only on first message
-  const showWelcome = isFirstMessage && localMessages.length === 0;
 
   return (
     <div className="flex flex-col h-[calc(100vh-14rem)]">
@@ -177,7 +199,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       ) : (
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-4 py-4">
-            {localMessages.map((message) => (
+            {chat?.messages.map((message) => (
               <ChatMessage
                 key={message.id}
                 role={message.role}
@@ -213,6 +235,18 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           >
             <Send className="h-4 w-4" />
           </Button>
+          {chat?.messages && chat.messages.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => generateReport.mutate()}
+              disabled={generateReport.isPending}
+              className="shrink-0"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          )}
         </form>
       </div>
 
