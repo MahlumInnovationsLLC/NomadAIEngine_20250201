@@ -14,10 +14,13 @@ if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
   throw new Error("Azure Blob Storage connection string not found");
 }
 
+console.log("Attempting to connect to Azure Blob Storage...");
 const blobServiceClient = BlobServiceClient.fromConnectionString(
   process.env.AZURE_BLOB_CONNECTION_STRING
 );
-const containerName = "documents";
+console.log("Successfully created Blob Service Client");
+
+const containerName = "documents"; // Container name in Azure Blob Storage
 
 // Configure multer for memory storage
 const upload = multer({ 
