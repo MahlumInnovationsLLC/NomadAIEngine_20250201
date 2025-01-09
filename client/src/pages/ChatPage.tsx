@@ -1,6 +1,7 @@
 import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import ChatInterface from "@/components/chat/ChatInterface";
+import ChatHistorySidebar from "@/components/chat/ChatHistorySidebar";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -28,6 +29,9 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
+      {/* Chat history sidebar */}
+      <ChatHistorySidebar />
+
       {/* Main chat area with New Chat button */}
       <div className="flex-1 flex flex-col">
         <div className="p-4 border-b bg-background">

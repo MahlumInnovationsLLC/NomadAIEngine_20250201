@@ -5,6 +5,7 @@ import { setupWebSocketServer } from "./services/websocket";
 import { v4 as uuidv4 } from 'uuid';
 import express from "express";
 import { generateReport } from "./services/document-generator";
+import { listChats } from "./services/azure/cosmos_service";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -12,6 +13,28 @@ export function registerRoutes(app: Express): Server {
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
+
+  // Chat history endpoint
+  app.get("/api/chats", async (req, res) => {
+    try {
+      // For now, use a default user since we haven't implemented authentication yet
+      const userKey = 'default_user';
+      const chats = await listChats(userKey);
+
+      // Map Cosmos DB response to match our frontend expectations
+      const formattedChats = chats.map(chat => ({
+        id: chat.id,
+        title: chat.title,
+        lastMessageAt: chat.lastMessageAt,
+        isArchived: chat.isDeleted || false
+      }));
+
+      res.json(formattedChats);
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+      res.status(500).json({ error: "Failed to fetch chats" });
+    }
+  });
 
   // Generate detailed report endpoint
   app.post("/api/generate-report", async (req, res) => {
@@ -82,8 +105,8 @@ export function registerRoutes(app: Express): Server {
 
       // Check if user is requesting a downloadable report
       const isReportRequest = content.toLowerCase().includes('report') || 
-                              content.toLowerCase().includes('document') || 
-                              content.toLowerCase().includes('download');
+                             content.toLowerCase().includes('document') || 
+                             content.toLowerCase().includes('download');
 
       // Get AI response using Azure OpenAI
       let aiResponse;
