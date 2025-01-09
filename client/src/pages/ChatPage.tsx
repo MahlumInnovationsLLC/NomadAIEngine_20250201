@@ -1,3 +1,4 @@
+
 import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import ChatInterface from "@/components/chat/ChatInterface";
@@ -11,15 +12,6 @@ export default function ChatPage() {
   const [match, params] = useRoute("/chat/:id?");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { messages, clearMessages } = useChatHistory(params?.id);
-
-  return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="p-8 border-b bg-background">
-        <h1 className="text-3xl font-bold mb-2">Chat Interface</h1>
-        <p className="text-muted-foreground">
-          Engage in conversations and manage your chat history.
-        </p>
-      </div>
 
   const handleNewChat = () => {
     // Only show confirmation if there are messages
@@ -37,43 +29,52 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-1">
-      {/* Chat history sidebar */}
-      <ChatHistorySidebar />
-
-      {/* Main chat area with New Chat button */}
-      <div className="flex-1 flex flex-col">
-        <div className="p-4 border-b bg-background">
-          <Button
-            onClick={handleNewChat}
-            variant="outline"
-            className="w-full sm:w-auto"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Chat
-          </Button>
-        </div>
-
-        <div className="flex-1">
-          <ChatInterface chatId={params?.id} />
-        </div>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <div className="p-8 border-b bg-background">
+        <h1 className="text-3xl font-bold mb-2">Chat Interface</h1>
+        <p className="text-muted-foreground">
+          Engage in conversations and manage your chat history.
+        </p>
       </div>
 
-      {/* Confirmation Dialog */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Start New Chat?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Starting a new chat will clear your current conversation. This action cannot be undone. Are you sure you want to continue?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmNewChat}>Continue</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <div className="flex flex-1">
+        {/* Chat history sidebar */}
+        <ChatHistorySidebar />
+
+        {/* Main chat area with New Chat button */}
+        <div className="flex-1 flex flex-col">
+          <div className="p-4 border-b bg-background">
+            <Button
+              onClick={handleNewChat}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Chat
+            </Button>
+          </div>
+
+          <div className="flex-1">
+            <ChatInterface chatId={params?.id} />
+          </div>
+        </div>
+
+        {/* Confirmation Dialog */}
+        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Start New Chat?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Starting a new chat will clear your current conversation. This action cannot be undone. Are you sure you want to continue?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmNewChat}>Continue</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }
