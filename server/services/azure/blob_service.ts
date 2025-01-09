@@ -62,6 +62,26 @@ export async function initializeBlobStorage() {
 // Initialize on module load
 initializeBlobStorage().catch(console.error);
 
+export async function checkBlobStorageConnection(): Promise<boolean> {
+  try {
+    if (!containerClient) {
+      await initializeBlobStorage();
+    }
+
+    if (!containerClient) {
+      return false;
+    }
+
+    // Test the connection by listing blobs
+    const testIterator = containerClient.listBlobsFlat().byPage({ maxPageSize: 1 });
+    await testIterator.next();
+    return true;
+  } catch (error) {
+    console.error("Error checking Blob Storage connection:", error);
+    return false;
+  }
+}
+
 export async function uploadFile(
   filename: string,
   content: Buffer,

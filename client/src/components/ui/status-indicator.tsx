@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 interface StatusIndicatorProps {
-  status: "connected" | "disconnected" | "error";
+  status: "connected" | "disconnected" | "error" | "disabled";
   label?: string;
   className?: string;
 }
@@ -14,8 +14,8 @@ export function StatusIndicator({ status, label, className }: StatusIndicatorPro
           "h-2.5 w-2.5 rounded-full",
           {
             "bg-green-500 animate-pulse": status === "connected",
-            "bg-red-500": status === "disconnected",
-            "bg-yellow-500": status === "error",
+            "bg-red-500": status === "disconnected" || status === "error",
+            "bg-gray-400": status === "disabled",
           }
         )}
       />

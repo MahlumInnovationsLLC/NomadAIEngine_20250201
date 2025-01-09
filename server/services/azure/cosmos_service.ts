@@ -41,6 +41,25 @@ export async function initializeCosmosDB() {
   }
 }
 
+export async function checkContainerAvailability(): Promise<boolean> {
+  try {
+    if (!container) {
+      await initializeCosmosDB();
+    }
+
+    if (!container) {
+      return false;
+    }
+
+    // Try to read the container properties as a connection test
+    await container.read();
+    return true;
+  } catch (error) {
+    console.error("Error checking Cosmos DB connection:", error);
+    return false;
+  }
+}
+
 // Helper function to check container availability
 function ensureContainer() {
   if (!container) {

@@ -1,5 +1,8 @@
 import { OpenAIClient } from "@azure/openai";
 import { AzureKeyCredential } from "@azure/core-auth";
+import { db } from "@db";
+import { checkContainerAvailability } from "./cosmos_service";
+import { checkBlobStorageConnection } from "./blob_service";
 
 let client: OpenAIClient | null = null;
 const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-35-turbo";
@@ -84,8 +87,37 @@ export async function checkOpenAIConnection() {
       });
     }
 
-    // Add other Azure services status checks here
-    // For example, Cosmos DB, Blob Storage, etc.
+    // Check Cosmos DB Connection
+    try {
+      const cosmosStatus = await checkContainerAvailability();
+      services.push({
+        name: "Azure Cosmos DB",
+        status: cosmosStatus ? "connected" : "error",
+        message: cosmosStatus ? "Connected to Cosmos DB" : "Failed to connect to Cosmos DB"
+      });
+    } catch (error) {
+      services.push({
+        name: "Azure Cosmos DB",
+        status: "error",
+        message: "Failed to connect to Cosmos DB"
+      });
+    }
+
+    // Check Blob Storage Connection
+    try {
+      const blobStatus = await checkBlobStorageConnection();
+      services.push({
+        name: "Azure Blob Storage",
+        status: blobStatus ? "connected" : "error",
+        message: blobStatus ? "Connected to Blob Storage" : "Failed to connect to Blob Storage"
+      });
+    } catch (error) {
+      services.push({
+        name: "Azure Blob Storage",
+        status: "error",
+        message: "Failed to connect to Blob Storage"
+      });
+    }
 
     return services;
   } catch (error) {
