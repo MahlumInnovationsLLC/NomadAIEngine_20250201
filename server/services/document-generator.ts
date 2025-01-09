@@ -12,29 +12,38 @@ if (!existsSync(uploadsDir)) {
 export async function generateReport(topic: string): Promise<string> {
   try {
     // Get detailed report content from Azure OpenAI
-    const response = await analyzeDocument(`Generate a comprehensive and professional report about: ${topic}. 
-    The report should follow this structure:
-    # [Professional Title]
+    const response = await analyzeDocument(`Generate a detailed, comprehensive analysis and report about: ${topic}.
+
+    Please structure the response in the following format:
+
+    # [Create a clear, professional title for the report]
 
     ## Executive Summary
-    [Brief overview]
+    [Provide a concise summary of the key points]
 
     ## Detailed Analysis
-    [In-depth examination]
+    [Provide a thorough analysis with supporting evidence and data]
 
     ### Key Findings
-    [Important discoveries]
+    [List and explain major findings]
 
     ### Impact Assessment
-    [Effects and implications]
+    [Analyze potential impacts and implications]
 
     ## Recommendations
-    [Actionable items]
+    [Provide actionable recommendations]
 
-    ## Next Steps
-    [Implementation plan]
+    ## Implementation Strategy
+    [Outline steps for implementation]
 
-    Please use markdown formatting for sections and emphasis.`);
+    Note: Please ensure to use proper markdown formatting:
+    - Use # for main headings
+    - Use ## for subheadings
+    - Use ### for sub-subheadings
+    - Use bullet points (-)
+    - Use numbering (1., 2., etc.)
+    - Use **bold** for emphasis
+    `);
 
     if (!response) {
       throw new Error("Failed to generate report content");
@@ -44,7 +53,7 @@ export async function generateReport(topic: string): Promise<string> {
     const lines = response.split('\n');
     let docTitle = "Generated Report";
 
-    // Find the document title from any level header
+    // Find the document title
     for (const line of lines) {
       const stripped = line.trim();
       if (stripped.startsWith("# ")) {

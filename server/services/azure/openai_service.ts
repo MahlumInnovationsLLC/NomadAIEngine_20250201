@@ -32,7 +32,8 @@ export async function initializeOpenAI() {
     // Optional connection test
     try {
       const testResult = await client.getChatCompletions(deploymentName, [
-        { role: "system", content: "Test connection" }
+        { role: "system", content: "Test connection" },
+        { role: "user", content: "Test message" }
       ]);
 
       if (!testResult.choices || testResult.choices.length === 0) {
@@ -43,11 +44,11 @@ export async function initializeOpenAI() {
       console.log("Successfully connected to Azure OpenAI");
       return client;
     } catch (error) {
-      console.warn("OpenAI deployment not found or not ready - AI features will be disabled:", error);
+      console.error("OpenAI deployment error:", error);
       return null;
     }
   } catch (error) {
-    console.warn("Error initializing Azure OpenAI - AI features will be disabled:", error);
+    console.error("Error initializing Azure OpenAI:", error);
     return null;
   }
 }
@@ -163,8 +164,12 @@ export async function analyzeDocument(content: string) {
   }
 
   try {
+    console.log("Generating report content with Azure OpenAI...");
     const result = await client.getChatCompletions(deploymentName, [
-      { role: "system", content: "You are a helpful AI assistant specialized in document management and training. Help the user with their questions and provide detailed, relevant responses." },
+      { 
+        role: "system", 
+        content: "You are a helpful assistant for a Fitness Facility and Health Club. You are an expert in all things fitness and Health Club Management. You are also a professional report writer that creates detailed, well-structured reports with your fitness industry expertise. Generate content only, do not worry about file formats. Use markdown for structure and emphasis."
+      },
       { role: "user", content }
     ]);
 
@@ -173,6 +178,7 @@ export async function analyzeDocument(content: string) {
       return "I apologize, but I wasn't able to generate a response. Please try again.";
     }
 
+    console.log("Successfully generated report content");
     return result.choices[0].message?.content || "I apologize, but I wasn't able to understand your request.";
   } catch (error) {
     console.error("Error in analyzeDocument:", error);
