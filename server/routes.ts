@@ -8,7 +8,7 @@ import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
-import { 
+import {
   initializeEquipmentDatabase,
   getEquipmentType,
   createEquipmentType,
@@ -18,6 +18,10 @@ import {
   type Equipment,
   type EquipmentType
 } from "./services/azure/equipment_service";
+
+// Add new imports for dashboard endpoints
+import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
+
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
@@ -32,7 +36,7 @@ const containerClient = new ContainerClient(sasUrl);
 console.log("Successfully created Container Client");
 
 // Configure multer for memory storage
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
@@ -281,16 +285,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error("Failed to generate report");
       }
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         filename,
-        downloadUrl: `/uploads/${filename}` 
+        downloadUrl: `/uploads/${filename}`
       });
     } catch (error) {
       console.error("Error generating report:", error);
-      res.status(500).json({ 
-        error: "Failed to generate report", 
-        details: error instanceof Error ? error.message : "Unknown error" 
+      res.status(500).json({
+        error: "Failed to generate report",
+        details: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
@@ -317,9 +321,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Generated user message:", userMessage);
 
       // Check if user is requesting a downloadable report
-      const isReportRequest = content.toLowerCase().includes('report') || 
-                             content.toLowerCase().includes('document') || 
-                             content.toLowerCase().includes('download');
+      const isReportRequest = content.toLowerCase().includes('report') ||
+        content.toLowerCase().includes('document') ||
+        content.toLowerCase().includes('download');
 
       // Get AI response using Azure OpenAI
       let aiResponse;
@@ -374,6 +378,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to check Azure OpenAI status",
         details: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  // Add dashboard metrics endpoint
+  app.get("/api/dashboard/stats", async (req, res) => {
+    try {
+      const [storageMetrics, azureStatus] = await Promise.all([
+        getStorageMetrics(),
+        checkOpenAIConnection()
+      ]);
+
+      const stats = {
+        totalDocuments: storageMetrics.totalDocuments,
+        totalStorageSize: storageMetrics.totalSize,
+        documentTypes: storageMetrics.documentTypes,
+        aiServiceStatus: azureStatus.some(s => s.name === "Azure OpenAI" && s.status === "connected"),
+        storageStatus: azureStatus.some(s => s.name === "Azure Blob Storage" && s.status === "connected"),
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard statistics" });
+    }
+  });
+
+  app.get("/api/dashboard/activity", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const recentActivity = await getRecentActivity(limit);
+      res.json(recentActivity);
+    } catch (error) {
+      console.error("Error fetching activity:", error);
+      res.status(500).json({ error: "Failed to fetch activity" });
     }
   });
 
