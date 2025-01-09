@@ -111,7 +111,11 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
                 </div>
               </DialogContent>
             </Dialog>
-            <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/documents/browse'] })}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/documents/browse'] })}
+            >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
