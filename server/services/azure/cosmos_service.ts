@@ -75,22 +75,12 @@ export async function createChat(chatData: any) {
   try {
     console.log("Creating chat with data:", chatData);
 
-    // Validate required fields
-    if (!chatData.id) {
-      throw new Error("Chat ID is required");
-    }
-    if (!chatData.userKey) {
-      throw new Error("User key is required");
-    }
-    if (!Array.isArray(chatData.messages)) {
-      throw new Error("Messages must be an array");
-    }
-
-    // Add metadata fields and ensure proper structure
+    // Always generate a new UUID for the chat
     const chatWithMetadata = {
       ...chatData,
-      title: chatData.title || "",
-      messages: chatData.messages,
+      id: uuidv4(), // Always use a new UUID
+      title: chatData.title || "New Chat",
+      messages: chatData.messages || [],
       lastMessageAt: chatData.lastMessageAt || new Date().toISOString(),
       _ts: Math.floor(Date.now() / 1000),
       type: 'chat'
@@ -98,24 +88,12 @@ export async function createChat(chatData: any) {
 
     console.log("Attempting to create chat with metadata:", chatWithMetadata);
 
-    try {
-      const { resource } = await cont.items.create(chatWithMetadata);
-      if (!resource) {
-        throw new Error("Failed to create chat resource");
-      }
-      return resource;
-    } catch (error: any) {
-      if (error.code === 409) { // Conflict error
-        console.log("Chat ID conflict, generating new ID and retrying");
-        chatWithMetadata.id = uuidv4();
-        const { resource } = await cont.items.create(chatWithMetadata);
-        if (!resource) {
-          throw new Error("Failed to create chat resource after retry");
-        }
-        return resource;
-      }
-      throw error;
+    const { resource } = await cont.items.create(chatWithMetadata);
+    if (!resource) {
+      throw new Error("Failed to create chat resource");
     }
+    return resource;
+
   } catch (error: any) {
     console.error("Error in createChat:", error);
     throw error;
