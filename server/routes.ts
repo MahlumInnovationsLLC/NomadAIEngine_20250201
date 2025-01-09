@@ -39,24 +39,37 @@ export function registerRoutes(app: Express): Server {
       const path = (req.query.path as string) || "";
       console.log("Browsing path:", path);
 
-      // Get all blobs with the specified prefix
-      const blobs = containerClient.listBlobsByHierarchy("/", { prefix: path });
-
+      // List all blobs in the path
       const items = [];
+      const listOptions = {
+        prefix: path,
+        delimiter: '/'
+      };
+
+      // Get all blobs with the specified prefix
+      const blobs = containerClient.listBlobsByHierarchy('/', listOptions);
+
+      console.log("Starting blob enumeration...");
       for await (const item of blobs) {
+        console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name);
+
         // Check if it's a virtual directory (folder)
         if (item.kind === "prefix") {
-          const folderName = item.name.split("/").filter(Boolean).pop() || "";
+          // Get folder name by removing the trailing slash
+          const folderPath = item.name;
+          const folderName = folderPath.split('/').filter(Boolean).pop() || "";
+
           items.push({
             name: folderName,
-            path: item.name,
+            path: folderPath,
             type: "folder"
           });
         } else {
           // It's a blob (file)
           const blobItem = item;
           const fileName = blobItem.name.split("/").pop() || "";
-          // Don't include virtual folder markers
+
+          // Don't include folder markers
           if (!fileName.startsWith('.folder')) {
             items.push({
               name: fileName,
@@ -120,9 +133,9 @@ export function registerRoutes(app: Express): Server {
 
       console.log("Creating folder:", path);
 
-      // In Azure Blob Storage, folders are virtual and created by adding a blob with
-      // the folder name as prefix ending with a forward slash
-      const blockBlobClient = containerClient.getBlockBlobClient(`${path}/.folder`);
+      // Create a zero-length blob with the folder name as prefix
+      const folderPath = path.endsWith('/') ? path : `${path}/`;
+      const blockBlobClient = containerClient.getBlockBlobClient(`${folderPath}.folder`);
       await blockBlobClient.uploadData(Buffer.from(''));
 
       console.log("Successfully created folder:", path);

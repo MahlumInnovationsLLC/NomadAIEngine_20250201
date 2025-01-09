@@ -31,7 +31,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
 
   const createFolderMutation = useMutation({
     mutationFn: async (folderName: string) => {
-      const fullPath = currentPath ? `${currentPath}/${folderName}` : folderName;
+      const fullPath = currentPath ? `${currentPath}${folderName}` : folderName;
       const response = await fetch('/api/documents/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,17 +58,18 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   };
 
   const navigateToFolder = (folderPath: string) => {
-    // Remove the trailing slash if present for consistent navigation
-    const cleanPath = folderPath.endsWith('/') ? folderPath.slice(0, -1) : folderPath;
+    // Ensure consistent path format
+    const cleanPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
     console.log("Navigating to folder:", cleanPath);
     setCurrentPath(cleanPath);
   };
 
   const navigateUp = () => {
     if (!currentPath) return;
-    const segments = currentPath.split('/');
-    segments.pop(); // Remove the last segment
-    const parentPath = segments.join('/');
+    // Remove the last segment and the trailing slash
+    const segments = currentPath.split('/').filter(Boolean);
+    segments.pop();
+    const parentPath = segments.length > 0 ? `${segments.join('/')}/` : "";
     console.log("Navigating up to:", parentPath);
     setCurrentPath(parentPath);
   };
