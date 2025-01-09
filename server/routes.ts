@@ -80,12 +80,28 @@ export function registerRoutes(app: Express): Server {
 
       console.log("Generated user message:", userMessage);
 
+      // Check if user is requesting a downloadable report
+      const isReportRequest = content.toLowerCase().includes('report') || 
+                            content.toLowerCase().includes('document') || 
+                            content.toLowerCase().includes('download');
+
       // Get AI response using Azure OpenAI
       let aiResponse;
+      let downloadUrl;
       try {
         console.log("Getting AI response for content:", content);
         aiResponse = await analyzeDocument(content);
         console.log("Received AI response:", aiResponse);
+
+        // If this is a report request, generate a downloadable document
+        if (isReportRequest) {
+          console.log("Generating downloadable report...");
+          const filename = await generateReport(content);
+          if (filename) {
+            downloadUrl = `/uploads/${filename}`;
+            aiResponse = `${aiResponse}\n\nI've prepared a detailed report for you. You can download it here: [Download Report](${downloadUrl})`;
+          }
+        }
       } catch (error) {
         console.error("Error getting AI response:", error);
         aiResponse = "I apologize, but I'm having trouble processing your request at the moment. Could you please try again?";
