@@ -5,7 +5,7 @@ import { checkContainerAvailability } from "./cosmos_service";
 import { checkBlobStorageConnection } from "./blob_service";
 
 let client: OpenAIClient | null = null;
-const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4";
+const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "GYMAIEngine-gpt-4o";
 
 export async function initializeOpenAI() {
   try {
@@ -80,10 +80,11 @@ export async function checkOpenAIConnection() {
         });
       }
     } catch (error) {
+      console.error("OpenAI Connection Error:", error);
       services.push({
         name: "Azure OpenAI",
         status: "error",
-        message: "Failed to connect to OpenAI"
+        message: `Failed to connect to OpenAI: ${error.message || 'Unknown error'}`
       });
     }
 
