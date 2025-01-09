@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
 import multer from "multer";
-import { BlobServiceClient } from "@azure/storage-blob";
+import { ContainerClient } from "@azure/storage-blob";
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
@@ -11,12 +11,10 @@ if (!sasUrl) {
   throw new Error("Azure Blob Storage SAS URL not found");
 }
 
-console.log("Attempting to connect to Azure Blob Storage with SAS token...");
-const containerClient = BlobServiceClient.fromConnectionString(
-  process.env.AZURE_BLOB_CONNECTION_STRING
-).getContainerClient("documents");
+console.log("Creating Container Client with SAS token...");
+const containerClient = new ContainerClient(sasUrl);
 
-console.log("Successfully created Blob Container Client");
+console.log("Successfully created Container Client");
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -51,7 +49,7 @@ export function registerRoutes(app: Express): Server {
 
       console.log("Starting blob enumeration...");
       for await (const item of blobs) {
-        console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name);
+        console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name, "Details:", item);
 
         // Check if it's a virtual directory (folder)
         if (item.kind === "prefix") {
@@ -143,7 +141,6 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: "Failed to create folder" });
     }
   });
-
   // Chat history endpoint
   app.get("/api/chats", async (req, res) => {
     try {
