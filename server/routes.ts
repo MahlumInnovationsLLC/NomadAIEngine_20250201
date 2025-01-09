@@ -1,9 +1,9 @@
-import type { Express } from "express";
-import { createServer, type Server } from "http";
+import type { Express, Request } from "express";
 import express from "express";
+import { createServer, type Server } from "http";
+import { v4 as uuidv4 } from 'uuid';
 import multer from "multer";
 import { ContainerClient } from "@azure/storage-blob";
-import { v4 as uuidv4 } from 'uuid';
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
@@ -15,12 +15,25 @@ import {
   getAllEquipment,
   createEquipment,
   updateEquipment,
-  type Equipment,
-  type EquipmentType
 } from "./services/azure/equipment_service";
 
 // Add new imports for dashboard endpoints
-import { getStorageMetrics, getRecentActivity, trackStorageActivity } from "./services/azure/blob_service";
+import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
+import { eq, and, gte, lte } from "drizzle-orm";
+import { db } from "@db";
+import { aiEngineActivity, userTraining, trainingModules } from "@db/schema";
+
+// Extend Express Request type
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        username: string;
+      };
+    }
+  }
+}
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
@@ -42,6 +55,29 @@ const upload = multer({
   }
 });
 
+// Helper function to track AI Engine usage
+async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_analysis' | 'equipment_prediction' | 'report_generation', duration: number, metadata?: Record<string, any>) {
+  try {
+    const sessionId = uuidv4();
+    const startTime = new Date();
+    const endTime = new Date(startTime.getTime() + duration * 60 * 1000); // Convert minutes to milliseconds
+
+    await db.insert(aiEngineActivity).values({
+      userId,
+      sessionId,
+      feature,
+      startTime,
+      endTime,
+      durationMinutes: duration, // Store as numeric value
+      metadata: metadata || {},
+    });
+
+    console.log(`Tracked AI Engine usage for user ${userId}: ${duration} minutes`);
+  } catch (error) {
+    console.error("Error tracking AI Engine usage:", error);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
@@ -57,6 +93,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
+
+  // Add user authentication middleware
+  app.use((req, res, next) => {
+    // TODO: Replace with actual user authentication
+    // For now, we'll use a mock user ID for testing
+    req.user = { id: '1', username: 'test_user' };
+    next();
+  });
 
   // Equipment Types endpoints
   app.post("/api/equipment-types", async (req, res) => {
@@ -110,31 +154,273 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add equipment predictions endpoint
-  app.get("/api/equipment/:id/predictions", (req, res) => {
+  // Generate detailed report endpoint
+  app.post("/api/generate-report", async (req, res) => {
     try {
-      const { id } = req.params;
+      const { topic } = req.body;
 
-      // Generate mock prediction data
-      const now = new Date();
-      const predictions = Array.from({ length: 24 }, (_, i) => {
-        const hour = new Date(now);
-        hour.setHours(hour.getHours() + i);
-        return {
-          timestamp: hour.toISOString(),
-          predictedUsage: Math.round(Math.random() * 100),
-          confidence: 0.7 + Math.random() * 0.3
-        };
-      });
+      if (!topic) {
+        return res.status(400).json({ error: "Topic is required" });
+      }
+
+      console.log(`Generating report for topic: ${topic}`);
+      const filename = await generateReport(topic);
+
+      if (!filename) {
+        throw new Error("Failed to generate report");
+      }
+
+      // Track AI usage for report generation (assuming it takes about 2 minutes)
+      await trackAIEngineUsage(req.user!.id, 'report_generation', 2, { topic });
 
       res.json({
-        equipment: { id },
-        predictions,
-        lastUpdated: now.toISOString()
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
       });
     } catch (error) {
-      console.error("Error generating predictions:", error);
-      res.status(500).json({ error: "Failed to generate predictions" });
+      console.error("Error generating report:", error);
+      res.status(500).json({
+        error: "Failed to generate report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Messages endpoint
+  app.post("/api/messages", async (req, res) => {
+    try {
+      console.log("Received message request:", req.body);
+      const { content } = req.body;
+
+      if (!content) {
+        console.log("Missing content in request");
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      // Track AI usage for chat (assuming it takes about 0.5 minutes per message)
+      await trackAIEngineUsage(req.user!.id, 'chat', 0.5, { messageLength: content.length });
+
+      // Generate user message
+      const userMessage = {
+        id: uuidv4(),
+        role: 'user',
+        content,
+        createdAt: new Date().toISOString()
+      };
+
+      console.log("Generated user message:", userMessage);
+
+      // Check if user is requesting a downloadable report
+      const isReportRequest = content.toLowerCase().includes('report') ||
+        content.toLowerCase().includes('document') ||
+        content.toLowerCase().includes('download');
+
+      // Get AI response using Azure OpenAI
+      let aiResponse;
+      let downloadUrl;
+      try {
+        console.log("Getting AI response for content:", content);
+        aiResponse = await analyzeDocument(content);
+        console.log("Received AI response:", aiResponse);
+
+        // If this is a report request, generate a downloadable document
+        if (isReportRequest && aiResponse) {
+          console.log("Generating downloadable report...");
+          const filename = await generateReport(aiResponse);
+          if (filename) {
+            downloadUrl = `/uploads/${filename}`;
+            aiResponse = `${aiResponse}\n\nI've prepared a detailed report for you. You can download it here: [Download Report](${downloadUrl})`;
+          }
+        }
+      } catch (error) {
+        console.error("Error getting AI response:", error);
+        aiResponse = "I apologize, but I'm having trouble processing your request at the moment. Could you please try again?";
+      }
+
+      // Create AI message
+      const aiMessage = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: aiResponse || "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
+        createdAt: new Date().toISOString()
+      };
+
+      console.log("Generated AI message:", aiMessage);
+      console.log("Sending response with both messages");
+
+      res.json([userMessage, aiMessage]);
+    } catch (error: any) {
+      console.error("Error processing message:", error);
+      res.status(500).json({ error: "Failed to process message", details: error.message });
+    }
+  });
+
+  // Check Azure OpenAI connection status
+  app.get("/api/azure/status", async (req, res) => {
+    try {
+      console.log("Checking Azure services status...");
+      const status = await checkOpenAIConnection();
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking Azure OpenAI status:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to check Azure OpenAI status",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Add dashboard metrics endpoint
+  app.get("/api/dashboard/stats", async (req, res) => {
+    try {
+      const [storageMetrics, azureStatus] = await Promise.all([
+        getStorageMetrics(),
+        checkOpenAIConnection()
+      ]);
+
+      const stats = {
+        totalDocuments: storageMetrics.totalDocuments,
+        totalStorageSize: storageMetrics.totalSize,
+        documentTypes: storageMetrics.documentTypes,
+        aiServiceStatus: azureStatus.some(s => s.name === "Azure OpenAI" && s.status === "connected"),
+        storageStatus: azureStatus.some(s => s.name === "Azure Blob Storage" && s.status === "connected"),
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard statistics" });
+    }
+  });
+
+  app.get("/api/dashboard/activity", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const recentActivity = await getRecentActivity(limit);
+      res.json(recentActivity);
+    } catch (error) {
+      console.error("Error fetching activity:", error);
+      res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  // Dashboard extended stats endpoint
+  app.get("/api/dashboard/extended-stats", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const userId = req.user.id;
+
+      // Fetch user's training progress
+      const [latestTraining] = await db
+        .select({
+          moduleTitle: trainingModules.title,
+          status: userTraining.status,
+          progress: userTraining.progress,
+        })
+        .from(userTraining)
+        .innerJoin(trainingModules, eq(trainingModules.id, userTraining.moduleId))
+        .where(eq(userTraining.userId, userId))
+        .orderBy(userTraining.assignedAt)
+        .limit(1);
+
+      // Calculate training level based on progress
+      let trainingLevel = {
+        level: "Beginner",
+        progress: 0
+      };
+
+      if (latestTraining) {
+        const progress = latestTraining.progress || 0;
+        if (progress >= 80) {
+          trainingLevel.level = "Expert";
+        } else if (progress >= 50) {
+          trainingLevel.level = "Intermediate";
+        }
+        trainingLevel.progress = progress;
+      }
+
+      // Get AI Engine usage statistics for the past 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const aiActivities = await db
+        .select({
+          date: aiEngineActivity.startTime,
+          duration: aiEngineActivity.durationMinutes,
+        })
+        .from(aiEngineActivity)
+        .where(
+          and(
+            eq(aiEngineActivity.userId, userId),
+            gte(aiEngineActivity.startTime, sevenDaysAgo),
+            lte(aiEngineActivity.startTime, new Date())
+          )
+        );
+
+      // Group activities by day
+      const dailyUsage = new Map<string, number>();
+      aiActivities.forEach(activity => {
+        const day = activity.date.toISOString().split('T')[0];
+        const duration = parseFloat(activity.duration?.toString() || "0");
+        dailyUsage.set(day, (dailyUsage.get(day) || 0) + duration);
+      });
+
+      const extendedStats = {
+        collaborators: 5, // Placeholder until user management is implemented
+        chatActivity: {
+          totalResponses: 0,
+          downloadedReports: 0
+        },
+        trainingLevel,
+        incompleteTasks: 0,
+        aiEngineUsage: Array.from(dailyUsage.entries()).map(([date, minutes]) => ({
+          date,
+          minutes: Math.round(minutes * 100) / 100
+        }))
+      };
+
+      // Get activity logs to count chat responses and downloaded reports
+      try {
+        const activityLogs = await getRecentActivity(100); // Get last 100 activities
+        for (const activity of activityLogs) {
+          if (activity.type === 'download' && activity.documentName.includes('report')) {
+            extendedStats.chatActivity.downloadedReports++;
+          } else if (activity.type === 'view' && activity.documentName.includes('chat')) {
+            extendedStats.chatActivity.totalResponses++;
+          }
+        }
+      } catch (error) {
+        console.warn("Error counting activity logs:", error);
+        // Continue with default values if activity logs can't be counted
+      }
+
+      res.json(extendedStats);
+    } catch (error) {
+      console.error("Error fetching extended stats:", error);
+      res.status(500).json({ error: "Failed to fetch extended statistics" });
+    }
+  });
+
+  // Chat history endpoint
+  app.get("/api/chats", async (req, res) => {
+    try {
+      const userKey = 'default_user';
+      const chats = await listChats(userKey);
+      const formattedChats = chats.map(chat => ({
+        id: chat.id,
+        title: chat.title,
+        lastMessageAt: chat.lastMessageAt,
+        isArchived: chat.isDeleted || false
+      }));
+      res.json(formattedChats);
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+      res.status(500).json({ error: "Failed to fetch chats" });
     }
   });
 
@@ -247,209 +533,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating folder:", error);
       res.status(500).json({ error: "Failed to create folder" });
-    }
-  });
-
-  // Chat history endpoint
-  app.get("/api/chats", async (req, res) => {
-    try {
-      const userKey = 'default_user';
-      const chats = await listChats(userKey);
-      const formattedChats = chats.map(chat => ({
-        id: chat.id,
-        title: chat.title,
-        lastMessageAt: chat.lastMessageAt,
-        isArchived: chat.isDeleted || false
-      }));
-      res.json(formattedChats);
-    } catch (error) {
-      console.error("Error fetching chats:", error);
-      res.status(500).json({ error: "Failed to fetch chats" });
-    }
-  });
-
-  // Generate detailed report endpoint
-  app.post("/api/generate-report", async (req, res) => {
-    try {
-      const { topic } = req.body;
-
-      if (!topic) {
-        return res.status(400).json({ error: "Topic is required" });
-      }
-
-      console.log(`Generating report for topic: ${topic}`);
-      const filename = await generateReport(topic);
-
-      if (!filename) {
-        throw new Error("Failed to generate report");
-      }
-
-      res.json({
-        success: true,
-        filename,
-        downloadUrl: `/uploads/${filename}`
-      });
-    } catch (error) {
-      console.error("Error generating report:", error);
-      res.status(500).json({
-        error: "Failed to generate report",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Simple message endpoint that processes messages with Azure OpenAI
-  app.post("/api/messages", async (req, res) => {
-    try {
-      console.log("Received message request:", req.body);
-      const { content } = req.body;
-
-      if (!content) {
-        console.log("Missing content in request");
-        return res.status(400).json({ error: "Content is required" });
-      }
-
-      // Generate user message
-      const userMessage = {
-        id: uuidv4(),
-        role: 'user',
-        content,
-        createdAt: new Date().toISOString()
-      };
-
-      console.log("Generated user message:", userMessage);
-
-      // Check if user is requesting a downloadable report
-      const isReportRequest = content.toLowerCase().includes('report') ||
-        content.toLowerCase().includes('document') ||
-        content.toLowerCase().includes('download');
-
-      // Get AI response using Azure OpenAI
-      let aiResponse;
-      let downloadUrl;
-      try {
-        console.log("Getting AI response for content:", content);
-        aiResponse = await analyzeDocument(content);
-        console.log("Received AI response:", aiResponse);
-
-        // If this is a report request, generate a downloadable document
-        if (isReportRequest && aiResponse) {
-          console.log("Generating downloadable report...");
-          const filename = await generateReport(aiResponse);
-          if (filename) {
-            downloadUrl = `/uploads/${filename}`;
-            aiResponse = `${aiResponse}\n\nI've prepared a detailed report for you. You can download it here: [Download Report](${downloadUrl})`;
-          }
-        }
-      } catch (error) {
-        console.error("Error getting AI response:", error);
-        aiResponse = "I apologize, but I'm having trouble processing your request at the moment. Could you please try again?";
-      }
-
-      // Create AI message
-      const aiMessage = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: aiResponse || "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
-        createdAt: new Date().toISOString()
-      };
-
-      console.log("Generated AI message:", aiMessage);
-      console.log("Sending response with both messages");
-
-      res.json([userMessage, aiMessage]);
-    } catch (error: any) {
-      console.error("Error processing message:", error);
-      res.status(500).json({ error: "Failed to process message", details: error.message });
-    }
-  });
-
-  // Check Azure OpenAI connection status
-  app.get("/api/azure/status", async (req, res) => {
-    try {
-      console.log("Checking Azure services status...");
-      const status = await checkOpenAIConnection();
-      res.json(status);
-    } catch (error) {
-      console.error("Error checking Azure OpenAI status:", error);
-      res.status(500).json({
-        status: "error",
-        message: "Failed to check Azure OpenAI status",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Add dashboard metrics endpoint
-  app.get("/api/dashboard/stats", async (req, res) => {
-    try {
-      const [storageMetrics, azureStatus] = await Promise.all([
-        getStorageMetrics(),
-        checkOpenAIConnection()
-      ]);
-
-      const stats = {
-        totalDocuments: storageMetrics.totalDocuments,
-        totalStorageSize: storageMetrics.totalSize,
-        documentTypes: storageMetrics.documentTypes,
-        aiServiceStatus: azureStatus.some(s => s.name === "Azure OpenAI" && s.status === "connected"),
-        storageStatus: azureStatus.some(s => s.name === "Azure Blob Storage" && s.status === "connected"),
-      };
-
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
-      res.status(500).json({ error: "Failed to fetch dashboard statistics" });
-    }
-  });
-
-  app.get("/api/dashboard/activity", async (req, res) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 10;
-      const recentActivity = await getRecentActivity(limit);
-      res.json(recentActivity);
-    } catch (error) {
-      console.error("Error fetching activity:", error);
-      res.status(500).json({ error: "Failed to fetch activity" });
-    }
-  });
-
-  // Add dashboard metrics endpoint
-  app.get("/api/dashboard/extended-stats", async (req, res) => {
-    try {
-      // TODO: Replace with actual data from database/services when implemented
-      const extendedStats = {
-        collaborators: 5, // Placeholder until user management is implemented
-        chatActivity: {
-          totalResponses: 0,
-          downloadedReports: 0
-        },
-        trainingLevel: {
-          level: "Beginner",
-          progress: 0
-        },
-        incompleteTasks: 0
-      };
-
-      // Get activity logs to count chat responses and downloaded reports
-      try {
-        const activityLogs = await getRecentActivity(100); // Get last 100 activities
-        for (const activity of activityLogs) {
-          if (activity.type === 'download' && activity.documentName.includes('report')) {
-            extendedStats.chatActivity.downloadedReports++;
-          } else if (activity.type === 'view' && activity.documentName.includes('chat')) {
-            extendedStats.chatActivity.totalResponses++;
-          }
-        }
-      } catch (error) {
-        console.warn("Error counting activity logs:", error);
-        // Continue with default values if activity logs can't be counted
-      }
-
-      res.json(extendedStats);
-    } catch (error) {
-      console.error("Error fetching extended stats:", error);
-      res.status(500).json({ error: "Failed to fetch extended statistics" });
     }
   });
 

@@ -225,7 +225,6 @@ export const userSkills = pgTable("user_skills", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Add after the existing tables
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   type: text("type", { enum: ['module_assigned', 'assessment_due', 'achievement_earned', 'module_completed', 'system'] }).notNull(),
@@ -244,6 +243,19 @@ export const userNotifications = pgTable("user_notifications", {
   notificationId: integer("notification_id").references(() => notifications.id),
   read: boolean("read").default(false).notNull(),
   readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Add after the userNotifications table and before relations
+export const aiEngineActivity = pgTable("ai_engine_activity", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  sessionId: text("session_id").notNull(),
+  feature: text("feature", { enum: ['chat', 'document_analysis', 'equipment_prediction', 'report_generation'] }).notNull(),
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  durationMinutes: decimal("duration_minutes", { precision: 10, scale: 2 }),
+  metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -374,6 +386,11 @@ export const userNotificationsRelations = relations(userNotifications, ({ one })
   }),
 }));
 
+// Add to relations section
+export const aiEngineActivityRelations = relations(aiEngineActivity, ({ many }) => ({
+  // Future relations can be added here
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -442,6 +459,10 @@ export const selectNotificationSchema = createSelectSchema(notifications);
 export const insertUserNotificationSchema = createInsertSchema(userNotifications);
 export const selectUserNotificationSchema = createSelectSchema(userNotifications);
 
+// Add to schemas section
+export const insertAiEngineActivitySchema = createInsertSchema(aiEngineActivity);
+export const selectAiEngineActivitySchema = createSelectSchema(aiEngineActivity);
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -470,3 +491,6 @@ export type UserSkill = typeof userSkills.$inferSelect;
 // Add to types section
 export type Notification = typeof notifications.$inferSelect;
 export type UserNotification = typeof userNotifications.$inferSelect;
+
+// Add to types section
+export type AiEngineActivity = typeof aiEngineActivity.$inferSelect;

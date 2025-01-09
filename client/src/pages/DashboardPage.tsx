@@ -46,6 +46,10 @@ interface ExtendedStats {
     progress: number;
   };
   incompleteTasks: number;
+  aiEngineUsage: Array<{
+    date: string;
+    minutes: number;
+  }>;
 }
 
 export default function DashboardPage() {
@@ -210,8 +214,8 @@ export default function DashboardPage() {
                 ) : (
                   <div>
                     <h3 className="text-2xl font-bold mt-2">
-                      {(extendedStats?.chatActivity.totalResponses || 0) + 
-                       (extendedStats?.chatActivity.downloadedReports || 0)}
+                      {(extendedStats?.chatActivity.totalResponses || 0) +
+                        (extendedStats?.chatActivity.downloadedReports || 0)}
                     </h3>
                     <p className="text-xs text-muted-foreground">
                       {extendedStats?.chatActivity.downloadedReports || 0} reports
@@ -273,26 +277,35 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="col-span-2">
           <CardHeader>
-            <CardTitle>Document Type Distribution</CardTitle>
+            <CardTitle>AI Engine Activity</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] mt-4">
-              {isStatsLoading ? (
+              {isExtendedStatsLoading ? (
                 <div className="w-full h-full flex items-center justify-center">
                   <Skeleton className="w-full h-full" />
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={Object.entries(stats?.documentTypes || {}).map(([type, count]) => ({
-                    type,
-                    count
-                  }))}>
-                    <XAxis dataKey="type" />
-                    <YAxis />
-                    <Tooltip />
+                  <AreaChart data={extendedStats?.aiEngineUsage || []}>
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                    />
+                    <YAxis
+                      label={{
+                        value: 'Minutes',
+                        angle: -90,
+                        position: 'insideLeft'
+                      }}
+                    />
+                    <Tooltip
+                      labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                      formatter={(value: number) => [`${value} minutes`, 'Usage Time']}
+                    />
                     <Area
                       type="monotone"
-                      dataKey="count"
+                      dataKey="minutes"
                       stroke="hsl(var(--primary))"
                       fill="hsl(var(--primary))"
                       fillOpacity={0.2}
@@ -329,7 +342,7 @@ export default function DashboardPage() {
                         {activity.type === 'upload' && 'Uploaded'}
                         {activity.type === 'download' && 'Downloaded'}
                         {activity.type === 'delete' && 'Deleted'}
-                        {activity.type === 'view' && 'Viewed'}{' '}
+                        {activity.type === 'view' && 'Viewed'}
                         {activity.documentName}
                       </p>
                       <p className="text-sm text-muted-foreground">
