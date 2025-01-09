@@ -43,9 +43,9 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       return response.json();
     },
-    onSuccess: (newMessage) => {
+    onSuccess: (newMessages) => {
       setInput("");
-      setMessages(prev => [...prev, newMessage]);
+      setMessages(prev => [...prev, ...newMessages]);
     },
     onError: (error: Error) => {
       toast({
@@ -92,9 +92,9 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       ) : (
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-4 py-4">
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <ChatMessage
-                key={message.id}
+                key={`${message.id}-${index}`}
                 role={message.role}
                 content={message.content}
               />

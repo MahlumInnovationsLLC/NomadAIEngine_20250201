@@ -3,6 +3,7 @@ import { WebSocketServer } from "ws";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeCosmosDB } from "./services/azure/cosmos_service";
+import { initializeOpenAI } from "./services/azure/openai_service";
 
 const app = express();
 app.use(express.json());
@@ -40,9 +41,28 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // Initialize Cosmos DB first
-    await initializeCosmosDB();
-    log("Cosmos DB initialized successfully");
+    // Initialize Azure services first
+    log("Initializing Azure services...");
+
+    // Initialize Cosmos DB
+    try {
+      await initializeCosmosDB();
+      log("Cosmos DB initialized successfully");
+    } catch (error) {
+      console.error("Failed to initialize Cosmos DB, continuing with limited functionality:", error);
+    }
+
+    // Initialize Azure OpenAI
+    try {
+      const openAIClient = await initializeOpenAI();
+      if (!openAIClient) {
+        log("Azure OpenAI disabled - AI features will be limited");
+      } else {
+        log("Azure OpenAI initialized successfully");
+      }
+    } catch (error) {
+      console.error("Failed to initialize OpenAI, continuing with limited functionality:", error);
+    }
 
     const server = await registerRoutes(app);
 

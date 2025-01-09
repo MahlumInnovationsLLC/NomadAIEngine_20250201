@@ -82,7 +82,6 @@ export async function checkOpenAIConnection() {
         });
       }
     } catch (error: any) {
-      console.error("OpenAI Connection Error:", error);
       services.push({
         name: "Azure OpenAI",
         status: "error",
@@ -98,11 +97,11 @@ export async function checkOpenAIConnection() {
         status: cosmosStatus ? "connected" : "error",
         message: cosmosStatus ? "Connected to Cosmos DB" : "Failed to connect to Cosmos DB"
       });
-    } catch (error) {
+    } catch (error: any) {
       services.push({
         name: "Azure Cosmos DB",
         status: "error",
-        message: "Failed to connect to Cosmos DB"
+        message: `Failed to connect to Cosmos DB: ${error.message || 'Unknown error'}`
       });
     }
 
@@ -114,26 +113,25 @@ export async function checkOpenAIConnection() {
         status: blobStatus ? "connected" : "error",
         message: blobStatus ? "Connected to Blob Storage" : "Failed to connect to Blob Storage"
       });
-    } catch (error) {
+    } catch (error: any) {
       services.push({
         name: "Azure Blob Storage",
         status: "error",
-        message: "Failed to connect to Blob Storage"
+        message: `Failed to connect to Blob Storage: ${error.message || 'Unknown error'}`
       });
     }
 
     return services;
   } catch (error) {
+    console.error("Error checking services status:", error);
     return [{
       name: "Azure Services",
       status: "error",
-      message: "Failed to check services status"
+      message: error instanceof Error ? error.message : "Failed to check services status"
     }];
   }
 }
 
-// Don't initialize on module load, let the application decide when to initialize
-// This prevents blocking app startup
 export async function ensureInitialized() {
   if (!client) {
     client = await initializeOpenAI();
@@ -161,18 +159,24 @@ export async function analyzeDocument(content: string) {
   await ensureInitialized();
   if (!client) {
     console.warn("OpenAI client not initialized - chat completion skipped");
-    return null;
+    return "I apologize, but the AI service is currently unavailable. Please try again later.";
   }
 
   try {
     const result = await client.getChatCompletions(deploymentName, [
-      { role: "system", content: "You are a helpful AI assistant. Respond naturally to user questions and engage in conversation." },
+      { role: "system", content: "You are a helpful AI assistant specialized in document management and training. Help the user with their questions and provide detailed, relevant responses." },
       { role: "user", content }
     ]);
-    return result.choices[0].message?.content;
+
+    if (!result.choices || result.choices.length === 0) {
+      console.warn("No response received from OpenAI");
+      return "I apologize, but I wasn't able to generate a response. Please try again.";
+    }
+
+    return result.choices[0].message?.content || "I apologize, but I wasn't able to understand your request.";
   } catch (error) {
-    console.warn("Error in chat completion:", error);
-    return null;
+    console.error("Error in analyzeDocument:", error);
+    return "I apologize, but I'm having trouble processing your request. Please try again later.";
   }
 }
 

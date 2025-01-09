@@ -66,7 +66,7 @@ export async function createChat(chatData: any) {
   const cont = ensureContainer();
 
   try {
-    // Generate a unique chat ID using UUID
+    // Generate a unique chat ID using UUID with timestamp to avoid conflicts
     const chatId = `chat_${Date.now()}_${uuidv4()}`;
 
     // Initial message from the user
@@ -80,11 +80,12 @@ export async function createChat(chatData: any) {
     // Construct chat document with metadata
     const chatDocument = {
       id: chatId,
-      userKey: chatData.userKey || 'user123', // Using a default user key for demo
+      userKey: chatData.userKey || 'default_user', // Using a default user key
       title: chatData.content?.substring(0, 50) || "New Chat",
       messages: [firstMessage],
       lastMessageAt: new Date().toISOString(),
-      type: 'chat'
+      type: 'chat',
+      isDeleted: false
     };
 
     console.log("Creating new chat:", chatDocument);
@@ -106,10 +107,10 @@ export async function updateChat(chatId: string, updates: any) {
   const cont = ensureContainer();
 
   try {
-    const { resource: existingChat } = await cont.item(chatId, updates.userKey || 'user123').read();
+    const { resource: existingChat } = await cont.item(chatId, updates.userKey || 'default_user').read();
 
-    if (!existingChat) {
-      throw new Error("Chat not found");
+    if (!existingChat || existingChat.isDeleted) {
+      throw new Error("Chat not found or has been deleted");
     }
 
     const newMessage = {
@@ -125,7 +126,7 @@ export async function updateChat(chatId: string, updates: any) {
       lastMessageAt: new Date().toISOString()
     };
 
-    const { resource } = await cont.item(chatId, updates.userKey || 'user123').replace(updatedChat);
+    const { resource } = await cont.item(chatId, updates.userKey || 'default_user').replace(updatedChat);
     return resource;
   } catch (error) {
     console.error("Error updating chat:", error);
@@ -133,47 +134,37 @@ export async function updateChat(chatId: string, updates: any) {
   }
 }
 
-export async function getChat(chatId: string, userKey: string = 'user123') {
+export async function deleteChat(chatId: string, userKey: string = 'default_user') {
   const cont = ensureContainer();
 
   try {
-    const { resource: chat } = await cont.item(chatId, userKey).read();
-    return chat;
-  } catch (error: any) {
-    if (error.code === 404) {
-      return null;
-    }
-    console.error("Error retrieving chat:", error);
-    throw error;
-  }
-}
-
-export async function deleteChat(chatId: string, userKey: string = 'user123') {
-  const cont = ensureContainer();
-
-  try {
-    // First verify if the chat exists
+    // Soft delete by marking the chat as deleted
     const { resource: chat } = await cont.item(chatId, userKey).read();
 
-    if (!chat) {
-      throw new Error("Chat not found");
+    if (!chat || chat.isDeleted) {
+      throw new Error("Chat not found or already deleted");
     }
 
-    // Then delete it
-    await cont.item(chatId, userKey).delete();
+    const updatedChat = {
+      ...chat,
+      isDeleted: true,
+      deletedAt: new Date().toISOString()
+    };
+
+    await cont.item(chatId, userKey).replace(updatedChat);
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error deleting chat:", error);
     throw error;
   }
 }
 
-export async function listChats(userKey: string = 'user123') {
+export async function listChats(userKey: string = 'default_user') {
   const cont = ensureContainer();
 
   try {
     const querySpec = {
-      query: "SELECT * FROM c WHERE c.type = 'chat' AND c.userKey = @userKey ORDER BY c.lastMessageAt DESC",
+      query: "SELECT * FROM c WHERE c.type = 'chat' AND c.userKey = @userKey AND (NOT IS_DEFINED(c.isDeleted) OR c.isDeleted = false) ORDER BY c.lastMessageAt DESC",
       parameters: [
         {
           name: "@userKey",
