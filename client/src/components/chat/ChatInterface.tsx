@@ -10,10 +10,10 @@ import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
-  id: string | number;
+  id: string;
   role: 'user' | 'assistant';
   content: string;
-  createdAt: string | Date;
+  createdAt: string;
 }
 
 interface Chat {
@@ -93,7 +93,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       return response.json();
     },
-    onSuccess: (messages) => {
+    onSuccess: () => {
       setInput("");
       if (chatId) {
         queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
