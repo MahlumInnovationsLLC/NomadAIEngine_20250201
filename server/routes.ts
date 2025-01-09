@@ -95,6 +95,63 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add equipment update endpoint
+  app.patch("/api/equipment/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const equipmentIndex = equipment.findIndex(e => e.id === id);
+      if (equipmentIndex === -1) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+
+      equipment[equipmentIndex] = {
+        ...equipment[equipmentIndex],
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+
+      res.json(equipment[equipmentIndex]);
+    } catch (error) {
+      console.error("Error updating equipment:", error);
+      res.status(500).json({ error: "Failed to update equipment" });
+    }
+  });
+
+  // Add equipment predictions endpoint
+  app.get("/api/equipment/:id/predictions", (req, res) => {
+    try {
+      const { id } = req.params;
+      const equipment_item = equipment.find(e => e.id === id);
+
+      if (!equipment_item) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+
+      // Generate mock prediction data
+      const now = new Date();
+      const predictions = Array.from({ length: 24 }, (_, i) => {
+        const hour = new Date(now);
+        hour.setHours(hour.getHours() + i);
+        return {
+          timestamp: hour.toISOString(),
+          predictedUsage: Math.round(Math.random() * 100),
+          confidence: 0.7 + Math.random() * 0.3
+        };
+      });
+
+      res.json({
+        equipment: equipment_item,
+        predictions,
+        lastUpdated: now.toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating predictions:", error);
+      res.status(500).json({ error: "Failed to generate predictions" });
+    }
+  });
+
   // Generate detailed report endpoint
   app.post("/api/generate-report", async (req, res) => {
     try {
@@ -121,22 +178,6 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ 
         error: "Failed to generate report", 
         details: error instanceof Error ? error.message : "Unknown error" 
-      });
-    }
-  });
-
-  // Check Azure OpenAI connection status
-  app.get("/api/azure/status", async (req, res) => {
-    try {
-      console.log("Checking Azure services status...");
-      const status = await checkOpenAIConnection();
-      res.json(status);
-    } catch (error) {
-      console.error("Error checking Azure OpenAI status:", error);
-      res.status(500).json({
-        status: "error",
-        message: "Failed to check Azure OpenAI status",
-        details: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
@@ -206,6 +247,23 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: "Failed to process message", details: error.message });
     }
   });
+
+  // Check Azure OpenAI connection status
+  app.get("/api/azure/status", async (req, res) => {
+    try {
+      console.log("Checking Azure services status...");
+      const status = await checkOpenAIConnection();
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking Azure OpenAI status:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to check Azure OpenAI status",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
 
   return httpServer;
 }
