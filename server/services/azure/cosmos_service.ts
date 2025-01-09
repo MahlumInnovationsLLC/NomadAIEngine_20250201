@@ -24,7 +24,6 @@ export async function initializeCosmosDB() {
       id: "GYMAIEngineDB"
     });
     database = db;
-    console.log("Successfully connected to database:", db.id);
 
     // Create container if it doesn't exist with the specified partition key
     const { container: cont } = await database.containers.createIfNotExists({
@@ -32,7 +31,6 @@ export async function initializeCosmosDB() {
       partitionKey: { paths: ["/userKey"] }
     });
     container = cont;
-    console.log("Successfully created/connected to container:", cont.id);
 
     console.log("Successfully connected to Azure Cosmos DB");
   } catch (error) {
@@ -46,12 +44,9 @@ export async function checkContainerAvailability(): Promise<boolean> {
     if (!container) {
       await initializeCosmosDB();
     }
-
     if (!container) {
       return false;
     }
-
-    // Try to read the container properties as a connection test
     await container.read();
     return true;
   } catch (error) {
@@ -71,27 +66,30 @@ export async function createChat(chatData: any) {
   const cont = ensureContainer();
 
   try {
-    // Generate a new UUID for the chat
-    const chatId = uuidv4();
+    // Generate a unique chat ID using UUID
+    const chatId = `chat_${Date.now()}_${uuidv4()}`;
 
-    // Ensure proper structure with required fields
-    const chatWithMetadata = {
+    // Initial message from the user
+    const firstMessage = {
+      id: uuidv4(),
+      role: 'user',
+      content: chatData.content,
+      createdAt: new Date().toISOString()
+    };
+
+    // Construct chat document with metadata
+    const chatDocument = {
       id: chatId,
-      userKey: chatData.userKey || 'user123', // Default userKey for demo
-      title: chatData.content?.substring(0, 50) || "New Chat", // Use first message as title
-      messages: [{
-        id: uuidv4(),
-        role: 'user',
-        content: chatData.content,
-        createdAt: new Date().toISOString()
-      }],
+      userKey: chatData.userKey || 'user123', // Using a default user key for demo
+      title: chatData.content?.substring(0, 50) || "New Chat",
+      messages: [firstMessage],
       lastMessageAt: new Date().toISOString(),
       type: 'chat'
     };
 
-    console.log("Creating new chat with metadata:", chatWithMetadata);
+    console.log("Creating new chat:", chatDocument);
 
-    const { resource } = await cont.items.create(chatWithMetadata);
+    const { resource } = await cont.items.create(chatDocument);
 
     if (!resource) {
       throw new Error("Failed to create chat resource");
@@ -114,10 +112,16 @@ export async function updateChat(chatId: string, updates: any) {
       throw new Error("Chat not found");
     }
 
-    // Ensure messages array exists and append new messages
+    const newMessage = {
+      id: uuidv4(),
+      role: updates.role || 'user',
+      content: updates.content,
+      createdAt: new Date().toISOString()
+    };
+
     const updatedChat = {
       ...existingChat,
-      messages: [...(existingChat.messages || []), ...updates.messages],
+      messages: [...existingChat.messages, newMessage],
       lastMessageAt: new Date().toISOString()
     };
 
@@ -148,6 +152,14 @@ export async function deleteChat(chatId: string, userKey: string = 'user123') {
   const cont = ensureContainer();
 
   try {
+    // First verify if the chat exists
+    const { resource: chat } = await cont.item(chatId, userKey).read();
+
+    if (!chat) {
+      throw new Error("Chat not found");
+    }
+
+    // Then delete it
     await cont.item(chatId, userKey).delete();
     return { success: true };
   } catch (error: any) {

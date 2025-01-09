@@ -12,67 +12,95 @@ import { Button } from "@/components/ui/button";
 import { SkillAssessment } from "@/components/training/SkillAssessment";
 import { AdminModuleManager } from "@/components/training/AdminModuleManager";
 
-// Types from the schema
-interface TrainingModule {
-  id: string;
-  title: string;
-  description: string;
-  completedLessons: number;
-  totalLessons: number;
-  requiredLevel: number;
-  content: {
-    lessons: Array<{
-      id: string;
-      title: string;
-      content: string;
-    }>;
-    quizzes: Array<{
-      id: string;
-      question: string;
-      options: string[];
-      correctAnswer: number;
-      explanation: string;
-    }>;
-  };
-}
-
-interface Activity {
-  id: string;
-  description: string;
-  timestamp: string;
-  type: 'completion' | 'quiz' | 'lesson';
-}
-
-interface TrainingData {
-  currentLevel: number;
-  currentExp: number;
-  nextLevelExp: number;
-  modules: TrainingModule[];
-  recentActivity: Activity[];
-  achievements: Array<{
-    id: string;
-    name: string;
-    description: string;
-    unlockedAt?: string;
-  }>;
-}
+// Example training data for development
+const exampleTrainingData = {
+  currentLevel: 3,
+  currentExp: 750,
+  nextLevelExp: 1000,
+  modules: [
+    {
+      id: "1",
+      title: "Document Management Fundamentals",
+      description: "Learn the basics of document management and organization",
+      completedLessons: 3,
+      totalLessons: 5,
+      requiredLevel: 1
+    },
+    {
+      id: "2",
+      title: "Advanced Document Processing",
+      description: "Master advanced techniques in document processing and analysis",
+      completedLessons: 1,
+      totalLessons: 4,
+      requiredLevel: 2
+    },
+    {
+      id: "3",
+      title: "Workflow Automation",
+      description: "Automate document workflows and improve efficiency",
+      completedLessons: 0,
+      totalLessons: 3,
+      requiredLevel: 3
+    }
+  ],
+  recentActivity: [
+    {
+      id: "a1",
+      description: "Completed Lesson: Introduction to Document Types",
+      timestamp: new Date().toISOString(),
+      type: "completion"
+    },
+    {
+      id: "a2",
+      description: "Passed Quiz: Document Classification",
+      timestamp: new Date(Date.now() - 86400000).toISOString(),
+      type: "quiz"
+    },
+    {
+      id: "a3",
+      description: "Started Lesson: Advanced Search Techniques",
+      timestamp: new Date(Date.now() - 172800000).toISOString(),
+      type: "lesson"
+    }
+  ],
+  achievements: [
+    {
+      id: "ach1",
+      name: "Document Master",
+      description: "Complete all fundamental training modules",
+      unlockedAt: new Date(Date.now() - 259200000).toISOString()
+    },
+    {
+      id: "ach2",
+      name: "Workflow Wizard",
+      description: "Successfully automate 5 document workflows",
+      unlockedAt: new Date(Date.now() - 345600000).toISOString()
+    },
+    {
+      id: "ach3",
+      name: "Search Expert",
+      description: "Master advanced document search techniques",
+      unlockedAt: undefined
+    }
+  ]
+};
 
 export default function TrainingModule() {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'achievements' | 'create' | 'assessment'>('overview');
   const [isCreating, setIsCreating] = useState(false);
 
-  const { data: trainingData } = useQuery<TrainingData>({
+  // For now, use the example data
+  const { data: trainingData } = useQuery({
     queryKey: ['/api/training/progress'],
+    initialData: exampleTrainingData
   });
 
   const handleModuleComplete = () => {
     setSelectedModuleId(null);
     setActiveTab('modules');
-    // queryClient.invalidateQueries({ queryKey: ['/api/training/progress'] });
   };
 
-  // If creating a new module, show the creator interface
   if (isCreating) {
     return (
       <div className="space-y-6">
@@ -87,7 +115,6 @@ export default function TrainingModule() {
     );
   }
 
-  // If a module is selected, show the module viewer
   if (selectedModuleId) {
     return (
       <div className="space-y-6">
@@ -124,7 +151,7 @@ export default function TrainingModule() {
               <TabsTrigger value="modules">Learning Modules</TabsTrigger>
               <TabsTrigger value="achievements">Achievements</TabsTrigger>
               <TabsTrigger value="assessment">Skill Assessment</TabsTrigger>
-              <TabsTrigger value="create">Create Module</TabsTrigger>
+              {/* <TabsTrigger value="create">Create Module</TabsTrigger> */} {/*Removed Create Module tab as it's handled separately */}
             </TabsList>
 
             <TabsContent value="overview">
@@ -217,9 +244,7 @@ export default function TrainingModule() {
                 ))}
               </div>
             </TabsContent>
-            <TabsContent value="create">
-              <ModuleCreator />
-            </TabsContent>
+
             <TabsContent value="assessment">
               <SkillAssessment />
             </TabsContent>
