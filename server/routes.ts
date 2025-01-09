@@ -1,12 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
-import { setupWebSocketServer } from "./services/websocket";
-import { v4 as uuidv4 } from 'uuid';
 import express from "express";
 import multer from "multer";
-import { generateReport } from "./services/document-generator";
-import { listChats } from "./services/azure/cosmos_service";
 import { BlobServiceClient } from "@azure/storage-blob";
 
 // Initialize Azure Blob Storage Client
@@ -32,7 +27,6 @@ const upload = multer({
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
-  const wsServer = setupWebSocketServer(httpServer);
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
@@ -52,21 +46,26 @@ export function registerRoutes(app: Express): Server {
       for await (const item of blobs) {
         // Check if it's a virtual directory (folder)
         if (item.kind === "prefix") {
+          const folderName = item.name.split("/").filter(Boolean).pop() || "";
           items.push({
-            name: item.name.split("/").slice(-2)[0],
+            name: folderName,
             path: item.name,
             type: "folder"
           });
         } else {
           // It's a blob (file)
           const blobItem = item;
-          items.push({
-            name: blobItem.name.split("/").pop() || "",
-            path: blobItem.name,
-            type: "file",
-            size: blobItem.properties?.contentLength,
-            lastModified: blobItem.properties?.lastModified?.toISOString()
-          });
+          const fileName = blobItem.name.split("/").pop() || "";
+          // Don't include virtual folder markers
+          if (!fileName.startsWith('.folder')) {
+            items.push({
+              name: fileName,
+              path: blobItem.name,
+              type: "file",
+              size: blobItem.properties?.contentLength,
+              lastModified: blobItem.properties?.lastModified?.toISOString()
+            });
+          }
         }
       }
 
@@ -390,3 +389,8 @@ interface Equipment {
 
 let equipment: Equipment[] = [];
 let equipmentTypes: EquipmentType[] = [];
+import {v4 as uuidv4} from 'uuid';
+import { generateReport } from "./services/document-generator";
+import { listChats } from "./services/azure/cosmos_service";
+import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
+import { setupWebSocketServer } from "./services/websocket";

@@ -26,7 +26,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const queryClient = useQueryClient();
 
   const { data: items = [], isLoading } = useQuery<BlobItem[]>({
-    queryKey: ['/api/documents/browse', currentPath],
+    queryKey: ['/api/documents/browse', { path: currentPath }],
   });
 
   const createFolderMutation = useMutation({
