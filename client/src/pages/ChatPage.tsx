@@ -12,6 +12,15 @@ export default function ChatPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { messages, clearMessages } = useChatHistory(params?.id);
 
+  return (
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <div className="p-8 border-b bg-background">
+        <h1 className="text-3xl font-bold mb-2">Chat Interface</h1>
+        <p className="text-muted-foreground">
+          Engage in conversations and manage your chat history.
+        </p>
+      </div>
+
   const handleNewChat = () => {
     // Only show confirmation if there are messages
     if (messages.length > 0) {
@@ -28,7 +37,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div className="flex flex-1">
       {/* Chat history sidebar */}
       <ChatHistorySidebar />
 

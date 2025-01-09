@@ -56,7 +56,7 @@ export default function DocumentControl() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
         <p className="text-muted-foreground">
-          Manage, review, and approve documents with version control and workflow management.
+          Manage your documents, configure training modules, and control document workflows.
         </p>
       </div>
 
