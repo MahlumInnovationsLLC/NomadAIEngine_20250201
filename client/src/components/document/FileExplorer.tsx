@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Folder, File, Upload, FolderPlus, RefreshCw } from "lucide-react";
+import { Folder, File, FolderPlus, RefreshCw } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,7 +20,6 @@ interface FileExplorerProps {
 
 export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState<string>("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const { toast } = useToast();
@@ -29,32 +27,6 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
 
   const { data: items = [], isLoading } = useQuery<BlobItem[]>({
     queryKey: ['/api/documents/browse', currentPath],
-  });
-
-  const uploadMutation = useMutation({
-    mutationFn: async (files: File[]) => {
-      const formData = new FormData();
-      files.forEach(file => {
-        formData.append('files', file);
-      });
-      formData.append('path', currentPath);
-
-      const response = await fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Upload failed');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/documents/browse'] });
-      toast({
-        title: "Files uploaded",
-        description: `Successfully uploaded ${selectedFiles.length} files`,
-      });
-      setSelectedFiles([]);
-    },
   });
 
   const createFolderMutation = useMutation({
@@ -79,18 +51,6 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
     },
   });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
-    }
-  };
-
-  const handleUpload = () => {
-    if (selectedFiles.length > 0) {
-      uploadMutation.mutate(selectedFiles);
-    }
-  };
-
   const handleCreateFolder = () => {
     if (newFolderName) {
       createFolderMutation.mutate(newFolderName);
@@ -100,6 +60,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const navigateToFolder = (folderPath: string) => {
     // Remove the trailing slash if present for consistent navigation
     const cleanPath = folderPath.endsWith('/') ? folderPath.slice(0, -1) : folderPath;
+    console.log("Navigating to folder:", cleanPath);
     setCurrentPath(cleanPath);
   };
 
@@ -107,7 +68,9 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
     if (!currentPath) return;
     const segments = currentPath.split('/');
     segments.pop(); // Remove the last segment
-    setCurrentPath(segments.join('/'));
+    const parentPath = segments.join('/');
+    console.log("Navigating up to:", parentPath);
+    setCurrentPath(parentPath);
   };
 
   return (
@@ -134,10 +97,12 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
                   <DialogTitle>Create New Folder</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
-                  <Input
+                  <input
+                    type="text"
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
                     placeholder="Enter folder name"
+                    className="w-full px-3 py-2 border rounded-md"
                   />
                   <Button onClick={handleCreateFolder} className="w-full">
                     Create Folder
@@ -152,7 +117,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
         </div>
 
         {/* File List */}
-        <div className="border rounded-md h-[400px] overflow-y-auto p-2">
+        <div className="border rounded-md h-[500px] overflow-y-auto p-2">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <span>Loading...</span>
@@ -187,32 +152,6 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
               ))}
             </div>
           )}
-        </div>
-
-        {/* Upload Area */}
-        <div className="mt-4">
-          <div className="border-2 border-dashed rounded-md p-4">
-            <Input
-              type="file"
-              multiple
-              onChange={handleFileSelect}
-              className="mb-2"
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {selectedFiles.length > 0
-                  ? `${selectedFiles.length} files selected`
-                  : 'No files selected'}
-              </span>
-              <Button
-                onClick={handleUpload}
-                disabled={selectedFiles.length === 0}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Upload
-              </Button>
-            </div>
-          </div>
         </div>
       </CardContent>
     </Card>

@@ -119,11 +119,14 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Path is required" });
       }
 
+      console.log("Creating folder:", path);
+
       // In Azure Blob Storage, folders are virtual and created by adding a blob with
       // the folder name as prefix ending with a forward slash
       const blockBlobClient = containerClient.getBlockBlobClient(`${path}/.folder`);
       await blockBlobClient.uploadData(Buffer.from(''));
 
+      console.log("Successfully created folder:", path);
       res.json({ message: "Folder created successfully", path });
     } catch (error) {
       console.error("Error creating folder:", error);
@@ -368,5 +371,22 @@ export function registerRoutes(app: Express): Server {
   return httpServer;
 }
 
-let equipment = [];
-let equipmentTypes = [];
+// Add TypeScript interfaces for equipment types
+interface EquipmentType {
+  id: string;
+  manufacturer: string;
+  model: string;
+}
+
+interface Equipment {
+  id: string;
+  typeId: string;
+  serialNumber: string;
+  location: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+let equipment: Equipment[] = [];
+let equipmentTypes: EquipmentType[] = [];
