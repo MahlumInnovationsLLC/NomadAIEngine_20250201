@@ -1,6 +1,5 @@
 import { OpenAIClient } from "@azure/openai";
 import { AzureKeyCredential } from "@azure/core-auth";
-import { db } from "@db";
 import { checkContainerAvailability } from "./cosmos_service";
 import { checkBlobStorageConnection } from "./blob_service";
 
@@ -158,18 +157,18 @@ export async function generateEmbeddings(text: string) {
 export async function analyzeDocument(content: string) {
   await ensureInitialized();
   if (!client) {
-    console.warn("OpenAI client not initialized - document analysis skipped");
+    console.warn("OpenAI client not initialized - chat completion skipped");
     return null;
   }
 
   try {
     const result = await client.getChatCompletions(deploymentName, [
-      { role: "system", content: "You are an AI assistant that helps analyze documents." },
-      { role: "user", content: `Please analyze this document: ${content}` }
+      { role: "system", content: "You are a helpful AI assistant. Respond naturally to user questions and engage in conversation." },
+      { role: "user", content }
     ]);
     return result.choices[0].message?.content;
   } catch (error) {
-    console.warn("Error analyzing document:", error);
+    console.warn("Error in chat completion:", error);
     return null;
   }
 }
