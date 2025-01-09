@@ -7,6 +7,19 @@ import express from "express";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 
+// Interface for equipment type
+interface EquipmentType {
+  name: string;
+  manufacturer: string;
+  model: string;
+  category: string;
+  connectivityType: string;
+}
+
+// Mock storage for equipment and types (replace with database later)
+let equipmentTypes: Array<EquipmentType & { id: string }> = [];
+let equipment: Array<any> = [];
+
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   const wsServer = setupWebSocketServer(httpServer);
@@ -33,6 +46,52 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching chats:", error);
       res.status(500).json({ error: "Failed to fetch chats" });
+    }
+  });
+
+  // Equipment Types endpoints
+  app.post("/api/equipment-types", (req, res) => {
+    try {
+      const type = req.body;
+      const existingType = equipmentTypes.find(
+        t => t.manufacturer === type.manufacturer && t.model === type.model
+      );
+
+      if (existingType) {
+        return res.json(existingType);
+      }
+
+      const newType = {
+        id: uuidv4(),
+        ...type
+      };
+      equipmentTypes.push(newType);
+      res.json(newType);
+    } catch (error) {
+      console.error("Error creating equipment type:", error);
+      res.status(500).json({ error: "Failed to create equipment type" });
+    }
+  });
+
+  // Equipment endpoints
+  app.get("/api/equipment", (req, res) => {
+    res.json(equipment);
+  });
+
+  app.post("/api/equipment", (req, res) => {
+    try {
+      const equipmentData = req.body;
+      const newEquipment = {
+        id: uuidv4(),
+        ...equipmentData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      equipment.push(newEquipment);
+      res.json(newEquipment);
+    } catch (error) {
+      console.error("Error creating equipment:", error);
+      res.status(500).json({ error: "Failed to create equipment" });
     }
   });
 
