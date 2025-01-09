@@ -41,7 +41,7 @@ function App() {
           </div>
         </div>
       </div>
-      <main className="container mx-auto px-4 pt-16">
+      <main className="container mx-auto px-4 pt-8">
         <div className="flex gap-4">
           {showModuleSelector && (
             <ModuleSelector 

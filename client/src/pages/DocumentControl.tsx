@@ -53,7 +53,7 @@ export default function DocumentControl() {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="mb-8">
+      <div className="p-8 border-b bg-background">
         <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
         <p className="text-muted-foreground">
           Manage your documents, configure training modules, and control document workflows.
