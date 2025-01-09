@@ -4,18 +4,19 @@ import express from "express";
 import multer from "multer";
 import { BlobServiceClient } from "@azure/storage-blob";
 
-// Initialize Azure Blob Storage Client
-if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
-  throw new Error("Azure Blob Storage connection string not found");
+// Initialize Azure Blob Storage Client with SAS token
+const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
+
+if (!sasUrl) {
+  throw new Error("Azure Blob Storage SAS URL not found");
 }
 
-console.log("Attempting to connect to Azure Blob Storage...");
-const blobServiceClient = BlobServiceClient.fromConnectionString(
+console.log("Attempting to connect to Azure Blob Storage with SAS token...");
+const containerClient = BlobServiceClient.fromConnectionString(
   process.env.AZURE_BLOB_CONNECTION_STRING
-);
-console.log("Successfully created Blob Service Client");
+).getContainerClient("documents");
 
-const containerName = "documents"; // Container name in Azure Blob Storage
+console.log("Successfully created Blob Container Client");
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -34,8 +35,7 @@ export function registerRoutes(app: Express): Server {
   // Blob Storage endpoints
   app.get("/api/documents/browse", async (req, res) => {
     try {
-      console.log("Listing blobs from container:", containerName);
-      const containerClient = blobServiceClient.getContainerClient(containerName);
+      console.log("Listing blobs from container:", "documents");
       const path = (req.query.path as string) || "";
       console.log("Browsing path:", path);
 
@@ -93,7 +93,6 @@ export function registerRoutes(app: Express): Server {
   // Route to handle file uploads
   app.post("/api/documents/upload", upload.array('files'), async (req, res) => {
     try {
-      const containerClient = blobServiceClient.getContainerClient(containerName);
       const path = req.body.path || "";
       const files = req.files as Express.Multer.File[];
 
@@ -101,7 +100,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "No files provided" });
       }
 
-      console.log("Uploading files to container:", containerName, "path:", path);
+      console.log("Uploading files to container:", "documents", "path:", path);
       console.log("Files to upload:", files.map(f => f.originalname));
 
       const uploadPromises = files.map(async (file) => {
@@ -124,7 +123,6 @@ export function registerRoutes(app: Express): Server {
   // Add folder creation endpoint
   app.post("/api/documents/folders", async (req, res) => {
     try {
-      const containerClient = blobServiceClient.getContainerClient(containerName);
       const { path } = req.body;
 
       if (!path) {
