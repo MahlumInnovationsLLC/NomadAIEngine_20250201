@@ -4,7 +4,8 @@ import { checkContainerAvailability } from "./cosmos_service";
 import { checkBlobStorageConnection } from "./blob_service";
 
 let client: OpenAIClient | null = null;
-const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "GYMAIEngine-gpt-4o";
+const deploymentName = process.env.AZURE_OPENAI_MODEL || "GYMAIEngine-gpt-4o";
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024
 
 export async function initializeOpenAI() {
   try {
@@ -20,6 +21,8 @@ export async function initializeOpenAI() {
       console.warn("Azure OpenAI endpoint or API key is empty - AI features will be disabled");
       return null;
     }
+
+    console.log(`Attempting to initialize Azure OpenAI with deployment: ${deploymentName}`);
 
     client = new OpenAIClient(
       endpoint,
@@ -74,11 +77,11 @@ export async function checkOpenAIConnection() {
           name: "Azure OpenAI",
           status: testResult.choices && testResult.choices.length > 0 ? "connected" : "error",
           message: testResult.choices && testResult.choices.length > 0 
-            ? "Connected to Azure OpenAI"
+            ? `Connected to Azure OpenAI (${deploymentName})`
             : "Failed to connect to OpenAI"
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("OpenAI Connection Error:", error);
       services.push({
         name: "Azure OpenAI",
