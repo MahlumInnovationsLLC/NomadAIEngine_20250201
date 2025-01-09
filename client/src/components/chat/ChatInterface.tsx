@@ -27,23 +27,33 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
-      // Create new AbortController for this request
-      abortControllerRef.current = new AbortController();
+      try {
+        // Cancel any existing request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
 
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-        signal: abortControllerRef.current.signal,
-        credentials: 'include',
-      });
+        // Create new AbortController for this request
+        abortControllerRef.current = new AbortController();
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to send message: ${errorText}`);
+        const response = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+          signal: abortControllerRef.current.signal,
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to send message: ${errorText}`);
+        }
+
+        return response.json();
+      } finally {
+        // Clear the abort controller after the request completes or fails
+        abortControllerRef.current = null;
       }
-
-      return response.json();
     },
     onSuccess: (newMessages: Message[]) => {
       setInput("");
