@@ -7,13 +7,8 @@ import { Send, FileText } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  createdAt: string;
-}
+import { useChatHistory } from "@/hooks/use-chat-history";
+import type { Message } from "@/types/chat";
 
 interface ChatInterfaceProps {
   chatId?: string;
@@ -21,10 +16,12 @@ interface ChatInterfaceProps {
 
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
   const [showFileUpload, setShowFileUpload] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Use the chat history hook instead of local state
+  const { messages, addMessages, clearMessages } = useChatHistory(chatId);
 
   // Send message mutation
   const sendMessage = useMutation({
@@ -43,9 +40,9 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       return response.json();
     },
-    onSuccess: (newMessages) => {
+    onSuccess: (newMessages: Message[]) => {
       setInput("");
-      setMessages(prev => [...prev, ...newMessages]);
+      addMessages(newMessages);
     },
     onError: (error: Error) => {
       toast({

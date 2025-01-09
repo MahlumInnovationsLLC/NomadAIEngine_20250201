@@ -24,13 +24,13 @@ export async function initializeOpenAI() {
 
     console.log(`Attempting to initialize Azure OpenAI with deployment: ${deploymentName}`);
 
-    client = new OpenAIClient(
-      endpoint,
-      new AzureKeyCredential(apiKey)
-    );
-
-    // Optional connection test
     try {
+      client = new OpenAIClient(
+        endpoint,
+        new AzureKeyCredential(apiKey)
+      );
+
+      // Test connection with a simple request
       const testResult = await client.getChatCompletions(deploymentName, [
         { role: "system", content: "Test connection" },
         { role: "user", content: "Test message" }
@@ -62,80 +62,44 @@ export async function checkOpenAIConnection() {
       await initializeOpenAI();
     }
 
-    const services = [];
+    // If still no client after initialization attempt, return disabled status
+    if (!client) {
+      return [{
+        name: "Azure OpenAI",
+        status: "disabled",
+        message: "Azure OpenAI not configured or failed to initialize"
+      }];
+    }
 
-    // Check OpenAI Connection
     try {
-      if (!client) {
-        services.push({
-          name: "Azure OpenAI",
-          status: "disabled",
-          message: "Azure OpenAI not configured"
-        });
-      } else {
-        const testResult = await client.getChatCompletions(deploymentName, [
-          { role: "system", content: "Connection test" },
-          { role: "user", content: "Test message" }
-        ], {
-          maxRetries: 3,
-          timeout: 10000
-        });
+      const testResult = await client.getChatCompletions(deploymentName, [
+        { role: "system", content: "Connection test" },
+        { role: "user", content: "Test message" }
+      ], {
+        maxRetries: 3,
+        timeout: 10000
+      });
 
-        services.push({
-          name: "Azure OpenAI",
-          status: testResult.choices && testResult.choices.length > 0 ? "connected" : "error",
-          message: testResult.choices && testResult.choices.length > 0 
-            ? `Connected to Azure OpenAI (${deploymentName})`
-            : "Failed to connect to OpenAI"
-        });
-      }
+      return [{
+        name: "Azure OpenAI",
+        status: testResult.choices && testResult.choices.length > 0 ? "connected" : "error",
+        message: testResult.choices && testResult.choices.length > 0 
+          ? `Connected to Azure OpenAI (${deploymentName})`
+          : "Failed to connect to OpenAI"
+      }];
     } catch (error: any) {
-      services.push({
+      return [{
         name: "Azure OpenAI",
         status: "error",
         message: `Failed to connect to OpenAI: ${error.message || 'Unknown error'}`
-      });
+      }];
     }
-
-    // Check Cosmos DB Connection
-    try {
-      const cosmosStatus = await checkContainerAvailability();
-      services.push({
-        name: "Azure Cosmos DB",
-        status: cosmosStatus ? "connected" : "error",
-        message: cosmosStatus ? "Connected to Cosmos DB" : "Failed to connect to Cosmos DB"
-      });
-    } catch (error: any) {
-      services.push({
-        name: "Azure Cosmos DB",
-        status: "error",
-        message: `Failed to connect to Cosmos DB: ${error.message || 'Unknown error'}`
-      });
-    }
-
-    // Check Blob Storage Connection
-    try {
-      const blobStatus = await checkBlobStorageConnection();
-      services.push({
-        name: "Azure Blob Storage",
-        status: blobStatus ? "connected" : "error",
-        message: blobStatus ? "Connected to Blob Storage" : "Failed to connect to Blob Storage"
-      });
-    } catch (error: any) {
-      services.push({
-        name: "Azure Blob Storage",
-        status: "error",
-        message: `Failed to connect to Blob Storage: ${error.message || 'Unknown error'}`
-      });
-    }
-
-    return services;
   } catch (error) {
-    console.error("Error checking services status:", error);
+    console.error("Error checking OpenAI status:", error);
     return [{
-      name: "Azure Services",
+      name: "Azure OpenAI",
       status: "error",
-      message: error instanceof Error ? error.message : "Failed to check services status"
+      message: error instanceof Error ? error.message : "Failed to check OpenAI status"
     }];
   }
 }
@@ -166,7 +130,6 @@ export async function generateEmbeddings(text: string) {
 export async function analyzeDocument(content: string) {
   await ensureInitialized();
   if (!client) {
-    console.warn("OpenAI client not initialized - chat completion skipped");
     return "I apologize, but the AI service is currently unavailable. Please try again later.";
   }
 
@@ -243,4 +206,82 @@ export async function generateSummary(content: string) {
     console.warn("Error generating summary:", error);
     return null;
   }
+}
+
+export async function checkOpenAIConnection(){
+    try{
+        if(!client){
+            await initializeOpenAI();
+        }
+        const services = [];
+        try{
+            if (!client) {
+                services.push({
+                  name: "Azure OpenAI",
+                  status: "disabled",
+                  message: "Azure OpenAI not configured"
+                });
+              } else {
+                const testResult = await client.getChatCompletions(deploymentName, [
+                  { role: "system", content: "Connection test" },
+                  { role: "user", content: "Test message" }
+                ], {
+                  maxRetries: 3,
+                  timeout: 10000
+                });
+        
+                services.push({
+                  name: "Azure OpenAI",
+                  status: testResult.choices && testResult.choices.length > 0 ? "connected" : "error",
+                  message: testResult.choices && testResult.choices.length > 0 
+                    ? `Connected to Azure OpenAI (${deploymentName})`
+                    : "Failed to connect to OpenAI"
+                });
+              }
+        } catch (error: any) {
+            services.push({
+              name: "Azure OpenAI",
+              status: "error",
+              message: `Failed to connect to OpenAI: ${error.message || 'Unknown error'}`
+            });
+          }
+        // Check Cosmos DB Connection
+        try {
+          const cosmosStatus = await checkContainerAvailability();
+          services.push({
+            name: "Azure Cosmos DB",
+            status: cosmosStatus ? "connected" : "error",
+            message: cosmosStatus ? "Connected to Cosmos DB" : "Failed to connect to Cosmos DB"
+          });
+        } catch (error: any) {
+          services.push({
+            name: "Azure Cosmos DB",
+            status: "error",
+            message: `Failed to connect to Cosmos DB: ${error.message || 'Unknown error'}`
+          });
+        }
+        // Check Blob Storage Connection
+        try {
+          const blobStatus = await checkBlobStorageConnection();
+          services.push({
+            name: "Azure Blob Storage",
+            status: blobStatus ? "connected" : "error",
+            message: blobStatus ? "Connected to Blob Storage" : "Failed to connect to Blob Storage"
+          });
+        } catch (error: any) {
+          services.push({
+            name: "Azure Blob Storage",
+            status: "error",
+            message: `Failed to connect to Blob Storage: ${error.message || 'Unknown error'}`
+          });
+        }
+        return services;
+    } catch (error){
+        console.error("Error checking services status:", error);
+        return [{
+          name: "Azure Services",
+          status: "error",
+          message: error instanceof Error ? error.message : "Failed to check services status"
+        }];
+    }
 }

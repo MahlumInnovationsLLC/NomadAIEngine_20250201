@@ -82,8 +82,8 @@ export function registerRoutes(app: Express): Server {
 
       // Check if user is requesting a downloadable report
       const isReportRequest = content.toLowerCase().includes('report') || 
-                            content.toLowerCase().includes('document') || 
-                            content.toLowerCase().includes('download');
+                              content.toLowerCase().includes('document') || 
+                              content.toLowerCase().includes('download');
 
       // Get AI response using Azure OpenAI
       let aiResponse;
@@ -94,9 +94,9 @@ export function registerRoutes(app: Express): Server {
         console.log("Received AI response:", aiResponse);
 
         // If this is a report request, generate a downloadable document
-        if (isReportRequest) {
+        if (isReportRequest && aiResponse) {
           console.log("Generating downloadable report...");
-          const filename = await generateReport(content);
+          const filename = await generateReport(aiResponse);
           if (filename) {
             downloadUrl = `/uploads/${filename}`;
             aiResponse = `${aiResponse}\n\nI've prepared a detailed report for you. You can download it here: [Download Report](${downloadUrl})`;
