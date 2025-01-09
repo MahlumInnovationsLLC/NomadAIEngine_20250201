@@ -29,7 +29,6 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
-  const [isFirstMessage, setIsFirstMessage] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -44,7 +43,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   // Create new chat mutation
   const createChat = useMutation({
     mutationFn: async (content: string) => {
-      console.log("Creating new chat with content:", content);
       const response = await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,13 +55,12 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         throw new Error(`Failed to create chat: ${errorText}`);
       }
 
-      const data = await response.json();
-      return data;
+      return response.json();
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['/api/chats', data.id], data);
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-      setIsFirstMessage(false);
+      navigate(`/chat/${data.id}`);
     },
     onError: (error: Error) => {
       toast({
@@ -77,25 +74,15 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
-      console.log("Sending message:", { content, chatId });
-      let targetChatId = chatId;
-
-      // Create a new chat if we don't have one
-      if (!targetChatId) {
+      if (!chatId) {
         const newChat = await createChat.mutateAsync(content);
-        targetChatId = newChat.id;
-        navigate(`/chat/${targetChatId}`);
         return newChat.messages;
       }
 
-      // Send message to existing chat
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId: targetChatId,
-          content,
-        }),
+        body: JSON.stringify({ chatId, content }),
         credentials: 'include',
       });
 
@@ -104,10 +91,9 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         throw new Error(`Failed to send message: ${errorText}`);
       }
 
-      const data = await response.json();
-      return data;
+      return response.json();
     },
-    onSuccess: (newMessages) => {
+    onSuccess: (messages) => {
       setInput("");
       if (chatId) {
         queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId] });
@@ -180,12 +166,11 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     }
   }, [chat?.messages]);
 
-  // Show welcome screen only on first message
-  const showWelcome = isFirstMessage && (!chat?.messages || chat.messages.length === 0);
-
   const handleFileUpload = async (files: File[]) => {
     setShowFileUpload(false);
   };
+
+  const showWelcome = !chatId && (!chat?.messages || chat.messages.length === 0);
 
   return (
     <div className="flex flex-col h-[calc(100vh-14rem)]">
@@ -199,7 +184,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       ) : (
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-4 py-4">
-            {chat?.messages.map((message) => (
+            {chat?.messages?.map((message) => (
               <ChatMessage
                 key={message.id}
                 role={message.role}
