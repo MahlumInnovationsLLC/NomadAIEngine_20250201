@@ -4,21 +4,28 @@ import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_
 import { setupWebSocketServer } from "./services/websocket";
 import { v4 as uuidv4 } from 'uuid';
 import express from "express";
+import multer from "multer";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
+import { BlobServiceClient } from "@azure/storage-blob";
 
-// Interface for equipment type
-interface EquipmentType {
-  name: string;
-  manufacturer: string;
-  model: string;
-  category: string;
-  connectivityType: string;
+// Initialize Azure Blob Storage Client
+if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+  throw new Error("Azure Blob Storage connection string not found");
 }
 
-// Mock storage for equipment and types (replace with database later)
-let equipmentTypes: Array<EquipmentType & { id: string }> = [];
-let equipment: Array<any> = [];
+const blobServiceClient = BlobServiceClient.fromConnectionString(
+  process.env.AZURE_BLOB_CONNECTION_STRING
+);
+const containerName = "documents";
+
+// Configure multer for memory storage
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  }
+});
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -27,21 +34,111 @@ export function registerRoutes(app: Express): Server {
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
 
+  // Blob Storage endpoints
+  app.get("/api/documents/browse", async (req, res) => {
+    try {
+      console.log("Listing blobs from container:", containerName);
+      const containerClient = blobServiceClient.getContainerClient(containerName);
+      const path = (req.query.path as string) || "";
+      console.log("Browsing path:", path);
+
+      // Get all blobs with the specified prefix
+      const blobs = containerClient.listBlobsByHierarchy("/", { prefix: path });
+
+      const items = [];
+      for await (const item of blobs) {
+        // Check if it's a virtual directory (folder)
+        if (item.kind === "prefix") {
+          items.push({
+            name: item.name.split("/").slice(-2)[0],
+            path: item.name,
+            type: "folder"
+          });
+        } else {
+          // It's a blob (file)
+          const blobItem = item;
+          items.push({
+            name: blobItem.name.split("/").pop() || "",
+            path: blobItem.name,
+            type: "file",
+            size: blobItem.properties?.contentLength,
+            lastModified: blobItem.properties?.lastModified?.toISOString()
+          });
+        }
+      }
+
+      console.log("Found items:", items);
+      res.json(items);
+    } catch (error) {
+      console.error("Error listing blobs:", error);
+      res.status(500).json({ error: "Failed to list documents" });
+    }
+  });
+
+  // Route to handle file uploads
+  app.post("/api/documents/upload", upload.array('files'), async (req, res) => {
+    try {
+      const containerClient = blobServiceClient.getContainerClient(containerName);
+      const path = req.body.path || "";
+      const files = req.files as Express.Multer.File[];
+
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No files provided" });
+      }
+
+      console.log("Uploading files to container:", containerName, "path:", path);
+      console.log("Files to upload:", files.map(f => f.originalname));
+
+      const uploadPromises = files.map(async (file) => {
+        const blobName = path ? `${path}/${file.originalname}` : file.originalname;
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+        await blockBlobClient.uploadData(file.buffer);
+        return blobName;
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+      console.log("Successfully uploaded files:", uploadedFiles);
+
+      res.json({ message: "Files uploaded successfully", files: uploadedFiles });
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      res.status(500).json({ error: "Failed to upload files" });
+    }
+  });
+
+  // Add folder creation endpoint
+  app.post("/api/documents/folders", async (req, res) => {
+    try {
+      const containerClient = blobServiceClient.getContainerClient(containerName);
+      const { path } = req.body;
+
+      if (!path) {
+        return res.status(400).json({ error: "Path is required" });
+      }
+
+      // In Azure Blob Storage, folders are virtual and created by adding a blob with
+      // the folder name as prefix ending with a forward slash
+      const blockBlobClient = containerClient.getBlockBlobClient(`${path}/.folder`);
+      await blockBlobClient.uploadData(Buffer.from(''));
+
+      res.json({ message: "Folder created successfully", path });
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      res.status(500).json({ error: "Failed to create folder" });
+    }
+  });
+
   // Chat history endpoint
   app.get("/api/chats", async (req, res) => {
     try {
-      // For now, use a default user since we haven't implemented authentication yet
       const userKey = 'default_user';
       const chats = await listChats(userKey);
-
-      // Map Cosmos DB response to match our frontend expectations
       const formattedChats = chats.map(chat => ({
         id: chat.id,
         title: chat.title,
         lastMessageAt: chat.lastMessageAt,
         isArchived: chat.isDeleted || false
       }));
-
       res.json(formattedChats);
     } catch (error) {
       console.error("Error fetching chats:", error);
@@ -267,3 +364,6 @@ export function registerRoutes(app: Express): Server {
 
   return httpServer;
 }
+
+let equipment = [];
+let equipmentTypes = [];

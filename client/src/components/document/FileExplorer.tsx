@@ -20,7 +20,7 @@ interface FileExplorerProps {
 }
 
 export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
-  const [currentPath, setCurrentPath] = useState<string>("/");
+  const [currentPath, setCurrentPath] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
@@ -35,9 +35,9 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
     mutationFn: async (files: File[]) => {
       const formData = new FormData();
       files.forEach(file => {
-        formData.append('files[]', file);
+        formData.append('files', file);
       });
-      formData.append('folder', currentPath);
+      formData.append('path', currentPath);
 
       const response = await fetch('/api/documents/upload', {
         method: 'POST',
@@ -101,24 +101,8 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   };
 
   const navigateUp = () => {
-    const parentPath = currentPath.split('/').slice(0, -1).join('/') || '/';
+    const parentPath = currentPath.split('/').slice(0, -1).join('/');
     setCurrentPath(parentPath);
-  };
-
-  const handleSelectDocument = async (path: string) => {
-    if (onSelectDocument) {
-      try {
-        const response = await fetch(`/api/documents?path=${encodeURIComponent(path)}`);
-        if (response.ok) {
-          const document = await response.json();
-          if (document && document.id) {
-            onSelectDocument(document.id);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching document details:", error);
-      }
-    }
   };
 
   return (
@@ -127,10 +111,10 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={navigateUp} disabled={currentPath === '/'}>
+            <Button variant="outline" onClick={navigateUp} disabled={!currentPath}>
               ..
             </Button>
-            <span className="text-sm font-medium">{currentPath}</span>
+            <span className="text-sm font-medium">{currentPath || '/'}</span>
           </div>
           <div className="flex items-center space-x-2">
             <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
@@ -179,7 +163,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
                 <div
                   key={item.path}
                   className="flex items-center p-2 hover:bg-accent rounded-md cursor-pointer"
-                  onClick={() => item.type === 'folder' ? navigateToFolder(item.path) : handleSelectDocument(item.path)}
+                  onClick={() => item.type === 'folder' ? navigateToFolder(item.path) : null}
                 >
                   {item.type === 'folder' ? (
                     <Folder className="h-4 w-4 mr-2" />
