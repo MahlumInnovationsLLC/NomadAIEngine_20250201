@@ -94,9 +94,11 @@ function NotFound() {
 export default function AppWrapper() {
   return (
     <QueryClientProvider client={queryClient}>
-      <OnboardingProvider>
-        <App />
-      </OnboardingProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <OnboardingProvider>
+          <App />
+        </OnboardingProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
