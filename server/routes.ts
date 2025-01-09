@@ -20,8 +20,7 @@ import {
 } from "./services/azure/equipment_service";
 
 // Add new imports for dashboard endpoints
-import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
-
+import { getStorageMetrics, getRecentActivity, trackStorageActivity } from "./services/azure/blob_service";
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
@@ -412,6 +411,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching activity:", error);
       res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  // Add dashboard metrics endpoint
+  app.get("/api/dashboard/extended-stats", async (req, res) => {
+    try {
+      // TODO: Replace with actual data from database/services when implemented
+      const extendedStats = {
+        collaborators: 5, // Placeholder until user management is implemented
+        chatActivity: {
+          totalResponses: 0,
+          downloadedReports: 0
+        },
+        trainingLevel: {
+          level: "Beginner",
+          progress: 0
+        },
+        incompleteTasks: 0
+      };
+
+      // Get activity logs to count chat responses and downloaded reports
+      try {
+        const activityLogs = await getRecentActivity(100); // Get last 100 activities
+        for (const activity of activityLogs) {
+          if (activity.type === 'download' && activity.documentName.includes('report')) {
+            extendedStats.chatActivity.downloadedReports++;
+          } else if (activity.type === 'view' && activity.documentName.includes('chat')) {
+            extendedStats.chatActivity.totalResponses++;
+          }
+        }
+      } catch (error) {
+        console.warn("Error counting activity logs:", error);
+        // Continue with default values if activity logs can't be counted
+      }
+
+      res.json(extendedStats);
+    } catch (error) {
+      console.error("Error fetching extended stats:", error);
+      res.status(500).json({ error: "Failed to fetch extended statistics" });
     }
   });
 

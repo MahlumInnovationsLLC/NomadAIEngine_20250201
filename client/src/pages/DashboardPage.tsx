@@ -13,6 +13,8 @@ import {
   HardDrive,
   CheckCircle,
   XCircle,
+  GraduationCap,
+  ClipboardList
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +35,19 @@ interface ActivityItem {
   userId?: string;
 }
 
+interface ExtendedStats {
+  collaborators: number;
+  chatActivity: {
+    totalResponses: number;
+    downloadedReports: number;
+  };
+  trainingLevel: {
+    level: string;
+    progress: number;
+  };
+  incompleteTasks: number;
+}
+
 export default function DashboardPage() {
   const { data: stats, isLoading: isStatsLoading } = useQuery<StorageMetrics>({
     queryKey: ['/api/dashboard/stats'],
@@ -42,6 +57,9 @@ export default function DashboardPage() {
     queryKey: ['/api/dashboard/activity'],
   });
 
+  const { data: extendedStats, isLoading: isExtendedStatsLoading } = useQuery<ExtendedStats>({
+    queryKey: ['/api/dashboard/extended-stats'],
+  });
 
   return (
     <div className="container mx-auto py-8">
@@ -155,6 +173,98 @@ export default function DashboardPage() {
                 )}
               </div>
               <BarChart className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Additional Metrics */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Collaborators
+                </p>
+                {isExtendedStatsLoading ? (
+                  <Skeleton className="h-8 w-24 mt-2" />
+                ) : (
+                  <h3 className="text-2xl font-bold mt-2">
+                    {extendedStats?.collaborators || 0}
+                  </h3>
+                )}
+              </div>
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Chat Activity
+                </p>
+                {isExtendedStatsLoading ? (
+                  <Skeleton className="h-8 w-24 mt-2" />
+                ) : (
+                  <div>
+                    <h3 className="text-2xl font-bold mt-2">
+                      {(extendedStats?.chatActivity.totalResponses || 0) + 
+                       (extendedStats?.chatActivity.downloadedReports || 0)}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {extendedStats?.chatActivity.downloadedReports || 0} reports
+                    </p>
+                  </div>
+                )}
+              </div>
+              <MessageSquare className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Training Level
+                </p>
+                {isExtendedStatsLoading ? (
+                  <Skeleton className="h-8 w-24 mt-2" />
+                ) : (
+                  <div>
+                    <h3 className="text-2xl font-bold mt-2">
+                      {extendedStats?.trainingLevel.level || 'Beginner'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {extendedStats?.trainingLevel.progress || 0}% complete
+                    </p>
+                  </div>
+                )}
+              </div>
+              <GraduationCap className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Incomplete Tasks
+                </p>
+                {isExtendedStatsLoading ? (
+                  <Skeleton className="h-8 w-24 mt-2" />
+                ) : (
+                  <h3 className="text-2xl font-bold mt-2">
+                    {extendedStats?.incompleteTasks || 0}
+                  </h3>
+                )}
+              </div>
+              <ClipboardList className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
