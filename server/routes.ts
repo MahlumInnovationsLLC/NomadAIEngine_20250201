@@ -3,6 +3,21 @@ import { createServer, type Server } from "http";
 import express from "express";
 import multer from "multer";
 import { ContainerClient } from "@azure/storage-blob";
+import { v4 as uuidv4 } from 'uuid';
+import { generateReport } from "./services/document-generator";
+import { listChats } from "./services/azure/cosmos_service";
+import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
+import { setupWebSocketServer } from "./services/websocket";
+import { 
+  initializeEquipmentDatabase,
+  getEquipmentType,
+  createEquipmentType,
+  getAllEquipment,
+  createEquipment,
+  updateEquipment,
+  type Equipment,
+  type EquipmentType
+} from "./services/azure/equipment_service";
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
@@ -24,11 +39,101 @@ const upload = multer({
   }
 });
 
-export function registerRoutes(app: Express): Server {
+export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  try {
+    // Initialize Equipment Database
+    console.log("Initializing Equipment Database...");
+    await initializeEquipmentDatabase();
+    console.log("Equipment Database initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize Equipment Database:", error);
+    throw error;
+  }
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
+
+  // Equipment Types endpoints
+  app.post("/api/equipment-types", async (req, res) => {
+    try {
+      const type = req.body;
+      const existingType = await getEquipmentType(type.manufacturer, type.model);
+
+      if (existingType) {
+        return res.json(existingType);
+      }
+
+      const newType = await createEquipmentType(type);
+      res.json(newType);
+    } catch (error) {
+      console.error("Error creating equipment type:", error);
+      res.status(500).json({ error: "Failed to create equipment type" });
+    }
+  });
+
+  // Equipment endpoints
+  app.get("/api/equipment", async (req, res) => {
+    try {
+      const equipment = await getAllEquipment();
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error getting equipment:", error);
+      res.status(500).json({ error: "Failed to get equipment" });
+    }
+  });
+
+  app.post("/api/equipment", async (req, res) => {
+    try {
+      const equipmentData = req.body;
+      const newEquipment = await createEquipment(equipmentData);
+      res.json(newEquipment);
+    } catch (error) {
+      console.error("Error creating equipment:", error);
+      res.status(500).json({ error: "Failed to create equipment" });
+    }
+  });
+
+  app.patch("/api/equipment/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updatedEquipment = await updateEquipment(id, updates);
+      res.json(updatedEquipment);
+    } catch (error) {
+      console.error("Error updating equipment:", error);
+      res.status(500).json({ error: "Failed to update equipment" });
+    }
+  });
+
+  // Add equipment predictions endpoint
+  app.get("/api/equipment/:id/predictions", (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Generate mock prediction data
+      const now = new Date();
+      const predictions = Array.from({ length: 24 }, (_, i) => {
+        const hour = new Date(now);
+        hour.setHours(hour.getHours() + i);
+        return {
+          timestamp: hour.toISOString(),
+          predictedUsage: Math.round(Math.random() * 100),
+          confidence: 0.7 + Math.random() * 0.3
+        };
+      });
+
+      res.json({
+        equipment: { id },
+        predictions,
+        lastUpdated: now.toISOString()
+      });
+    } catch (error) {
+      console.error("Error generating predictions:", error);
+      res.status(500).json({ error: "Failed to generate predictions" });
+    }
+  });
 
   // Blob Storage endpoints
   app.get("/api/documents/browse", async (req, res) => {
@@ -141,6 +246,7 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: "Failed to create folder" });
     }
   });
+
   // Chat history endpoint
   app.get("/api/chats", async (req, res) => {
     try {
@@ -156,109 +262,6 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching chats:", error);
       res.status(500).json({ error: "Failed to fetch chats" });
-    }
-  });
-
-  // Equipment Types endpoints
-  app.post("/api/equipment-types", (req, res) => {
-    try {
-      const type = req.body;
-      const existingType = equipmentTypes.find(
-        t => t.manufacturer === type.manufacturer && t.model === type.model
-      );
-
-      if (existingType) {
-        return res.json(existingType);
-      }
-
-      const newType = {
-        id: uuidv4(),
-        ...type
-      };
-      equipmentTypes.push(newType);
-      res.json(newType);
-    } catch (error) {
-      console.error("Error creating equipment type:", error);
-      res.status(500).json({ error: "Failed to create equipment type" });
-    }
-  });
-
-  // Equipment endpoints
-  app.get("/api/equipment", (req, res) => {
-    res.json(equipment);
-  });
-
-  app.post("/api/equipment", (req, res) => {
-    try {
-      const equipmentData = req.body;
-      const newEquipment = {
-        id: uuidv4(),
-        ...equipmentData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      equipment.push(newEquipment);
-      res.json(newEquipment);
-    } catch (error) {
-      console.error("Error creating equipment:", error);
-      res.status(500).json({ error: "Failed to create equipment" });
-    }
-  });
-
-  // Add equipment update endpoint
-  app.patch("/api/equipment/:id", (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-
-      const equipmentIndex = equipment.findIndex(e => e.id === id);
-      if (equipmentIndex === -1) {
-        return res.status(404).json({ error: "Equipment not found" });
-      }
-
-      equipment[equipmentIndex] = {
-        ...equipment[equipmentIndex],
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-
-      res.json(equipment[equipmentIndex]);
-    } catch (error) {
-      console.error("Error updating equipment:", error);
-      res.status(500).json({ error: "Failed to update equipment" });
-    }
-  });
-
-  // Add equipment predictions endpoint
-  app.get("/api/equipment/:id/predictions", (req, res) => {
-    try {
-      const { id } = req.params;
-      const equipment_item = equipment.find(e => e.id === id);
-
-      if (!equipment_item) {
-        return res.status(404).json({ error: "Equipment not found" });
-      }
-
-      // Generate mock prediction data
-      const now = new Date();
-      const predictions = Array.from({ length: 24 }, (_, i) => {
-        const hour = new Date(now);
-        hour.setHours(hour.getHours() + i);
-        return {
-          timestamp: hour.toISOString(),
-          predictedUsage: Math.round(Math.random() * 100),
-          confidence: 0.7 + Math.random() * 0.3
-        };
-      });
-
-      res.json({
-        equipment: equipment_item,
-        predictions,
-        lastUpdated: now.toISOString()
-      });
-    } catch (error) {
-      console.error("Error generating predictions:", error);
-      res.status(500).json({ error: "Failed to generate predictions" });
     }
   });
 
@@ -374,31 +377,5 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-
   return httpServer;
 }
-
-// Add TypeScript interfaces for equipment types
-interface EquipmentType {
-  id: string;
-  manufacturer: string;
-  model: string;
-}
-
-interface Equipment {
-  id: string;
-  typeId: string;
-  serialNumber: string;
-  location: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-let equipment: Equipment[] = [];
-let equipmentTypes: EquipmentType[] = [];
-import {v4 as uuidv4} from 'uuid';
-import { generateReport } from "./services/document-generator";
-import { listChats } from "./services/azure/cosmos_service";
-import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
-import { setupWebSocketServer } from "./services/websocket";
