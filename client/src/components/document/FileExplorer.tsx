@@ -25,8 +25,18 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Update the useQuery to properly handle the currentPath
   const { data: items = [], isLoading } = useQuery<BlobItem[]>({
-    queryKey: ['/api/documents/browse', { path: currentPath }],
+    queryKey: ['/api/documents/browse', currentPath],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (currentPath) params.set('path', currentPath);
+      const response = await fetch(`/api/documents/browse?${params.toString()}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch documents');
+      return response.json();
+    }
   });
 
   const createFolderMutation = useMutation({
@@ -41,7 +51,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/documents/browse'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/documents/browse', currentPath] });
       setShowNewFolderDialog(false);
       setNewFolderName('');
       toast({
@@ -58,7 +68,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   };
 
   const navigateToFolder = (folderPath: string) => {
-    // Ensure consistent path format
+    // Ensure consistent path format with trailing slash
     const cleanPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
     console.log("Navigating to folder:", cleanPath);
     setCurrentPath(cleanPath);
@@ -72,6 +82,10 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
     const parentPath = segments.length > 0 ? `${segments.join('/')}/` : "";
     console.log("Navigating up to:", parentPath);
     setCurrentPath(parentPath);
+  };
+
+  const refreshCurrentFolder = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/documents/browse', currentPath] });
   };
 
   return (
@@ -114,7 +128,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/documents/browse'] })}
+              onClick={refreshCurrentFolder}
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
