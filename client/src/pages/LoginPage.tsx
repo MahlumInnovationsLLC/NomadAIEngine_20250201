@@ -21,14 +21,21 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     try {
-      console.log("Attempting login with MSAL...");
-      await instance.loginRedirect({
+      // Force popup login to avoid redirect issues in iframe
+      const result = await instance.loginPopup({
         ...loginRequest,
         prompt: "select_account",
+        redirectUri: undefined // Ensure no redirect URI is used
       });
 
-      // The redirect will happen automatically, and the user will be redirected to Microsoft's login page
-      // After successful login, they will be redirected back and the useEffect above will handle the navigation
+      if (result) {
+        console.log("Login successful");
+        toast({
+          title: "Success",
+          description: "Successfully signed in",
+        });
+        setLocation("/dashboard");
+      }
     } catch (error: any) {
       console.error("Login error:", error);
       toast({
