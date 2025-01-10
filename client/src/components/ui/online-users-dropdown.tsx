@@ -12,9 +12,10 @@ import { Users } from "lucide-react";
 import { useAzureUsers } from "@/hooks/use-azure-users";
 import { PresenceIndicator } from "@/components/ui/presence-indicator";
 import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
 
 export function OnlineUsersDropdown() {
-  const { users, isLoading } = useAzureUsers();
+  const { users, isLoading, error } = useAzureUsers();
   const [open, setOpen] = useState(false);
 
   // Count online users
@@ -34,11 +35,17 @@ export function OnlineUsersDropdown() {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="relative">
-          <Users className="h-4 w-4" />
-          {onlineCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500 text-xs text-white flex items-center justify-center">
-              {onlineCount}
-            </span>
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              <Users className="h-4 w-4" />
+              {onlineCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500 text-xs text-white flex items-center justify-center">
+                  {onlineCount}
+                </span>
+              )}
+            </>
           )}
         </Button>
       </DropdownMenuTrigger>
@@ -46,7 +53,14 @@ export function OnlineUsersDropdown() {
         <DropdownMenuLabel>Team Members</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {isLoading ? (
-          <DropdownMenuItem disabled>Loading users...</DropdownMenuItem>
+          <DropdownMenuItem disabled>
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Loading users...
+          </DropdownMenuItem>
+        ) : error ? (
+          <DropdownMenuItem disabled className="text-destructive">
+            Failed to load users
+          </DropdownMenuItem>
         ) : !sortedUsers?.length ? (
           <DropdownMenuItem disabled>No users found</DropdownMenuItem>
         ) : (

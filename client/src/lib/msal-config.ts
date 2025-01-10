@@ -46,7 +46,14 @@ export const msalConfig = {
 
 // Add here scopes for id token to be used at MS Identity Platform endpoints.
 export const loginRequest = {
-  scopes: ["User.Read", "openid", "profile"],
+  scopes: [
+    "User.Read",
+    "GroupMember.Read.All",
+    "User.Read.All",
+    "Presence.Read.All",
+    "openid",
+    "profile"
+  ],
   prompt: "select_account",
 };
 

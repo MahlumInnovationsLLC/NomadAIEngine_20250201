@@ -1,4 +1,4 @@
-import { Server } from 'socket.io';
+import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { db } from "@db";
 import { userTraining } from "@db/schema";
@@ -21,7 +21,7 @@ const users = new Map<string, User>();
 const clients = new Map<string, string>(); // userId -> socketId
 
 export function setupWebSocketServer(server: HttpServer) {
-  const io = new Server(server, {
+  const io = new SocketIOServer(server, {
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
@@ -31,7 +31,7 @@ export function setupWebSocketServer(server: HttpServer) {
   // Broadcast presence update to all clients
   function broadcastPresence() {
     const activeUsers = Array.from(users.values()).map(({ socketId, ...user }) => user);
-    io.emit('presence:update', activeUsers);
+    io.emit('ONLINE_USERS_UPDATE', { users: activeUsers });
   }
 
   // Broadcast training level update to a specific user
@@ -39,11 +39,7 @@ export function setupWebSocketServer(server: HttpServer) {
     try {
       // Get all completed training modules for the user
       const completedModules = await db
-        .select({
-          moduleId: userTraining.moduleId,
-          progress: userTraining.progress,
-          status: userTraining.status,
-        })
+        .select()
         .from(userTraining)
         .where(eq(userTraining.userId, userId));
 
@@ -74,7 +70,7 @@ export function setupWebSocketServer(server: HttpServer) {
       }
 
       // Emit training level update to the specific user
-      io.to(`user-${userId}`).emit('training:level', trainingLevel);
+      io.to(clients.get(userId) || '').emit('training:level', trainingLevel);
     } catch (error) {
       console.error("Error broadcasting training level:", error);
     }
@@ -83,9 +79,11 @@ export function setupWebSocketServer(server: HttpServer) {
   // Create WebSocket interface object with all required methods
   const wsInterface = {
     broadcast: (userIds: string[], message: any) => {
-      // Broadcast to specific users' rooms
       userIds.forEach(userId => {
-        io.to(`user-${userId}`).emit('notification', message);
+        const socketId = clients.get(userId);
+        if (socketId) {
+          io.to(socketId).emit('notification', message);
+        }
       });
     },
     registerUser: (userId: string) => {
@@ -99,7 +97,10 @@ export function setupWebSocketServer(server: HttpServer) {
       broadcastPresence();
     },
     unregisterUser: (userId: string) => {
-      users.delete(userId);
+      const user = users.get(userId);
+      if (user) {
+        users.set(userId, { ...user, status: 'offline', lastSeen: new Date() });
+      }
       clients.delete(userId);
       broadcastPresence();
     },
@@ -126,13 +127,16 @@ export function setupWebSocketServer(server: HttpServer) {
     // Store the socket ID for this user
     clients.set(userId, socket.id);
 
-    // Join user-specific room for targeted notifications
-    socket.join(`user-${userId}`);
-
     // Handle presence events
     socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
-      wsInterface.registerUser(uid);
+      const user = users.get(uid);
+      if (user) {
+        users.set(uid, { ...user, status: 'online', name, lastSeen: new Date() });
+      } else {
+        wsInterface.registerUser(uid);
+      }
       await broadcastTrainingLevel(uid);
+      broadcastPresence();
     });
 
     // Handle disconnection
@@ -149,11 +153,6 @@ export function setupWebSocketServer(server: HttpServer) {
         users.set(userId, { ...user, status, lastSeen: new Date() });
         broadcastPresence();
       }
-    });
-
-    // Handle training level requests
-    socket.on('training:request_level', async () => {
-      await broadcastTrainingLevel(userId);
     });
 
     socket.on('error', (error) => {
