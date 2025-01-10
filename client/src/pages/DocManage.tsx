@@ -1,15 +1,30 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, FolderPlus, Upload, Download, Edit, History } from "lucide-react";
+import { FileText, FolderPlus, Upload, Download, Edit, Send } from "lucide-react";
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocumentViewer } from "@/components/document/DocumentViewer";
+import { WorkflowDialog } from "@/components/document/WorkflowDialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import SearchInterface from "@/components/document/SearchInterface";
+import { useQuery } from "@tanstack/react-query";
+
+interface DocumentStatus {
+  status: 'draft' | 'in_review' | 'approved' | 'rejected';
+  reviewedBy?: string;
+  approvedBy?: string;
+  updatedAt: string;
+}
 
 export function DocManage() {
   const [selectedDocumentPath, setSelectedDocumentPath] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Fetch document status if a document is selected
+  const { data: documentStatus } = useQuery<DocumentStatus>({
+    queryKey: ['/api/documents/workflow', selectedDocumentPath],
+    enabled: !!selectedDocumentPath,
+  });
 
   // Reset editing state when document changes
   useEffect(() => {
@@ -19,11 +34,6 @@ export function DocManage() {
   const handleDownload = async () => {
     if (!selectedDocumentPath) return;
     // TODO: Implement download functionality
-  };
-
-  const handleRevise = () => {
-    if (!selectedDocumentPath) return;
-    // TODO: Implement revision functionality
   };
 
   return (
@@ -70,9 +80,21 @@ export function DocManage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
-              DocManage
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center">
+                <FileText className="h-5 w-5 mr-2" />
+                DocManage
+              </div>
+              {documentStatus && (
+                <span className={`text-sm px-2 py-1 rounded ${
+                  documentStatus.status === 'approved' ? 'bg-green-100 text-green-800' :
+                  documentStatus.status === 'in_review' ? 'bg-yellow-100 text-yellow-800' :
+                  documentStatus.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {documentStatus.status.toUpperCase()}
+                </span>
+              )}
             </CardTitle>
             <div className="flex gap-2 mt-2">
               <Button 
@@ -93,15 +115,22 @@ export function DocManage() {
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleRevise}
-                disabled={!selectedDocumentPath}
-              >
-                <History className="h-4 w-4 mr-2" />
-                Revise
-              </Button>
+              {selectedDocumentPath && (
+                <WorkflowDialog
+                  documentId={selectedDocumentPath}
+                  documentTitle={selectedDocumentPath.split('/').pop() || ''}
+                  trigger={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!selectedDocumentPath}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Send for Review/Approval
+                    </Button>
+                  }
+                />
+              )}
             </div>
             <Separator className="mt-2" />
           </CardHeader>

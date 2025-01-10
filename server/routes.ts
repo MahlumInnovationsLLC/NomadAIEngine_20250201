@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { db } from "@db";
+import { documentWorkflows, documentApprovals } from "@db/schema";
 import type { Express, Request } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
@@ -19,9 +22,8 @@ import {
 
 // Add new imports for dashboard endpoints
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
-import { eq, and, gte, lte } from "drizzle-orm";
-import { db } from "@db";
-import { aiEngineActivity, userTraining, trainingModules } from "@db/schema";
+import { and, gte, lte } from "drizzle-orm";
+
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
@@ -668,6 +670,131 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error updating document content:", error);
       res.status(500).json({ error: "Failed to update document content" });
+    }
+  });
+
+  // Add workflow endpoint
+  app.post("/api/documents/workflow", async (req, res) => {
+    try {
+      const { documentId, type, assigneeId } = req.body;
+
+      if (!documentId || !type || !assigneeId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Create workflow entry
+      const [workflow] = await db
+        .insert(documentWorkflows)
+        .values({
+          documentId: parseInt(documentId),
+          status: 'active',
+          startedAt: new Date(),
+        })
+        .returning();
+
+      // Create approval entry
+      await db
+        .insert(documentApprovals)
+        .values({
+          documentId: parseInt(documentId),
+          version: '1.0', // This should come from the document metadata
+          approverUserId: assigneeId,
+          status: 'pending',
+        });
+
+      // TODO: Send email notification
+      // This would integrate with your email service
+
+      res.json({
+        message: `Document sent for ${type}`,
+        workflowId: workflow.id,
+      });
+    } catch (error) {
+      console.error("Error creating workflow:", error);
+      res.status(500).json({ error: "Failed to create workflow" });
+    }
+  });
+
+  // Add workflow status endpoint
+  app.get("/api/documents/workflow/:documentId", async (req, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+
+      const [latestWorkflow] = await db
+        .select({
+          status: documentWorkflows.status,
+          startedAt: documentWorkflows.startedAt,
+          completedAt: documentWorkflows.completedAt,
+        })
+        .from(documentWorkflows)
+        .where(eq(documentWorkflows.documentId, documentId))
+        .orderBy(documentWorkflows.startedAt, 'desc')
+        .limit(1);
+
+      if (!latestWorkflow) {
+        return res.json({
+          status: 'draft',
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      const [latestApproval] = await db
+        .select()
+        .from(documentApprovals)
+        .where(eq(documentApprovals.documentId, documentId))
+        .orderBy(documentApprovals.createdAt, 'desc')
+        .limit(1);
+
+      res.json({
+        status: latestApproval?.status || 'draft',
+        reviewedBy: latestApproval?.approverUserId,
+        approvedBy: latestApproval?.status === 'approved' ? latestApproval.approverUserId : undefined,
+        updatedAt: latestWorkflow.startedAt.toISOString(),
+      });
+    } catch (error) {
+      console.error("Error fetching workflow status:", error);
+      res.status(500).json({ error: "Failed to fetch workflow status" });
+    }
+  });
+
+  // Add workflow action endpoint (for handling review/approve actions)
+  app.post("/api/documents/workflow/:documentId/action", async (req, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+      const { action, userId, comments } = req.body;
+
+      if (!documentId || !action || !userId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Update approval status
+      await db
+        .update(documentApprovals)
+        .set({
+          status: action,
+          comments,
+          approvedAt: action === 'approved' ? new Date() : undefined,
+        })
+        .where(eq(documentApprovals.documentId, documentId))
+        .where(eq(documentApprovals.approverUserId, userId));
+
+      // If approved, update workflow status
+      if (action === 'approved') {
+        await db
+          .update(documentWorkflows)
+          .set({
+            status: 'completed',
+            completedAt: new Date(),
+          })
+          .where(eq(documentWorkflows.documentId, documentId));
+      }
+
+      res.json({
+        message: `Document ${action} successfully`,
+      });
+    } catch (error) {
+      console.error("Error updating workflow status:", error);
+      res.status(500).json({ error: "Failed to update workflow status" });
     }
   });
 
