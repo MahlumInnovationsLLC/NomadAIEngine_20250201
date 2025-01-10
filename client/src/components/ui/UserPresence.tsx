@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface User {
@@ -42,36 +49,45 @@ export function UserPresence({ currentUserId }: UserPresenceProps) {
   const onlineCount = activeUsers.filter(u => u.status === 'online').length;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-lg border shadow-lg">
-      <div className="p-2 flex items-center gap-2">
-        <h4 className="text-sm font-medium">Online Users</h4>
-        <Badge variant="secondary" className="ml-2">
-          {onlineCount}
-        </Badge>
-      </div>
-      {activeUsers.length > 0 && (
-        <ScrollArea className="w-[300px] max-h-[40px] overflow-x-auto whitespace-nowrap">
-          <div className="flex items-center gap-1 px-2 pb-2">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Users className="h-5 w-5" />
+          {onlineCount > 0 && (
+            <Badge
+              variant="secondary"
+              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+            >
+              {onlineCount}
+            </Badge>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[300px]">
+        <div className="p-2">
+          <h4 className="text-sm font-medium mb-2">Online Users</h4>
+          <ScrollArea className="h-[300px]">
             <AnimatePresence mode="popLayout">
               {activeUsers.map((user) => (
                 <motion.div
                   key={user.id}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="flex items-center gap-2 p-2 rounded-md hover:bg-accent"
                 >
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className="relative">
-                          <Avatar className="h-6 w-6">
+                          <Avatar className="h-8 w-8">
                             <AvatarImage src={user.avatar} />
                             <AvatarFallback>
                               {user.name.slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <span
-                            className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-white ${
+                            className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
                               user.status === 'online'
                                 ? 'bg-green-500'
                                 : user.status === 'away'
@@ -91,12 +107,16 @@ export function UserPresence({ currentUserId }: UserPresenceProps) {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  <span className="text-sm">{user.name}</span>
+                  {user.id === currentUserId && (
+                    <span className="text-xs text-muted-foreground ml-auto">(You)</span>
+                  )}
                 </motion.div>
               ))}
             </AnimatePresence>
-          </div>
-        </ScrollArea>
-      )}
-    </div>
+          </ScrollArea>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -11,7 +11,6 @@ import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { ModuleSelector } from "@/components/layout/ModuleSelector";
 import { NotificationCenter } from "@/components/ui/NotificationCenter";
-import { UserPresence } from "@/components/ui/UserPresence";
 import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "./lib/msal-config";
@@ -137,7 +136,6 @@ function App() {
           </div>
         </div>
       </main>
-      <UserPresence currentUserId={userId} />
       <OnboardingTour />
       <Toaster />
     </div>

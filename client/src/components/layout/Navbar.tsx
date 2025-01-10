@@ -19,7 +19,7 @@ import { useState } from "react";
 import SettingsDialog from "@/components/settings/SettingsDialog";
 import { AzureServicesStatus } from "@/components/azure/AzureServicesStatus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
+import { UserPresence } from "@/components/ui/UserPresence";
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -70,6 +70,7 @@ export default function Navbar() {
         </NavigationMenu>
 
         <div className="flex items-center gap-2">
+          <UserPresence currentUserId="1" />
           <Button
             variant="ghost"
             size="icon"
