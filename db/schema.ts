@@ -254,7 +254,7 @@ export const aiEngineActivity = pgTable("ai_engine_activity", {
   feature: text("feature", { enum: ['chat', 'document_analysis', 'equipment_prediction', 'report_generation'] }).notNull(),
   startTime: timestamp("start_time").defaultNow().notNull(),
   endTime: timestamp("end_time"),
-  durationMinutes: decimal("duration_minutes", { precision: 10, scale: 2 }),
+  durationMinutes: decimal("duration_minutes", { precision: 10, scale: 2 }).notNull(),
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

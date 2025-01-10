@@ -181,7 +181,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Additional Metrics */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -276,8 +275,11 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle>AI Engine Activity</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xl font-bold">AI Engine Activity</CardTitle>
+            <div className="flex items-center text-sm text-muted-foreground">
+              Past 7 days
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] mt-4">
@@ -285,33 +287,51 @@ export default function DashboardPage() {
                 <div className="w-full h-full flex items-center justify-center">
                   <Skeleton className="w-full h-full" />
                 </div>
-              ) : (
+              ) : extendedStats?.aiEngineUsage && extendedStats.aiEngineUsage.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={extendedStats?.aiEngineUsage || []}>
-                    <XAxis
+                  <AreaChart data={extendedStats.aiEngineUsage} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorUsage" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis 
                       dataKey="date"
                       tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                      stroke="hsl(var(--muted-foreground))"
                     />
                     <YAxis
-                      label={{
-                        value: 'Minutes',
+                      label={{ 
+                        value: 'Minutes Used',
                         angle: -90,
-                        position: 'insideLeft'
+                        position: 'insideLeft',
+                        style: { fill: 'hsl(var(--muted-foreground))' }
                       }}
+                      stroke="hsl(var(--muted-foreground))"
                     />
                     <Tooltip
                       labelFormatter={(date) => new Date(date).toLocaleDateString()}
-                      formatter={(value: number) => [`${value} minutes`, 'Usage Time']}
+                      formatter={(value: number) => [`${value.toFixed(1)} minutes`, 'Usage Time']}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '0.5rem',
+                      }}
                     />
                     <Area
                       type="monotone"
                       dataKey="minutes"
                       stroke="hsl(var(--primary))"
-                      fill="hsl(var(--primary))"
-                      fillOpacity={0.2}
+                      fill="url(#colorUsage)"
+                      strokeWidth={2}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">No activity data available</p>
+                </div>
               )}
             </div>
           </CardContent>
@@ -342,7 +362,7 @@ export default function DashboardPage() {
                         {activity.type === 'upload' && 'Uploaded'}
                         {activity.type === 'download' && 'Downloaded'}
                         {activity.type === 'delete' && 'Deleted'}
-                        {activity.type === 'view' && 'Viewed'}
+                        {activity.type === 'view' && 'Viewed'}{' '}
                         {activity.documentName}
                       </p>
                       <p className="text-sm text-muted-foreground">
@@ -353,40 +373,6 @@ export default function DashboardPage() {
                 ))
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Storage Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isStatsLoading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-8 w-full" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {Object.entries(stats?.documentTypes || {}).map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{type.toUpperCase()} Files</p>
-                        <p className="text-sm text-muted-foreground">
-                          {count} document{count === 1 ? '' : 's'}
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="icon">
-                      <ArrowUpRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

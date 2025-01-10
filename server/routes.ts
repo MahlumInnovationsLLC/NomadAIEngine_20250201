@@ -68,13 +68,54 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
       feature,
       startTime,
       endTime,
-      durationMinutes: duration, // Store as numeric value
+      durationMinutes: duration, // Now stored as decimal
       metadata: metadata || {},
     });
 
     console.log(`Tracked AI Engine usage for user ${userId}: ${duration} minutes`);
   } catch (error) {
     console.error("Error tracking AI Engine usage:", error);
+  }
+}
+
+// Helper function to get training level
+async function getUserTrainingLevel(userId: string) {
+  try {
+    // Get all completed training modules for the user
+    const completedModules = await db
+      .select({
+        moduleId: userTraining.moduleId,
+        progress: userTraining.progress,
+        status: userTraining.status,
+      })
+      .from(userTraining)
+      .where(eq(userTraining.userId, userId));
+
+    // Calculate overall progress
+    let totalProgress = 0;
+    if (completedModules.length > 0) {
+      const completedCount = completedModules.filter(m => m.status === 'completed').length;
+      totalProgress = (completedCount / completedModules.length) * 100;
+    }
+
+    // Determine level based on overall progress
+    let level = "Beginner";
+    if (totalProgress >= 80) {
+      level = "Expert";
+    } else if (totalProgress >= 50) {
+      level = "Intermediate";
+    }
+
+    return {
+      level,
+      progress: Math.round(totalProgress)
+    };
+  } catch (error) {
+    console.error("Error getting user training level:", error);
+    return {
+      level: "Beginner",
+      progress: 0
+    };
   }
 }
 
@@ -315,34 +356,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const userId = req.user.id;
 
-      // Fetch user's training progress
-      const [latestTraining] = await db
-        .select({
-          moduleTitle: trainingModules.title,
-          status: userTraining.status,
-          progress: userTraining.progress,
-        })
-        .from(userTraining)
-        .innerJoin(trainingModules, eq(trainingModules.id, userTraining.moduleId))
-        .where(eq(userTraining.userId, userId))
-        .orderBy(userTraining.assignedAt)
-        .limit(1);
-
-      // Calculate training level based on progress
-      let trainingLevel = {
-        level: "Beginner",
-        progress: 0
-      };
-
-      if (latestTraining) {
-        const progress = latestTraining.progress || 0;
-        if (progress >= 80) {
-          trainingLevel.level = "Expert";
-        } else if (progress >= 50) {
-          trainingLevel.level = "Intermediate";
-        }
-        trainingLevel.progress = progress;
-      }
+      // Get user's training level
+      const trainingLevel = await getUserTrainingLevel(userId);
 
       // Get AI Engine usage statistics for the past 7 days
       const sevenDaysAgo = new Date();
@@ -362,8 +377,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )
         );
 
-      // Group activities by day
+      // Initialize all days in the past week with 0
       const dailyUsage = new Map<string, number>();
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(sevenDaysAgo);
+        date.setDate(date.getDate() + i);
+        dailyUsage.set(date.toISOString().split('T')[0], 0);
+      }
+
+      // Add actual usage data
       aiActivities.forEach(activity => {
         const day = activity.date.toISOString().split('T')[0];
         const duration = parseFloat(activity.duration?.toString() || "0");
@@ -381,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aiEngineUsage: Array.from(dailyUsage.entries()).map(([date, minutes]) => ({
           date,
           minutes: Math.round(minutes * 100) / 100
-        }))
+        })).sort((a, b) => a.date.localeCompare(b.date))
       };
 
       // Get activity logs to count chat responses and downloaded reports
@@ -443,7 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("Starting blob enumeration...");
       for await (const item of blobs) {
-        console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name, "Details:", item);
+        console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name);
 
         // Check if it's a virtual directory (folder)
         if (item.kind === "prefix") {
@@ -482,7 +504,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Route to handle file uploads
   app.post("/api/documents/upload", upload.array('files'), async (req, res) => {
     try {
       const path = req.body.path || "";
