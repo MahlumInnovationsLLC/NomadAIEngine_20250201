@@ -12,6 +12,9 @@ import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { ModuleSelector } from "@/components/layout/ModuleSelector";
 import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { UserPresence } from "@/components/ui/UserPresence";
+import { MsalProvider } from "@azure/msal-react";
+import { PublicClientApplication } from "@azure/msal-browser";
+import { msalConfig } from "./lib/msal-config";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
 import { DocManagement } from "@/pages/DocManagement";
@@ -19,6 +22,10 @@ import DashboardPage from "@/pages/DashboardPage";
 import ClubControlPage from "@/pages/ClubControlPage";
 import DocumentExplorer from "@/pages/DocumentExplorer";
 import TrainingModule from "@/pages/TrainingModule";
+import LoginPage from "@/pages/LoginPage";
+
+// Initialize MSAL instance
+const msalInstance = new PublicClientApplication(msalConfig);
 
 function App() {
   const [location] = useLocation();
@@ -54,6 +61,7 @@ function App() {
           <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
             <AnimatePresence mode="wait">
               <Switch key={location}>
+                <Route path="/login" component={LoginPage} />
                 <Route path="/" component={Home} />
                 <Route path="/dashboard" component={DashboardPage} />
                 <Route path="/chat/:id?" component={ChatPage} />
@@ -93,12 +101,14 @@ function NotFound() {
 
 export default function AppWrapper() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <OnboardingProvider>
-          <App />
-        </OnboardingProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <MsalProvider instance={msalInstance}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <OnboardingProvider>
+            <App />
+          </OnboardingProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </MsalProvider>
   );
 }
