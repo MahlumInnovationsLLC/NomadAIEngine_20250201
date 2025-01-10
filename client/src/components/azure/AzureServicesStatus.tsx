@@ -5,6 +5,7 @@ import { Cloud, AlertCircle, RotateCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface ServiceStatus {
   name: string;
@@ -13,12 +14,20 @@ interface ServiceStatus {
 }
 
 export function AzureServicesStatus() {
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { data, error, isLoading, isError, refetch, isFetching } = useQuery<ServiceStatus[]>({
     queryKey: ['/api/azure/status'],
     refetchInterval: 30000, // Check every 30 seconds
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    // Add a small delay before removing the loading state
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   const services = data || [];
 
@@ -49,10 +58,17 @@ export function AzureServicesStatus() {
     return services.map((service) => (
       <div key={service.name} className="flex justify-between items-center py-2">
         <StatusIndicator status={service.status} label={service.name} />
-        {!isFetching && service.message && (
+        {(!isFetching && !isRefreshing) ? (
           <span className="text-xs text-muted-foreground">
             {service.message}
           </span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Cloud className="h-4 w-4 text-muted-foreground animate-pulse" />
+            <span className="text-xs text-muted-foreground animate-pulse">
+              Checking connection...
+            </span>
+          </div>
         )}
       </div>
     ));
@@ -68,9 +84,9 @@ export function AzureServicesStatus() {
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className={`h-8 w-8 ${isFetching ? 'animate-spin' : ''}`}
+          onClick={handleRefresh}
+          disabled={isFetching || isRefreshing}
+          className={`h-8 w-8 ${(isFetching || isRefreshing) ? 'animate-spin' : ''}`}
         >
           <RotateCw className="h-4 w-4" />
           <span className="sr-only">Refresh status</span>
