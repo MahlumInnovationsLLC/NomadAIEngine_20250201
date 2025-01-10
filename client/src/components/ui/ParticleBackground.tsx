@@ -42,7 +42,7 @@ export function ParticleBackground() {
           size: Math.random() * 5 + 3, // Larger particles (3-8px)
           speedX: (Math.random() - 0.5) * 1.2, // Faster movement
           speedY: (Math.random() - 0.5) * 1.2,
-          opacity: Math.random() * 0.3 + 0.7, // Higher base opacity
+          opacity: Math.random() * 0.2 + 0.8, // Higher base opacity (0.8-1.0)
         });
       }
       particlesRef.current = particles;
@@ -80,7 +80,7 @@ export function ParticleBackground() {
           // Draw particle with enhanced visibility
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(0, 0, 0, ${particle.opacity})`; // Dark particles
+          ctx.fillStyle = `rgba(0, 0, 0, ${particle.opacity})`; // Dark particles with higher opacity
           ctx.fill();
 
           // Draw connections with higher contrast
@@ -94,7 +94,7 @@ export function ParticleBackground() {
               ctx.beginPath();
               ctx.moveTo(particle.x, particle.y);
               ctx.lineTo(otherParticle.x, otherParticle.y);
-              const opacity = 0.6 * (1 - distance / 150); // Higher base opacity for connections
+              const opacity = 0.8 * (1 - distance / 150); // Higher base opacity for connections
               ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
               ctx.lineWidth = 1.5; // Thicker lines
               ctx.stroke();

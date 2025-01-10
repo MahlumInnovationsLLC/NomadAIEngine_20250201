@@ -5,11 +5,10 @@ export const msalConfig = {
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID}`,
     redirectUri: window.location.origin,
     navigateToLoginRequestUrl: true,
-    postLogoutRedirectUri: window.location.origin,
   },
   cache: {
-    cacheLocation: "sessionStorage",
-    storeAuthStateInCookie: true, // Set to true for IE11
+    cacheLocation: "localStorage", // Use localStorage for better persistence
+    storeAuthStateInCookie: false, // Set to false for modern browsers
   },
   system: {
     allowNativeBroker: false,
