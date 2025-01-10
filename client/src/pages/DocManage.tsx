@@ -4,8 +4,10 @@ import { FileText, FolderPlus, Upload, Download, Edit, Send } from "lucide-react
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocumentViewer } from "@/components/document/DocumentViewer";
 import { WorkflowDialog } from "@/components/document/WorkflowDialog";
+import { DocumentPermissions } from "@/components/document/DocumentPermissions";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SearchInterface from "@/components/document/SearchInterface";
 import { useQuery } from "@tanstack/react-query";
 
@@ -136,12 +138,23 @@ export function DocManage() {
           </CardHeader>
           <CardContent>
             {selectedDocumentPath ? (
-              <div className="space-y-4">
-                <DocumentViewer 
-                  documentId={selectedDocumentPath} 
-                  isEditing={isEditing}
-                />
-              </div>
+              <Tabs defaultValue="content">
+                <TabsList>
+                  <TabsTrigger value="content">Content</TabsTrigger>
+                  <TabsTrigger value="permissions">Permissions</TabsTrigger>
+                </TabsList>
+                <TabsContent value="content" className="space-y-4">
+                  <DocumentViewer 
+                    documentId={selectedDocumentPath} 
+                    isEditing={isEditing}
+                  />
+                </TabsContent>
+                <TabsContent value="permissions">
+                  <DocumentPermissions 
+                    documentId={selectedDocumentPath}
+                  />
+                </TabsContent>
+              </Tabs>
             ) : (
               <div className="text-center py-4">
                 <p className="text-muted-foreground">

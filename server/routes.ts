@@ -798,5 +798,109 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add document permissions endpoints
+  app.get("/api/documents/:documentId/permissions", async (req, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+
+      const permissions = await db
+        .select()
+        .from(documentPermissions)
+        .where(eq(documentPermissions.documentId, documentId));
+
+      // Enhance permissions with detailed access information
+      const enhancedPermissions = permissions.map(permission => ({
+        id: permission.id,
+        roleLevel: permission.roleLevel,
+        permissions: {
+          view: true, // Base level permission
+          edit: permission.roleLevel >= 2,
+          review: permission.roleLevel >= 3,
+          approve: permission.roleLevel >= 4,
+          manage: permission.roleLevel >= 5,
+        }
+      }));
+
+      res.json(enhancedPermissions);
+    } catch (error) {
+      console.error("Error fetching document permissions:", error);
+      res.status(500).json({ error: "Failed to fetch permissions" });
+    }
+  });
+
+  app.post("/api/documents/:documentId/permissions", async (req, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+      const { roleLevel } = req.body;
+
+      if (!roleLevel) {
+        return res.status(400).json({ error: "Role level is required" });
+      }
+
+      // Check if permission already exists
+      const [existingPermission] = await db
+        .select()
+        .from(documentPermissions)
+        .where(
+          and(
+            eq(documentPermissions.documentId, documentId),
+            eq(documentPermissions.roleLevel, roleLevel)
+          )
+        );
+
+      if (existingPermission) {
+        return res.status(400).json({ error: "Permission already exists for this role level" });
+      }
+
+      // Add new permission
+      const [permission] = await db
+        .insert(documentPermissions)
+        .values({
+          documentId,
+          roleLevel,
+        })
+        .returning();
+
+      res.json(permission);
+    } catch (error) {
+      console.error("Error adding document permission:", error);
+      res.status(500).json({ error: "Failed to add permission" });
+    }
+  });
+
+  app.patch("/api/documents/:documentId/permissions/:permissionId", async (req, res) => {
+    try {
+      const permissionId = parseInt(req.params.permissionId);
+      const updates = req.body;
+
+      // Update permission
+      const [updatedPermission] = await db
+        .update(documentPermissions)
+        .set(updates)
+        .where(eq(documentPermissions.id, permissionId))
+        .returning();
+
+      res.json(updatedPermission);
+    } catch (error) {
+      console.error("Error updating document permission:", error);
+      res.status(500).json({ error: "Failed to update permission" });
+    }
+  });
+
+  // Add roles endpoint
+  app.get("/api/roles", async (req, res) => {
+    try {
+      const allRoles = await db
+        .select()
+        .from(roles)
+        .orderBy(roles.level);
+
+      res.json(allRoles);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      res.status(500).json({ error: "Failed to fetch roles" });
+    }
+  });
+
   return httpServer;
 }
