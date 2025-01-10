@@ -3,6 +3,7 @@ export const msalConfig = {
   auth: {
     clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "",
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID}`,
+    redirectUri: window.location.origin, // This will work for both dev and prod
   },
   cache: {
     cacheLocation: "sessionStorage",
@@ -25,3 +26,6 @@ export const loginRequest = {
 export const graphConfig = {
   graphMeEndpoint: "https://graph.microsoft.com/v1.0/me",
 };
+
+// Helper to determine if we're running in Replit
+export const isReplitEnv = window.location.hostname.includes('.replit.dev');

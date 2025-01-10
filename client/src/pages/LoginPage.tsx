@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RiMicrosoftFill } from "react-icons/ri";
-import { loginRequest } from "@/lib/msal-config";
+import { loginRequest, isReplitEnv } from "@/lib/msal-config";
 import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
@@ -21,20 +21,24 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     try {
-      // Force popup login to avoid redirect issues in iframe
-      const result = await instance.loginPopup({
-        ...loginRequest,
-        prompt: "select_account",
-        redirectUri: undefined // Ensure no redirect URI is used
-      });
-
-      if (result) {
-        console.log("Login successful");
-        toast({
-          title: "Success",
-          description: "Successfully signed in",
+      // In Replit dev environment, always use popup to avoid iframe issues
+      if (isReplitEnv) {
+        const result = await instance.loginPopup({
+          ...loginRequest,
+          prompt: "select_account",
         });
-        setLocation("/dashboard");
+
+        if (result) {
+          console.log("Login successful");
+          toast({
+            title: "Success",
+            description: "Successfully signed in",
+          });
+          setLocation("/dashboard");
+        }
+      } else {
+        // In production, we can use redirect
+        await instance.loginRedirect(loginRequest);
       }
     } catch (error: any) {
       console.error("Login error:", error);
