@@ -23,18 +23,6 @@ import { eq, and, gte, lte } from "drizzle-orm";
 import { db } from "@db";
 import { aiEngineActivity, userTraining, trainingModules } from "@db/schema";
 
-// Extend Express Request type
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        username: string;
-      };
-    }
-  }
-}
-
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
 
@@ -68,7 +56,7 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
       feature,
       startTime,
       endTime,
-      durationMinutes: duration, // Now stored as decimal
+      durationMinutes: duration,
       metadata: metadata || {},
     });
 
@@ -119,19 +107,21 @@ async function getUserTrainingLevel(userId: string) {
   }
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   const wsServer = setupWebSocketServer(httpServer);
 
-  try {
-    // Initialize Equipment Database
-    console.log("Initializing Equipment Database...");
-    await initializeEquipmentDatabase();
-    console.log("Equipment Database initialized successfully");
-  } catch (error) {
-    console.error("Failed to initialize Equipment Database:", error);
-    throw error;
-  }
+  // Initialize Equipment Database asynchronously after setting up routes
+  (async () => {
+    try {
+      console.log("Initializing Equipment Database...");
+      await initializeEquipmentDatabase();
+      console.log("Equipment Database initialized successfully");
+    } catch (error) {
+      console.error("Failed to initialize Equipment Database:", error);
+      // Don't throw here as we want the server to continue running
+    }
+  })();
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
@@ -608,6 +598,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating training progress:", error);
       res.status(500).json({ error: "Failed to update training progress" });
+    }
+  });
+
+  // Add document content endpoint
+  app.get("/api/documents/:path/content", async (req, res) => {
+    try {
+      const documentPath = decodeURIComponent(req.params.path);
+      console.log("Fetching document content for:", documentPath);
+
+      const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
+      const downloadResponse = await blockBlobClient.download();
+
+      if (!downloadResponse.readableStreamBody) {
+        throw new Error("No content available");
+      }
+
+      // Read the stream into a buffer
+      const chunks: Buffer[] = [];
+      for await (const chunk of downloadResponse.readableStreamBody) {
+        chunks.push(Buffer.from(chunk));
+      }
+      const content = Buffer.concat(chunks).toString('utf-8');
+
+      res.json({ content });
+    } catch (error) {
+      console.error("Error fetching document content:", error);
+      res.status(500).json({ error: "Failed to fetch document content" });
     }
   });
 

@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 
 interface DocumentViewerProps {
-  documentId: number;
+  documentId: string;
   isEditing: boolean;
 }
 
@@ -15,6 +15,7 @@ interface DocumentData {
 export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const { data: document, isLoading } = useQuery<DocumentData>({
     queryKey: [`/api/documents/${documentId}/content`],
+    enabled: !!documentId,
   });
 
   if (isLoading) {
