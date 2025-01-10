@@ -75,6 +75,7 @@ export function useAzureUsers() {
       userPrincipalName: user.userPrincipalName,
       presence: {
         status: onlineUsers.includes(user.id) ? 'online' : 'offline',
+        lastSeen: onlineUsers.includes(user.id) ? new Date() : undefined
       }
     }));
   };
