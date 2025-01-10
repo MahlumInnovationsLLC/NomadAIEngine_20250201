@@ -28,16 +28,13 @@ export function DocManage() {
                 DocExplorer
               </CardTitle>
               <div className="flex gap-2">
-                <Button variant="outline" size="icon">
-                  <FolderPlus className="h-4 w-4" />
-                </Button>
                 <Button size="icon">
                   <Upload className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="-mx-2">
+          <CardContent>
             <FileExplorer onSelectDocument={(id) => setSelectedDocumentId(id)} />
           </CardContent>
         </Card>
@@ -45,13 +42,13 @@ export function DocManage() {
         <div className="space-y-6">
           {selectedDocumentId ? (
             <Card>
-              <CardHeader>
+              <CardHeader className="border-b">
                 <CardTitle className="flex items-center">
                   <FileText className="h-5 w-5 mr-2" />
                   DocManage
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <DocumentConfig documentId={selectedDocumentId} />
               </CardContent>
             </Card>
