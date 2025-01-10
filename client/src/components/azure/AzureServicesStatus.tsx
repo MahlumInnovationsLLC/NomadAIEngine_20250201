@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusIndicator } from "@/components/ui/status-indicator";
-import { Cloud, AlertCircle } from "lucide-react";
+import { Cloud, AlertCircle, RotateCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 interface ServiceStatus {
   name: string;
@@ -12,7 +13,7 @@ interface ServiceStatus {
 }
 
 export function AzureServicesStatus() {
-  const { data, error, isLoading, isError } = useQuery<ServiceStatus[]>({
+  const { data, error, isLoading, isError, refetch, isFetching } = useQuery<ServiceStatus[]>({
     queryKey: ['/api/azure/status'],
     refetchInterval: 30000, // Check every 30 seconds
     retry: 3,
@@ -64,6 +65,16 @@ export function AzureServicesStatus() {
           <Cloud className="h-4 w-4" />
           Azure Services Status
         </CardTitle>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className={`h-8 w-8 ${isFetching ? 'animate-spin' : ''}`}
+        >
+          <RotateCw className="h-4 w-4" />
+          <span className="sr-only">Refresh status</span>
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
