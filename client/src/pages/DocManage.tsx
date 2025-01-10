@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText } from "lucide-react";
+import { FileText, FolderPlus, Upload } from "lucide-react";
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocumentConfig } from "@/components/document/DocumentConfig";
+import { Button } from "@/components/ui/button";
 
 export function DocManage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
@@ -21,10 +22,20 @@ export function DocManage() {
       <div className="mt-6 grid grid-cols-[300px,1fr] gap-6">
         <Card className="h-[calc(100vh-12rem)] overflow-hidden">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
-              Document Explorer
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center">
+                <FileText className="h-5 w-5 mr-2" />
+                DocExplorer
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon">
+                  <FolderPlus className="h-4 w-4" />
+                </Button>
+                <Button size="icon">
+                  <Upload className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="-mx-2">
             <FileExplorer onSelectDocument={(id) => setSelectedDocumentId(id)} />
@@ -34,7 +45,13 @@ export function DocManage() {
         <div className="space-y-6">
           {selectedDocumentId ? (
             <Card>
-              <CardContent className="pt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="h-5 w-5 mr-2" />
+                  DocManage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <DocumentConfig documentId={selectedDocumentId} />
               </CardContent>
             </Card>
