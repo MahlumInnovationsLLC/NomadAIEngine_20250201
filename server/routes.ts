@@ -611,6 +611,7 @@ export function registerRoutes(app: Express): Server {
 
       try {
         const downloadResponse = await blockBlobClient.download();
+        const properties = await blockBlobClient.getProperties();
 
         if (!downloadResponse.readableStreamBody) {
           return res.status(404).json({ error: "No content available" });
@@ -623,7 +624,10 @@ export function registerRoutes(app: Express): Server {
         }
         const content = Buffer.concat(chunks).toString('utf-8');
 
-        res.json({ content });
+        res.json({
+          content,
+          revision: properties.metadata?.revision,
+        });
       } catch (error: any) {
         if (error.statusCode === 404) {
           return res.status(404).json({ error: "Document not found" });
@@ -633,6 +637,37 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching document content:", error);
       res.status(500).json({ error: "Failed to fetch document content" });
+    }
+  });
+
+  // Add document content update endpoint
+  app.put("/api/documents/:path*/content", async (req, res) => {
+    try {
+      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
+      const { content, revision } = req.body;
+
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      console.log("Updating document content for:", documentPath);
+
+      const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
+
+      // Add revision information as metadata
+      const metadata = revision ? { revision } : undefined;
+
+      await blockBlobClient.upload(content, content.length, {
+        metadata,
+        blobHTTPHeaders: {
+          blobContentType: "text/html",
+        },
+      });
+
+      res.json({ message: "Document updated successfully" });
+    } catch (error) {
+      console.error("Error updating document content:", error);
+      res.status(500).json({ error: "Failed to update document content" });
     }
   });
 
