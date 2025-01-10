@@ -21,7 +21,11 @@ interface AzureADUser {
 }
 
 // Azure AD group ID for GYM AI Engine users
-const GYM_AI_ENGINE_GROUP_ID = process.env.VITE_AZURE_GROUP_ID;
+const GYM_AI_ENGINE_GROUP_ID = import.meta.env.VITE_AZURE_GROUP_ID;
+
+if (!GYM_AI_ENGINE_GROUP_ID) {
+  console.error('VITE_AZURE_GROUP_ID environment variable is not defined');
+}
 
 export function useAzureUsers() {
   const { instance, accounts } = useMsal();
@@ -55,6 +59,10 @@ export function useAzureUsers() {
   // Fetch group members and their presence from Azure AD
   const fetchGroupMembers = async (): Promise<AzureADUser[]> => {
     try {
+      if (!GYM_AI_ENGINE_GROUP_ID) {
+        throw new Error('Azure AD Group ID is not configured');
+      }
+
       const accessToken = await getAccessToken();
 
       // First, get group members
@@ -68,7 +76,7 @@ export function useAzureUsers() {
       );
 
       if (!membersResponse.ok) {
-        throw new Error("Failed to fetch group members from Azure AD");
+        throw new Error(`Failed to fetch group members: ${membersResponse.statusText}`);
       }
 
       const membersData = await membersResponse.json();
@@ -131,6 +139,7 @@ export function useAzureUsers() {
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
     refetchInterval: 30 * 1000, // Refetch every 30 seconds
     retry: 2,
+    enabled: !!GYM_AI_ENGINE_GROUP_ID && accounts.length > 0,
   });
 
   // Setup WebSocket for real-time presence updates
