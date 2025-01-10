@@ -25,7 +25,6 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Update the useQuery to properly handle the currentPath
   const { data: items = [], isLoading } = useQuery<BlobItem[]>({
     queryKey: ['/api/documents/browse', currentPath],
     queryFn: async () => {
@@ -62,26 +61,33 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   });
 
   const handleCreateFolder = () => {
-    if (newFolderName) {
-      createFolderMutation.mutate(newFolderName);
-    }
+    if (!newFolderName) return;
+    createFolderMutation.mutate(newFolderName);
   };
 
   const navigateToFolder = (folderPath: string) => {
-    // Ensure consistent path format with trailing slash
     const cleanPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
-    console.log("Navigating to folder:", cleanPath);
     setCurrentPath(cleanPath);
   };
 
   const navigateUp = () => {
     if (!currentPath) return;
-    // Remove the last segment and the trailing slash
     const segments = currentPath.split('/').filter(Boolean);
     segments.pop();
     const parentPath = segments.length > 0 ? `${segments.join('/')}/` : "";
-    console.log("Navigating up to:", parentPath);
     setCurrentPath(parentPath);
+  };
+
+  const handleItemClick = (item: BlobItem) => {
+    if (item.type === 'folder') {
+      navigateToFolder(item.path);
+    } else {
+      // Extract document ID from the file path or name
+      const documentId = parseInt(item.path.split('/').pop()?.split('.')[0] || '0');
+      if (documentId > 0 && onSelectDocument) {
+        onSelectDocument(documentId);
+      }
+    }
   };
 
   const refreshCurrentFolder = () => {
@@ -152,7 +158,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
                 <div
                   key={item.path}
                   className="flex items-center p-2 hover:bg-accent rounded-md cursor-pointer"
-                  onClick={() => item.type === 'folder' ? navigateToFolder(item.path) : null}
+                  onClick={() => handleItemClick(item)}
                 >
                   {item.type === 'folder' ? (
                     <Folder className="h-4 w-4 mr-2" />

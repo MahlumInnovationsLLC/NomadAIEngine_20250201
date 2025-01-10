@@ -18,11 +18,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
-import { DocManagement } from "@/pages/DocManagement";
 import DashboardPage from "@/pages/DashboardPage";
 import ClubControlPage from "@/pages/ClubControlPage";
-import DocumentExplorer from "@/pages/DocumentExplorer";
-import TrainingModule from "@/pages/TrainingModule";
+import DocManage from "@/pages/DocManage";
 import LoginPage from "@/pages/LoginPage";
 import React from 'react';
 
@@ -91,7 +89,7 @@ function App() {
   const currentPath = location?.split('/')[1] || '';
 
   // Only show ModuleSelector in document training & control section
-  const showModuleSelector = ['documents', 'docmanagement', 'training'].includes(currentPath);
+  const showModuleSelector = ['docmanage', 'training'].includes(currentPath);
 
   // For demo purposes, using a hardcoded user ID
   const userId = "1";
@@ -113,7 +111,7 @@ function App() {
         <div className="flex gap-4">
           {showModuleSelector && isAuthenticated && (
             <ModuleSelector 
-              activeModule={currentPath || 'documents'} 
+              activeModule={currentPath || 'docmanage'} 
               onModuleChange={(moduleId) => {
                 window.location.href = `/${moduleId}`;
               }}
@@ -126,9 +124,7 @@ function App() {
                 <Route path="/" component={() => <ProtectedRoute component={Home} />} />
                 <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                 <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                <Route path="/documents" component={() => <ProtectedRoute component={DocumentExplorer} />} />
-                <Route path="/docmanagement" component={() => <ProtectedRoute component={DocManagement} />} />
-                <Route path="/training" component={() => <ProtectedRoute component={TrainingModule} />} />
+                <Route path="/docmanage" component={() => <ProtectedRoute component={DocManage} />} />
                 <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
                 <Route component={NotFound} />
               </Switch>
