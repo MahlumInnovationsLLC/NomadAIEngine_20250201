@@ -2,13 +2,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMsal } from "@azure/msal-react";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { loginRequest } from "@/lib/msal-config";
+import { useEffect } from "react";
+import io from "socket.io-client";
 
 interface AzureADUser {
   id: string;
   displayName: string;
   mail: string;
   userPrincipalName: string;
-  isOnline?: boolean;
+  presence: {
+    status: 'online' | 'away' | 'offline';
+    lastSeen?: Date;
+  };
 }
 
 const GYM_AI_ENGINE_GROUP_ID = 'e8dd9d7a-62e9-4142-b6e2-9491e1dac1e8';
@@ -68,9 +73,47 @@ export function useAzureUsers() {
       displayName: user.displayName,
       mail: user.mail || user.userPrincipalName,
       userPrincipalName: user.userPrincipalName,
-      isOnline: onlineUsers.includes(user.id)
+      presence: {
+        status: onlineUsers.includes(user.id) ? 'online' : 'offline',
+      }
     }));
   };
+
+  // Setup real-time presence updates
+  useEffect(() => {
+    const socket = io('/', {
+      query: {
+        userId: accounts[0]?.homeAccountId,
+      },
+    });
+
+    socket.on('connect', () => {
+      socket.emit('presence:join', {
+        userId: accounts[0]?.homeAccountId,
+        name: accounts[0]?.name,
+      });
+    });
+
+    socket.on('presence:update', (users: any[]) => {
+      queryClient.setQueryData<AzureADUser[]>(
+        ['azureGroupMembers'],
+        (oldData) => {
+          if (!oldData) return oldData;
+          return oldData.map(user => ({
+            ...user,
+            presence: {
+              status: users.includes(user.id) ? 'online' : 'offline',
+              lastSeen: users.includes(user.id) ? new Date() : user.presence.lastSeen,
+            }
+          }));
+        }
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [accounts, queryClient]);
 
   const { data: users, error, isLoading } = useQuery<AzureADUser[], Error>({
     queryKey: ["azureGroupMembers"],
