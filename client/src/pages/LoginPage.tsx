@@ -7,6 +7,7 @@ import { RiMicrosoftFill } from "react-icons/ri";
 import { loginRequest, isReplitEnv } from "@/lib/msal-config";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { ParticleBackground } from "@/components/ui/ParticleBackground";
 
 const BackgroundShapes = () => (
   <div className="fixed inset-0 overflow-hidden -z-10">
@@ -97,6 +98,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-background">
+      <ParticleBackground />
       <BackgroundShapes />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
