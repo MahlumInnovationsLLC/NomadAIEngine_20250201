@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MessageSquarePlus, FileText, Play } from "lucide-react";
+import { MessageSquarePlus, FileText, Play, LayoutDashboard, Dumbbell } from "lucide-react";
 import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
 
 export default function Home() {
@@ -25,7 +25,7 @@ export default function Home() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
         <Card className="p-6" data-tour="chat-section">
           <h2 className="text-2xl font-semibold mb-4">Start a Chat</h2>
           <p className="text-muted-foreground mb-6">
@@ -57,10 +57,33 @@ export default function Home() {
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">Recent Activity</h2>
-          <p className="text-muted-foreground">
-            Your recent chats and documents will appear here.
+          <h2 className="text-2xl font-semibold mb-4">Dashboard</h2>
+          <p className="text-muted-foreground mb-6">
+            View analytics, statistics, and key performance indicators for your gym.
           </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/dashboard')}
+          >
+            <LayoutDashboard className="mr-2 h-5 w-5" />
+            Open Dashboard
+          </Button>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">Club Control</h2>
+          <p className="text-muted-foreground mb-6">
+            Manage equipment, maintenance schedules, and facility operations.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/club-control')}
+          >
+            <Dumbbell className="mr-2 h-5 w-5" />
+            Club Control
+          </Button>
         </Card>
       </div>
     </div>
