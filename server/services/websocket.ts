@@ -1,4 +1,4 @@
-import { Server as SocketIOServer } from 'socket.io';
+import { Server } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { db } from "@db";
 import { userTraining } from "@db/schema";
@@ -17,20 +17,11 @@ interface User {
   };
 }
 
-interface PresenceJoinPayload {
-  userId: string;
-  name?: string;
-}
-
-interface PresenceStatusPayload {
-  status: 'online' | 'away' | 'offline';
-}
-
 const users = new Map<string, User>();
 const clients = new Map<string, string>(); // userId -> socketId
 
 export function setupWebSocketServer(server: HttpServer) {
-  const io = new SocketIOServer(server, {
+  const io = new Server(server, {
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
@@ -40,21 +31,40 @@ export function setupWebSocketServer(server: HttpServer) {
   // Broadcast presence update to all clients
   function broadcastPresence() {
     const activeUsers = Array.from(users.values()).map(({ socketId, ...user }) => user);
-    io.emit('ONLINE_USERS_UPDATE', { users: activeUsers });
+    io.emit('presence:update', activeUsers);
   }
 
   // Broadcast training level update to a specific user
   async function broadcastTrainingLevel(userId: string) {
     try {
-      const [training] = await db
-        .select()
+      // Get all completed training modules for the user
+      const completedModules = await db
+        .select({
+          moduleId: userTraining.moduleId,
+          progress: userTraining.progress,
+          status: userTraining.status,
+        })
         .from(userTraining)
-        .where(eq(userTraining.userId, userId))
-        .limit(1);
+        .where(eq(userTraining.userId, userId));
+
+      // Calculate overall progress
+      let totalProgress = 0;
+      if (completedModules.length > 0) {
+        const completedCount = completedModules.filter(m => m.status === 'completed').length;
+        totalProgress = (completedCount / completedModules.length) * 100;
+      }
+
+      // Determine level based on overall progress
+      let level = "Beginner";
+      if (totalProgress >= 80) {
+        level = "Expert";
+      } else if (totalProgress >= 50) {
+        level = "Intermediate";
+      }
 
       const trainingLevel = {
-        level: training?.level || 'Beginner',
-        progress: training?.progress || 0
+        level,
+        progress: Math.round(totalProgress)
       };
 
       // Update user's training level in memory
@@ -64,7 +74,7 @@ export function setupWebSocketServer(server: HttpServer) {
       }
 
       // Emit training level update to the specific user
-      io.to(clients.get(userId) || '').emit('training:level', trainingLevel);
+      io.to(`user-${userId}`).emit('training:level', trainingLevel);
     } catch (error) {
       console.error("Error broadcasting training level:", error);
     }
@@ -73,11 +83,9 @@ export function setupWebSocketServer(server: HttpServer) {
   // Create WebSocket interface object with all required methods
   const wsInterface = {
     broadcast: (userIds: string[], message: any) => {
+      // Broadcast to specific users' rooms
       userIds.forEach(userId => {
-        const socketId = clients.get(userId);
-        if (socketId) {
-          io.to(socketId).emit('notification', message);
-        }
+        io.to(`user-${userId}`).emit('notification', message);
       });
     },
     registerUser: (userId: string) => {
@@ -91,10 +99,7 @@ export function setupWebSocketServer(server: HttpServer) {
       broadcastPresence();
     },
     unregisterUser: (userId: string) => {
-      const user = users.get(userId);
-      if (user) {
-        users.set(userId, { ...user, status: 'offline', lastSeen: new Date() });
-      }
+      users.delete(userId);
       clients.delete(userId);
       broadcastPresence();
     },
@@ -102,13 +107,7 @@ export function setupWebSocketServer(server: HttpServer) {
     getActiveUsers: () => {
       return Array.from(users.values())
         .filter(user => user.status === 'online')
-        .map(user => ({
-          id: user.id,
-          name: user.name,
-          status: user.status,
-          lastSeen: user.lastSeen,
-          trainingLevel: user.trainingLevel
-        }));
+        .map(user => user.id);
     },
     close: () => {
       io.close();
@@ -127,16 +126,13 @@ export function setupWebSocketServer(server: HttpServer) {
     // Store the socket ID for this user
     clients.set(userId, socket.id);
 
+    // Join user-specific room for targeted notifications
+    socket.join(`user-${userId}`);
+
     // Handle presence events
-    socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }: PresenceJoinPayload) => {
-      const user = users.get(uid);
-      if (user) {
-        users.set(uid, { ...user, status: 'online', name, lastSeen: new Date() });
-      } else {
-        wsInterface.registerUser(uid);
-      }
+    socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
+      wsInterface.registerUser(uid);
       await broadcastTrainingLevel(uid);
-      broadcastPresence();
     });
 
     // Handle disconnection
@@ -147,12 +143,17 @@ export function setupWebSocketServer(server: HttpServer) {
     });
 
     // Handle user status updates
-    socket.on('presence:status', ({ status }: PresenceStatusPayload) => {
+    socket.on('presence:status', ({ status }) => {
       const user = users.get(userId);
       if (user) {
         users.set(userId, { ...user, status, lastSeen: new Date() });
         broadcastPresence();
       }
+    });
+
+    // Handle training level requests
+    socket.on('training:request_level', async () => {
+      await broadcastTrainingLevel(userId);
     });
 
     socket.on('error', (error) => {

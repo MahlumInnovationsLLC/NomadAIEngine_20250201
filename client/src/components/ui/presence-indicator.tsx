@@ -23,7 +23,7 @@ export function PresenceIndicator({
         "relative flex shrink-0 rounded-full",
         sizeClasses[size],
         {
-          "bg-green-500": status === "online",
+          "bg-green-500 animate-pulse": status === "online",
           "bg-yellow-500": status === "away",
           "bg-gray-300": status === "offline",
         },

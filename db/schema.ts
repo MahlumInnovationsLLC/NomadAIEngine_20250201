@@ -494,4 +494,3 @@ export type UserNotification = typeof userNotifications.$inferSelect;
 
 // Add to types section
 export type AiEngineActivity = typeof aiEngineActivity.$inferSelect;
-export type SelectUser = typeof users.$inferSelect; // Added as instructed

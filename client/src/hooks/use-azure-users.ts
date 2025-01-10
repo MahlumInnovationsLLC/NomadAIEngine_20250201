@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMsal } from "@azure/msal-react";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { loginRequest } from "@/lib/msal-config";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import io from "socket.io-client";
 
 interface AzureADUser {
@@ -14,39 +14,28 @@ interface AzureADUser {
     status: 'online' | 'away' | 'offline';
     lastSeen?: Date;
   };
-  trainingLevel?: {
-    level: string;
-    progress: number;
-  };
 }
 
-// Azure AD group ID for GYM AI Engine users
-const GYM_AI_ENGINE_GROUP_ID = import.meta.env.VITE_AZURE_GROUP_ID;
-
-if (!GYM_AI_ENGINE_GROUP_ID) {
-  console.error('VITE_AZURE_GROUP_ID environment variable is not defined');
-}
+const GYM_AI_ENGINE_GROUP_ID = 'e8dd9d7a-62e9-4142-b6e2-9491e1dac1e8';
 
 export function useAzureUsers() {
-  const { instance, accounts, inProgress } = useMsal();
-  const [error, setError] = useState<Error | null>(null);
+  const { instance, accounts } = useMsal();
   const queryClient = useQueryClient();
 
-  // Function to get Azure AD access token
   const getAccessToken = async () => {
     if (accounts[0]) {
       try {
         const response = await instance.acquireTokenSilent({
           ...loginRequest,
           account: accounts[0],
-          scopes: ["GroupMember.Read.All", "User.Read.All", "Presence.Read.All"]
+          scopes: ["GroupMember.Read.All", "User.Read.All"]
         });
         return response.accessToken;
       } catch (error) {
         if (error instanceof InteractionRequiredAuthError) {
           const response = await instance.acquireTokenPopup({
             ...loginRequest,
-            scopes: ["GroupMember.Read.All", "User.Read.All", "Presence.Read.All"]
+            scopes: ["GroupMember.Read.All", "User.Read.All"]
           });
           return response.accessToken;
         }
@@ -56,160 +45,75 @@ export function useAzureUsers() {
     throw new Error("No authenticated account");
   };
 
-  // Fetch group members and their presence from Azure AD
   const fetchGroupMembers = async (): Promise<AzureADUser[]> => {
-    try {
-      if (!GYM_AI_ENGINE_GROUP_ID) {
-        throw new Error('Azure AD Group ID is not configured');
+    const accessToken = await getAccessToken();
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/groups/${GYM_AI_ENGINE_GROUP_ID}/members?$select=id,displayName,mail,userPrincipalName`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       }
+    );
 
-      const accessToken = await getAccessToken();
-
-      // First, get group members
-      const membersResponse = await fetch(
-        `https://graph.microsoft.com/v1.0/groups/${GYM_AI_ENGINE_GROUP_ID}/members?$select=id,displayName,mail,userPrincipalName`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-        }
-      );
-
-      if (!membersResponse.ok) {
-        throw new Error(`Failed to fetch group members: ${membersResponse.statusText}`);
-      }
-
-      const membersData = await membersResponse.json();
-      const users = membersData.value;
-
-      // Then, get presence information for each user
-      const presencePromises = users.map(async (user: any) => {
-        try {
-          const presenceResponse = await fetch(
-            `https://graph.microsoft.com/v1.0/users/${user.id}/presence`,
-            {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              },
-            }
-          );
-
-          if (presenceResponse.ok) {
-            const presenceData = await presenceResponse.json();
-            return {
-              ...user,
-              presence: {
-                status: presenceData.availability === 'Available' ? 'online' : 
-                       presenceData.availability === 'Away' ? 'away' : 'offline',
-                lastSeen: new Date(),
-              },
-            } as AzureADUser;
-          }
-        } catch (error) {
-          console.error(`Failed to fetch presence for user ${user.id}:`, error);
-        }
-
-        // Default to offline if presence fetch fails
-        return {
-          ...user,
-          presence: {
-            status: 'offline' as const,
-          },
-        } as AzureADUser;
-      });
-
-      const usersWithPresence = await Promise.all(presencePromises);
-
-      // Sort users: online users first, then alphabetically by display name
-      return usersWithPresence.sort((a, b) => {
-        if (a.presence.status === b.presence.status) {
-          return a.displayName.localeCompare(b.displayName);
-        }
-        return a.presence.status === 'online' ? -1 : 1;
-      });
-    } catch (error) {
-      console.error('Error fetching group members:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error("Failed to fetch group members from Azure AD");
     }
+
+    const data = await response.json();
+
+    // Fetch online status from our backend
+    const onlineStatusResponse = await fetch('/api/users/online-status', {
+      credentials: 'include'
+    });
+    const onlineUsers = onlineStatusResponse.ok ? await onlineStatusResponse.json() : [];
+
+    return data.value.map((user: any) => ({
+      id: user.id,
+      displayName: user.displayName,
+      mail: user.mail || user.userPrincipalName,
+      userPrincipalName: user.userPrincipalName,
+      presence: {
+        status: onlineUsers.includes(user.id) ? 'online' : 'offline',
+      }
+    }));
   };
 
-  // Query for fetching Azure AD users
-  const { data: users, isLoading } = useQuery<AzureADUser[], Error>({
-    queryKey: ["azureGroupMembers"],
-    queryFn: fetchGroupMembers,
-    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-    refetchInterval: 30 * 1000, // Refetch every 30 seconds
-    retry: 2,
-    enabled: !!GYM_AI_ENGINE_GROUP_ID && 
-             accounts.length > 0 && 
-             inProgress === "none",
-  });
-
-  // Setup WebSocket for real-time presence updates
+  // Setup real-time presence updates
   useEffect(() => {
-    let socket: ReturnType<typeof io>;
+    const socket = io('/', {
+      query: {
+        userId: accounts[0]?.homeAccountId,
+      },
+    });
 
-    if (!users?.length) return;
-
-    try {
-      socket = io('/', {
-        query: {
-          userId: accounts[0]?.homeAccountId,
-        },
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
-
-      socket.on('connect', () => {
-        console.log('Socket connected');
-        setError(null);
-      });
-
-      socket.on('connect_error', (err) => {
-        console.error('Socket connection error:', err);
-        setError(new Error('Failed to connect to presence service'));
-      });
-
-      socket.on('ONLINE_USERS_UPDATE', (data: { users: string[] }) => {
-        queryClient.setQueryData<AzureADUser[]>(
-          ["azureGroupMembers"],
-          (currentUsers) => {
-            if (!currentUsers) return currentUsers;
-
-            // Update presence status for each user
-            const updatedUsers = currentUsers.map(user => ({
-              ...user,
-              presence: {
-                status: data.users.includes(user.id) ? 'online' : 'offline',
-                lastSeen: data.users.includes(user.id) ? new Date() : user.presence.lastSeen,
-              }
-            }));
-
-            // Sort: online users first, then alphabetically
-            return updatedUsers.sort((a, b) => {
-              if (a.presence.status === b.presence.status) {
-                return a.displayName.localeCompare(b.displayName);
-              }
-              return a.presence.status === 'online' ? -1 : 1;
-            });
-          }
-        );
-      });
-
-    } catch (err) {
-      console.error('Error setting up socket connection:', err);
-      setError(err instanceof Error ? err : new Error('Failed to initialize presence service'));
-    }
+    socket.on('ONLINE_USERS_UPDATE', (data: { users: string[] }) => {
+      queryClient.setQueryData<AzureADUser[]>(
+        ['azureGroupMembers'],
+        (oldData) => {
+          if (!oldData) return oldData;
+          return oldData.map(user => ({
+            ...user,
+            presence: {
+              status: data.users.includes(user.id) ? 'online' : 'offline',
+              lastSeen: data.users.includes(user.id) ? new Date() : user.presence.lastSeen,
+            }
+          }));
+        }
+      );
+    });
 
     return () => {
-      if (socket) {
-        socket.disconnect();
-      }
+      socket.disconnect();
     };
-  }, [accounts, users, queryClient]);
+  }, [accounts, queryClient]);
+
+  const { data: users, error, isLoading } = useQuery<AzureADUser[], Error>({
+    queryKey: ["azureGroupMembers"],
+    queryFn: fetchGroupMembers,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    retry: false,
+  });
 
   return {
     users,

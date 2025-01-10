@@ -1,6 +1,7 @@
-import type { Express, Request } from "express";
+import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { db } from "@db";
 import {
   documentWorkflows,
@@ -9,101 +10,49 @@ import {
   roles,
   userTraining,
   aiEngineActivity,
-  type SelectUser,
-  equipmentTypes,
-  equipment
+  type Document
 } from "@db/schema";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
+import { v4 as uuidv4 } from 'uuid';
 import multer from "multer";
-import { BlobServiceClient } from "@azure/storage-blob";
+import { ContainerClient } from "@azure/storage-blob";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
-import { analyzeDocument } from "./services/azure/openai_service";
-import { getStorageMetrics } from "./services/azure/blob_service";
+import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
+import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
+import { and, gte, lte } from "drizzle-orm";
 
 // Add interface for Request with user
 interface AuthenticatedRequest extends Request {
-  user?: SelectUser;
+  user?: {
+    id: string;
+    username: string;
+  };
 }
 
-// Equipment related functions
-async function getEquipmentType(manufacturer: string, model: string) {
-  const [existingType] = await db
+export async function getUserTrainingLevel(userId: string) {
+  const trainings = await db
     .select()
-    .from(equipmentTypes)
-    .where(and(
-      eq(equipmentTypes.manufacturer, manufacturer),
-      eq(equipmentTypes.model, model)
-    ))
-    .limit(1);
-  return existingType;
+    .from(userTraining)
+    .where(eq(userTraining.userId, userId));
+
+  // Calculate training level based on completed modules
+  const completedModules = trainings.filter(t => t.status === 'completed').length;
+  return Math.floor(completedModules / 3) + 1; // Level up every 3 completed modules
 }
 
-async function createEquipmentType(type: typeof equipmentTypes.$inferInsert) {
-  const [newType] = await db
-    .insert(equipmentTypes)
-    .values(type)
-    .returning();
-  return newType;
+// Initialize Azure Blob Storage Client with SAS token
+const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
+
+if (!sasUrl) {
+  throw new Error("Azure Blob Storage SAS URL not found");
 }
 
-async function getAllEquipment() {
-  return db
-    .select()
-    .from(equipment)
-    .orderBy(equipment.name);
-}
+console.log("Creating Container Client with SAS token...");
+const containerClient = new ContainerClient(sasUrl);
 
-async function createEquipment(equipmentData: typeof equipment.$inferInsert) {
-  const [newEquipment] = await db
-    .insert(equipment)
-    .values(equipmentData)
-    .returning();
-  return newEquipment;
-}
-
-async function updateEquipment(id: string, updates: Partial<typeof equipment.$inferInsert>) {
-  const [updatedEquipment] = await db
-    .update(equipment)
-    .set(updates)
-    .where(eq(equipment.id, parseInt(id)))
-    .returning();
-  return updatedEquipment;
-}
-
-// Helper function to get recent activity
-async function getRecentActivity(limit: number) {
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 7); // Get activity from last 7 days
-
-  const activities = await db
-    .select({
-      id: aiEngineActivity.id,
-      type: aiEngineActivity.feature,
-      metadata: aiEngineActivity.metadata,
-      timestamp: aiEngineActivity.createdAt
-    })
-    .from(aiEngineActivity)
-    .where(gte(aiEngineActivity.createdAt, startDate))
-    .orderBy(aiEngineActivity.createdAt, 'desc')
-    .limit(limit);
-
-  return activities.map(activity => ({
-    id: activity.id,
-    type: activity.type,
-    documentName: activity.metadata?.documentName || '',
-    timestamp: activity.timestamp
-  }));
-}
-
-// Initialize Azure Blob Storage Client
-if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
-  throw new Error("Azure Blob Storage Connection String not found");
-}
-
-const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_BLOB_CONNECTION_STRING);
-const containerClient = blobServiceClient.getContainerClient("documents");
+console.log("Successfully created Container Client");
 
 // Configure multer for memory storage
 const upload = multer({
@@ -116,13 +65,18 @@ const upload = multer({
 // Helper function to track AI Engine usage
 async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_analysis' | 'equipment_prediction' | 'report_generation', duration: number, metadata?: Record<string, any>) {
   try {
+    // Generate a session ID for tracking
+    const sessionId = uuidv4();
+    const startTime = new Date();
+    const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
+
     await db.insert(aiEngineActivity).values({
       userId,
-      sessionId: `session_${Date.now()}`,
+      sessionId,
       feature,
+      startTime,
+      endTime,
       durationMinutes: duration,
-      startTime: new Date(),
-      endTime: new Date(Date.now() + duration * 60 * 1000),
       metadata: metadata || {}
     });
 
@@ -134,37 +88,221 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
-  const wsServer = setupWebSocketServer(httpServer);
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
+  const wsServer = setupWebSocketServer(io);
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
 
   // Add user authentication middleware and user status tracking
-  app.use((req: AuthenticatedRequest, _res, next) => {
+  app.use((req: AuthenticatedRequest, res: Response, next) => {
+    // TODO: Replace with actual user authentication
+    // For now, we'll use a mock user ID for testing
+    req.user = { id: '1', username: 'test_user' };
     const userId = req.headers['x-user-id'];
     if (userId && typeof userId === 'string') {
+      // Notify WebSocket server about user activity
       wsServer.broadcast([userId], { type: 'USER_ACTIVE' });
     }
     next();
   });
 
   // Update online users endpoint
-  app.get("/api/users/online-status", (_req, res) => {
+  app.get("/api/users/online-status", (req, res) => {
+    // Get online users from WebSocket service
     const activeUsers = wsServer.getActiveUsers();
     res.json(activeUsers);
   });
 
-  // Add dashboard metrics endpoint
-  app.get("/api/dashboard/stats", async (_req, res) => {
+  // Equipment Types endpoints
+  app.post("/api/equipment-types", async (req, res) => {
     try {
-      const storageMetrics = await getStorageMetrics();
+      const type = req.body;
+      const existingType = await getEquipmentType(type.manufacturer, type.model);
+
+      if (existingType) {
+        return res.json(existingType);
+      }
+
+      const newType = await createEquipmentType(type);
+      res.json(newType);
+    } catch (error) {
+      console.error("Error creating equipment type:", error);
+      res.status(500).json({ error: "Failed to create equipment type" });
+    }
+  });
+
+  // Equipment endpoints
+  app.get("/api/equipment", async (req, res) => {
+    try {
+      const equipment = await getAllEquipment();
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error getting equipment:", error);
+      res.status(500).json({ error: "Failed to get equipment" });
+    }
+  });
+
+  app.post("/api/equipment", async (req, res) => {
+    try {
+      const equipmentData = req.body;
+      const newEquipment = await createEquipment(equipmentData);
+      res.json(newEquipment);
+    } catch (error) {
+      console.error("Error creating equipment:", error);
+      res.status(500).json({ error: "Failed to create equipment" });
+    }
+  });
+
+  app.patch("/api/equipment/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updatedEquipment = await updateEquipment(id, updates);
+      res.json(updatedEquipment);
+    } catch (error) {
+      console.error("Error updating equipment:", error);
+      res.status(500).json({ error: "Failed to update equipment" });
+    }
+  });
+
+  // Generate detailed report endpoint
+  app.post("/api/generate-report", async (req, res) => {
+    try {
+      const { topic } = req.body;
+
+      if (!topic) {
+        return res.status(400).json({ error: "Topic is required" });
+      }
+
+      console.log(`Generating report for topic: ${topic}`);
+      const filename = await generateReport(topic);
+
+      if (!filename) {
+        throw new Error("Failed to generate report");
+      }
+
+      // Track AI usage for report generation (assuming it takes about 2 minutes)
+      await trackAIEngineUsage(req.user!.id, 'report_generation', 2, { topic });
+
+      res.json({
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
+      });
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({
+        error: "Failed to generate report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Messages endpoint
+  app.post("/api/messages", async (req, res) => {
+    try {
+      console.log("Received message request:", req.body);
+      const { content } = req.body;
+
+      if (!content) {
+        console.log("Missing content in request");
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      // Track AI usage for chat (assuming it takes about 0.5 minutes per message)
+      await trackAIEngineUsage(req.user!.id, 'chat', 0.5, { messageLength: content.length });
+
+      // Generate user message
+      const userMessage = {
+        id: uuidv4(),
+        role: 'user',
+        content,
+        createdAt: new Date().toISOString()
+      };
+
+      console.log("Generated user message:", userMessage);
+
+      // Check if user is requesting a downloadable report
+      const isReportRequest = content.toLowerCase().includes('report') ||
+        content.toLowerCase().includes('document') ||
+        content.toLowerCase().includes('download');
+
+      // Get AI response using Azure OpenAI
+      let aiResponse;
+      let downloadUrl;
+      try {
+        console.log("Getting AI response for content:", content);
+        aiResponse = await analyzeDocument(content);
+        console.log("Received AI response:", aiResponse);
+
+        // If this is a report request, generate a downloadable document
+        if (isReportRequest && aiResponse) {
+          console.log("Generating downloadable report...");
+          const filename = await generateReport(aiResponse);
+          if (filename) {
+            downloadUrl = `/uploads/${filename}`;
+            aiResponse = `${aiResponse}\n\nI've prepared a detailed report for you. You can download it here: [Download Report](${downloadUrl})`;
+          }
+        }
+      } catch (error) {
+        console.error("Error getting AI response:", error);
+        aiResponse = "I apologize, but I'm having trouble processing your request at the moment. Could you please try again?";
+      }
+
+      // Create AI message
+      const aiMessage = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: aiResponse || "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
+        createdAt: new Date().toISOString()
+      };
+
+      console.log("Generated AI message:", aiMessage);
+      console.log("Sending response with both messages");
+
+      res.json([userMessage, aiMessage]);
+    } catch (error: any) {
+      console.error("Error processing message:", error);
+      res.status(500).json({ error: "Failed to process message", details: error.message });
+    }
+  });
+
+  // Check Azure OpenAI connection status
+  app.get("/api/azure/status", async (req, res) => {
+    try {
+      console.log("Checking Azure services status...");
+      const status = await checkOpenAIConnection();
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking Azure OpenAI status:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to check Azure OpenAI status",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Add dashboard metrics endpoint
+  app.get("/api/dashboard/stats", async (req, res) => {
+    try {
+      const [storageMetrics, azureStatus] = await Promise.all([
+        getStorageMetrics(),
+        checkOpenAIConnection()
+      ]);
 
       const stats = {
         totalDocuments: storageMetrics.totalDocuments,
         totalStorageSize: storageMetrics.totalSize,
         documentTypes: storageMetrics.documentTypes,
-        aiServiceStatus: true,
-        storageStatus: true,
+        aiServiceStatus: azureStatus.some(s => s.name === "Azure OpenAI" && s.status === "connected"),
+        storageStatus: azureStatus.some(s => s.name === "Azure Blob Storage" && s.status === "connected"),
       };
 
       res.json(stats);
@@ -174,10 +312,284 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Document-related endpoints
-  app.get("/api/documents/:documentPath(*)/content", async (req, res) => {
+  app.get("/api/dashboard/activity", async (req, res) => {
     try {
-      const documentPath = req.params.documentPath;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const recentActivity = await getRecentActivity(limit);
+      res.json(recentActivity);
+    } catch (error) {
+      console.error("Error fetching activity:", error);
+      res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  // Dashboard extended stats endpoint
+  app.get("/api/dashboard/extended-stats", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const userId = req.user.id;
+
+      // Get user's training level
+      const trainingLevel = await getUserTrainingLevel(userId);
+
+      // Get AI Engine usage statistics for the past 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const aiActivities = await db
+        .select({
+          date: aiEngineActivity.startTime,
+          duration: aiEngineActivity.durationMinutes,
+        })
+        .from(aiEngineActivity)
+        .where(
+          and(
+            eq(aiEngineActivity.userId, userId),
+            gte(aiEngineActivity.startTime, sevenDaysAgo),
+            lte(aiEngineActivity.startTime, new Date())
+          )
+        );
+
+      // Initialize all days in the past week with 0
+      const dailyUsage = new Map<string, number>();
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(sevenDaysAgo);
+        date.setDate(date.getDate() + i);
+        dailyUsage.set(date.toISOString().split('T')[0], 0);
+      }
+
+      // Add actual usage data
+      aiActivities.forEach(activity => {
+        const day = activity.date.toISOString().split('T')[0];
+        const duration = parseFloat(activity.duration?.toString() || "0");
+        dailyUsage.set(day, (dailyUsage.get(day) || 0) + duration);
+      });
+
+      const extendedStats = {
+        collaborators: 5, // Placeholder until user management is implemented
+        chatActivity: {
+          totalResponses: 0,
+          downloadedReports: 0
+        },
+        trainingLevel,
+        incompleteTasks: 0,
+        aiEngineUsage: Array.from(dailyUsage.entries()).map(([date, minutes]) => ({
+          date,
+          minutes: Math.round(minutes * 100) / 100
+        })).sort((a, b) => a.date.localeCompare(b.date))
+      };
+
+      // Get activity logs to count chat responses and downloaded reports
+      try {
+        const activityLogs = await getRecentActivity(100); // Get last 100 activities
+        for (const activity of activityLogs) {
+          if (activity.type === 'download' && activity.documentName.includes('report')) {
+            extendedStats.chatActivity.downloadedReports++;
+          } else if (activity.type === 'view' && activity.documentName.includes('chat')) {
+            extendedStats.chatActivity.totalResponses++;
+          }
+        }
+      } catch (error) {
+        console.warn("Error counting activity logs:", error);
+        // Continue with default values if activity logs can't be counted
+      }
+
+      res.json(extendedStats);
+    } catch (error) {
+      console.error("Error fetching extended stats:", error);
+      res.status(500).json({ error: "Failed to fetch extended statistics" });
+    }
+  });
+
+  // Chat history endpoint
+  app.get("/api/chats", async (req, res) => {
+    try {
+      const userKey = 'default_user';
+      const chats = await listChats(userKey);
+      const formattedChats = chats.map(chat => ({
+        id: chat.id,
+        title: chat.title,
+        lastMessageAt: chat.lastMessageAt,
+        isArchived: chat.isDeleted || false
+      }));
+      res.json(formattedChats);
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+      res.status(500).json({ error: "Failed to fetch chats" });
+    }
+  });
+
+  // Blob Storage endpoints
+  app.get("/api/documents/browse", async (req, res) => {
+    try {
+      console.log("Listing blobs from container:", "documents");
+      const path = (req.query.path as string) || "";
+      console.log("Browsing path:", path);
+
+      // List all blobs in the path
+      const items = [];
+      const listOptions = {
+        prefix: path,
+        delimiter: '/'
+      };
+
+      // Get all blobs with the specified prefix
+      const blobs = containerClient.listBlobsByHierarchy('/', listOptions);
+
+      console.log("Starting blob enumeration...");
+      for await (const item of blobs) {
+        console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name);
+
+        // Check if it's a virtual directory (folder)
+        if (item.kind === "prefix") {
+          // Get folder name by removing the trailing slash
+          const folderPath = item.name;
+          const folderName = folderPath.split('/').filter(Boolean).pop() || "";
+
+          items.push({
+            name: folderName,
+            path: folderPath,
+            type: "folder"
+          });
+        } else {
+          // It's a blob (file)
+          const blobItem = item;
+          const fileName = blobItem.name.split("/").pop() || "";
+
+          // Don't include folder markers
+          if (!fileName.startsWith('.folder')) {
+            items.push({
+              name: fileName,
+              path: blobItem.name,
+              type: "file",
+              size: blobItem.properties?.contentLength,
+              lastModified: blobItem.properties?.lastModified?.toISOString()
+            });
+          }
+        }
+      }
+
+      console.log("Found items:", items);
+      res.json(items);
+    } catch (error) {
+      console.error("Error listing blobs:", error);
+      res.status(500).json({ error: "Failed to list documents" });
+    }
+  });
+
+  app.post("/api/documents/upload", upload.array('files'), async (req, res) => {
+    try {
+      const path = req.body.path || "";
+      const files = req.files as Express.Multer.File[];
+
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No files provided" });
+      }
+
+      console.log("Uploading files to container:", "documents", "path:", path);
+      console.log("Files to upload:", files.map(f => f.originalname));
+
+      const uploadPromises = files.map(async (file) => {
+        const blobName = path ? `${path}/${file.originalname}` : file.originalname;
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+        await blockBlobClient.uploadData(file.buffer);
+        return blobName;
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+      console.log("Successfully uploaded files:", uploadedFiles);
+
+      res.json({ message: "Files uploaded successfully", files: uploadedFiles });
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      res.status(500).json({ error: "Failed to upload files" });
+    }
+  });
+
+  // Add folder creation endpoint
+  app.post("/api/documents/folders", async (req, res) => {
+    try {
+      const { path } = req.body;
+
+      if (!path) {
+        return res.status(400).json({ error: "Path is required" });
+      }
+
+      console.log("Creating folder:", path);
+
+      // Create a zero-length blob with the folder name as prefix
+      const folderPath = path.endsWith('/') ? path : `${path}/`;
+      const blockBlobClient = containerClient.getBlockBlobClient(`${folderPath}.folder`);
+      await blockBlobClient.uploadData(Buffer.from(''));
+
+      console.log("Successfully created folder:", path);
+      res.json({ message: "Folder created successfully", path });
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      res.status(500).json({ error: "Failed to create folder" });
+    }
+  });
+
+  // Add new endpoint to get user's training level
+  app.get("/api/training/level", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const trainingLevel = await getUserTrainingLevel(req.user.id);
+      res.json(trainingLevel);
+    } catch (error) {
+      console.error("Error getting training level:", error);
+      res.status(500).json({ error: "Failed to get training level" });
+    }
+  });
+
+  // Update training progress endpoint
+  app.post("/api/training/progress", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const { moduleId, progress, status } = req.body;
+
+      // Update the training progress
+      await db
+        .insert(userTraining)
+        .values({
+          userId: req.user.id,
+          moduleId,
+          progress,
+          status,
+          assignedBy: req.user.id,
+        })
+        .onConflictDoUpdate({
+          target: [userTraining.userId, userTraining.moduleId],
+          set: {
+            progress,
+            status,
+            completedAt: status === 'completed' ? new Date() : undefined,
+          },
+        });
+
+      // Broadcast the updated training level
+      await wsServer.broadcastTrainingLevel(req.user.id);
+
+      res.json({ message: "Training progress updated successfully" });
+    } catch (error) {
+      console.error("Error updating training progress:", error);
+      res.status(500).json({ error: "Failed to update training progress" });
+    }
+  });
+
+  // Add document content endpoint
+  app.get("/api/documents/:path*/content", async (req, res) => {
+    try {
+      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
       console.log("Fetching document content for:", documentPath);
 
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
@@ -213,9 +625,10 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.put("/api/documents/:documentPath(*)/content", async (req, res) => {
+  // Add document content update endpoint
+  app.put("/api/documents/:path*/content", async (req, res) => {
     try {
-      const documentPath = req.params.documentPath;
+      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
       const { content, revision } = req.body;
 
       if (!content) {
@@ -243,142 +656,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/dashboard/activity", async (req, res) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 10;
-      const recentActivity = await getRecentActivity(limit);
-      res.json(recentActivity);
-    } catch (error) {
-      console.error("Error fetching activity:", error);
-      res.status(500).json({ error: "Failed to fetch activity" });
-    }
-  });
-
-  app.post("/api/generate-report", async (req: AuthenticatedRequest, res) => {
-    try {
-      const { topic } = req.body;
-      if (!topic) {
-        return res.status(400).json({ error: "Topic is required" });
-      }
-
-      console.log(`Generating report for topic: ${topic}`);
-      const filename = await generateReport(topic);
-
-      if (!filename) {
-        throw new Error("Failed to generate report");
-      }
-
-      // Track AI usage for report generation (assuming it takes about 2 minutes)
-      if (req.user?.id) {
-        await trackAIEngineUsage(req.user.id, 'report_generation', 2, { topic });
-      }
-
-      res.json({
-        success: true,
-        filename,
-        downloadUrl: `/uploads/${filename}`
-      });
-    } catch (error) {
-      console.error("Error generating report:", error);
-      res.status(500).json({
-        error: "Failed to generate report",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  app.post("/api/messages", async (req: AuthenticatedRequest, res) => {
-    try {
-      const { content } = req.body;
-      if (!content) {
-        return res.status(400).json({ error: "Content is required" });
-      }
-
-      // Track AI usage for chat (assuming it takes about 0.5 minutes per message)
-      if (req.user?.id) {
-        await trackAIEngineUsage(req.user.id, 'chat', 0.5, { messageLength: content.length });
-      }
-
-      // Generate response using Azure OpenAI
-      let aiResponse = await analyzeDocument(content);
-
-      res.json({
-        success: true,
-        response: aiResponse
-      });
-    } catch (error) {
-      console.error("Error processing message:", error);
-      res.status(500).json({ error: "Failed to process message" });
-    }
-  });
-
-  app.get("/api/chats", async (_req, res) => {
-    try {
-      const chats = await listChats('default_user');
-      const formattedChats = chats.map(chat => ({
-        id: chat.id,
-        title: chat.title,
-        lastMessageAt: chat.lastMessageAt,
-        isArchived: chat.isDeleted || false
-      }));
-      res.json(formattedChats);
-    } catch (error) {
-      console.error("Error fetching chats:", error);
-      res.status(500).json({ error: "Failed to fetch chats" });
-    }
-  });
-
-  app.post("/api/equipment-types", async (req, res) => {
-    try {
-      const type = req.body;
-      const existingType = await getEquipmentType(type.manufacturer, type.model);
-
-      if (existingType) {
-        return res.json(existingType);
-      }
-
-      const newType = await createEquipmentType(type);
-      res.json(newType);
-    } catch (error) {
-      console.error("Error creating equipment type:", error);
-      res.status(500).json({ error: "Failed to create equipment type" });
-    }
-  });
-
-  app.get("/api/equipment", async (req, res) => {
-    try {
-      const equipment = await getAllEquipment();
-      res.json(equipment);
-    } catch (error) {
-      console.error("Error getting equipment:", error);
-      res.status(500).json({ error: "Failed to get equipment" });
-    }
-  });
-
-  app.post("/api/equipment", async (req, res) => {
-    try {
-      const equipmentData = req.body;
-      const newEquipment = await createEquipment(equipmentData);
-      res.json(newEquipment);
-    } catch (error) {
-      console.error("Error creating equipment:", error);
-      res.status(500).json({ error: "Failed to create equipment" });
-    }
-  });
-
-  app.patch("/api/equipment/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      const updatedEquipment = await updateEquipment(id, updates);
-      res.json(updatedEquipment);
-    } catch (error) {
-      console.error("Error updating equipment:", error);
-      res.status(500).json({ error: "Failed to update equipment" });
-    }
-  });
-
-
+  // Add workflow endpoint
   app.post("/api/documents/workflow", async (req, res) => {
     try {
       const { documentId, type, assigneeId } = req.body;
@@ -420,6 +698,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add workflow status endpoint
   app.get("/api/documents/workflow/:documentId", async (req, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
@@ -461,6 +740,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add workflow action endpoint (for handling review/approve actions)
   app.post("/api/documents/workflow/:documentId/action", async (req, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
@@ -501,6 +781,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add document permissions endpoints
   app.get("/api/documents/:documentId/permissions", async (req, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
@@ -589,6 +870,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add roles endpoint
   app.get("/api/roles", async (req, res) => {
     try {
       const allRoles = await db
@@ -603,250 +885,32 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/dashboard/extended-stats", async (req: AuthenticatedRequest, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).send("Not authenticated");
-      }
 
-      const userId = req.user.id;
+  // Update Socket.IO connection handling
+  io.on('connection', (socket) => {
+    console.log('New client connected');
+    const userId = socket.handshake.query.userId;
 
-      // Get user's training level
-      const trainingLevel = await getUserTrainingLevel(userId);
+    if (userId && typeof userId === 'string') {
+      wsServer.registerUser(userId);
 
-      // Get AI Engine usage statistics for the past 7 days
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const aiActivities = await db
-        .select({
-          date: aiEngineActivity.startTime,
-          duration: aiEngineActivity.durationMinutes,
-        })
-        .from(aiEngineActivity)
-        .where(
-          and(
-            eq(aiEngineActivity.userId, userId),
-            gte(aiEngineActivity.startTime, sevenDaysAgo),
-            lte(aiEngineActivity.startTime, new Date())
-          )
-        );
-
-      // Initialize all days in the past week with 0
-      const dailyUsage = new Map<string, number>();
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(sevenDaysAgo);
-        date.setDate(date.getDate() + i);
-        dailyUsage.set(date.toISOString().split('T')[0], 0);
-      }
-
-      // Add actual usage data
-      aiActivities.forEach(activity => {
-        const day = activity.date.toISOString().split('T')[0];
-        const duration = parseFloat(activity.duration?.toString() || "0");
-        dailyUsage.set(day, (dailyUsage.get(day) || 0) + duration);
+      // Emit current online users to the newly connected client
+      socket.emit('ONLINE_USERS_UPDATE', {
+        type: 'ONLINE_USERS_UPDATE',
+        users: wsServer.getActiveUsers()
       });
 
-      const extendedStats = {
-        collaborators: 5, // Placeholder until user management is implemented
-        chatActivity: {
-          totalResponses: 0,
-          downloadedReports: 0
-        },
-        trainingLevel,
-        incompleteTasks: 0,
-        aiEngineUsage: Array.from(dailyUsage.entries()).map(([date, minutes]) => ({
-          date,
-          minutes: Math.round(minutes * 100) / 100
-        })).sort((a, b) => a.date.localeCompare(b.date))
-      };
-
-      // Get activity logs to count chat responses and downloaded reports
-      try {
-        const activityLogs = await getRecentActivity(100); // Get last 100 activities
-        for (const activity of activityLogs) {
-          if (activity.type === 'download' && activity.documentName.includes('report')) {
-            extendedStats.chatActivity.downloadedReports++;
-          } else if (activity.type === 'view' && activity.documentName.includes('chat')) {
-            extendedStats.chatActivity.totalResponses++;
-          }
-        }
-      } catch (error) {
-        console.warn("Error counting activity logs:", error);
-        // Continue with default values if activity logs can't be counted
-      }
-
-      res.json(extendedStats);
-    } catch (error) {
-      console.error("Error fetching extended stats:", error);
-      res.status(500).json({ error: "Failed to fetch extended statistics" });
-    }
-  });
-
-  app.get("/api/documents/browse", async (req, res) => {
-    try {
-      console.log("Listing blobs from container:", "documents");
-      const path = (req.query.path as string) || "";
-      console.log("Browsing path:", path);
-
-      // List all blobs in the path
-      const items = [];
-      const listOptions = {
-        prefix: path,
-        delimiter: '/'
-      };
-
-      // Get all blobs with the specified prefix
-      const blobs = containerClient.listBlobsByHierarchy('/', listOptions);
-
-      console.log("Starting blob enumeration...");
-      for await (const item of blobs) {
-        console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name);
-
-        // Check if it's a virtual directory (folder)
-        if (item.kind === "prefix") {
-          // Get folder name by removing the trailing slash
-          const folderPath = item.name;
-          const folderName = folderPath.split('/').filter(Boolean).pop() || "";
-
-          items.push({
-            name: folderName,
-            path: folderPath,
-            type: "folder"
-          });
-        } else {
-          // It's a blob (file)
-          const blobItem = item;
-          const fileName = blobItem.name.split("/").pop() || "";
-
-          // Don't include folder markers
-          if (!fileName.startsWith('.folder')) {
-            items.push({
-              name: fileName,
-              path: blobItem.name,
-              type: "file",
-              size: blobItem.properties?.contentLength,
-              lastModified: blobItem.properties?.lastModified?.toISOString()
-            });
-          }
-        }
-      }
-
-      console.log("Found items:", items);
-      res.json(items);
-    } catch (error) {
-      console.error("Error listing blobs:", error);
-      res.status(500).json({ error: "Failed to list documents" });
-    }
-  });
-
-  app.post("/api/documents/upload", upload.array('files'), async (req, res) => {
-    try {
-      const path = req.body.path || "";
-      const files = req.files as Express.Multer.File[];
-
-      if (!files || files.length === 0) {
-        return res.status(400).json({ error: "No files provided" });
-      }
-
-      console.log("Uploading files to container:", "documents", "path:", path);
-      console.log("Files to upload:", files.map(f => f.originalname));
-
-      const uploadPromises = files.map(async (file) => {
-        const blobName = path ? `${path}/${file.originalname}` : file.originalname;
-        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-        await blockBlobClient.uploadData(file.buffer);
-        return blobName;
-      });
-
-      const uploadedFiles = await Promise.all(uploadPromises);
-      console.log("Successfully uploaded files:", uploadedFiles);
-
-      res.json({ message: "Files uploaded successfully", files: uploadedFiles });
-    } catch (error) {
-      console.error("Error uploading files:", error);
-      res.status(500).json({ error: "Failed to upload files" });
-    }
-  });
-
-  app.post("/api/documents/folders", async (req, res) => {
-    try {
-      const { path } = req.body;
-
-      if (!path) {
-        return res.status(400).json({ error: "Path is required" });
-      }
-
-      console.log("Creating folder:", path);
-
-      // Create a zero-length blob with the folder name as prefix
-      const folderPath = path.endsWith('/') ? path : `${path}/`;
-      const blockBlobClient = containerClient.getBlockBlobClient(`${folderPath}.folder`);
-      await blockBlobClient.uploadData(Buffer.from(''));
-
-      console.log("Successfully created folder:", path);
-      res.json({ message: "Folder created successfully", path });
-    } catch (error) {
-      console.error("Error creating folder:", error);
-      res.status(500).json({ error: "Failed to create folder" });
-    }
-  });
-
-  app.get("/api/training/level", async (req: AuthenticatedRequest, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).send("Not authenticated");
-      }
-
-      const trainingLevel = await getUserTrainingLevel(req.user.id);
-      res.json(trainingLevel);
-    } catch (error) {
-      console.error("Error getting training level:", error);
-      res.status(500).json({ error: "Failed to get training level" });
-    }
-  });
-
-  app.post("/api/training/progress", async (req: AuthenticatedRequest, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).send("Not authenticated");
-      }
-
-      const { moduleId, progress, status } = req.body;
-
-      // Update the training progress
-      await db
-        .insert(userTraining)
-        .values({
-          userId: req.user.id,
-          moduleId,
-          progress,
-          status,
-          assignedBy: req.user.id,
-        })
-        .onConflictDoUpdate({
-          target: [userTraining.userId, userTraining.moduleId],
-          set: {
-            progress,
-            status,
-            completedAt: status === 'completed' ? new Date() : undefined,
-          },
+      socket.on('disconnect', () => {
+        console.log('Client disconnected');
+        wsServer.unregisterUser(userId);
+        // Broadcast updated online users list to all clients
+        io.emit('ONLINE_USERS_UPDATE', {
+          type: 'ONLINE_USERS_UPDATE',
+          users: wsServer.getActiveUsers()
         });
-
-      // Broadcast the updated training level
-      await wsServer.broadcastTrainingLevel(req.user.id);
-
-      res.json({ message: "Training progress updated successfully" });
-    } catch (error) {
-      console.error("Error updating training progress:", error);
-      res.status(500).json({ error: "Failed to update training progress" });
+      });
     }
   });
 
   return httpServer;
-}
-
-async function getUserTrainingLevel(userId: string):Promise<number>{
-    const [training] = await db.select(userTraining.level).from(userTraining).where(eq(userTraining.userId, userId)).limit(1)
-    return training?.level || 0;
 }
