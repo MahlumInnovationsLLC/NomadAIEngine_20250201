@@ -1,5 +1,8 @@
 import { Server } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import { db } from "@db";
+import { userTraining, trainingModules } from "@db/schema";
+import { eq } from "drizzle-orm";
 
 interface User {
   id: string;
@@ -8,6 +11,10 @@ interface User {
   status: 'online' | 'away' | 'offline';
   lastSeen?: Date;
   socketId: string;
+  trainingLevel?: {
+    level: string;
+    progress: number;
+  };
 }
 
 const users = new Map<string, User>();
@@ -27,6 +34,52 @@ export function setupWebSocketServer(server: HttpServer) {
     io.emit('presence:update', activeUsers);
   }
 
+  // Broadcast training level update to a specific user
+  async function broadcastTrainingLevel(userId: string) {
+    try {
+      // Get all completed training modules for the user
+      const completedModules = await db
+        .select({
+          moduleId: userTraining.moduleId,
+          progress: userTraining.progress,
+          status: userTraining.status,
+        })
+        .from(userTraining)
+        .where(eq(userTraining.userId, userId));
+
+      // Calculate overall progress
+      let totalProgress = 0;
+      if (completedModules.length > 0) {
+        const completedCount = completedModules.filter(m => m.status === 'completed').length;
+        totalProgress = (completedCount / completedModules.length) * 100;
+      }
+
+      // Determine level based on overall progress
+      let level = "Beginner";
+      if (totalProgress >= 80) {
+        level = "Expert";
+      } else if (totalProgress >= 50) {
+        level = "Intermediate";
+      }
+
+      const trainingLevel = {
+        level,
+        progress: Math.round(totalProgress)
+      };
+
+      // Update user's training level in memory
+      const user = users.get(userId);
+      if (user) {
+        users.set(userId, { ...user, trainingLevel });
+      }
+
+      // Emit training level update to the specific user
+      io.to(`user-${userId}`).emit('training:level', trainingLevel);
+    } catch (error) {
+      console.error("Error broadcasting training level:", error);
+    }
+  }
+
   io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId as string;
 
@@ -42,7 +95,7 @@ export function setupWebSocketServer(server: HttpServer) {
     socket.join(`user-${userId}`);
 
     // Handle presence events
-    socket.on('presence:join', ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
+    socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
       users.set(uid, {
         id: uid,
         name,
@@ -51,6 +104,9 @@ export function setupWebSocketServer(server: HttpServer) {
         lastSeen: new Date()
       });
       broadcastPresence();
+
+      // Send initial training level
+      await broadcastTrainingLevel(uid);
     });
 
     // Handle user status updates
@@ -60,6 +116,11 @@ export function setupWebSocketServer(server: HttpServer) {
         users.set(userId, { ...user, status, lastSeen: new Date() });
         broadcastPresence();
       }
+    });
+
+    // Handle training level requests
+    socket.on('training:request_level', async () => {
+      await broadcastTrainingLevel(userId);
     });
 
     socket.on('disconnect', () => {
@@ -95,6 +156,7 @@ export function setupWebSocketServer(server: HttpServer) {
         io.to(`user-${userId}`).emit('notification', message);
       });
     },
+    broadcastTrainingLevel,
     close: () => {
       io.close();
     }

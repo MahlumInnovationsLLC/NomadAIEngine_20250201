@@ -121,6 +121,7 @@ async function getUserTrainingLevel(userId: string) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+  const wsServer = setupWebSocketServer(httpServer);
 
   try {
     // Initialize Equipment Database
@@ -554,6 +555,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating folder:", error);
       res.status(500).json({ error: "Failed to create folder" });
+    }
+  });
+
+  // Add new endpoint to get user's training level
+  app.get("/api/training/level", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const trainingLevel = await getUserTrainingLevel(req.user.id);
+      res.json(trainingLevel);
+    } catch (error) {
+      console.error("Error getting training level:", error);
+      res.status(500).json({ error: "Failed to get training level" });
+    }
+  });
+
+  // Update training progress endpoint
+  app.post("/api/training/progress", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const { moduleId, progress, status } = req.body;
+
+      // Update the training progress
+      await db
+        .insert(userTraining)
+        .values({
+          userId: req.user.id,
+          moduleId,
+          progress,
+          status,
+          assignedBy: req.user.id,
+        })
+        .onConflictDoUpdate({
+          target: [userTraining.userId, userTraining.moduleId],
+          set: {
+            progress,
+            status,
+            completedAt: status === 'completed' ? new Date() : undefined,
+          },
+        });
+
+      // Broadcast the updated training level
+      await wsServer.broadcastTrainingLevel(req.user.id);
+
+      res.json({ message: "Training progress updated successfully" });
+    } catch (error) {
+      console.error("Error updating training progress:", error);
+      res.status(500).json({ error: "Failed to update training progress" });
     }
   });
 
