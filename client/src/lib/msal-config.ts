@@ -3,8 +3,8 @@ export const msalConfig = {
   auth: {
     clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "",
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID}`,
-    redirectUri: window.location.origin,
-    postLogoutRedirectUri: window.location.origin,
+    redirectUri: "https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev",
+    postLogoutRedirectUri: "https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev",
   },
   cache: {
     cacheLocation: "sessionStorage",
