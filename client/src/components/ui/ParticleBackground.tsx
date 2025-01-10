@@ -33,16 +33,16 @@ export function ParticleBackground() {
     // Initialize particles
     const initParticles = () => {
       const particles: Particle[] = [];
-      const numParticles = Math.min(50, Math.floor((window.innerWidth * window.innerHeight) / 25000));
+      const numParticles = Math.min(75, Math.floor((window.innerWidth * window.innerHeight) / 20000)); // More particles
 
       for (let i = 0; i < numParticles; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          size: Math.random() * 2 + 1, // Slightly larger particles
-          speedX: (Math.random() - 0.5) * 0.2,
-          speedY: (Math.random() - 0.5) * 0.2,
-          opacity: Math.random() * 0.5 + 0.3, // Increased opacity
+          size: Math.random() * 3 + 2, // Larger particles
+          speedX: (Math.random() - 0.5) * 0.3,
+          speedY: (Math.random() - 0.5) * 0.3,
+          opacity: Math.random() * 0.3 + 0.7, // Much higher opacity
         });
       }
       particlesRef.current = particles;
@@ -76,10 +76,10 @@ export function ParticleBackground() {
           if (particle.y < 0) particle.y = canvas.height;
           if (particle.y > canvas.height) particle.y = 0;
 
-          // Draw particle
+          // Draw particle - using rgba for darker color
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-          ctx.fillStyle = `hsla(var(--primary), ${particle.opacity})`;
+          ctx.fillStyle = `rgba(0, 0, 0, ${particle.opacity * 0.4})`; // Dark particles
           ctx.fill();
 
           // Optimize connection drawing by only checking particles ahead
@@ -89,11 +89,11 @@ export function ParticleBackground() {
             const dy = particle.y - otherParticle.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < 80) {
+            if (distance < 100) {
               ctx.beginPath();
               ctx.moveTo(particle.x, particle.y);
               ctx.lineTo(otherParticle.x, otherParticle.y);
-              ctx.strokeStyle = `hsla(var(--primary), ${0.3 * (1 - distance / 80)})`; // Increased connection opacity
+              ctx.strokeStyle = `rgba(0, 0, 0, ${0.3 * (1 - distance / 100)})`; // Dark connections
               ctx.stroke();
             }
           }
