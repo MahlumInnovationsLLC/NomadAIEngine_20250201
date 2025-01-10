@@ -862,23 +862,22 @@ export function registerRoutes(app: Express): Server {
   });
 
 
-  // Update WebSocket connection handling to track online users
-  io.on('connection', (socket, req) => { // Use io for Socket.IO events
-    // Extract user ID from the connection (you'll need to implement authentication)
-    const userId = req.headers['x-user-id'] as string | undefined;
-    if (userId) {
-      wsServer.registerUser(userId); // Register user with WebSocket server
+  // Update Socket.IO connection handling
+  io.on('connection', (socket) => {
+    const userId = socket.handshake.query.userId;
+    if (userId && typeof userId === 'string') {
+      wsServer.registerUser(userId);
 
-      // Broadcast updated online users list
-      wsServer.broadcast(wsServer.getActiveUsers(), {
+      // Emit current online users to the newly connected client
+      socket.emit('ONLINE_USERS_UPDATE', {
         type: 'ONLINE_USERS_UPDATE',
         users: wsServer.getActiveUsers()
       });
 
-      socket.on('disconnect', () => { //Use 'disconnect' instead of 'close' for Socket.IO
-        wsServer.unregisterUser(userId); // Unregister user with WebSocket server
-        // Broadcast updated online users list
-        wsServer.broadcast(wsServer.getActiveUsers(), {
+      socket.on('disconnect', () => {
+        wsServer.unregisterUser(userId);
+        // Broadcast updated online users list to all clients
+        io.emit('ONLINE_USERS_UPDATE', {
           type: 'ONLINE_USERS_UPDATE',
           users: wsServer.getActiveUsers()
         });
