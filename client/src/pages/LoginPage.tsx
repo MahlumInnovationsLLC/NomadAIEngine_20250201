@@ -22,7 +22,7 @@ export default function LoginPage() {
   const handleLogin = async () => {
     try {
       // Clear any existing sessions first
-      await instance.logoutRedirect().catch(() => {
+      await instance.logoutPopup().catch(() => {
         // Ignore any logout errors
       });
 
