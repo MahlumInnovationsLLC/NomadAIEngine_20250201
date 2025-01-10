@@ -42,29 +42,25 @@ export function DocManage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
-          {selectedDocumentId ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="h-5 w-5 mr-2" />
-                  DocManage
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DocumentConfig documentId={selectedDocumentId} />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="py-8 text-center">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <FileText className="h-5 w-5 mr-2" />
+              DocManage
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedDocumentId ? (
+              <DocumentConfig documentId={selectedDocumentId} />
+            ) : (
+              <div className="text-center py-4">
                 <p className="text-muted-foreground">
                   Select a document from the explorer to view and manage its details.
                 </p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
