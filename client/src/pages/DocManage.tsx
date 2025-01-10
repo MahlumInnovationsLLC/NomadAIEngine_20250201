@@ -8,7 +8,7 @@ export function DocManage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
 
   return (
-    <div>
+    <div className="container mx-auto py-6">
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
         <div className="px-4">
           <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
@@ -18,22 +18,20 @@ export function DocManage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <div className="grid grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <FileText className="h-5 w-5 mr-2" />
-                DocExplorer
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FileExplorer onSelectDocument={(id) => setSelectedDocumentId(id)} />
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <FileText className="h-5 w-5 mr-2" />
+              DocExplorer
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FileExplorer onSelectDocument={(id) => setSelectedDocumentId(id)} />
+          </CardContent>
+        </Card>
 
-          <DocControl documentId={selectedDocumentId} />
-        </div>
+        <DocControl documentId={selectedDocumentId} />
       </div>
     </div>
   );

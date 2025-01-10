@@ -84,17 +84,9 @@ function App() {
   const [location] = useLocation();
   const isAuthenticated = useIsAuthenticated();
 
-  // Safely get the current path, defaulting to empty string if undefined
   const currentPath = location?.split('/')[1] || '';
-
-  // Only show ModuleSelector in document training & control section
   const showModuleSelector = ['docmanage'].includes(currentPath);
 
-  // For demo purposes, using a hardcoded user ID
-  const userId = "1";
-
-  // If user is not authenticated and not on login page, don't render anything
-  // The ProtectedRoute component will handle the redirect
   if (!isAuthenticated && currentPath !== 'login') {
     return <LoginPage />;
   }
