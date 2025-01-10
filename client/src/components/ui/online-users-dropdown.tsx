@@ -20,6 +20,16 @@ export function OnlineUsersDropdown() {
   // Count online users
   const onlineCount = users?.filter(user => user.presence.status === 'online').length || 0;
 
+  // Sort users: online users first, then alphabetically by displayName
+  const sortedUsers = users?.sort((a, b) => {
+    // If one is online and other isn't, online comes first
+    if (a.presence.status === 'online' && b.presence.status !== 'online') return -1;
+    if (a.presence.status !== 'online' && b.presence.status === 'online') return 1;
+
+    // If both have same status, sort alphabetically
+    return a.displayName.localeCompare(b.displayName);
+  });
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -33,14 +43,14 @@ export function OnlineUsersDropdown() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>Online Users</DropdownMenuLabel>
+        <DropdownMenuLabel>Team Members</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {isLoading ? (
           <DropdownMenuItem disabled>Loading users...</DropdownMenuItem>
-        ) : !users?.length ? (
+        ) : !sortedUsers?.length ? (
           <DropdownMenuItem disabled>No users found</DropdownMenuItem>
         ) : (
-          users.map(user => (
+          sortedUsers.map(user => (
             <DropdownMenuItem key={user.id} className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
                 <PresenceIndicator status={user.presence.status} size="sm" />
@@ -53,7 +63,7 @@ export function OnlineUsersDropdown() {
                   <span className="italic">
                     {format(new Date(user.presence.lastSeen), 'h:mm a')}
                   </span>
-                ) : null}
+                ) : "Offline"}
               </span>
             </DropdownMenuItem>
           ))
