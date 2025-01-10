@@ -21,16 +21,6 @@ export function OnlineUsersDropdown() {
   // Count online users
   const onlineCount = users?.filter(user => user.presence.status === 'online').length || 0;
 
-  // Sort users: online users first, then alphabetically by displayName
-  const sortedUsers = users?.sort((a, b) => {
-    // If one is online and other isn't, online comes first
-    if (a.presence.status === 'online' && b.presence.status !== 'online') return -1;
-    if (a.presence.status !== 'online' && b.presence.status === 'online') return 1;
-
-    // If both have same status, sort alphabetically
-    return a.displayName.localeCompare(b.displayName);
-  });
-
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -61,10 +51,10 @@ export function OnlineUsersDropdown() {
           <DropdownMenuItem disabled className="text-destructive">
             Failed to load users
           </DropdownMenuItem>
-        ) : !sortedUsers?.length ? (
+        ) : !users?.length ? (
           <DropdownMenuItem disabled>No users found</DropdownMenuItem>
         ) : (
-          sortedUsers.map(user => (
+          users.map(user => (
             <DropdownMenuItem key={user.id} className="flex items-center justify-between py-2">
               <div className="flex items-center gap-2">
                 <PresenceIndicator status={user.presence.status} size="sm" />

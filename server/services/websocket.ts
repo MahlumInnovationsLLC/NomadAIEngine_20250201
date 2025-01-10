@@ -17,6 +17,15 @@ interface User {
   };
 }
 
+interface PresenceJoinPayload {
+  userId: string;
+  name?: string;
+}
+
+interface PresenceStatusPayload {
+  status: 'online' | 'away' | 'offline';
+}
+
 const users = new Map<string, User>();
 const clients = new Map<string, string>(); // userId -> socketId
 
@@ -108,7 +117,13 @@ export function setupWebSocketServer(server: HttpServer) {
     getActiveUsers: () => {
       return Array.from(users.values())
         .filter(user => user.status === 'online')
-        .map(user => user.id);
+        .map(user => ({
+          id: user.id,
+          name: user.name,
+          status: user.status,
+          lastSeen: user.lastSeen,
+          trainingLevel: user.trainingLevel
+        }));
     },
     close: () => {
       io.close();
@@ -128,7 +143,7 @@ export function setupWebSocketServer(server: HttpServer) {
     clients.set(userId, socket.id);
 
     // Handle presence events
-    socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
+    socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }: PresenceJoinPayload) => {
       const user = users.get(uid);
       if (user) {
         users.set(uid, { ...user, status: 'online', name, lastSeen: new Date() });
@@ -147,7 +162,7 @@ export function setupWebSocketServer(server: HttpServer) {
     });
 
     // Handle user status updates
-    socket.on('presence:status', ({ status }) => {
+    socket.on('presence:status', ({ status }: PresenceStatusPayload) => {
       const user = users.get(userId);
       if (user) {
         users.set(userId, { ...user, status, lastSeen: new Date() });

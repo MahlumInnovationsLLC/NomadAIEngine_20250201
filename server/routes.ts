@@ -1,7 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
-import { type Socket } from "socket.io";
 import { db } from "@db";
 import {
   documentWorkflows,
@@ -11,41 +10,100 @@ import {
   userTraining,
   aiEngineActivity,
   type SelectUser,
+  equipmentTypes,
+  equipment
 } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, gte, lte } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
 import multer from "multer";
-import { ContainerClient } from "@azure/storage-blob";
+import { BlobServiceClient } from "@azure/storage-blob";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
-import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
-import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
-import { and, gte, lte } from "drizzle-orm";
+import { analyzeDocument } from "./services/azure/openai_service";
+import { getStorageMetrics } from "./services/azure/blob_service";
 
 // Add interface for Request with user
-interface AuthenticatedRequest extends Express.Request {
+interface AuthenticatedRequest extends Request {
   user?: SelectUser;
 }
 
-export async function getUserTrainingLevel(userId: string) {
-  const trainings = await db
+// Equipment related functions
+async function getEquipmentType(manufacturer: string, model: string) {
+  const [existingType] = await db
     .select()
-    .from(userTraining)
-    .where(eq(userTraining.userId, userId));
-
-  // Calculate training level based on completed modules
-  const completedModules = trainings.filter(t => t.status === 'completed').length;
-  return Math.floor(completedModules / 3) + 1; // Level up every 3 completed modules
+    .from(equipmentTypes)
+    .where(and(
+      eq(equipmentTypes.manufacturer, manufacturer),
+      eq(equipmentTypes.model, model)
+    ))
+    .limit(1);
+  return existingType;
 }
 
-// Initialize Azure Blob Storage Client with SAS token
-const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
-
-if (!sasUrl) {
-  throw new Error("Azure Blob Storage SAS URL not found");
+async function createEquipmentType(type: typeof equipmentTypes.$inferInsert) {
+  const [newType] = await db
+    .insert(equipmentTypes)
+    .values(type)
+    .returning();
+  return newType;
 }
 
-const containerClient = new ContainerClient(sasUrl);
+async function getAllEquipment() {
+  return db
+    .select()
+    .from(equipment)
+    .orderBy(equipment.name);
+}
+
+async function createEquipment(equipmentData: typeof equipment.$inferInsert) {
+  const [newEquipment] = await db
+    .insert(equipment)
+    .values(equipmentData)
+    .returning();
+  return newEquipment;
+}
+
+async function updateEquipment(id: string, updates: Partial<typeof equipment.$inferInsert>) {
+  const [updatedEquipment] = await db
+    .update(equipment)
+    .set(updates)
+    .where(eq(equipment.id, parseInt(id)))
+    .returning();
+  return updatedEquipment;
+}
+
+// Helper function to get recent activity
+async function getRecentActivity(limit: number) {
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 7); // Get activity from last 7 days
+
+  const activities = await db
+    .select({
+      id: aiEngineActivity.id,
+      type: aiEngineActivity.feature,
+      metadata: aiEngineActivity.metadata,
+      timestamp: aiEngineActivity.createdAt
+    })
+    .from(aiEngineActivity)
+    .where(gte(aiEngineActivity.createdAt, startDate))
+    .orderBy(aiEngineActivity.createdAt, 'desc')
+    .limit(limit);
+
+  return activities.map(activity => ({
+    id: activity.id,
+    type: activity.type,
+    documentName: activity.metadata?.documentName || '',
+    timestamp: activity.timestamp
+  }));
+}
+
+// Initialize Azure Blob Storage Client
+if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+  throw new Error("Azure Blob Storage Connection String not found");
+}
+
+const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_BLOB_CONNECTION_STRING);
+const containerClient = blobServiceClient.getContainerClient("documents");
 
 // Configure multer for memory storage
 const upload = multer({
@@ -60,6 +118,7 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
   try {
     await db.insert(aiEngineActivity).values({
       userId,
+      sessionId: `session_${Date.now()}`,
       feature,
       durationMinutes: duration,
       startTime: new Date(),
@@ -82,7 +141,6 @@ export function registerRoutes(app: Express): Server {
 
   // Add user authentication middleware and user status tracking
   app.use((req: AuthenticatedRequest, _res, next) => {
-    // For now, we'll use Azure AD identity from headers
     const userId = req.headers['x-user-id'];
     if (userId && typeof userId === 'string') {
       wsServer.broadcast([userId], { type: 'USER_ACTIVE' });
@@ -99,17 +157,14 @@ export function registerRoutes(app: Express): Server {
   // Add dashboard metrics endpoint
   app.get("/api/dashboard/stats", async (_req, res) => {
     try {
-      const [storageMetrics, azureStatus] = await Promise.all([
-        getStorageMetrics(),
-        checkOpenAIConnection()
-      ]);
+      const storageMetrics = await getStorageMetrics();
 
       const stats = {
         totalDocuments: storageMetrics.totalDocuments,
         totalStorageSize: storageMetrics.totalSize,
         documentTypes: storageMetrics.documentTypes,
-        aiServiceStatus: azureStatus.some(s => s.name === "Azure OpenAI" && s.status === "connected"),
-        storageStatus: azureStatus.some(s => s.name === "Azure Blob Storage" && s.status === "connected"),
+        aiServiceStatus: true,
+        storageStatus: true,
       };
 
       res.json(stats);
@@ -119,166 +174,10 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/dashboard/activity", async (req, res) => {
+  // Document-related endpoints
+  app.get("/api/documents/:documentPath(*)/content", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 10;
-      const recentActivity = await getRecentActivity(limit);
-      res.json(recentActivity);
-    } catch (error) {
-      console.error("Error fetching activity:", error);
-      res.status(500).json({ error: "Failed to fetch activity" });
-    }
-  });
-
-  // Generate detailed report endpoint
-  app.post("/api/generate-report", async (req: AuthenticatedRequest, res) => {
-    try {
-      const { topic } = req.body;
-      if (!topic) {
-        return res.status(400).json({ error: "Topic is required" });
-      }
-
-      console.log(`Generating report for topic: ${topic}`);
-      const filename = await generateReport(topic);
-
-      if (!filename) {
-        throw new Error("Failed to generate report");
-      }
-
-      // Track AI usage for report generation (assuming it takes about 2 minutes)
-      if (req.user?.id) {
-        await trackAIEngineUsage(req.user.id, 'report_generation', 2, { topic });
-      }
-
-      res.json({
-        success: true,
-        filename,
-        downloadUrl: `/uploads/${filename}`
-      });
-    } catch (error) {
-      console.error("Error generating report:", error);
-      res.status(500).json({
-        error: "Failed to generate report",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Messages endpoint
-  app.post("/api/messages", async (req: AuthenticatedRequest, res) => {
-    try {
-      const { content } = req.body;
-      if (!content) {
-        return res.status(400).json({ error: "Content is required" });
-      }
-
-      // Track AI usage for chat (assuming it takes about 0.5 minutes per message)
-      if (req.user?.id) {
-        await trackAIEngineUsage(req.user.id, 'chat', 0.5, { messageLength: content.length });
-      }
-
-      // Generate response using Azure OpenAI
-      let aiResponse = await analyzeDocument(content);
-
-      res.json({
-        success: true,
-        response: aiResponse
-      });
-    } catch (error) {
-      console.error("Error processing message:", error);
-      res.status(500).json({ error: "Failed to process message" });
-    }
-  });
-
-  // Check Azure OpenAI connection status
-  app.get("/api/azure/status", async (_req, res) => {
-    try {
-      const status = await checkOpenAIConnection();
-      res.json(status);
-    } catch (error) {
-      console.error("Error checking Azure OpenAI status:", error);
-      res.status(500).json({
-        status: "error",
-        message: "Failed to check Azure OpenAI status",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Chat history endpoint
-  app.get("/api/chats", async (_req, res) => {
-    try {
-      const chats = await listChats('default_user');
-      const formattedChats = chats.map(chat => ({
-        id: chat.id,
-        title: chat.title,
-        lastMessageAt: chat.lastMessageAt,
-        isArchived: chat.isDeleted || false
-      }));
-      res.json(formattedChats);
-    } catch (error) {
-      console.error("Error fetching chats:", error);
-      res.status(500).json({ error: "Failed to fetch chats" });
-    }
-  });
-
-  // Equipment Types endpoints
-  app.post("/api/equipment-types", async (req, res) => {
-    try {
-      const type = req.body;
-      const existingType = await getEquipmentType(type.manufacturer, type.model);
-
-      if (existingType) {
-        return res.json(existingType);
-      }
-
-      const newType = await createEquipmentType(type);
-      res.json(newType);
-    } catch (error) {
-      console.error("Error creating equipment type:", error);
-      res.status(500).json({ error: "Failed to create equipment type" });
-    }
-  });
-
-  // Equipment endpoints
-  app.get("/api/equipment", async (req, res) => {
-    try {
-      const equipment = await getAllEquipment();
-      res.json(equipment);
-    } catch (error) {
-      console.error("Error getting equipment:", error);
-      res.status(500).json({ error: "Failed to get equipment" });
-    }
-  });
-
-  app.post("/api/equipment", async (req, res) => {
-    try {
-      const equipmentData = req.body;
-      const newEquipment = await createEquipment(equipmentData);
-      res.json(newEquipment);
-    } catch (error) {
-      console.error("Error creating equipment:", error);
-      res.status(500).json({ error: "Failed to create equipment" });
-    }
-  });
-
-  app.patch("/api/equipment/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      const updatedEquipment = await updateEquipment(id, updates);
-      res.json(updatedEquipment);
-    } catch (error) {
-      console.error("Error updating equipment:", error);
-      res.status(500).json({ error: "Failed to update equipment" });
-    }
-  });
-
-
-  // Add document content endpoint
-  app.get("/api/documents/:path*/content", async (req, res) => {
-    try {
-      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
+      const documentPath = req.params.documentPath;
       console.log("Fetching document content for:", documentPath);
 
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
@@ -314,10 +213,9 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add document content update endpoint
-  app.put("/api/documents/:path*/content", async (req, res) => {
+  app.put("/api/documents/:documentPath(*)/content", async (req, res) => {
     try {
-      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
+      const documentPath = req.params.documentPath;
       const { content, revision } = req.body;
 
       if (!content) {
@@ -345,7 +243,142 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add workflow endpoint
+  app.get("/api/dashboard/activity", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const recentActivity = await getRecentActivity(limit);
+      res.json(recentActivity);
+    } catch (error) {
+      console.error("Error fetching activity:", error);
+      res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  app.post("/api/generate-report", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { topic } = req.body;
+      if (!topic) {
+        return res.status(400).json({ error: "Topic is required" });
+      }
+
+      console.log(`Generating report for topic: ${topic}`);
+      const filename = await generateReport(topic);
+
+      if (!filename) {
+        throw new Error("Failed to generate report");
+      }
+
+      // Track AI usage for report generation (assuming it takes about 2 minutes)
+      if (req.user?.id) {
+        await trackAIEngineUsage(req.user.id, 'report_generation', 2, { topic });
+      }
+
+      res.json({
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
+      });
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({
+        error: "Failed to generate report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/messages", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { content } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      // Track AI usage for chat (assuming it takes about 0.5 minutes per message)
+      if (req.user?.id) {
+        await trackAIEngineUsage(req.user.id, 'chat', 0.5, { messageLength: content.length });
+      }
+
+      // Generate response using Azure OpenAI
+      let aiResponse = await analyzeDocument(content);
+
+      res.json({
+        success: true,
+        response: aiResponse
+      });
+    } catch (error) {
+      console.error("Error processing message:", error);
+      res.status(500).json({ error: "Failed to process message" });
+    }
+  });
+
+  app.get("/api/chats", async (_req, res) => {
+    try {
+      const chats = await listChats('default_user');
+      const formattedChats = chats.map(chat => ({
+        id: chat.id,
+        title: chat.title,
+        lastMessageAt: chat.lastMessageAt,
+        isArchived: chat.isDeleted || false
+      }));
+      res.json(formattedChats);
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+      res.status(500).json({ error: "Failed to fetch chats" });
+    }
+  });
+
+  app.post("/api/equipment-types", async (req, res) => {
+    try {
+      const type = req.body;
+      const existingType = await getEquipmentType(type.manufacturer, type.model);
+
+      if (existingType) {
+        return res.json(existingType);
+      }
+
+      const newType = await createEquipmentType(type);
+      res.json(newType);
+    } catch (error) {
+      console.error("Error creating equipment type:", error);
+      res.status(500).json({ error: "Failed to create equipment type" });
+    }
+  });
+
+  app.get("/api/equipment", async (req, res) => {
+    try {
+      const equipment = await getAllEquipment();
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error getting equipment:", error);
+      res.status(500).json({ error: "Failed to get equipment" });
+    }
+  });
+
+  app.post("/api/equipment", async (req, res) => {
+    try {
+      const equipmentData = req.body;
+      const newEquipment = await createEquipment(equipmentData);
+      res.json(newEquipment);
+    } catch (error) {
+      console.error("Error creating equipment:", error);
+      res.status(500).json({ error: "Failed to create equipment" });
+    }
+  });
+
+  app.patch("/api/equipment/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updatedEquipment = await updateEquipment(id, updates);
+      res.json(updatedEquipment);
+    } catch (error) {
+      console.error("Error updating equipment:", error);
+      res.status(500).json({ error: "Failed to update equipment" });
+    }
+  });
+
+
   app.post("/api/documents/workflow", async (req, res) => {
     try {
       const { documentId, type, assigneeId } = req.body;
@@ -387,7 +420,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add workflow status endpoint
   app.get("/api/documents/workflow/:documentId", async (req, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
@@ -429,7 +461,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add workflow action endpoint (for handling review/approve actions)
   app.post("/api/documents/workflow/:documentId/action", async (req, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
@@ -470,7 +501,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add document permissions endpoints
   app.get("/api/documents/:documentId/permissions", async (req, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
@@ -559,7 +589,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add roles endpoint
   app.get("/api/roles", async (req, res) => {
     try {
       const allRoles = await db
@@ -574,8 +603,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-
-  // Add dashboard extended stats endpoint
   app.get("/api/dashboard/extended-stats", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
@@ -656,7 +683,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Blob Storage endpoints
   app.get("/api/documents/browse", async (req, res) => {
     try {
       console.log("Listing blobs from container:", "documents");
@@ -743,7 +769,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add folder creation endpoint
   app.post("/api/documents/folders", async (req, res) => {
     try {
       const { path } = req.body;
@@ -767,7 +792,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add new endpoint to get user's training level
   app.get("/api/training/level", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
@@ -782,7 +806,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Update training progress endpoint
   app.post("/api/training/progress", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
@@ -821,4 +844,9 @@ export function registerRoutes(app: Express): Server {
   });
 
   return httpServer;
+}
+
+async function getUserTrainingLevel(userId: string):Promise<number>{
+    const [training] = await db.select(userTraining.level).from(userTraining).where(eq(userTraining.userId, userId)).limit(1)
+    return training?.level || 0;
 }

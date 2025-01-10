@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMsal } from "@azure/msal-react";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { loginRequest } from "@/lib/msal-config";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import io from "socket.io-client";
 
 interface AzureADUser {
@@ -14,10 +14,14 @@ interface AzureADUser {
     status: 'online' | 'away' | 'offline';
     lastSeen?: Date;
   };
+  trainingLevel?: {
+    level: string;
+    progress: number;
+  };
 }
 
 // Azure AD group ID for GYM AI Engine users
-const GYM_AI_ENGINE_GROUP_ID = process.env.VITE_AZURE_GROUP_ID || 'e8dd9d7a-62e9-4142-b6e2-9491e1dac1e8';
+const GYM_AI_ENGINE_GROUP_ID = process.env.VITE_AZURE_GROUP_ID;
 
 export function useAzureUsers() {
   const { instance, accounts } = useMsal();
@@ -90,7 +94,7 @@ export function useAzureUsers() {
                 status: presenceData.availability === 'Available' ? 'online' : 'offline',
                 lastSeen: new Date(),
               },
-            };
+            } as AzureADUser;
           }
         } catch (error) {
           console.error(`Failed to fetch presence for user ${user.id}:`, error);
@@ -102,11 +106,18 @@ export function useAzureUsers() {
           presence: {
             status: 'offline' as const,
           },
-        };
+        } as AzureADUser;
       });
 
       const usersWithPresence = await Promise.all(presencePromises);
-      return usersWithPresence;
+
+      // Sort users: online users first, then alphabetically by display name
+      return usersWithPresence.sort((a, b) => {
+        if (a.presence.status === b.presence.status) {
+          return a.displayName.localeCompare(b.displayName);
+        }
+        return a.presence.status === 'online' ? -1 : 1;
+      });
     } catch (error) {
       console.error('Error fetching group members:', error);
       throw error;
@@ -153,13 +164,23 @@ export function useAzureUsers() {
           ["azureGroupMembers"],
           (currentUsers) => {
             if (!currentUsers) return currentUsers;
-            return currentUsers.map(user => ({
+
+            // Update presence status for each user
+            const updatedUsers = currentUsers.map(user => ({
               ...user,
               presence: {
                 status: data.users.includes(user.id) ? 'online' : 'offline',
                 lastSeen: data.users.includes(user.id) ? new Date() : user.presence.lastSeen,
               }
             }));
+
+            // Sort: online users first, then alphabetically
+            return updatedUsers.sort((a, b) => {
+              if (a.presence.status === b.presence.status) {
+                return a.displayName.localeCompare(b.displayName);
+              }
+              return a.presence.status === 'online' ? -1 : 1;
+            });
           }
         );
       });
