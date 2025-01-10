@@ -20,7 +20,7 @@ import ChatPage from "@/pages/ChatPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ClubControlPage from "@/pages/ClubControlPage";
 import LoginPage from "@/pages/LoginPage";
-import DocManage from "@/pages/DocManage";
+import { DocManage } from "@/pages/DocManage";
 import React from 'react';
 
 // Initialize MSAL instance
@@ -110,7 +110,7 @@ function App() {
         <div className="flex gap-4">
           {showModuleSelector && isAuthenticated && (
             <ModuleSelector 
-              activeModule={currentPath || 'docmanage'} 
+              activeModule={currentPath} 
               onModuleChange={(moduleId) => {
                 window.location.href = `/${moduleId}`;
               }}
@@ -118,7 +118,7 @@ function App() {
           )}
           <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
             <AnimatePresence mode="wait">
-              <Switch key={location}>
+              <Switch>
                 <Route path="/login" component={LoginPage} />
                 <Route path="/" component={() => <ProtectedRoute component={Home} />} />
                 <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
