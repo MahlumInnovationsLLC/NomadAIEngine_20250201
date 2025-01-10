@@ -602,26 +602,34 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Add document content endpoint
-  app.get("/api/documents/:path/content", async (req, res) => {
+  app.get("/api/documents/:path*/content", async (req, res) => {
     try {
-      const documentPath = decodeURIComponent(req.params.path);
+      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
       console.log("Fetching document content for:", documentPath);
 
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
-      const downloadResponse = await blockBlobClient.download();
 
-      if (!downloadResponse.readableStreamBody) {
-        throw new Error("No content available");
+      try {
+        const downloadResponse = await blockBlobClient.download();
+
+        if (!downloadResponse.readableStreamBody) {
+          return res.status(404).json({ error: "No content available" });
+        }
+
+        // Read the stream into a buffer
+        const chunks: Buffer[] = [];
+        for await (const chunk of downloadResponse.readableStreamBody) {
+          chunks.push(Buffer.from(chunk));
+        }
+        const content = Buffer.concat(chunks).toString('utf-8');
+
+        res.json({ content });
+      } catch (error: any) {
+        if (error.statusCode === 404) {
+          return res.status(404).json({ error: "Document not found" });
+        }
+        throw error;
       }
-
-      // Read the stream into a buffer
-      const chunks: Buffer[] = [];
-      for await (const chunk of downloadResponse.readableStreamBody) {
-        chunks.push(Buffer.from(chunk));
-      }
-      const content = Buffer.concat(chunks).toString('utf-8');
-
-      res.json({ content });
     } catch (error) {
       console.error("Error fetching document content:", error);
       res.status(500).json({ error: "Failed to fetch document content" });

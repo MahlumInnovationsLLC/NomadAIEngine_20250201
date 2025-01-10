@@ -13,8 +13,8 @@ interface DocumentData {
 }
 
 export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
-  const { data: document, isLoading } = useQuery<DocumentData>({
-    queryKey: [`/api/documents/${documentId}/content`],
+  const { data: document, isLoading, error } = useQuery<DocumentData>({
+    queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`],
     enabled: !!documentId,
   });
 
@@ -22,6 +22,14 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     return (
       <div className="flex items-center justify-center h-[500px]">
         <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-[500px] text-destructive">
+        <p>Error loading document content. Please try again.</p>
       </div>
     );
   }

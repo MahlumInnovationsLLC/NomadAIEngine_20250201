@@ -15,7 +15,7 @@ interface BlobItem {
 }
 
 interface FileExplorerProps {
-  onSelectDocument?: (id: number) => void;
+  onSelectDocument?: (path: string) => void;
 }
 
 export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
@@ -25,7 +25,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: items = [], isLoading } = useQuery<BlobItem[]>({
+  const { data: items = [], isLoading, refetch } = useQuery<BlobItem[]>({
     queryKey: ['/api/documents/browse', currentPath],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -81,17 +81,14 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const handleItemClick = (item: BlobItem) => {
     if (item.type === 'folder') {
       navigateToFolder(item.path);
-    } else {
-      // Extract document ID from the file path or name
-      const documentId = parseInt(item.path.split('/').pop()?.split('.')[0] || '0');
-      if (documentId > 0 && onSelectDocument) {
-        onSelectDocument(documentId);
-      }
+    } else if (onSelectDocument) {
+      onSelectDocument(item.path);
     }
   };
 
   const refreshCurrentFolder = () => {
     queryClient.invalidateQueries({ queryKey: ['/api/documents/browse', currentPath] });
+    refetch();
   };
 
   return (

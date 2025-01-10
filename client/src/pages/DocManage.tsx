@@ -8,16 +8,16 @@ import { Separator } from "@/components/ui/separator";
 import SearchInterface from "@/components/document/SearchInterface";
 
 export function DocManage() {
-  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
+  const [selectedDocumentPath, setSelectedDocumentPath] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   const handleDownload = async () => {
-    if (!selectedDocumentId) return;
+    if (!selectedDocumentPath) return;
     // TODO: Implement download functionality
   };
 
   const handleRevise = () => {
-    if (!selectedDocumentId) return;
+    if (!selectedDocumentPath) return;
     // TODO: Implement revision functionality
   };
 
@@ -58,7 +58,7 @@ export function DocManage() {
               </div>
             </CardHeader>
             <CardContent className="-mx-2">
-              <FileExplorer onSelectDocument={(id) => setSelectedDocumentId(id)} />
+              <FileExplorer onSelectDocument={(path) => setSelectedDocumentPath(path)} />
             </CardContent>
           </Card>
         </div>
@@ -74,7 +74,7 @@ export function DocManage() {
                 variant="outline" 
                 size="sm"
                 onClick={() => setIsEditing(!isEditing)}
-                disabled={!selectedDocumentId}
+                disabled={!selectedDocumentPath}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
@@ -83,7 +83,7 @@ export function DocManage() {
                 variant="outline" 
                 size="sm"
                 onClick={handleDownload}
-                disabled={!selectedDocumentId}
+                disabled={!selectedDocumentPath}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download
@@ -92,7 +92,7 @@ export function DocManage() {
                 variant="outline" 
                 size="sm"
                 onClick={handleRevise}
-                disabled={!selectedDocumentId}
+                disabled={!selectedDocumentPath}
               >
                 <History className="h-4 w-4 mr-2" />
                 Revise
@@ -101,10 +101,10 @@ export function DocManage() {
             <Separator className="mt-2" />
           </CardHeader>
           <CardContent>
-            {selectedDocumentId ? (
+            {selectedDocumentPath ? (
               <div className="space-y-4">
                 <DocumentViewer 
-                  documentId={selectedDocumentId} 
+                  documentId={selectedDocumentPath} 
                   isEditing={isEditing}
                 />
               </div>
