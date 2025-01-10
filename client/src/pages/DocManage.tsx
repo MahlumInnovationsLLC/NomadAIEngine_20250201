@@ -4,20 +4,22 @@ import { FileText } from "lucide-react";
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocControl } from "@/components/document/DocControl";
 
-export default function DocManage() {
+export function DocManage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
 
   return (
-    <div className="container mx-auto">
-      <div className="p-8 border-b bg-background">
-        <h1 className="text-3xl font-bold mb-2">Document Management</h1>
-        <p className="text-muted-foreground">
-          Browse, manage, and control document versions and permissions
-        </p>
+    <div>
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
+        <div className="px-4">
+          <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
+          <p className="text-muted-foreground mb-4">
+            Browse and manage documents with advanced training and workflow control.
+          </p>
+        </div>
       </div>
 
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -36,3 +38,5 @@ export default function DocManage() {
     </div>
   );
 }
+
+export default DocManage;

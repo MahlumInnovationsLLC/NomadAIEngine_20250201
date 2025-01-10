@@ -1,5 +1,4 @@
 import { Switch, Route, useLocation } from "wouter";
-import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, LogOut } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -20,8 +19,8 @@ import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ClubControlPage from "@/pages/ClubControlPage";
-import DocManage from "@/pages/DocManage";
 import LoginPage from "@/pages/LoginPage";
+import DocManage from "@/pages/DocManage";
 import React from 'react';
 
 // Initialize MSAL instance
@@ -89,7 +88,7 @@ function App() {
   const currentPath = location?.split('/')[1] || '';
 
   // Only show ModuleSelector in document training & control section
-  const showModuleSelector = ['docmanage', 'training'].includes(currentPath);
+  const showModuleSelector = ['docmanage'].includes(currentPath);
 
   // For demo purposes, using a hardcoded user ID
   const userId = "1";
@@ -159,11 +158,9 @@ export default function AppWrapper() {
   return (
     <MsalProvider instance={msalInstance}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <OnboardingProvider>
-            <App />
-          </OnboardingProvider>
-        </ThemeProvider>
+        <OnboardingProvider>
+          <App />
+        </OnboardingProvider>
       </QueryClientProvider>
     </MsalProvider>
   );
