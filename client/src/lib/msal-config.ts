@@ -4,11 +4,12 @@ export const msalConfig = {
     clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "",
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID}`,
     redirectUri: window.location.origin,
-    navigateToLoginRequestUrl: true,
+    postLogoutRedirectUri: window.location.origin,
+    navigateToLoginRequestUrl: false,
   },
   cache: {
-    cacheLocation: "localStorage", // Use localStorage for better persistence
-    storeAuthStateInCookie: false, // Set to false for modern browsers
+    cacheLocation: "localStorage",
+    storeAuthStateInCookie: false,
   },
   system: {
     allowNativeBroker: false,
@@ -45,7 +46,7 @@ export const msalConfig = {
 
 // Add here scopes for id token to be used at MS Identity Platform endpoints.
 export const loginRequest = {
-  scopes: ["User.Read"],
+  scopes: ["User.Read", "openid", "profile"],
   prompt: "select_account",
 };
 

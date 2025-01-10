@@ -26,6 +26,7 @@ export default function LoginPage() {
       const result = await instance.loginPopup({
         ...loginRequest,
         prompt: "select_account",
+        redirectUri: window.location.origin,
       });
 
       if (result) {
