@@ -33,17 +33,16 @@ export function ParticleBackground() {
     // Initialize particles
     const initParticles = () => {
       const particles: Particle[] = [];
-      // Reduce particle count for better performance
       const numParticles = Math.min(50, Math.floor((window.innerWidth * window.innerHeight) / 25000));
 
       for (let i = 0; i < numParticles; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          size: Math.random() * 2 + 0.5,
+          size: Math.random() * 2 + 1, // Slightly larger particles
           speedX: (Math.random() - 0.5) * 0.2,
           speedY: (Math.random() - 0.5) * 0.2,
-          opacity: Math.random() * 0.3 + 0.1,
+          opacity: Math.random() * 0.5 + 0.3, // Increased opacity
         });
       }
       particlesRef.current = particles;
@@ -94,7 +93,7 @@ export function ParticleBackground() {
               ctx.beginPath();
               ctx.moveTo(particle.x, particle.y);
               ctx.lineTo(otherParticle.x, otherParticle.y);
-              ctx.strokeStyle = `hsla(var(--primary), ${0.15 * (1 - distance / 80)})`;
+              ctx.strokeStyle = `hsla(var(--primary), ${0.3 * (1 - distance / 80)})`; // Increased connection opacity
               ctx.stroke();
             }
           }
