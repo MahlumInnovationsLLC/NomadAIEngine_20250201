@@ -3,16 +3,16 @@ export const msalConfig = {
   auth: {
     clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "",
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID}`,
-    redirectUri: window.location.origin, // Must match the redirect URI in Azure Portal
+    redirectUri: window.location.origin,
+    navigateToLoginRequestUrl: true,
     postLogoutRedirectUri: window.location.origin,
-    navigateToLoginRequestUrl: false,
   },
   cache: {
     cacheLocation: "sessionStorage",
-    storeAuthStateInCookie: false,
+    storeAuthStateInCookie: true, // Set to true for IE11
   },
   system: {
-    allowNativeBroker: false, // Disable native broker
+    allowNativeBroker: false,
     windowHashTimeout: 60000,
     iframeHashTimeout: 6000,
     loadFrameTimeout: 0,
@@ -46,8 +46,8 @@ export const msalConfig = {
 
 // Add here scopes for id token to be used at MS Identity Platform endpoints.
 export const loginRequest = {
-  scopes: ["User.Read", "profile", "openid", "email"],
-  prompt: "select_account"
+  scopes: ["User.Read"],
+  prompt: "select_account",
 };
 
 // Add here the endpoints for MS Graph API services you would like to use.

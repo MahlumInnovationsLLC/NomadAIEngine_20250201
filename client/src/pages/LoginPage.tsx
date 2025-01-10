@@ -23,7 +23,6 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     try {
-      // Always use popup in Replit environment to avoid SPA issues
       const result = await instance.loginPopup({
         ...loginRequest,
         prompt: "select_account",
@@ -48,14 +47,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-background">
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-background/95">
+      <div className="absolute inset-0 -z-20 bg-white" />
       <ParticleBackground />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative z-10"
       >
-        <Card className="w-full max-w-md mx-4 backdrop-blur-sm bg-background/95">
+        <Card className="w-full max-w-md mx-4 backdrop-blur-sm bg-white/95">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
             <CardDescription>
