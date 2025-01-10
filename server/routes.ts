@@ -1,3 +1,72 @@
+interface EquipmentType {
+  id: string;
+  manufacturer: string;
+  model: string;
+  type: string;
+}
+
+let equipmentTypeStore: EquipmentType[] = [];
+
+async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
+  return equipmentTypeStore.find(et => et.manufacturer === manufacturer && et.model === model) || null;
+}
+
+async function createEquipmentType(data: Partial<EquipmentType>): Promise<EquipmentType> {
+  const newType: EquipmentType = {
+    id: uuidv4(),
+    manufacturer: data.manufacturer || '',
+    model: data.model || '',
+    type: data.type || ''
+  };
+  equipmentTypeStore.push(newType);
+  return newType;
+}
+
+interface Equipment {
+  id: string;
+  name: string;
+  type: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  yearManufactured: number;
+  lastMaintenanceDate?: Date;
+  nextMaintenanceDate?: Date;
+  status: 'active' | 'maintenance' | 'retired';
+}
+
+// In-memory storage for equipment (temporary until database integration)
+let equipmentStore: Equipment[] = [];
+
+async function getAllEquipment(): Promise<Equipment[]> {
+  return equipmentStore;
+}
+
+async function createEquipment(data: Partial<Equipment>): Promise<Equipment> {
+  const newEquipment: Equipment = {
+    id: uuidv4(),
+    name: data.name || '',
+    type: data.type || '',
+    manufacturer: data.manufacturer || '',
+    model: data.model || '',
+    serialNumber: data.serialNumber || '',
+    yearManufactured: data.yearManufactured || new Date().getFullYear(),
+    lastMaintenanceDate: data.lastMaintenanceDate,
+    nextMaintenanceDate: data.nextMaintenanceDate,
+    status: data.status || 'active'
+  };
+  equipmentStore.push(newEquipment);
+  return newEquipment;
+}
+
+async function updateEquipment(id: string, updates: Partial<Equipment>): Promise<Equipment | null> {
+  const index = equipmentStore.findIndex(e => e.id === id);
+  if (index === -1) return null;
+
+  equipmentStore[index] = { ...equipmentStore[index], ...updates };
+  return equipmentStore[index];
+}
+
 import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
@@ -88,12 +157,7 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
-  const io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
-  });
+  const io = new SocketIOServer(httpServer);
   const wsServer = setupWebSocketServer(io);
 
   // Add uploads directory for serving generated files
@@ -164,12 +228,16 @@ export function registerRoutes(app: Express): Server {
       const { id } = req.params;
       const updates = req.body;
       const updatedEquipment = await updateEquipment(id, updates);
+      if (!updatedEquipment) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
       res.json(updatedEquipment);
     } catch (error) {
       console.error("Error updating equipment:", error);
       res.status(500).json({ error: "Failed to update equipment" });
     }
   });
+
 
   // Generate detailed report endpoint
   app.post("/api/generate-report", async (req, res) => {
