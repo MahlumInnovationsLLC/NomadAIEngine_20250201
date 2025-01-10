@@ -7,7 +7,7 @@ export const msalConfig = {
   },
   cache: {
     cacheLocation: "sessionStorage",
-    storeAuthStateInCookie: true,
+    storeAuthStateInCookie: false, // Changed to false for SPA
   },
   system: {
     allowNativeBroker: false, // Disable native broker
