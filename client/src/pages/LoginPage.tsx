@@ -21,6 +21,12 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     try {
+      // Clear any existing sessions first
+      await instance.logoutRedirect().catch(() => {
+        // Ignore any logout errors
+      });
+
+      // Then attempt login
       await instance.loginPopup(loginRequest);
       // If login is successful, the useEffect above will handle the redirect
     } catch (error) {

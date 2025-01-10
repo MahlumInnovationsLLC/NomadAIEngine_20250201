@@ -165,7 +165,7 @@ export default function AppWrapper() {
   return (
     <MsalProvider instance={msalInstance}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="system" enableSystem>
+        <ThemeProvider>
           <OnboardingProvider>
             <App />
           </OnboardingProvider>
