@@ -163,7 +163,7 @@ export default function AppWrapper() {
   return (
     <MsalProvider instance={msalInstance}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <OnboardingProvider>
             <App />
           </OnboardingProvider>
