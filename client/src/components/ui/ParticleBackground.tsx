@@ -33,16 +33,16 @@ export function ParticleBackground() {
     // Initialize particles
     const initParticles = () => {
       const particles: Particle[] = [];
-      const numParticles = Math.min(75, Math.floor((window.innerWidth * window.innerHeight) / 20000)); // More particles
+      const numParticles = Math.min(100, Math.floor((window.innerWidth * window.innerHeight) / 15000)); // More particles
 
       for (let i = 0; i < numParticles; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          size: Math.random() * 3 + 2, // Larger particles
-          speedX: (Math.random() - 0.5) * 0.3,
-          speedY: (Math.random() - 0.5) * 0.3,
-          opacity: Math.random() * 0.3 + 0.7, // Much higher opacity
+          size: Math.random() * 4 + 2, // Larger particles
+          speedX: (Math.random() - 0.5) * 0.8, // Faster movement
+          speedY: (Math.random() - 0.5) * 0.8,
+          opacity: Math.random() * 0.4 + 0.6, // Higher opacity
         });
       }
       particlesRef.current = particles;
@@ -54,18 +54,18 @@ export function ParticleBackground() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         particlesRef.current.forEach((particle, index) => {
-          // Update position
-          particle.x += particle.speedX;
-          particle.y += particle.speedY;
+          // Update position with slightly more dynamic movement
+          particle.x += particle.speedX * (1 + Math.sin(Date.now() * 0.001) * 0.2);
+          particle.y += particle.speedY * (1 + Math.cos(Date.now() * 0.001) * 0.2);
 
-          // Mouse interaction with distance limit
+          // Mouse interaction with stronger effect
           const dx = mouseRef.current.x - particle.x;
           const dy = mouseRef.current.y - particle.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          const interactionDistance = 100;
+          const interactionDistance = 150;
 
           if (distance < interactionDistance) {
-            const force = (1 - distance / interactionDistance) * 0.2;
+            const force = (1 - distance / interactionDistance) * 0.5;
             particle.x -= dx * force;
             particle.y -= dy * force;
           }
@@ -76,24 +76,25 @@ export function ParticleBackground() {
           if (particle.y < 0) particle.y = canvas.height;
           if (particle.y > canvas.height) particle.y = 0;
 
-          // Draw particle - using rgba for darker color
+          // Draw particle - more visible black particles
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(0, 0, 0, ${particle.opacity * 0.4})`; // Dark particles
+          ctx.fillStyle = `rgba(0, 0, 0, ${particle.opacity})`; // Darker particles
           ctx.fill();
 
-          // Optimize connection drawing by only checking particles ahead
+          // Draw connections with higher contrast
           for (let j = index + 1; j < particlesRef.current.length; j++) {
             const otherParticle = particlesRef.current[j];
             const dx = particle.x - otherParticle.x;
             const dy = particle.y - otherParticle.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < 100) {
+            if (distance < 120) {
               ctx.beginPath();
               ctx.moveTo(particle.x, particle.y);
               ctx.lineTo(otherParticle.x, otherParticle.y);
-              ctx.strokeStyle = `rgba(0, 0, 0, ${0.3 * (1 - distance / 100)})`; // Dark connections
+              ctx.strokeStyle = `rgba(0, 0, 0, ${0.5 * (1 - distance / 120)})`; // More visible connections
+              ctx.lineWidth = 1;
               ctx.stroke();
             }
           }
@@ -118,25 +119,18 @@ export function ParticleBackground() {
             y: e.clientY,
           };
           throttleTimeout = 0;
-        }, 16); // approximately 60fps
+        }, 16);
       }
     };
 
-    // Initialize and start animation
-    const resizeHandler = () => {
-      resizeCanvas();
-      initParticles();
-    };
-
-    window.addEventListener('resize', resizeHandler);
+    window.addEventListener('resize', resizeCanvas);
     window.addEventListener('mousemove', handleMouseMove);
 
-    resizeHandler();
+    initParticles();
     animate();
 
-    // Cleanup
     return () => {
-      window.removeEventListener('resize', resizeHandler);
+      window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -150,8 +144,8 @@ export function ParticleBackground() {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 -z-10 bg-transparent pointer-events-none"
-      style={{ opacity: 0.7 }}
+      className="fixed inset-0 -z-10 bg-transparent"
+      style={{ opacity: 1 }} // Full opacity for maximum visibility
     />
   );
 }

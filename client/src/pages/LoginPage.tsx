@@ -4,54 +4,10 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RiMicrosoftFill } from "react-icons/ri";
-import { loginRequest, isReplitEnv } from "@/lib/msal-config";
+import { loginRequest } from "@/lib/msal-config";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
-
-const BackgroundShapes = () => (
-  <div className="fixed inset-0 overflow-hidden -z-10">
-    <motion.div
-      className="absolute w-[40rem] h-[40rem] bg-primary/5 rounded-full"
-      animate={{
-        scale: [1, 1.2, 1],
-        x: ["-25%", "-15%", "-25%"],
-        y: ["-25%", "-35%", "-25%"],
-      }}
-      transition={{
-        duration: 20,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
-    />
-    <motion.div
-      className="absolute right-0 bottom-0 w-[35rem] h-[35rem] bg-primary/3 rounded-full"
-      animate={{
-        scale: [1, 1.1, 1],
-        x: ["25%", "15%", "25%"],
-        y: ["25%", "15%", "25%"],
-      }}
-      transition={{
-        duration: 15,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
-    />
-    <motion.div
-      className="absolute left-1/2 top-1/2 w-[45rem] h-[45rem] bg-primary/2 rounded-full"
-      animate={{
-        scale: [1, 1.3, 1],
-        x: ["-50%", "-45%", "-50%"],
-        y: ["-50%", "-55%", "-50%"],
-      }}
-      transition={{
-        duration: 25,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
-    />
-  </div>
-);
 
 export default function LoginPage() {
   const { instance } = useMsal();
@@ -67,24 +23,19 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     try {
-      // In Replit dev environment, always use popup to avoid iframe issues
-      if (isReplitEnv) {
-        const result = await instance.loginPopup({
-          ...loginRequest,
-          prompt: "select_account",
-        });
+      // Always use popup in Replit environment to avoid SPA issues
+      const result = await instance.loginPopup({
+        ...loginRequest,
+        prompt: "select_account",
+      });
 
-        if (result) {
-          console.log("Login successful");
-          toast({
-            title: "Success",
-            description: "Successfully signed in",
-          });
-          setLocation("/dashboard");
-        }
-      } else {
-        // In production, we can use redirect
-        await instance.loginRedirect(loginRequest);
+      if (result) {
+        console.log("Login successful");
+        toast({
+          title: "Success",
+          description: "Successfully signed in",
+        });
+        setLocation("/dashboard");
       }
     } catch (error: any) {
       console.error("Login error:", error);
@@ -99,7 +50,6 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-background">
       <ParticleBackground />
-      <BackgroundShapes />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
