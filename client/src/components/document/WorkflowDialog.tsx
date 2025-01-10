@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAzureUsers } from "@/hooks/use-azure-users";
 
 interface WorkflowDialogProps {
   documentId: string;
@@ -23,6 +24,7 @@ export function WorkflowDialog({ documentId, documentTitle, trigger }: WorkflowD
   const [assignee, setAssignee] = useState<string>('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { users, isLoading: usersLoading } = useAzureUsers();
 
   const workflowMutation = useMutation({
     mutationFn: async (request: WorkflowRequest) => {
@@ -31,11 +33,11 @@ export function WorkflowDialog({ documentId, documentTitle, trigger }: WorkflowD
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
       });
-      
+
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -71,13 +73,6 @@ export function WorkflowDialog({ documentId, documentTitle, trigger }: WorkflowD
     });
   };
 
-  // Mock collaborators data - this should come from an API
-  const collaborators = [
-    { id: '1', name: 'John Doe' },
-    { id: '2', name: 'Jane Smith' },
-    { id: '3', name: 'Bob Johnson' },
-  ];
-
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -90,7 +85,7 @@ export function WorkflowDialog({ documentId, documentTitle, trigger }: WorkflowD
             Select the type of request and assign a collaborator to review or approve "{documentTitle}"
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Request Type</Label>
@@ -112,9 +107,11 @@ export function WorkflowDialog({ documentId, documentTitle, trigger }: WorkflowD
                 <SelectValue placeholder="Select collaborator" />
               </SelectTrigger>
               <SelectContent>
-                {collaborators.map((collaborator) => (
-                  <SelectItem key={collaborator.id} value={collaborator.id}>
-                    {collaborator.name}
+                {usersLoading ? (
+                  <SelectItem value="" disabled>Loading collaborators...</SelectItem>
+                ) : users?.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.displayName} ({user.mail})
                   </SelectItem>
                 ))}
               </SelectContent>

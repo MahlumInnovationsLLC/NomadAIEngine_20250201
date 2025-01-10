@@ -1,6 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "@db";
-import { documentWorkflows, documentApprovals } from "@db/schema";
+import { 
+  documentWorkflows, 
+  documentApprovals, 
+  documentPermissions,
+  roles,
+  userTraining,
+  aiEngineActivity
+} from "@db/schema";
 import type { Express, Request } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
@@ -23,7 +30,6 @@ import {
 // Add new imports for dashboard endpoints
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import { and, gte, lte } from "drizzle-orm";
-
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
