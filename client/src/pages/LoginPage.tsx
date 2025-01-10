@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RiMicrosoftFill } from "react-icons/ri";
 import { loginRequest } from "@/lib/msal-config";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const { instance } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -17,10 +19,18 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, setLocation]);
 
-  const handleLogin = () => {
-    instance.loginPopup(loginRequest).catch(error => {
+  const handleLogin = async () => {
+    try {
+      await instance.loginPopup(loginRequest);
+      // If login is successful, the useEffect above will handle the redirect
+    } catch (error) {
       console.error("Error during login:", error);
-    });
+      toast({
+        variant: "destructive",
+        title: "Authentication Error",
+        description: "Failed to sign in. Please try again.",
+      });
+    }
   };
 
   return (
