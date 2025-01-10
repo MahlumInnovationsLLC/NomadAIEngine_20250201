@@ -1,17 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FileText, Settings, Trophy } from "lucide-react";
+import { Settings, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const modules = [
-  {
-    id: "documents",
-    label: "Documents",
-    icon: <FileText className="h-5 w-5" />,
-    description: "Browse and manage documents"
-  },
   {
     id: "docmanagement",
     label: "DocManagement",
@@ -62,9 +56,7 @@ export function ModuleSelector({ activeModule, onModuleChange }: ModuleSelectorP
                   activeModule === module.id && "bg-secondary",
                   hoveredId === module.id && "shadow-sm"
                 )}
-                onClick={() => {
-                  onModuleChange(module.id);
-                }}
+                onClick={() => onModuleChange(module.id)}
               >
                 <motion.div
                   animate={{ 

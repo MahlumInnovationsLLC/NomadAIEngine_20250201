@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText } from "lucide-react";
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocControl } from "@/components/document/DocControl";
+import { DocumentConfig } from "@/components/document/DocumentConfig";
 
 export function DocManage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
@@ -18,12 +19,12 @@ export function DocManage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <FileText className="h-5 w-5 mr-2" />
-              DocExplorer
+              Document Explorer
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -31,10 +32,14 @@ export function DocManage() {
           </CardContent>
         </Card>
 
-        <DocControl documentId={selectedDocumentId} />
+        {selectedDocumentId && (
+          <Card>
+            <CardContent className="pt-6">
+              <DocumentConfig documentId={selectedDocumentId} />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
 }
-
-export default DocManage;
