@@ -49,7 +49,7 @@ export function AzureServicesStatus() {
     return services.map((service) => (
       <div key={service.name} className="flex justify-between items-center py-2">
         <StatusIndicator status={service.status} label={service.name} />
-        {service.message && (
+        {!isFetching && service.message && (
           <span className="text-xs text-muted-foreground">
             {service.message}
           </span>
