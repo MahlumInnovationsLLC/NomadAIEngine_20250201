@@ -21,20 +21,26 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     try {
-      // Clear any existing sessions first
-      await instance.logoutPopup().catch(() => {
-        // Ignore any logout errors
+      console.log("Attempting login with MSAL...");
+      const result = await instance.loginPopup({
+        ...loginRequest,
+        prompt: "select_account",
       });
 
-      // Then attempt login
-      await instance.loginPopup(loginRequest);
-      // If login is successful, the useEffect above will handle the redirect
-    } catch (error) {
-      console.error("Error during login:", error);
+      if (result) {
+        console.log("Login successful");
+        toast({
+          title: "Success",
+          description: "Successfully signed in",
+        });
+        setLocation("/dashboard");
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
       toast({
         variant: "destructive",
         title: "Authentication Error",
-        description: "Failed to sign in. Please try again.",
+        description: error.errorMessage || error.message || "Failed to sign in. Please try again.",
       });
     }
   };
