@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, FolderPlus, Upload, Download, Edit, History } from "lucide-react";
 import { FileExplorer } from "@/components/document/FileExplorer";
@@ -10,6 +10,11 @@ import SearchInterface from "@/components/document/SearchInterface";
 export function DocManage() {
   const [selectedDocumentPath, setSelectedDocumentPath] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Reset editing state when document changes
+  useEffect(() => {
+    setIsEditing(false);
+  }, [selectedDocumentPath]);
 
   const handleDownload = async () => {
     if (!selectedDocumentPath) return;
