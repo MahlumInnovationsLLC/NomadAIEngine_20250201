@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAzureUsers } from "@/hooks/use-azure-users";
+import { Badge } from "@/components/ui/badge";
 
 interface WorkflowDialogProps {
   documentId: string;
@@ -111,7 +112,12 @@ export function WorkflowDialog({ documentId, documentTitle, trigger }: WorkflowD
                   <SelectItem value="" disabled>Loading collaborators...</SelectItem>
                 ) : users?.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
-                    {user.displayName} ({user.mail})
+                    <div className="flex items-center justify-between w-full">
+                      <span>{user.displayName} ({user.mail})</span>
+                      {user.isOnline && (
+                        <Badge variant="success" className="ml-2">Online</Badge>
+                      )}
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>

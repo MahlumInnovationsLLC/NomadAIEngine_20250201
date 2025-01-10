@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@db";
-import { 
-  documentWorkflows, 
-  documentApprovals, 
+import {
+  documentWorkflows,
+  documentApprovals,
   documentPermissions,
   roles,
   userTraining,
@@ -11,6 +11,7 @@ import {
 import type { Express, Request } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import { Server as SocketIOServer } from "socket.io"; // Import Socket.IO
 import { v4 as uuidv4 } from 'uuid';
 import multer from "multer";
 import { ContainerClient } from "@azure/storage-blob";
@@ -18,14 +19,6 @@ import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
-import {
-  initializeEquipmentDatabase,
-  getEquipmentType,
-  createEquipmentType,
-  getAllEquipment,
-  createEquipment,
-  updateEquipment,
-} from "./services/azure/equipment_service";
 
 // Add new imports for dashboard endpoints
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
@@ -74,72 +67,32 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
   }
 }
 
-// Helper function to get training level
-async function getUserTrainingLevel(userId: string) {
-  try {
-    // Get all completed training modules for the user
-    const completedModules = await db
-      .select({
-        moduleId: userTraining.moduleId,
-        progress: userTraining.progress,
-        status: userTraining.status,
-      })
-      .from(userTraining)
-      .where(eq(userTraining.userId, userId));
-
-    // Calculate overall progress
-    let totalProgress = 0;
-    if (completedModules.length > 0) {
-      const completedCount = completedModules.filter(m => m.status === 'completed').length;
-      totalProgress = (completedCount / completedModules.length) * 100;
-    }
-
-    // Determine level based on overall progress
-    let level = "Beginner";
-    if (totalProgress >= 80) {
-      level = "Expert";
-    } else if (totalProgress >= 50) {
-      level = "Intermediate";
-    }
-
-    return {
-      level,
-      progress: Math.round(totalProgress)
-    };
-  } catch (error) {
-    console.error("Error getting user training level:", error);
-    return {
-      level: "Beginner",
-      progress: 0
-    };
-  }
-}
-
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
-  const wsServer = setupWebSocketServer(httpServer);
-
-  // Initialize Equipment Database asynchronously after setting up routes
-  (async () => {
-    try {
-      console.log("Initializing Equipment Database...");
-      await initializeEquipmentDatabase();
-      console.log("Equipment Database initialized successfully");
-    } catch (error) {
-      console.error("Failed to initialize Equipment Database:", error);
-      // Don't throw here as we want the server to continue running
-    }
-  })();
+  const io = new SocketIOServer(httpServer); // Initialize Socket.IO server
+  const wsServer = setupWebSocketServer(io); // Pass Socket.IO instance
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
 
-  // Add user authentication middleware
+  // Add user authentication middleware and user status tracking
   app.use((req, res, next) => {
     // TODO: Replace with actual user authentication
     // For now, we'll use a mock user ID for testing
     req.user = { id: '1', username: 'test_user' };
+    const userId = req.headers['x-user-id'];
+    if (userId && typeof userId === 'string') {
+      // Notify WebSocket server about user activity
+      wsServer.broadcast([userId], { type: 'USER_ACTIVE' });
+    }
     next();
+  });
+
+  // Update online users endpoint
+  app.get("/api/users/online-status", (req, res) => {
+    // Get online users from WebSocket service
+    const activeUsers = wsServer.getActiveUsers();
+    res.json(activeUsers);
   });
 
   // Equipment Types endpoints
@@ -905,6 +858,31 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching roles:", error);
       res.status(500).json({ error: "Failed to fetch roles" });
+    }
+  });
+
+
+  // Update WebSocket connection handling to track online users
+  io.on('connection', (socket, req) => { // Use io for Socket.IO events
+    // Extract user ID from the connection (you'll need to implement authentication)
+    const userId = req.headers['x-user-id'] as string | undefined;
+    if (userId) {
+      wsServer.registerUser(userId); // Register user with WebSocket server
+
+      // Broadcast updated online users list
+      wsServer.broadcast(wsServer.getActiveUsers(), {
+        type: 'ONLINE_USERS_UPDATE',
+        users: wsServer.getActiveUsers()
+      });
+
+      socket.on('disconnect', () => { //Use 'disconnect' instead of 'close' for Socket.IO
+        wsServer.unregisterUser(userId); // Unregister user with WebSocket server
+        // Broadcast updated online users list
+        wsServer.broadcast(wsServer.getActiveUsers(), {
+          type: 'ONLINE_USERS_UPDATE',
+          users: wsServer.getActiveUsers()
+        });
+      });
     }
   });
 

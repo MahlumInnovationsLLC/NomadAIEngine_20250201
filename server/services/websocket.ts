@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { db } from "@db";
-import { userTraining, trainingModules } from "@db/schema";
+import { userTraining } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 interface User {
@@ -80,6 +80,41 @@ export function setupWebSocketServer(server: HttpServer) {
     }
   }
 
+  // Create WebSocket interface object with all required methods
+  const wsInterface = {
+    broadcast: (userIds: string[], message: any) => {
+      // Broadcast to specific users' rooms
+      userIds.forEach(userId => {
+        io.to(`user-${userId}`).emit('notification', message);
+      });
+    },
+    registerUser: (userId: string) => {
+      users.set(userId, {
+        id: userId,
+        name: `User ${userId.slice(0, 4)}`,
+        status: 'online',
+        socketId: clients.get(userId) || '',
+        lastSeen: new Date()
+      });
+      broadcastPresence();
+    },
+    unregisterUser: (userId: string) => {
+      users.delete(userId);
+      clients.delete(userId);
+      broadcastPresence();
+    },
+    broadcastTrainingLevel,
+    getActiveUsers: () => {
+      return Array.from(users.values())
+        .filter(user => user.status === 'online')
+        .map(user => user.id);
+    },
+    close: () => {
+      io.close();
+    }
+  };
+
+  // Handle socket connections
   io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId as string;
 
@@ -96,17 +131,15 @@ export function setupWebSocketServer(server: HttpServer) {
 
     // Handle presence events
     socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
-      users.set(uid, {
-        id: uid,
-        name,
-        status: 'online',
-        socketId: socket.id,
-        lastSeen: new Date()
-      });
-      broadcastPresence();
-
-      // Send initial training level
+      wsInterface.registerUser(uid);
       await broadcastTrainingLevel(uid);
+    });
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+      if (userId) {
+        wsInterface.unregisterUser(userId);
+      }
     });
 
     // Handle user status updates
@@ -123,42 +156,13 @@ export function setupWebSocketServer(server: HttpServer) {
       await broadcastTrainingLevel(userId);
     });
 
-    socket.on('disconnect', () => {
-      // Update user status on disconnect
-      const user = users.get(userId);
-      if (user) {
-        users.set(userId, {
-          ...user,
-          status: 'offline',
-          lastSeen: new Date()
-        });
-        broadcastPresence();
-      }
-
-      // Remove socket mapping
-      if (clients.get(userId) === socket.id) {
-        clients.delete(userId);
-      }
-    });
-
     socket.on('error', (error) => {
       console.error('Socket error:', error);
       if (clients.get(userId) === socket.id) {
-        clients.delete(userId);
+        wsInterface.unregisterUser(userId);
       }
     });
   });
 
-  return {
-    broadcast: (userIds: string[], message: any) => {
-      // Broadcast to specific users' rooms
-      userIds.forEach(userId => {
-        io.to(`user-${userId}`).emit('notification', message);
-      });
-    },
-    broadcastTrainingLevel,
-    close: () => {
-      io.close();
-    }
-  };
+  return wsInterface;
 }

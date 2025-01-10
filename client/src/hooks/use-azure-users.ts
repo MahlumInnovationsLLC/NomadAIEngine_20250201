@@ -8,7 +8,10 @@ interface AzureADUser {
   displayName: string;
   mail: string;
   userPrincipalName: string;
+  isOnline?: boolean;
 }
+
+const GYM_AI_ENGINE_GROUP_ID = 'e8dd9d7a-62e9-4142-b6e2-9491e1dac1e8';
 
 export function useAzureUsers() {
   const { instance, accounts } = useMsal();
@@ -20,14 +23,14 @@ export function useAzureUsers() {
         const response = await instance.acquireTokenSilent({
           ...loginRequest,
           account: accounts[0],
-          scopes: ["User.Read.All"]
+          scopes: ["GroupMember.Read.All", "User.Read.All"]
         });
         return response.accessToken;
       } catch (error) {
         if (error instanceof InteractionRequiredAuthError) {
           const response = await instance.acquireTokenPopup({
             ...loginRequest,
-            scopes: ["User.Read.All"]
+            scopes: ["GroupMember.Read.All", "User.Read.All"]
           });
           return response.accessToken;
         }
@@ -37,30 +40,41 @@ export function useAzureUsers() {
     throw new Error("No authenticated account");
   };
 
-  const fetchUsers = async (): Promise<AzureADUser[]> => {
+  const fetchGroupMembers = async (): Promise<AzureADUser[]> => {
     const accessToken = await getAccessToken();
-    const response = await fetch("https://graph.microsoft.com/v1.0/users", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/groups/${GYM_AI_ENGINE_GROUP_ID}/members?$select=id,displayName,mail,userPrincipalName`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
     if (!response.ok) {
-      throw new Error("Failed to fetch users from Azure AD");
+      throw new Error("Failed to fetch group members from Azure AD");
     }
 
     const data = await response.json();
+
+    // Fetch online status from our backend
+    const onlineStatusResponse = await fetch('/api/users/online-status', {
+      credentials: 'include'
+    });
+    const onlineUsers = onlineStatusResponse.ok ? await onlineStatusResponse.json() : [];
+
     return data.value.map((user: any) => ({
       id: user.id,
       displayName: user.displayName,
       mail: user.mail || user.userPrincipalName,
       userPrincipalName: user.userPrincipalName,
+      isOnline: onlineUsers.includes(user.id)
     }));
   };
 
   const { data: users, error, isLoading } = useQuery<AzureADUser[], Error>({
-    queryKey: ["azureUsers"],
-    queryFn: fetchUsers,
+    queryKey: ["azureGroupMembers"],
+    queryFn: fetchGroupMembers,
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     retry: false,
   });
