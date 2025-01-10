@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMsal } from "@azure/msal-react";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { loginRequest } from "@/lib/msal-config";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import io from "socket.io-client";
 
 interface AzureADUser {
@@ -16,104 +16,106 @@ interface AzureADUser {
   };
 }
 
-const GYM_AI_ENGINE_GROUP_ID = 'e8dd9d7a-62e9-4142-b6e2-9491e1dac1e8';
+// For testing purposes, we'll use some mock users
+const mockUsers: AzureADUser[] = [
+  {
+    id: '1',
+    displayName: 'John Smith',
+    mail: 'john.smith@company.com',
+    userPrincipalName: 'john.smith',
+    presence: { status: 'offline' }
+  },
+  {
+    id: '2',
+    displayName: 'Alice Johnson',
+    mail: 'alice.johnson@company.com',
+    userPrincipalName: 'alice.johnson',
+    presence: { status: 'offline' }
+  },
+  {
+    id: '3',
+    displayName: 'Bob Wilson',
+    mail: 'bob.wilson@company.com',
+    userPrincipalName: 'bob.wilson',
+    presence: { status: 'offline' }
+  }
+];
 
 export function useAzureUsers() {
   const { instance, accounts } = useMsal();
-  const queryClient = useQueryClient();
+  const [users, setUsers] = useState<AzureADUser[]>(mockUsers);
+  const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const getAccessToken = async () => {
-    if (accounts[0]) {
-      try {
-        const response = await instance.acquireTokenSilent({
-          ...loginRequest,
-          account: accounts[0],
-          scopes: ["GroupMember.Read.All", "User.Read.All"]
-        });
-        return response.accessToken;
-      } catch (error) {
-        if (error instanceof InteractionRequiredAuthError) {
-          const response = await instance.acquireTokenPopup({
-            ...loginRequest,
-            scopes: ["GroupMember.Read.All", "User.Read.All"]
-          });
-          return response.accessToken;
-        }
-        throw error;
-      }
-    }
-    throw new Error("No authenticated account");
-  };
-
-  const fetchGroupMembers = async (): Promise<AzureADUser[]> => {
-    const accessToken = await getAccessToken();
-    const response = await fetch(
-      `https://graph.microsoft.com/v1.0/groups/${GYM_AI_ENGINE_GROUP_ID}/members?$select=id,displayName,mail,userPrincipalName`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
+  const updateUserPresence = useCallback((userId: string, status: 'online' | 'offline') => {
+    setUsers(currentUsers => 
+      currentUsers.map(user => 
+        user.id === userId
+          ? {
+              ...user,
+              presence: {
+                status,
+                lastSeen: status === 'online' ? new Date() : user.presence.lastSeen,
+              }
+            }
+          : user
+      )
     );
+  }, []);
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch group members from Azure AD");
-    }
-
-    const data = await response.json();
-
-    // Fetch online status from our backend
-    const onlineStatusResponse = await fetch('/api/users/online-status', {
-      credentials: 'include'
-    });
-    const onlineUsers = onlineStatusResponse.ok ? await onlineStatusResponse.json() : [];
-
-    return data.value.map((user: any) => ({
-      id: user.id,
-      displayName: user.displayName,
-      mail: user.mail || user.userPrincipalName,
-      userPrincipalName: user.userPrincipalName,
-      presence: {
-        status: onlineUsers.includes(user.id) ? 'online' : 'offline',
-      }
-    }));
-  };
-
-  // Setup real-time presence updates
   useEffect(() => {
-    const socket = io('/', {
-      query: {
-        userId: accounts[0]?.homeAccountId,
-      },
-    });
+    let socket: ReturnType<typeof io>;
 
-    socket.on('ONLINE_USERS_UPDATE', (data: { users: string[] }) => {
-      queryClient.setQueryData<AzureADUser[]>(
-        ['azureGroupMembers'],
-        (oldData) => {
-          if (!oldData) return oldData;
-          return oldData.map(user => ({
+    try {
+      socket = io('/', {
+        query: {
+          userId: accounts[0]?.homeAccountId || '1', // Use mock ID if not authenticated
+        },
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      socket.on('connect', () => {
+        console.log('Socket connected');
+        setError(null);
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('Socket connection error:', err);
+        setError(new Error('Failed to connect to presence service'));
+      });
+
+      socket.on('ONLINE_USERS_UPDATE', (data: { users: string[] }) => {
+        setUsers(currentUsers => 
+          currentUsers.map(user => ({
             ...user,
             presence: {
               status: data.users.includes(user.id) ? 'online' : 'offline',
               lastSeen: data.users.includes(user.id) ? new Date() : user.presence.lastSeen,
             }
-          }));
-        }
-      );
-    });
+          }))
+        );
+      });
+
+      // Simulate John Smith being online for testing
+      setTimeout(() => {
+        updateUserPresence('1', 'online');
+      }, 1000);
+
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Error setting up socket connection:', err);
+      setError(err instanceof Error ? err : new Error('Failed to initialize presence service'));
+      setIsLoading(false);
+    }
 
     return () => {
-      socket.disconnect();
+      if (socket) {
+        socket.disconnect();
+      }
     };
-  }, [accounts, queryClient]);
-
-  const { data: users, error, isLoading } = useQuery<AzureADUser[], Error>({
-    queryKey: ["azureGroupMembers"],
-    queryFn: fetchGroupMembers,
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    retry: false,
-  });
+  }, [accounts, updateUserPresence]);
 
   return {
     users,
