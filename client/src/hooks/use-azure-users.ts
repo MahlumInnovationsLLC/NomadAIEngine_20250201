@@ -87,14 +87,7 @@ export function useAzureUsers() {
       },
     });
 
-    socket.on('connect', () => {
-      socket.emit('presence:join', {
-        userId: accounts[0]?.homeAccountId,
-        name: accounts[0]?.name,
-      });
-    });
-
-    socket.on('presence:update', (users: any[]) => {
+    socket.on('ONLINE_USERS_UPDATE', (data: { users: string[] }) => {
       queryClient.setQueryData<AzureADUser[]>(
         ['azureGroupMembers'],
         (oldData) => {
@@ -102,8 +95,8 @@ export function useAzureUsers() {
           return oldData.map(user => ({
             ...user,
             presence: {
-              status: users.includes(user.id) ? 'online' : 'offline',
-              lastSeen: users.includes(user.id) ? new Date() : user.presence.lastSeen,
+              status: data.users.includes(user.id) ? 'online' : 'offline',
+              lastSeen: data.users.includes(user.id) ? new Date() : user.presence.lastSeen,
             }
           }));
         }

@@ -23,6 +23,7 @@ import LoginPage from "@/pages/LoginPage";
 import { DocManage } from "@/pages/DocManage";
 import TrainingModule from "@/pages/TrainingModule";
 import React, { useEffect } from 'react';
+import { OnlineUsersDropdown } from "@/components/ui/online-users-dropdown";
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
@@ -66,6 +67,7 @@ function NavbarWithAuth() {
     <div className="container flex h-14 items-center">
       <Navbar />
       <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+        <OnlineUsersDropdown />
         <NotificationCenter />
         <Button
           variant="outline"

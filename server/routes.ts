@@ -1,4 +1,7 @@
-import { eq } from "drizzle-orm";
+import type { Express, Request, Response } from "express";
+import express from "express";
+import { createServer, type Server } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { db } from "@db";
 import {
   documentWorkflows,
@@ -6,23 +9,38 @@ import {
   documentPermissions,
   roles,
   userTraining,
-  aiEngineActivity
+  aiEngineActivity,
+  type Document
 } from "@db/schema";
-import type { Express, Request } from "express";
-import express from "express";
-import { createServer, type Server } from "http";
-import { Server as SocketIOServer } from "socket.io"; // Import Socket.IO
+import { eq } from "drizzle-orm";
+import { setupWebSocketServer } from "./services/websocket";
 import { v4 as uuidv4 } from 'uuid';
 import multer from "multer";
 import { ContainerClient } from "@azure/storage-blob";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
-import { setupWebSocketServer } from "./services/websocket";
-
-// Add new imports for dashboard endpoints
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import { and, gte, lte } from "drizzle-orm";
+
+// Add interface for Request with user
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    username: string;
+  };
+}
+
+export async function getUserTrainingLevel(userId: string) {
+  const trainings = await db
+    .select()
+    .from(userTraining)
+    .where(eq(userTraining.userId, userId));
+
+  // Calculate training level based on completed modules
+  const completedModules = trainings.filter(t => t.status === 'completed').length;
+  return Math.floor(completedModules / 3) + 1; // Level up every 3 completed modules
+}
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
@@ -47,9 +65,10 @@ const upload = multer({
 // Helper function to track AI Engine usage
 async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_analysis' | 'equipment_prediction' | 'report_generation', duration: number, metadata?: Record<string, any>) {
   try {
+    // Generate a session ID for tracking
     const sessionId = uuidv4();
     const startTime = new Date();
-    const endTime = new Date(startTime.getTime() + duration * 60 * 1000); // Convert minutes to milliseconds
+    const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
 
     await db.insert(aiEngineActivity).values({
       userId,
@@ -58,7 +77,7 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
       startTime,
       endTime,
       durationMinutes: duration,
-      metadata: metadata || {},
+      metadata: metadata || {}
     });
 
     console.log(`Tracked AI Engine usage for user ${userId}: ${duration} minutes`);
@@ -69,14 +88,19 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
-  const io = new SocketIOServer(httpServer); // Initialize Socket.IO server
-  const wsServer = setupWebSocketServer(io); // Pass Socket.IO instance
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
+  const wsServer = setupWebSocketServer(io);
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
 
   // Add user authentication middleware and user status tracking
-  app.use((req, res, next) => {
+  app.use((req: AuthenticatedRequest, res: Response, next) => {
     // TODO: Replace with actual user authentication
     // For now, we'll use a mock user ID for testing
     req.user = { id: '1', username: 'test_user' };
@@ -300,7 +324,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Dashboard extended stats endpoint
-  app.get("/api/dashboard/extended-stats", async (req, res) => {
+  app.get("/api/dashboard/extended-stats", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).send("Not authenticated");
@@ -510,7 +534,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Add new endpoint to get user's training level
-  app.get("/api/training/level", async (req, res) => {
+  app.get("/api/training/level", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).send("Not authenticated");
@@ -525,7 +549,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Update training progress endpoint
-  app.post("/api/training/progress", async (req, res) => {
+  app.post("/api/training/progress", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).send("Not authenticated");
@@ -864,7 +888,9 @@ export function registerRoutes(app: Express): Server {
 
   // Update Socket.IO connection handling
   io.on('connection', (socket) => {
+    console.log('New client connected');
     const userId = socket.handshake.query.userId;
+
     if (userId && typeof userId === 'string') {
       wsServer.registerUser(userId);
 
@@ -875,6 +901,7 @@ export function registerRoutes(app: Express): Server {
       });
 
       socket.on('disconnect', () => {
+        console.log('Client disconnected');
         wsServer.unregisterUser(userId);
         // Broadcast updated online users list to all clients
         io.emit('ONLINE_USERS_UPDATE', {
