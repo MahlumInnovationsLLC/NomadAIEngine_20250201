@@ -46,30 +46,15 @@ export function setupWebSocketServer(server: HttpServer) {
   // Broadcast training level update to a specific user
   async function broadcastTrainingLevel(userId: string) {
     try {
-      // Get all completed training modules for the user
-      const completedModules = await db
+      const [training] = await db
         .select()
         .from(userTraining)
-        .where(eq(userTraining.userId, userId));
-
-      // Calculate overall progress
-      let totalProgress = 0;
-      if (completedModules.length > 0) {
-        const completedCount = completedModules.filter(m => m.status === 'completed').length;
-        totalProgress = (completedCount / completedModules.length) * 100;
-      }
-
-      // Determine level based on overall progress
-      let level = "Beginner";
-      if (totalProgress >= 80) {
-        level = "Expert";
-      } else if (totalProgress >= 50) {
-        level = "Intermediate";
-      }
+        .where(eq(userTraining.userId, userId))
+        .limit(1);
 
       const trainingLevel = {
-        level,
-        progress: Math.round(totalProgress)
+        level: training?.level || 'Beginner',
+        progress: training?.progress || 0
       };
 
       // Update user's training level in memory

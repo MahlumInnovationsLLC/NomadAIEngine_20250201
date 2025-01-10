@@ -28,7 +28,7 @@ if (!GYM_AI_ENGINE_GROUP_ID) {
 }
 
 export function useAzureUsers() {
-  const { instance, accounts } = useMsal();
+  const { instance, accounts, inProgress } = useMsal();
   const [error, setError] = useState<Error | null>(null);
   const queryClient = useQueryClient();
 
@@ -71,6 +71,7 @@ export function useAzureUsers() {
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
           },
         }
       );
@@ -90,6 +91,7 @@ export function useAzureUsers() {
             {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
               },
             }
           );
@@ -99,7 +101,8 @@ export function useAzureUsers() {
             return {
               ...user,
               presence: {
-                status: presenceData.availability === 'Available' ? 'online' : 'offline',
+                status: presenceData.availability === 'Available' ? 'online' : 
+                       presenceData.availability === 'Away' ? 'away' : 'offline',
                 lastSeen: new Date(),
               },
             } as AzureADUser;
@@ -139,7 +142,9 @@ export function useAzureUsers() {
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
     refetchInterval: 30 * 1000, // Refetch every 30 seconds
     retry: 2,
-    enabled: !!GYM_AI_ENGINE_GROUP_ID && accounts.length > 0,
+    enabled: !!GYM_AI_ENGINE_GROUP_ID && 
+             accounts.length > 0 && 
+             inProgress === "none",
   });
 
   // Setup WebSocket for real-time presence updates
