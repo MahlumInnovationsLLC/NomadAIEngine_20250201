@@ -2,7 +2,7 @@ import { CosmosClient, Container, Database } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
 
 let client: CosmosClient | null = null;
-let database: Database | null = null;
+export let database: Database | null = null;
 let container: Container | null = null;
 
 export async function initializeCosmosDB() {
@@ -25,14 +25,24 @@ export async function initializeCosmosDB() {
     });
     database = db;
 
-    // Create container if it doesn't exist with the specified partition key
-    const { container: cont } = await database.containers.createIfNotExists({
-      id: "chats",
-      partitionKey: { paths: ["/userKey"] }
-    });
-    container = cont;
+    // Create containers if they don't exist
+    await Promise.all([
+      database.containers.createIfNotExists({
+        id: "chats",
+        partitionKey: { paths: ["/userKey"] }
+      }),
+      database.containers.createIfNotExists({
+        id: "equipment",
+        partitionKey: { paths: ["/id"] }
+      }),
+      database.containers.createIfNotExists({
+        id: "equipment-types",
+        partitionKey: { paths: ["/id"] }
+      })
+    ]);
 
-    console.log("Successfully connected to Azure Cosmos DB");
+    container = database.container('chats');
+    console.log("Successfully connected to Azure Cosmos DB and initialized containers");
   } catch (error) {
     console.error("Error initializing Cosmos DB:", error);
     throw error;

@@ -1,26 +1,26 @@
-interface EquipmentType {
-  id: string;
-  manufacturer: string;
-  model: string;
-  type: string;
-}
-
-let equipmentTypeStore: EquipmentType[] = [];
-
-async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
-  return equipmentTypeStore.find(et => et.manufacturer === manufacturer && et.model === model) || null;
-}
-
-async function createEquipmentType(data: Partial<EquipmentType>): Promise<EquipmentType> {
-  const newType: EquipmentType = {
-    id: uuidv4(),
-    manufacturer: data.manufacturer || '',
-    model: data.model || '',
-    type: data.type || ''
-  };
-  equipmentTypeStore.push(newType);
-  return newType;
-}
+import type { Express, Request, Response } from "express";
+import express from "express";
+import { createServer, type Server } from "http";
+import { Server as SocketIOServer } from "socket.io";
+import { CosmosClient, Container } from "@azure/cosmos";
+import { ContainerClient } from "@azure/storage-blob";
+import multer from "multer";
+import { v4 as uuidv4 } from 'uuid';
+import { db } from "@db";
+import {
+  documentWorkflows,
+  documentApprovals,
+  documentPermissions,
+  roles,
+  userTraining,
+  aiEngineActivity,
+} from "@db/schema";
+import { eq, and, gte, lte } from "drizzle-orm";
+import { setupWebSocketServer } from "./services/websocket";
+import { generateReport } from "./services/document-generator";
+import { listChats } from "./services/azure/cosmos_service";
+import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
+import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 
 interface Equipment {
   id: string;
@@ -35,11 +35,67 @@ interface Equipment {
   status: 'active' | 'maintenance' | 'retired';
 }
 
-// In-memory storage for equipment (temporary until database integration)
-let equipmentStore: Equipment[] = [];
+interface EquipmentType {
+  id: string;
+  manufacturer: string;
+  model: string;
+  type: string;
+}
 
+// Initialize Cosmos DB container for equipment
+let equipmentContainer: Container;
+let equipmentTypeContainer: Container;
+
+async function initializeContainers() {
+  const { database } = await import("./services/azure/cosmos_service");
+  equipmentContainer = database.container('equipment');
+  equipmentTypeContainer = database.container('equipment-types');
+}
+
+// Equipment Type Operations
+async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.manufacturer = @manufacturer AND c.model = @model",
+      parameters: [
+        { name: "@manufacturer", value: manufacturer },
+        { name: "@model", value: model }
+      ]
+    };
+
+    const { resources } = await equipmentTypeContainer.items.query(querySpec).fetchAll();
+    return resources[0] || null;
+  } catch (error) {
+    console.error("Error fetching equipment type:", error);
+    return null;
+  }
+}
+
+async function createEquipmentType(data: Partial<EquipmentType>): Promise<EquipmentType> {
+  const newType: EquipmentType = {
+    id: uuidv4(),
+    manufacturer: data.manufacturer || '',
+    model: data.model || '',
+    type: data.type || ''
+  };
+
+  const { resource } = await equipmentTypeContainer.items.create(newType);
+  return resource;
+}
+
+// Equipment Operations
 async function getAllEquipment(): Promise<Equipment[]> {
-  return equipmentStore;
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c"
+    };
+
+    const { resources } = await equipmentContainer.items.query(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Error fetching all equipment:", error);
+    return [];
+  }
 }
 
 async function createEquipment(data: Partial<Equipment>): Promise<Equipment> {
@@ -55,107 +111,27 @@ async function createEquipment(data: Partial<Equipment>): Promise<Equipment> {
     nextMaintenanceDate: data.nextMaintenanceDate,
     status: data.status || 'active'
   };
-  equipmentStore.push(newEquipment);
-  return newEquipment;
+
+  const { resource } = await equipmentContainer.items.create(newEquipment);
+  return resource;
 }
 
 async function updateEquipment(id: string, updates: Partial<Equipment>): Promise<Equipment | null> {
-  const index = equipmentStore.findIndex(e => e.id === id);
-  if (index === -1) return null;
-
-  equipmentStore[index] = { ...equipmentStore[index], ...updates };
-  return equipmentStore[index];
-}
-
-import type { Express, Request, Response } from "express";
-import express from "express";
-import { createServer, type Server } from "http";
-import { Server as SocketIOServer } from "socket.io";
-import { db } from "@db";
-import {
-  documentWorkflows,
-  documentApprovals,
-  documentPermissions,
-  roles,
-  userTraining,
-  aiEngineActivity,
-  type Document
-} from "@db/schema";
-import { eq } from "drizzle-orm";
-import { setupWebSocketServer } from "./services/websocket";
-import { v4 as uuidv4 } from 'uuid';
-import multer from "multer";
-import { ContainerClient } from "@azure/storage-blob";
-import { generateReport } from "./services/document-generator";
-import { listChats } from "./services/azure/cosmos_service";
-import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
-import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
-import { and, gte, lte } from "drizzle-orm";
-
-// Add interface for Request with user
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-  };
-}
-
-export async function getUserTrainingLevel(userId: string) {
-  const trainings = await db
-    .select()
-    .from(userTraining)
-    .where(eq(userTraining.userId, userId));
-
-  // Calculate training level based on completed modules
-  const completedModules = trainings.filter(t => t.status === 'completed').length;
-  return Math.floor(completedModules / 3) + 1; // Level up every 3 completed modules
-}
-
-// Initialize Azure Blob Storage Client with SAS token
-const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
-
-if (!sasUrl) {
-  throw new Error("Azure Blob Storage SAS URL not found");
-}
-
-console.log("Creating Container Client with SAS token...");
-const containerClient = new ContainerClient(sasUrl);
-
-console.log("Successfully created Container Client");
-
-// Configure multer for memory storage
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  }
-});
-
-// Helper function to track AI Engine usage
-async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_analysis' | 'equipment_prediction' | 'report_generation', duration: number, metadata?: Record<string, any>) {
   try {
-    // Generate a session ID for tracking
-    const sessionId = uuidv4();
-    const startTime = new Date();
-    const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
-
-    await db.insert(aiEngineActivity).values({
-      userId,
-      sessionId,
-      feature,
-      startTime,
-      endTime,
-      durationMinutes: duration,
-      metadata: metadata || {}
-    });
-
-    console.log(`Tracked AI Engine usage for user ${userId}: ${duration} minutes`);
+    const { resource: existingItem } = await equipmentContainer.item(id, id).read();
+    const updatedItem = { ...existingItem, ...updates };
+    const { resource } = await equipmentContainer.item(id, id).replace(updatedItem);
+    return resource;
   } catch (error) {
-    console.error("Error tracking AI Engine usage:", error);
+    console.error("Error updating equipment:", error);
+    return null;
   }
 }
 
 export function registerRoutes(app: Express): Server {
+  // Initialize Cosmos DB containers
+  initializeContainers().catch(console.error);
+
   const httpServer = createServer(app);
   const io = new SocketIOServer(httpServer);
   const wsServer = setupWebSocketServer(io);
@@ -982,3 +958,68 @@ export function registerRoutes(app: Express): Server {
 
   return httpServer;
 }
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    username: string;
+  };
+}
+
+export async function getUserTrainingLevel(userId: string) {
+  const trainings = await db
+    .select()
+    .from(userTraining)
+    .where(eq(userTraining.userId, userId));
+
+  // Calculate training level based on completed modules
+  const completedModules = trainings.filter(t => t.status === 'completed').length;
+  return Math.floor(completedModules / 3) + 1; // Level up every 3 completed modules
+}
+
+// Initialize Azure Blob Storage Client with SAS token
+const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
+
+if (!sasUrl) {
+  throw new Error("Azure Blob Storage SAS URL not found");
+}
+
+console.log("Creating Container Client with SAS token...");
+const containerClient = new ContainerClient(sasUrl);
+
+console.log("Successfully created Container Client");
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  }
+});
+
+// Helper function to track AI Engine usage
+async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_analysis' | 'equipment_prediction' | 'report_generation', duration: number, metadata?: Record<string, any>) {
+  try {
+    // Generate a session ID for tracking
+    const sessionId = uuidv4();
+    const startTime = new Date();
+    const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
+
+    await db.insert(aiEngineActivity).values({
+      userId,
+      sessionId,
+      feature,
+      startTime,
+      endTime,
+      durationMinutes: duration,
+      metadata: metadata || {}
+    });
+
+    console.log(`Tracked AI Engine usage for user ${userId}: ${duration} minutes`);
+  } catch (error) {
+    console.error("Error tracking AI Engine usage:", error);
+  }
+}
+
+import type { Request, Response } from "express";
+import {v4 as uuidv4} from 'uuid';

@@ -104,17 +104,17 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Add ParticleBackground at the root level */}
-      <div className="absolute inset-0 -z-20 bg-white" />
-      <ParticleBackground />
+    <div className="relative min-h-screen w-full flex flex-col bg-background/95">
+      {/* Add background with red tint and ParticleBackground */}
+      <div className="absolute inset-0 -z-20 bg-red-50/90" />
+      <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
 
       {isAuthenticated && (
         <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <NavbarWithAuth />
         </div>
       )}
-      <main className="flex-1 pt-6">
+      <main className="flex-1 pt-6 relative z-10">
         <div className="container mx-auto">
           <div className="flex gap-4">
             {showModuleSelector && isAuthenticated && (

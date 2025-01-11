@@ -6,7 +6,7 @@ if (!process.env.AZURE_COSMOS_CONNECTION_STRING) {
 }
 
 const client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
-const database = client.database("fitness-facility");
+const database = client.database("GYMAIEngineDB");
 const equipmentContainer = database.container("equipment");
 const equipmentTypesContainer = database.container("equipment-types");
 
@@ -43,23 +43,18 @@ export interface Equipment {
 
 export async function initializeEquipmentDatabase() {
   try {
-    // Create database if it doesn't exist
-    const { database: db } = await client.databases.createIfNotExists({ 
-      id: "fitness-facility" 
-    });
-
     // Create containers if they don't exist
-    await db.containers.createIfNotExists({
+    await database.containers.createIfNotExists({
       id: "equipment",
       partitionKey: { paths: ["/id"] }
     });
 
-    await db.containers.createIfNotExists({
+    await database.containers.createIfNotExists({
       id: "equipment-types",
       partitionKey: { paths: ["/id"] }
     });
 
-    console.log("Equipment database and containers initialized successfully");
+    console.log("Equipment database containers initialized successfully");
   } catch (error) {
     console.error("Failed to initialize equipment database:", error);
     throw error;
@@ -152,3 +147,6 @@ export async function updateEquipment(id: string, updates: Partial<Equipment>): 
     throw error;
   }
 }
+
+// Initialize the database when the module loads
+initializeEquipmentDatabase().catch(console.error);
