@@ -1,4 +1,10 @@
 import { useEffect, useRef } from 'react';
+import { cn } from "@/lib/utils";
+
+interface ParticleBackgroundProps {
+  className?: string;
+  particleColor?: string;
+}
 
 interface Particle {
   x: number;
@@ -9,7 +15,10 @@ interface Particle {
   opacity: number;
 }
 
-export function ParticleBackground() {
+export function ParticleBackground({ 
+  className,
+  particleColor = "rgba(239, 68, 68, 0.2)"  // Default to a lighter red with 0.2 opacity
+}: ParticleBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
@@ -77,13 +86,13 @@ export function ParticleBackground() {
           if (particle.y < 0) particle.y = canvas.height;
           if (particle.y > canvas.height) particle.y = 0;
 
-          // Draw particle with red color
+          // Draw particle with specified color
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255, 0, 0, ${particle.opacity * 0.3})`; // Red particles with adjusted opacity
+          ctx.fillStyle = particleColor; // Use provided color directly
           ctx.fill();
 
-          // Draw connections with red color
+          // Draw connections with matching color
           for (let j = index + 1; j < particlesRef.current.length; j++) {
             const otherParticle = particlesRef.current[j];
             const dx = particle.x - otherParticle.x;
@@ -95,7 +104,8 @@ export function ParticleBackground() {
               ctx.moveTo(particle.x, particle.y);
               ctx.lineTo(otherParticle.x, otherParticle.y);
               const opacity = 0.8 * (1 - distance / 150);
-              ctx.strokeStyle = `rgba(255, 0, 0, ${opacity * 0.2})`; // Red connections with adjusted opacity
+              const [colorBase] = particleColor.split(', '); // Extract the color base (rgba or hsla)
+              ctx.strokeStyle = `${colorBase}, ${opacity * 0.2})`; // Adjust opacity for connections
               ctx.lineWidth = 1.5;
               ctx.stroke();
             }
@@ -141,13 +151,12 @@ export function ParticleBackground() {
         clearTimeout(throttleTimeout);
       }
     };
-  }, []);
+  }, [particleColor]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 -z-10"
-      style={{ opacity: 1 }}
+      className={cn("absolute inset-0 -z-10", className)}
     />
   );
 }

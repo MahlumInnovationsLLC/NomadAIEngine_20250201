@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresenceWrapper, AnimateTransition } from "@/components/ui/AnimateTransition";
 import Navbar from "@/components/layout/Navbar";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
@@ -26,6 +26,7 @@ import TrainingModule from "@/pages/TrainingModule";
 import React, { useEffect } from 'react';
 import { OnlineUsersDropdown } from "@/components/ui/online-users-dropdown";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
@@ -39,7 +40,13 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
     return null;
   }
 
-  return <Component {...rest} />;
+  return (
+    <ErrorBoundary>
+      <AnimateTransition variant="fade">
+        <Component {...rest} />
+      </AnimateTransition>
+    </ErrorBoundary>
+  );
 }
 
 function NavbarWithAuth() {
@@ -66,22 +73,24 @@ function NavbarWithAuth() {
   };
 
   return (
-    <div className="container flex h-14 items-center">
-      <Navbar />
-      <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-        <OnlineUsersDropdown />
-        <NotificationCenter />
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-2"
-          onClick={handleLogout}
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
-        </Button>
+    <AnimateTransition variant="slide-down" delay={0.1}>
+      <div className="container flex h-14 items-center">
+        <Navbar />
+        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+          <OnlineUsersDropdown />
+          <NotificationCenter />
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-2"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
       </div>
-    </div>
+    </AnimateTransition>
   );
 }
 
@@ -100,14 +109,20 @@ function App() {
   }, [location, setLocation]);
 
   if (!isAuthenticated && currentPath !== 'login') {
-    return <LoginPage />;
+    return (
+      <AnimateTransition variant="fade">
+        <LoginPage />
+      </AnimateTransition>
+    );
   }
 
   return (
     <div className="relative min-h-screen w-full flex flex-col bg-background/95">
       {/* Add background with red tint and ParticleBackground */}
       <div className="absolute inset-0 -z-20 bg-red-50/90" />
-      <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
+      <ErrorBoundary>
+        <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
+      </ErrorBoundary>
 
       {isAuthenticated && (
         <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -118,15 +133,17 @@ function App() {
         <div className="container mx-auto">
           <div className="flex gap-4">
             {showModuleSelector && isAuthenticated && (
-              <ModuleSelector 
-                activeModule={location.includes('training') ? 'training' : 'docmanagement'} 
-                onModuleChange={(moduleId) => {
-                  setLocation(`/docmanage/${moduleId}`);
-                }}
-              />
+              <AnimateTransition variant="slide-right" delay={0.2}>
+                <ModuleSelector 
+                  activeModule={location.includes('training') ? 'training' : 'docmanagement'} 
+                  onModuleChange={(moduleId) => {
+                    setLocation(`/docmanage/${moduleId}`);
+                  }}
+                />
+              </AnimateTransition>
             )}
             <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
-              <AnimatePresence mode="wait">
+              <AnimatePresenceWrapper>
                 <Switch>
                   <Route path="/login" component={LoginPage} />
                   <Route path="/" component={() => <ProtectedRoute component={Home} />} />
@@ -137,7 +154,7 @@ function App() {
                   <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
                   <Route component={NotFound} />
                 </Switch>
-              </AnimatePresence>
+              </AnimatePresenceWrapper>
             </div>
           </div>
         </div>
@@ -150,30 +167,34 @@ function App() {
 
 function NotFound() {
   return (
-    <Card className="w-full max-w-md mx-4 mt-8">
-      <CardContent className="pt-6">
-        <div className="flex mb-4 gap-2">
-          <AlertCircle className="h-8 w-8 text-red-500" />
-          <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-        </div>
-        <p className="mt-4 text-sm text-gray-600">
-          The page you're looking for doesn't exist.
-        </p>
-      </CardContent>
-    </Card>
+    <AnimateTransition variant="slide-up">
+      <Card className="w-full max-w-md mx-4 mt-8">
+        <CardContent className="pt-6">
+          <div className="flex mb-4 gap-2">
+            <AlertCircle className="h-8 w-8 text-red-500" />
+            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
+          </div>
+          <p className="mt-4 text-sm text-gray-600">
+            The page you're looking for doesn't exist.
+          </p>
+        </CardContent>
+      </Card>
+    </AnimateTransition>
   );
 }
 
 export default function AppWrapper() {
   return (
-    <MsalProvider instance={msalInstance}>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <OnboardingProvider>
-            <App />
-          </OnboardingProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </MsalProvider>
+    <ErrorBoundary>
+      <MsalProvider instance={msalInstance}>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <OnboardingProvider>
+              <App />
+            </OnboardingProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </MsalProvider>
+    </ErrorBoundary>
   );
 }
