@@ -25,6 +25,7 @@ import { DocManage } from "@/pages/DocManage";
 import TrainingModule from "@/pages/TrainingModule";
 import React, { useEffect } from 'react';
 import { OnlineUsersDropdown } from "@/components/ui/online-users-dropdown";
+import { ParticleBackground } from "@/components/ui/ParticleBackground";
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
@@ -104,6 +105,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Add ParticleBackground at the root level */}
+      <div className="absolute inset-0 -z-20 bg-white" />
+      <ParticleBackground />
+
       {isAuthenticated && (
         <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <NavbarWithAuth />

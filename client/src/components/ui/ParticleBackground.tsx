@@ -33,16 +33,16 @@ export function ParticleBackground() {
     // Initialize particles with more dynamic properties
     const initParticles = () => {
       const particles: Particle[] = [];
-      const numParticles = Math.min(150, Math.floor((window.innerWidth * window.innerHeight) / 12000)); // More particles
+      const numParticles = Math.min(150, Math.floor((window.innerWidth * window.innerHeight) / 12000));
 
       for (let i = 0; i < numParticles; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          size: Math.random() * 5 + 3, // Larger particles (3-8px)
-          speedX: (Math.random() - 0.5) * 1.2, // Faster movement
+          size: Math.random() * 5 + 3,
+          speedX: (Math.random() - 0.5) * 1.2,
           speedY: (Math.random() - 0.5) * 1.2,
-          opacity: Math.random() * 0.2 + 0.8, // Higher base opacity (0.8-1.0)
+          opacity: Math.random() * 0.2 + 0.8,
         });
       }
       particlesRef.current = particles;
@@ -77,26 +77,26 @@ export function ParticleBackground() {
           if (particle.y < 0) particle.y = canvas.height;
           if (particle.y > canvas.height) particle.y = 0;
 
-          // Draw particle with enhanced visibility
+          // Draw particle with red color
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(0, 0, 0, ${particle.opacity})`; // Dark particles with higher opacity
+          ctx.fillStyle = `rgba(255, 0, 0, ${particle.opacity * 0.3})`; // Red particles with adjusted opacity
           ctx.fill();
 
-          // Draw connections with higher contrast
+          // Draw connections with red color
           for (let j = index + 1; j < particlesRef.current.length; j++) {
             const otherParticle = particlesRef.current[j];
             const dx = particle.x - otherParticle.x;
             const dy = particle.y - otherParticle.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < 150) { // Increased connection distance
+            if (distance < 150) {
               ctx.beginPath();
               ctx.moveTo(particle.x, particle.y);
               ctx.lineTo(otherParticle.x, otherParticle.y);
-              const opacity = 0.8 * (1 - distance / 150); // Higher base opacity for connections
-              ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
-              ctx.lineWidth = 1.5; // Thicker lines
+              const opacity = 0.8 * (1 - distance / 150);
+              ctx.strokeStyle = `rgba(255, 0, 0, ${opacity * 0.2})`; // Red connections with adjusted opacity
+              ctx.lineWidth = 1.5;
               ctx.stroke();
             }
           }
@@ -146,8 +146,8 @@ export function ParticleBackground() {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 -z-10" // Position between white background and card
-      style={{ opacity: 1 }} // Full opacity for maximum visibility
+      className="absolute inset-0 -z-10"
+      style={{ opacity: 1 }}
     />
   );
 }
