@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, integer, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer, decimal, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -100,27 +100,34 @@ export const equipment = pgTable("equipment", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   equipmentTypeId: integer("equipment_type_id").references(() => equipmentTypes.id),
-  serialNumber: text("serial_number"),
+  serialNumber: text("serial_number").unique(),
   modelNumber: text("model_number"),
   modelYear: integer("model_year"),
   lastMaintenance: timestamp("last_maintenance"),
   nextMaintenance: timestamp("next_maintenance"),
-  status: text("status", { enum: ['active', 'maintenance', 'offline', 'error'] }).notNull(),
-  healthScore: decimal("health_score", { precision: 4, scale: 2 }),
+  status: text("status", { enum: ['active', 'maintenance', 'offline', 'error'] }).notNull().default('offline'),
+  healthScore: decimal("health_score", { precision: 4, scale: 2 }).notNull().default('0'),
   maintenanceScore: decimal("maintenance_score", { precision: 4, scale: 2 }),
-  riskFactors: jsonb("risk_factors"),
+  riskFactors: jsonb("risk_factors").default('[]'),
   lastPredictionUpdate: timestamp("last_prediction_update"),
   position: jsonb("position"),
-  metadata: jsonb("metadata"),
+  metadata: jsonb("metadata").default('{}'),
   maintenanceType: text("maintenance_type"),
   maintenanceNotes: text("maintenance_notes"),
-  deviceConnectionStatus: text("device_connection_status", { enum: ['connected', 'disconnected', 'pairing'] }),
+  deviceConnectionStatus: text("device_connection_status", { enum: ['connected', 'disconnected', 'pairing'] }).default('disconnected'),
   deviceType: text("device_type"),
-  deviceIdentifier: text("device_identifier"),
+  deviceIdentifier: text("device_identifier").unique(),
   lastSyncTime: timestamp("last_sync_time"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Add indices for commonly queried fields
+  nameIdx: index("equipment_name_idx").on(table.name),
+  statusIdx: index("equipment_status_idx").on(table.status),
+  healthScoreIdx: index("equipment_health_score_idx").on(table.healthScore),
+  deviceStatusIdx: index("equipment_device_status_idx").on(table.deviceConnectionStatus),
+  typeIdx: index("equipment_type_idx").on(table.equipmentTypeId),
+}));
 
 export const floorPlans = pgTable("floor_plans", {
   id: serial("id").primaryKey(),

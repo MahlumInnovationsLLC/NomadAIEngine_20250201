@@ -29,8 +29,6 @@ import {
   getAllEquipment,
   createEquipment,
   updateEquipment,
-  type Equipment,
-  type EquipmentType,
 } from "./services/azure/equipment_service";
 
 // Types
@@ -58,27 +56,32 @@ const upload = multer({
   }
 });
 
-export async function registerRoutes(app: Express): Server {
+export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server first
   const httpServer = createServer(app);
-  const io = new SocketIOServer(httpServer);
+
+  // Create Socket.IO server with explicit types
+  const io = new SocketIOServer<any>(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
+
   const wsServer = setupWebSocketServer(io);
 
   try {
-    // Initialize Cosmos DB containers first
+    // Initialize database connections
     console.log("Initializing equipment database...");
-    await initializeEquipmentDatabase();
-    console.log("Equipment database initialized successfully");
+    const equipmentDbInitialized = await initializeEquipmentDatabase();
+    console.log("Equipment database initialized:", equipmentDbInitialized ? "success" : "PostgreSQL only mode");
 
     // Set up middleware
     app.use('/uploads', express.static('uploads'));
 
+    // Authentication middleware (temporary for development)
     app.use((req: AuthenticatedRequest, res, next) => {
       req.user = { id: '1', username: 'test_user' };
-      const userId = req.headers['x-user-id'];
-      if (userId && typeof userId === 'string') {
-        wsServer.broadcast([userId], { type: 'USER_ACTIVE' });
-      }
       next();
     });
 
@@ -118,7 +121,10 @@ export async function registerRoutes(app: Express): Server {
         res.json(newEquipment);
       } catch (error) {
         console.error("Error creating equipment:", error);
-        res.status(500).json({ error: "Failed to create equipment" });
+        res.status(500).json({ 
+          error: "Failed to create equipment",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     });
 
@@ -133,7 +139,10 @@ export async function registerRoutes(app: Express): Server {
         res.json(updatedEquipment);
       } catch (error) {
         console.error("Error updating equipment:", error);
-        res.status(500).json({ error: "Failed to update equipment" });
+        res.status(500).json({ 
+          error: "Failed to update equipment",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     });
 
@@ -852,7 +861,7 @@ export async function registerRoutes(app: Express): Server {
     });
 
 
-    // Update Socket.IO connection handling
+    // Socket.IO connection handling with proper types
     io.on('connection', (socket) => {
       console.log('New client connected');
       const userId = socket.handshake.query.userId;
@@ -869,7 +878,6 @@ export async function registerRoutes(app: Express): Server {
         socket.on('disconnect', () => {
           console.log('Client disconnected');
           wsServer.unregisterUser(userId);
-          // Broadcast updated online users list to all clients
           io.emit('ONLINE_USERS_UPDATE', {
             type: 'ONLINE_USERS_UPDATE',
             users: wsServer.getActiveUsers()
@@ -897,7 +905,12 @@ export async function getUserTrainingLevel(userId: string) {
 }
 
 // Helper function to track AI Engine usage
-async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_analysis' | 'equipment_prediction' | 'report_generation', duration: number, metadata?: Record<string, any>) {
+async function trackAIEngineUsage(
+  userId: string,
+  feature: 'chat' | 'document_analysis' | 'equipment_prediction' | 'report_generation',
+  duration: number,
+  metadata?: Record<string, any>
+) {
   try {
     const sessionId = uuidv4();
     const startTime = new Date();
