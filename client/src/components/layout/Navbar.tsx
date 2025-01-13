@@ -30,6 +30,21 @@ export default function Navbar() {
 
   return (
     <header className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+
+  const { instance } = useMsal();
+  const [, setLocation] = useLocation();
+
+  const handleLogout = async (e?: Event) => {
+    e?.preventDefault();
+    try {
+      await instance.logoutPopup();
+      setLocation("/login");
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+
       <div className="container flex h-14 items-center">
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center space-x-2">
@@ -114,17 +129,7 @@ export default function Navbar() {
               </DropdownMenuItem>
               <DropdownMenuItem 
                 className="text-red-600" 
-                onSelect={async (e) => {
-                  e?.preventDefault();
-                  const { instance } = useMsal();
-                  const [, setLocation] = useLocation();
-                  try {
-                    await instance.logoutPopup();
-                    setLocation("/login");
-                  } catch (error) {
-                    console.error('Logout error:', error);
-                  }
-                }}
+                onSelect={handleLogout}
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
