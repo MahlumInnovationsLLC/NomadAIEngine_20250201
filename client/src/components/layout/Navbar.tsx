@@ -14,8 +14,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Menu, X, Settings, Share2, LogOut, MoonIcon, SunIcon, Cloud } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useState } from "react";
+import { useMsal } from "@azure/msal-react";
 import SettingsDialog from "@/components/settings/SettingsDialog";
 import { AzureServicesStatus } from "@/components/azure/AzureServicesStatus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -115,10 +116,11 @@ export default function Navbar() {
                 className="text-red-600" 
                 onSelect={async (e) => {
                   e?.preventDefault();
+                  const { instance } = useMsal();
+                  const [, setLocation] = useLocation();
                   try {
-                    await msalInstance.logoutRedirect({
-                      postLogoutRedirectUri: `${window.location.origin}/login`
-                    });
+                    await instance.logoutPopup();
+                    setLocation("/login");
                   } catch (error) {
                     console.error('Logout error:', error);
                   }
