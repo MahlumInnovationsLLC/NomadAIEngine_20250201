@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, integer, decimal, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -86,7 +86,6 @@ export const documentWorkflows = pgTable("document_workflows", {
   completedAt: timestamp("completed_at"),
 });
 
-// Equipment-related tables and schemas
 export const equipmentTypes = pgTable("equipment_types", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -95,42 +94,33 @@ export const equipmentTypes = pgTable("equipment_types", {
   category: text("category").notNull(),
   connectivityType: text("connectivity_type").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  manufacturerModelIdx: index("equipment_types_manufacturer_model_idx").on(table.manufacturer, table.model),
-  categoryIdx: index("equipment_types_category_idx").on(table.category),
-}));
+});
 
 export const equipment = pgTable("equipment", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   equipmentTypeId: integer("equipment_type_id").references(() => equipmentTypes.id),
-  serialNumber: text("serial_number").unique(),
+  serialNumber: text("serial_number"),
   modelNumber: text("model_number"),
   modelYear: integer("model_year"),
   lastMaintenance: timestamp("last_maintenance"),
   nextMaintenance: timestamp("next_maintenance"),
-  status: text("status", { enum: ['active', 'maintenance', 'offline', 'error'] }).notNull().default('offline'),
-  healthScore: decimal("health_score", { precision: 4, scale: 2 }).notNull().default('0'),
+  status: text("status", { enum: ['active', 'maintenance', 'offline', 'error'] }).notNull(),
+  healthScore: decimal("health_score", { precision: 4, scale: 2 }),
   maintenanceScore: decimal("maintenance_score", { precision: 4, scale: 2 }),
-  riskFactors: jsonb("risk_factors").default('[]'),
+  riskFactors: jsonb("risk_factors"),
   lastPredictionUpdate: timestamp("last_prediction_update"),
   position: jsonb("position"),
-  metadata: jsonb("metadata").default('{}'),
-  deviceConnectionStatus: text("device_connection_status", { enum: ['connected', 'disconnected', 'pairing'] }).default('disconnected'),
+  metadata: jsonb("metadata"),
+  maintenanceType: text("maintenance_type"),
+  maintenanceNotes: text("maintenance_notes"),
+  deviceConnectionStatus: text("device_connection_status", { enum: ['connected', 'disconnected', 'pairing'] }),
   deviceType: text("device_type"),
-  deviceIdentifier: text("device_identifier").unique(),
+  deviceIdentifier: text("device_identifier"),
   lastSyncTime: timestamp("last_sync_time"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  nameIdx: index("equipment_name_idx").on(table.name),
-  statusIdx: index("equipment_status_idx").on(table.status),
-  healthScoreIdx: index("equipment_health_score_idx").on(table.healthScore),
-  deviceStatusIdx: index("equipment_device_status_idx").on(table.deviceConnectionStatus),
-  typeIdx: index("equipment_type_idx").on(table.equipmentTypeId),
-  serialNumberIdx: index("equipment_serial_number_idx").on(table.serialNumber),
-  maintenanceTimeIdx: index("equipment_next_maintenance_idx").on(table.nextMaintenance),
-}));
+});
 
 export const floorPlans = pgTable("floor_plans", {
   id: serial("id").primaryKey(),
@@ -315,7 +305,6 @@ export const documentWorkflowsRelations = relations(documentWorkflows, ({ one })
   }),
 }));
 
-// Add equipment relations
 export const equipmentRelations = relations(equipment, ({ one }) => ({
   type: one(equipmentTypes, {
     fields: [equipment.equipmentTypeId],
@@ -425,7 +414,6 @@ export const selectMessageSchema = createSelectSchema(messages);
 export const insertDocumentWorkflowSchema = createInsertSchema(documentWorkflows);
 export const selectDocumentWorkflowSchema = createSelectSchema(documentWorkflows);
 
-// Add schemas for equipment tables
 export const insertEquipmentTypeSchema = createInsertSchema(equipmentTypes);
 export const selectEquipmentTypeSchema = createSelectSchema(equipmentTypes);
 
@@ -483,7 +471,6 @@ export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type DocumentWorkflow = typeof documentWorkflows.$inferSelect;
-// Add types for equipment
 export type EquipmentType = typeof equipmentTypes.$inferSelect;
 export type Equipment = typeof equipment.$inferSelect;
 export type FloorPlan = typeof floorPlans.$inferSelect;
@@ -507,4 +494,3 @@ export type UserNotification = typeof userNotifications.$inferSelect;
 
 // Add to types section
 export type AiEngineActivity = typeof aiEngineActivity.$inferSelect;
-export type InsertAiEngineActivity = typeof aiEngineActivity.$inferInsert;
