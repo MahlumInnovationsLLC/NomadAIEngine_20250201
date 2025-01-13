@@ -1,12 +1,14 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ModuleSelector } from "@/components/layout/ModuleSelector";
+import { FileExplorer } from "@/components/document/FileExplorer";
+import { DocManage } from "./DocManage";
 import { Tree, TreeNode } from "@/components/ui/tree";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useQuery } from "@tanstack/react-query";
-import { Folder, File, Upload, RefreshCw, FileText, Trophy } from "lucide-react";
-import { useState } from "react";
-import { DocumentConfig } from "@/components/document/DocumentConfig";
-import { ModuleSelector } from "@/components/layout/ModuleSelector";
+import { Folder, File, Upload, RefreshCw, FileText } from "lucide-react";
+
 
 interface FileItem {
   name: string;
@@ -42,7 +44,37 @@ export function DocumentManagement() {
     console.log("Upload clicked");
   };
 
-  const renderContent = () => {
+
+  return (
+    <div>
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
+        <div className="px-4">
+          <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
+          <p className="text-muted-foreground mb-4">
+            Manage, review, and approve documents with advanced training and workflow control.
+          </p>
+        </div>
+      </div>
+
+      <div className="px-4 space-y-6">
+        <ModuleSelector
+          activeModule={activeModule}
+          onModuleChange={setActiveModule}
+        />
+
+        <div className="grid grid-cols-[30%,1fr] gap-6">
+          <div className="h-[calc(100vh-20rem)] overflow-hidden">
+            <FileExplorer onSelectDocument={handleFileClick} />
+          </div>
+          <div>
+            {renderContent()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  function renderContent() {
     switch (activeModule) {
       case "documents":
         return (
@@ -102,71 +134,15 @@ export function DocumentManagement() {
           </Card>
         );
       case "docmanagement":
-        return selectedDocument && <DocumentConfig documentId={selectedDocument} />;
-      case "training":
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Trophy className="mr-2 h-5 w-5" />
-                Training Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="p-6 text-center">
-                  <Trophy className="h-16 w-16 mx-auto text-yellow-500 mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">Document Management Specialist</h3>
-                  <p className="text-muted-foreground">Level 3 Certification</p>
-                </div>
-                <div className="grid gap-4">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <h4 className="font-medium mb-2">Recent Achievements</h4>
-                      <ul className="space-y-2">
-                        <li className="flex items-center text-sm">
-                          <span className="w-4 h-4 rounded-full bg-green-500 mr-2" />
-                          Completed Advanced Workflow Training
-                        </li>
-                        <li className="flex items-center text-sm">
-                          <span className="w-4 h-4 rounded-full bg-blue-500 mr-2" />
-                          Reviewed 50+ Documents
-                        </li>
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
+        return <DocManage documentId={selectedDocument} />;
       default:
-        return null;
+        return (
+          <div className="text-center p-8 text-muted-foreground">
+            Select a document from the explorer to view and manage its details.
+          </div>
+        );
     }
-  };
-
-  return (
-    <div>
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
-        <div className="px-4">
-          <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
-          <p className="text-muted-foreground mb-4">
-            Manage, review, and approve documents with advanced training and workflow control.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-[240px,1fr] gap-6">
-        <ModuleSelector
-          activeModule={activeModule}
-          onModuleChange={setActiveModule}
-        />
-        <div className="space-y-6">
-          {renderContent()}
-        </div>
-      </div>
-    </div>
-  );
+  }
 }
 
 export default DocumentManagement;
