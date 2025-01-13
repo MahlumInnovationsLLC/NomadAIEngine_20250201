@@ -86,6 +86,7 @@ export const documentWorkflows = pgTable("document_workflows", {
   completedAt: timestamp("completed_at"),
 });
 
+// Equipment-related tables and schemas
 export const equipmentTypes = pgTable("equipment_types", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -94,7 +95,10 @@ export const equipmentTypes = pgTable("equipment_types", {
   category: text("category").notNull(),
   connectivityType: text("connectivity_type").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  manufacturerModelIdx: index("equipment_types_manufacturer_model_idx").on(table.manufacturer, table.model),
+  categoryIdx: index("equipment_types_category_idx").on(table.category),
+}));
 
 export const equipment = pgTable("equipment", {
   id: serial("id").primaryKey(),
@@ -121,12 +125,14 @@ export const equipment = pgTable("equipment", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
-  // Add indices for commonly queried fields
+  // Add indices for commonly queried fields for better performance
   nameIdx: index("equipment_name_idx").on(table.name),
   statusIdx: index("equipment_status_idx").on(table.status),
   healthScoreIdx: index("equipment_health_score_idx").on(table.healthScore),
   deviceStatusIdx: index("equipment_device_status_idx").on(table.deviceConnectionStatus),
   typeIdx: index("equipment_type_idx").on(table.equipmentTypeId),
+  serialNumberIdx: index("equipment_serial_number_idx").on(table.serialNumber),
+  maintenanceTimeIdx: index("equipment_next_maintenance_idx").on(table.nextMaintenance),
 }));
 
 export const floorPlans = pgTable("floor_plans", {
@@ -312,6 +318,7 @@ export const documentWorkflowsRelations = relations(documentWorkflows, ({ one })
   }),
 }));
 
+// Add equipment relations
 export const equipmentRelations = relations(equipment, ({ one }) => ({
   type: one(equipmentTypes, {
     fields: [equipment.equipmentTypeId],
@@ -421,6 +428,7 @@ export const selectMessageSchema = createSelectSchema(messages);
 export const insertDocumentWorkflowSchema = createInsertSchema(documentWorkflows);
 export const selectDocumentWorkflowSchema = createSelectSchema(documentWorkflows);
 
+// Add schemas for equipment tables
 export const insertEquipmentTypeSchema = createInsertSchema(equipmentTypes);
 export const selectEquipmentTypeSchema = createSelectSchema(equipmentTypes);
 
@@ -478,6 +486,7 @@ export type DocumentCollaborator = typeof documentCollaborators.$inferSelect;
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type DocumentWorkflow = typeof documentWorkflows.$inferSelect;
+// Add types for equipment
 export type EquipmentType = typeof equipmentTypes.$inferSelect;
 export type Equipment = typeof equipment.$inferSelect;
 export type FloorPlan = typeof floorPlans.$inferSelect;

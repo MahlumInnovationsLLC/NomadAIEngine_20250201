@@ -1,14 +1,15 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { WebSocketServer } from "ws";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeCosmosDB } from "./services/azure/cosmos_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
+import { initializeEquipmentDatabase } from "./services/azure/equipment_service";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Add request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -41,57 +42,54 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // Initialize Azure services first
+    log("Starting server initialization...");
+
+    // Initialize Azure services
     log("Initializing Azure services...");
 
     // Initialize Cosmos DB
     try {
+      log("Starting Cosmos DB initialization...");
       await initializeCosmosDB();
-      log("Cosmos DB initialized successfully");
+      log("✓ Cosmos DB initialized successfully");
     } catch (error) {
-      console.error("Failed to initialize Cosmos DB, continuing with limited functionality:", error);
+      console.error("Failed to initialize Cosmos DB:", error);
+      log("! Cosmos DB initialization failed - continuing with limited functionality");
     }
 
     // Initialize Azure OpenAI
     try {
+      log("Starting Azure OpenAI initialization...");
       const openAIClient = await initializeOpenAI();
       if (!openAIClient) {
-        log("Azure OpenAI disabled - AI features will be limited");
+        log("! Azure OpenAI disabled - AI features will be limited");
       } else {
-        log("Azure OpenAI initialized successfully");
+        log("✓ Azure OpenAI initialized successfully");
       }
     } catch (error) {
-      console.error("Failed to initialize OpenAI, continuing with limited functionality:", error);
+      console.error("Failed to initialize OpenAI:", error);
+      log("! Azure OpenAI initialization failed - continuing with limited functionality");
     }
 
+    // Initialize Equipment Database
+    try {
+      log("Starting Equipment database initialization...");
+      const equipmentDbInitialized = await initializeEquipmentDatabase();
+      if (equipmentDbInitialized) {
+        log("✓ Equipment database initialized with Azure Cosmos DB backup");
+      } else {
+        log("! Equipment database initialized in PostgreSQL-only mode");
+      }
+    } catch (error) {
+      console.error("Failed to initialize Equipment database:", error);
+      log("! Equipment database initialization failed - check database connection");
+      throw error; // This is critical, we need the database
+    }
+
+    log("Registering routes and initializing server...");
     const server = await registerRoutes(app);
 
-    // Create WebSocket server
-    const wss = new WebSocketServer({ noServer: true });
-
-    // Handle WebSocket connection
-    wss.on("connection", (ws) => {
-      ws.on("error", console.error);
-
-      ws.on("message", (data) => {
-        try {
-          console.log("received: %s", data);
-        } catch (e) {
-          console.error("Error processing message:", e);
-        }
-      });
-    });
-
-    // Handle upgrade requests
-    server.on("upgrade", (request, socket, head) => {
-      // Skip non-websocket upgrade requests
-      if (!request.headers["sec-websocket-protocol"]) {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-          wss.emit("connection", ws, request);
-        });
-      }
-    });
-
+    // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Server error:', err);
       const status = err.status || err.statusCode || 500;
@@ -101,17 +99,23 @@ app.use((req, res, next) => {
     });
 
     if (app.get("env") === "development") {
+      log("Setting up Vite development server...");
       await setupVite(app, server);
+      log("✓ Vite development server initialized");
     } else {
+      log("Setting up static file serving...");
       serveStatic(app);
+      log("✓ Static file serving initialized");
     }
 
     const PORT = 5000;
     server.listen(PORT, "0.0.0.0", () => {
-      log(`Server running on port ${PORT}`);
+      log(`✓ Server running on port ${PORT}`);
+      log("Server initialization complete!");
     });
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error("Fatal error during server startup:", error);
+    log("! Server initialization failed");
     process.exit(1);
   }
 })();

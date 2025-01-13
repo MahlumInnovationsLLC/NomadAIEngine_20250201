@@ -6,7 +6,7 @@ import { ContainerClient } from "@azure/storage-blob";
 import multer from "multer";
 import { v4 as uuidv4 } from 'uuid';
 import { db } from "@db";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import {
   documentWorkflows,
   documentApprovals,
@@ -17,13 +17,10 @@ import {
 } from "@db/schema";
 
 // Import services
-import { setupWebSocketServer } from "./services/websocket";
-import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import {
-  initializeEquipmentDatabase,
   getEquipmentType,
   createEquipmentType,
   getAllEquipment,
@@ -39,14 +36,19 @@ interface AuthenticatedRequest extends Express.Request {
   };
 }
 
-// Initialize Azure Blob Storage
+// Initialize Azure Blob Storage if available
 const sasUrl = process.env.AZURE_BLOB_CONNECTION_STRING;
+let containerClient: ContainerClient | null = null;
 
-if (!sasUrl) {
-  throw new Error("Azure Blob Storage connection string not found in environment variables");
+if (sasUrl) {
+  try {
+    containerClient = new ContainerClient(sasUrl);
+    console.log("Azure Blob Storage initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize Azure Blob Storage:", error);
+    console.log("Operating without Blob Storage capabilities");
+  }
 }
-
-const containerClient = new ContainerClient(sasUrl);
 
 // Configure multer for memory storage
 const upload = multer({
@@ -57,25 +59,21 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  console.log("Starting routes registration...");
+
   // Create HTTP server first
   const httpServer = createServer(app);
 
-  // Create Socket.IO server with explicit types
-  const io = new SocketIOServer<any>(httpServer, {
+  // Create Socket.IO server with proper types
+  const io = new SocketIOServer(httpServer, {
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
-    }
+    },
+    path: "/socket.io/"
   });
 
-  const wsServer = setupWebSocketServer(io);
-
   try {
-    // Initialize database connections
-    console.log("Initializing equipment database...");
-    const equipmentDbInitialized = await initializeEquipmentDatabase();
-    console.log("Equipment database initialized:", equipmentDbInitialized ? "success" : "PostgreSQL only mode");
-
     // Set up middleware
     app.use('/uploads', express.static('uploads'));
 
@@ -99,7 +97,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(newType);
       } catch (error) {
         console.error("Error creating equipment type:", error);
-        res.status(500).json({ error: "Failed to create equipment type" });
+        res.status(500).json({ 
+          error: "Failed to create equipment type",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     });
 
@@ -110,7 +111,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(equipment);
       } catch (error) {
         console.error("Error getting equipment:", error);
-        res.status(500).json({ error: "Failed to get equipment" });
+        res.status(500).json({ 
+          error: "Failed to get equipment",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     });
 
@@ -323,8 +327,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(
             and(
               eq(aiEngineActivity.userId, userId),
-              gte(aiEngineActivity.startTime, sevenDaysAgo),
-              lte(aiEngineActivity.startTime, new Date())
+              sql`${aiEngineActivity.startTime} >= ${sevenDaysAgo}`,
+              sql`${aiEngineActivity.startTime} <= ${new Date()}`
             )
           );
 
@@ -411,38 +415,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           delimiter: '/'
         };
 
-        // Get all blobs with the specified prefix
-        const blobs = containerClient.listBlobsByHierarchy('/', listOptions);
+        if (containerClient) {
+          // Get all blobs with the specified prefix
+          const blobs = containerClient.listBlobsByHierarchy('/', listOptions);
 
-        console.log("Starting blob enumeration...");
-        for await (const item of blobs) {
-          console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name);
+          console.log("Starting blob enumeration...");
+          for await (const item of blobs) {
+            console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name);
 
-          // Check if it's a virtual directory (folder)
-          if (item.kind === "prefix") {
-            // Get folder name by removing the trailing slash
-            const folderPath = item.name;
-            const folderName = folderPath.split('/').filter(Boolean).pop() || "";
+            // Check if it's a virtual directory (folder)
+            if (item.kind === "prefix") {
+              // Get folder name by removing the trailing slash
+              const folderPath = item.name;
+              const folderName = folderPath.split('/').filter(Boolean).pop() || "";
 
-            items.push({
-              name: folderName,
-              path: folderPath,
-              type: "folder"
-            });
-          } else {
-            // It's a blob (file)
-            const blobItem = item;
-            const fileName = blobItem.name.split("/").pop() || "";
-
-            // Don't include folder markers
-            if (!fileName.startsWith('.folder')) {
               items.push({
-                name: fileName,
-                path: blobItem.name,
-                type: "file",
-                size: blobItem.properties?.contentLength,
-                lastModified: blobItem.properties?.lastModified?.toISOString()
+                name: folderName,
+                path: folderPath,
+                type: "folder"
               });
+            } else {
+              // It's a blob (file)
+              const blobItem = item;
+              const fileName = blobItem.name.split("/").pop() || "";
+
+              // Don't include folder markers
+              if (!fileName.startsWith('.folder')) {
+                items.push({
+                  name: fileName,
+                  path: blobItem.name,
+                  type: "file",
+                  size: blobItem.properties?.contentLength,
+                  lastModified: blobItem.properties?.lastModified?.toISOString()
+                });
+              }
             }
           }
         }
@@ -467,17 +473,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Uploading files to container:", "documents", "path:", path);
         console.log("Files to upload:", files.map(f => f.originalname));
 
-        const uploadPromises = files.map(async (file) => {
-          const blobName = path ? `${path}/${file.originalname}` : file.originalname;
-          const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-          await blockBlobClient.uploadData(file.buffer);
-          return blobName;
-        });
+        if (containerClient) {
+          const uploadPromises = files.map(async (file) => {
+            const blobName = path ? `${path}/${file.originalname}` : file.originalname;
+            const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+            await blockBlobClient.uploadData(file.buffer);
+            return blobName;
+          });
 
-        const uploadedFiles = await Promise.all(uploadPromises);
-        console.log("Successfully uploaded files:", uploadedFiles);
+          const uploadedFiles = await Promise.all(uploadPromises);
+          console.log("Successfully uploaded files:", uploadedFiles);
 
-        res.json({ message: "Files uploaded successfully", files: uploadedFiles });
+          res.json({ message: "Files uploaded successfully", files: uploadedFiles });
+        } else {
+          res.status(500).json({ error: "Blob storage not initialized" });
+        }
       } catch (error) {
         console.error("Error uploading files:", error);
         res.status(500).json({ error: "Failed to upload files" });
@@ -495,13 +505,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log("Creating folder:", path);
 
-        // Create a zero-length blob with the folder name as prefix
-        const folderPath = path.endsWith('/') ? path : `${path}/`;
-        const blockBlobClient = containerClient.getBlockBlobClient(`${folderPath}.folder`);
-        await blockBlobClient.uploadData(Buffer.from(''));
+        if (containerClient) {
+          // Create a zero-length blob with the folder name as prefix
+          const folderPath = path.endsWith('/') ? path : `${path}/`;
+          const blockBlobClient = containerClient.getBlockBlobClient(`${folderPath}.folder`);
+          await blockBlobClient.uploadData(Buffer.from(''));
 
-        console.log("Successfully created folder:", path);
-        res.json({ message: "Folder created successfully", path });
+          console.log("Successfully created folder:", path);
+          res.json({ message: "Folder created successfully", path });
+        } else {
+          res.status(500).json({ error: "Blob storage not initialized" });
+        }
       } catch (error) {
         console.error("Error creating folder:", error);
         res.status(500).json({ error: "Failed to create folder" });
@@ -567,32 +581,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
         console.log("Fetching document content for:", documentPath);
 
-        const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
+        if (containerClient) {
+          const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
 
-        try {
-          const downloadResponse = await blockBlobClient.download();
-          const properties = await blockBlobClient.getProperties();
+          try {
+            const downloadResponse = await blockBlobClient.download();
+            const properties = await blockBlobClient.getProperties();
 
-          if (!downloadResponse.readableStreamBody) {
-            return res.status(404).json({ error: "No content available" });
+            if (!downloadResponse.readableStreamBody) {
+              return res.status(404).json({ error: "No content available" });
+            }
+
+            // Read the stream into a buffer
+            const chunks: Buffer[] = [];
+            for await (const chunk of downloadResponse.readableStreamBody) {
+              chunks.push(Buffer.from(chunk));
+            }
+            const content = Buffer.concat(chunks).toString('utf-8');
+
+            res.json({
+              content,
+              revision: properties.metadata?.revision,
+            });
+          } catch (error: any) {
+            if (error.statusCode === 404) {
+              return res.status(404).json({ error: "Document not found" });
+            }
+            throw error;
           }
-
-          // Read the stream into a buffer
-          const chunks: Buffer[] = [];
-          for await (const chunk of downloadResponse.readableStreamBody) {
-            chunks.push(Buffer.from(chunk));
-          }
-          const content = Buffer.concat(chunks).toString('utf-8');
-
-          res.json({
-            content,
-            revision: properties.metadata?.revision,
-          });
-        } catch (error: any) {
-          if (error.statusCode === 404) {
-            return res.status(404).json({ error: "Document not found" });
-          }
-          throw error;
+        } else {
+          res.status(500).json({ error: "Blob storage not initialized" });
         }
       } catch (error) {
         console.error("Error fetching document content:", error);
@@ -612,19 +630,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log("Updating document content for:", documentPath);
 
-        const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
+        if (containerClient) {
+          const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
 
-        // Add revision information as metadata
-        const metadata = revision ? { revision } : undefined;
+          // Add revision information as metadata
+          const metadata = revision ? { revision } : undefined;
 
-        await blockBlobClient.upload(content, content.length, {
-          metadata,
-          blobHTTPHeaders: {
-            blobContentType: "text/html",
-          },
-        });
+          await blockBlobClient.upload(content, content.length, {
+            metadata,
+            blobHTTPHeaders: {
+              blobContentType: "text/html",
+            },
+          });
 
-        res.json({ message: "Document updated successfully" });
+          res.json({ message: "Document updated successfully" });
+        } else {
+          res.status(500).json({ error: "Blob storage not initialized" });
+        }
       } catch (error) {
         console.error("Error updating document content:", error);
         res.status(500).json({ error: "Failed to update document content" });
@@ -867,25 +889,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = socket.handshake.query.userId;
 
       if (userId && typeof userId === 'string') {
-        wsServer.registerUser(userId);
+        // Track user connection
+        socket.join(`user:${userId}`);
 
-        // Emit current online users to the newly connected client
-        socket.emit('ONLINE_USERS_UPDATE', {
-          type: 'ONLINE_USERS_UPDATE',
-          users: wsServer.getActiveUsers()
+        // Emit current connection status
+        io.emit('USER_CONNECTION_UPDATE', {
+          type: 'USER_CONNECTION_UPDATE',
+          userId,
+          status: 'connected'
         });
 
         socket.on('disconnect', () => {
           console.log('Client disconnected');
-          wsServer.unregisterUser(userId);
-          io.emit('ONLINE_USERS_UPDATE', {
-            type: 'ONLINE_USERS_UPDATE',
-            users: wsServer.getActiveUsers()
+          socket.leave(`user:${userId}`);
+          io.emit('USER_CONNECTION_UPDATE', {
+            type: 'USER_CONNECTION_UPDATE',
+            userId,
+            status: 'disconnected'
           });
         });
       }
     });
 
+    console.log("Routes registered successfully");
     return httpServer;
   } catch (error) {
     console.error("Failed to initialize services:", error);
@@ -933,3 +959,5 @@ async function trackAIEngineUsage(
 }
 
 import type { Request, Response } from "express";
+import { wsServer } from "./services/websocket";
+import { generateReport } from "./services/report_generator";
