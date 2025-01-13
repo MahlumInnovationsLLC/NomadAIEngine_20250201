@@ -111,7 +111,19 @@ export default function Navbar() {
                 <Share2 className="mr-2 h-4 w-4" />
                 Share
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600">
+              <DropdownMenuItem 
+                className="text-red-600" 
+                onSelect={() => {
+                  const instance = window.msal?.instance;
+                  if (instance) {
+                    instance.logoutPopup().then(() => {
+                      window.location.href = '/login';
+                    }).catch((error) => {
+                      console.error('Logout error:', error);
+                    });
+                  }
+                }}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </DropdownMenuItem>
