@@ -1,58 +1,78 @@
-import { CosmosClient } from "@azure/cosmos";
-import { v4 as uuidv4 } from 'uuid';
 import { db } from "@db";
 import { equipment as equipmentTable, equipmentTypes } from "@db/schema";
-import { eq, and } from "drizzle-orm";
-
-let client: CosmosClient | null = null;
-let database: any = null;
-let equipmentContainer: any = null;
+import { eq, and, sql } from "drizzle-orm";
+import { v4 as uuidv4 } from 'uuid';
+import { BlobServiceClient } from "@azure/storage-blob";
 
 // Maximum retry attempts for database operations
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
 
-// Initialize Cosmos DB if available, otherwise operate in PostgreSQL-only mode
+let blobServiceClient: BlobServiceClient | null = null;
+let containerClient: any = null;
+
+// Initialize database and blob storage if available
 export async function initializeEquipmentDatabase() {
   console.log("Starting equipment database initialization...");
 
   // Initialize PostgreSQL connection first
   try {
-    // Test PostgreSQL connection
+    console.log("Testing PostgreSQL connection...");
+
+    // Verify schema exists using raw SQL
+    const result = await db.execute(sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'equipment'
+      );
+    `);
+
+    if (!result.rows?.[0]?.exists) {
+      console.error("Equipment table does not exist in the database");
+      throw new Error("Database schema not initialized - equipment table missing");
+    }
+
+    // Test equipment table access
     await db.select().from(equipmentTable).limit(1);
-    console.log("PostgreSQL connection successful");
+    console.log("✓ PostgreSQL connection and schema verification successful");
   } catch (error) {
     console.error("Failed to connect to PostgreSQL:", error);
     throw new Error("PostgreSQL connection failed - database is required for equipment management");
   }
 
-  // Try to initialize Cosmos DB if credentials are available
-  if (process.env.AZURE_COSMOS_CONNECTION_STRING) {
-    try {
-      console.log("Attempting to connect to Cosmos DB...");
-      client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
-      database = client.database("GYMAIEngineDB");
-      equipmentContainer = database.container("equipment");
+  // Try to initialize Azure Blob Storage if connection string is available
+  if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`Attempting to connect to Azure Blob Storage (attempt ${attempt}/${MAX_RETRIES})...`);
+        blobServiceClient = BlobServiceClient.fromConnectionString(
+          process.env.AZURE_STORAGE_CONNECTION_STRING
+        );
 
-      await database.containers.createIfNotExists({
-        id: "equipment",
-        partitionKey: { paths: ["/id"] },
-        indexingPolicy: {
-          indexingMode: "consistent",
-          automatic: true,
-          includedPaths: [{ path: "/*" }],
+        // Create container if it doesn't exist
+        containerClient = blobServiceClient.getContainerClient("equipment-backups");
+        await containerClient.createIfNotExists({
+          access: 'container' // This makes the container public
+        });
+
+        console.log("✓ Azure Blob Storage initialized successfully");
+        return true;
+      } catch (error) {
+        console.error(`Failed to initialize Azure Blob Storage (attempt ${attempt}/${MAX_RETRIES}):`, error);
+
+        if (attempt < MAX_RETRIES) {
+          const delay = RETRY_DELAY * attempt;
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          console.log("Operating in PostgreSQL-only mode");
+          return false;
         }
-      });
-
-      console.log("✓ Cosmos DB initialized successfully");
-      return true;
-    } catch (error) {
-      console.error("Failed to initialize Cosmos DB:", error);
-      console.log("Operating in PostgreSQL-only mode");
-      return false;
+      }
     }
   }
-  console.log("No Cosmos DB connection string found, operating in PostgreSQL-only mode");
+  console.log("No Azure Storage connection string found, operating in PostgreSQL-only mode");
   return false;
 }
 
@@ -78,159 +98,65 @@ async function withRetry<T>(operation: () => Promise<T>, context: string): Promi
   throw new Error(`Operation '${context}' failed after ${MAX_RETRIES} attempts: ${lastError?.message}`);
 }
 
-// Get equipment type by ID
-export async function getEquipmentTypeById(id: number): Promise<EquipmentType | null> {
-  return withRetry(async () => {
-    const [type] = await db
-      .select()
-      .from(equipmentTypes)
-      .where(eq(equipmentTypes.id, id))
-      .limit(1);
+// Backup data to Azure Blob Storage
+async function backupToBlob(data: any, blobName: string): Promise<void> {
+  if (!containerClient) return;
 
-    if (!type) return null;
-
-    return {
-      id: type.id.toString(),
-      name: type.name,
-      manufacturer: type.manufacturer || undefined,
-      model: type.model || undefined,
-      category: type.category,
-      connectivityType: type.connectivityType,
-    };
-  }, "Get equipment type");
-}
-
-// Get equipment type by manufacturer and model
-export async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
-  return withRetry(async () => {
-    const [type] = await db
-      .select()
-      .from(equipmentTypes)
-      .where(
-        and(
-          eq(equipmentTypes.manufacturer, manufacturer),
-          eq(equipmentTypes.model, model)
-        )
-      )
-      .limit(1);
-
-    if (!type) return null;
-
-    return {
-      id: type.id.toString(),
-      name: type.name,
-      manufacturer: type.manufacturer || undefined,
-      model: type.model || undefined,
-      category: type.category,
-      connectivityType: type.connectivityType,
-    };
-  }, "Get equipment type by manufacturer and model");
-}
-
-// Create new equipment type
-export async function createEquipmentType(type: Omit<EquipmentType, "id">): Promise<EquipmentType> {
-  return withRetry(async () => {
-    const [newType] = await db
-      .insert(equipmentTypes)
-      .values({
-        name: type.name,
-        manufacturer: type.manufacturer,
-        model: type.model,
-        category: type.category,
-        connectivityType: type.connectivityType,
-      })
-      .returning();
-
-    return {
-      id: newType.id.toString(),
-      name: newType.name,
-      manufacturer: newType.manufacturer || undefined,
-      model: newType.model || undefined,
-      category: newType.category,
-      connectivityType: newType.connectivityType,
-    };
-  }, "Create equipment type");
+  try {
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    const content = JSON.stringify(data, null, 2); // Pretty print JSON
+    await blockBlobClient.upload(content, content.length);
+    console.log(`✓ Backed up ${blobName} to Azure Blob Storage`);
+  } catch (error) {
+    console.error("Failed to backup to Azure Blob Storage:", error);
+    // Don't throw - we don't want to fail the operation if backup fails
+  }
 }
 
 // Get all equipment
 export async function getAllEquipment(): Promise<Equipment[]> {
   return withRetry(async () => {
-    try {
-      const pgEquipment = await db.query.equipment.findMany({
-        orderBy: (equipment, { desc }) => [desc(equipment.createdAt)]
-      });
+    console.log("Fetching all equipment from database...");
+    const pgEquipment = await db.query.equipment.findMany({
+      orderBy: (equipment, { desc }) => [desc(equipment.createdAt)]
+    });
 
-      const mappedEquipment = pgEquipment.map(e => ({
-        id: e.id.toString(),
-        name: e.name,
-        equipmentTypeId: e.equipmentTypeId?.toString() || null,
-        status: e.status,
-        healthScore: parseFloat(e.healthScore.toString()),
-        deviceConnectionStatus: e.deviceConnectionStatus || undefined,
-        deviceIdentifier: e.deviceIdentifier || undefined,
-        deviceType: e.deviceType || undefined,
-        maintenanceScore: e.maintenanceScore ? parseFloat(e.maintenanceScore.toString()) : undefined,
-        lastMaintenance: e.lastMaintenance?.toISOString(),
-        nextMaintenance: e.nextMaintenance?.toISOString(),
-        position: e.position as { x: number; y: number } | undefined,
-        riskFactors: e.riskFactors as unknown[],
-        lastPredictionUpdate: e.lastPredictionUpdate?.toISOString(),
-        serialNumber: e.serialNumber || undefined,
-        modelNumber: e.modelNumber || undefined,
-        modelYear: e.modelYear || undefined,
-        createdAt: e.createdAt.toISOString(),
-        updatedAt: e.updatedAt.toISOString()
-      }));
+    const mappedEquipment = pgEquipment.map(e => ({
+      id: e.id.toString(),
+      name: e.name,
+      equipmentTypeId: e.equipmentTypeId?.toString() || null,
+      status: e.status,
+      healthScore: parseFloat(e.healthScore.toString()),
+      deviceConnectionStatus: e.deviceConnectionStatus || undefined,
+      deviceIdentifier: e.deviceIdentifier || undefined,
+      deviceType: e.deviceType || undefined,
+      maintenanceScore: e.maintenanceScore ? parseFloat(e.maintenanceScore.toString()) : undefined,
+      lastMaintenance: e.lastMaintenance?.toISOString(),
+      nextMaintenance: e.nextMaintenance?.toISOString(),
+      position: e.position as { x: number; y: number } | undefined,
+      riskFactors: e.riskFactors as unknown[],
+      lastPredictionUpdate: e.lastPredictionUpdate?.toISOString(),
+      serialNumber: e.serialNumber || undefined,
+      modelNumber: e.modelNumber || undefined,
+      modelYear: e.modelYear || undefined,
+      createdAt: e.createdAt.toISOString(),
+      updatedAt: e.updatedAt.toISOString()
+    }));
 
-      // Sync to Cosmos DB if available
-      if (client && equipmentContainer) {
-        await Promise.all(mappedEquipment.map(equipment => 
-          syncToCosmosDB(equipment).catch(console.error)
-        ));
-      }
-
-      return mappedEquipment;
-    } catch (error) {
-      console.error("Failed to retrieve equipment from PostgreSQL:", error);
-
-      // Try Cosmos DB as fallback if available
-      if (client && equipmentContainer) {
-        try {
-          const { resources: equipment } = await equipmentContainer.items
-            .query("SELECT * FROM c ORDER BY c._ts DESC")
-            .fetchAll();
-          return equipment;
-        } catch (cosmosError) {
-          console.error("Failed to retrieve equipment from Cosmos DB:", cosmosError);
-        }
-      }
-      throw new Error("Failed to retrieve equipment data from all available sources");
+    // Backup to blob storage if available
+    if (containerClient) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      await backupToBlob(mappedEquipment, `equipment-list-${timestamp}.json`);
     }
+
+    return mappedEquipment;
   }, "Get all equipment");
-}
-
-// Sync data to Cosmos DB
-async function syncToCosmosDB(equipment: Equipment): Promise<void> {
-  if (!client || !equipmentContainer) return;
-
-  try {
-    const cosmosEquipment = {
-      ...equipment,
-      _ts: Date.now(),
-      partitionKey: equipment.id
-    };
-
-    await equipmentContainer.items.upsert(cosmosEquipment);
-    console.log(`✓ Synced equipment ${equipment.id} to Cosmos DB`);
-  } catch (error) {
-    console.error("Failed to sync with Cosmos DB:", error);
-    // Don't throw - we don't want to fail the operation if sync fails
-  }
 }
 
 // Get equipment by ID with retries
 export async function getEquipmentById(id: string): Promise<Equipment | null> {
   return withRetry(async () => {
+    console.log(`Fetching equipment with ID ${id}...`);
     const [equipment] = await db
       .select()
       .from(equipmentTable)
@@ -266,46 +192,39 @@ export async function getEquipmentById(id: string): Promise<Equipment | null> {
 // Create new equipment with retries
 export async function createEquipment(equipment: Omit<Equipment, "id" | "createdAt" | "updatedAt">): Promise<Equipment> {
   return withRetry(async () => {
-    const now = new Date().toISOString();
-    const newEquipment = {
-      ...equipment,
-      id: uuidv4(),
-      createdAt: now,
-      updatedAt: now
-    };
-
-    // Validate required fields
-    if (!newEquipment.name || !newEquipment.status || newEquipment.healthScore === undefined) {
-      throw new Error("Missing required fields: name, status, or healthScore");
-    }
-
     try {
+      console.log("Creating new equipment:", equipment.name);
       const [pgEquipment] = await db.insert(equipmentTable).values({
-        name: newEquipment.name,
-        equipmentTypeId: newEquipment.equipmentTypeId ? parseInt(newEquipment.equipmentTypeId) : null,
-        status: newEquipment.status as any,
-        healthScore: newEquipment.healthScore.toString(),
-        deviceConnectionStatus: newEquipment.deviceConnectionStatus as any,
-        deviceIdentifier: newEquipment.deviceIdentifier,
-        deviceType: newEquipment.deviceType,
-        position: newEquipment.position,
-        serialNumber: newEquipment.serialNumber,
-        modelNumber: newEquipment.modelNumber,
-        modelYear: newEquipment.modelYear,
-        maintenanceScore: newEquipment.maintenanceScore?.toString(),
-        riskFactors: newEquipment.riskFactors,
-        lastPredictionUpdate: newEquipment.lastPredictionUpdate ? new Date(newEquipment.lastPredictionUpdate) : null,
-        lastMaintenance: newEquipment.lastMaintenance ? new Date(newEquipment.lastMaintenance) : null,
-        nextMaintenance: newEquipment.nextMaintenance ? new Date(newEquipment.nextMaintenance) : null,
+        name: equipment.name,
+        equipmentTypeId: equipment.equipmentTypeId ? parseInt(equipment.equipmentTypeId) : null,
+        status: equipment.status as any,
+        healthScore: equipment.healthScore.toString(),
+        deviceConnectionStatus: equipment.deviceConnectionStatus as any,
+        deviceIdentifier: equipment.deviceIdentifier,
+        deviceType: equipment.deviceType,
+        position: equipment.position,
+        serialNumber: equipment.serialNumber,
+        modelNumber: equipment.modelNumber,
+        modelYear: equipment.modelYear,
+        maintenanceScore: equipment.maintenanceScore?.toString(),
+        riskFactors: equipment.riskFactors,
+        lastPredictionUpdate: equipment.lastPredictionUpdate ? new Date(equipment.lastPredictionUpdate) : null,
+        lastMaintenance: equipment.lastMaintenance ? new Date(equipment.lastMaintenance) : null,
+        nextMaintenance: equipment.nextMaintenance ? new Date(equipment.nextMaintenance) : null,
       }).returning();
 
       const createdEquipment = {
-        ...newEquipment,
-        id: pgEquipment.id.toString()
+        ...equipment,
+        id: pgEquipment.id.toString(),
+        createdAt: pgEquipment.createdAt.toISOString(),
+        updatedAt: pgEquipment.updatedAt.toISOString()
       };
 
-      // Sync to Cosmos DB
-      await syncToCosmosDB(createdEquipment);
+      // Backup to blob storage if available
+      if (containerClient) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        await backupToBlob(createdEquipment, `equipment-${createdEquipment.id}-${timestamp}.json`);
+      }
 
       return createdEquipment;
     } catch (error) {
@@ -319,6 +238,7 @@ export async function createEquipment(equipment: Omit<Equipment, "id" | "created
 export async function updateEquipment(id: string, updates: Partial<Equipment>): Promise<Equipment> {
   return withRetry(async () => {
     try {
+      console.log(`Updating equipment ${id}...`);
       const [pgEquipment] = await db.update(equipmentTable)
         .set({
           name: updates.name,
@@ -368,8 +288,11 @@ export async function updateEquipment(id: string, updates: Partial<Equipment>): 
         updatedAt: pgEquipment.updatedAt.toISOString()
       };
 
-      // Sync to Cosmos DB
-      await syncToCosmosDB(updatedEquipment);
+      // Backup to blob storage if available
+      if (containerClient) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        await backupToBlob(updatedEquipment, `equipment-${id}-${timestamp}.json`);
+      }
 
       return updatedEquipment;
     } catch (error) {
@@ -402,14 +325,9 @@ export interface Equipment {
   updatedAt: string;
 }
 
-export interface EquipmentType {
-  id: string;
-  name: string;
-  manufacturer?: string;
-  model?: string;
-  category: string;
-  connectivityType: string;
-}
-
 // Initialize database connections when module loads
-initializeEquipmentDatabase().catch(console.error);
+console.log("Initializing equipment service...");
+initializeEquipmentDatabase().catch(error => {
+  console.error("Failed to initialize equipment database:", error);
+  process.exit(1);
+});

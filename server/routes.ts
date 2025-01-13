@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
-import { ContainerClient } from "@azure/storage-blob";
+import { BlobServiceClient } from "@azure/storage-blob";
 import multer from "multer";
 import { v4 as uuidv4 } from 'uuid';
 import { db } from "@db";
@@ -14,15 +14,13 @@ import {
   roles,
   userTraining,
   aiEngineActivity,
+  equipment
 } from "@db/schema";
 
 // Import services
-import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import {
-  getEquipmentType,
-  createEquipmentType,
   getAllEquipment,
   createEquipment,
   updateEquipment,
@@ -41,11 +39,11 @@ interface AuthenticatedRequest extends Request {
 
 // Initialize Azure Blob Storage if available
 const sasUrl = process.env.AZURE_BLOB_CONNECTION_STRING;
-let containerClient: ContainerClient | null = null;
+let containerClient: BlobServiceClient | null = null;
 
 if (sasUrl) {
   try {
-    containerClient = new ContainerClient(sasUrl);
+    containerClient = BlobServiceClient.fromConnectionString(sasUrl);
     console.log("Azure Blob Storage initialized successfully");
   } catch (error) {
     console.error("Failed to initialize Azure Blob Storage:", error);
@@ -61,7 +59,7 @@ const upload = multer({
   }
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): Server {
   console.log("Starting routes registration...");
 
   try {
@@ -84,27 +82,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.use((req: AuthenticatedRequest, res, next) => {
       req.user = { id: '1', username: 'test_user' };
       next();
-    });
-
-    // Equipment Type Operations
-    app.post("/api/equipment-types", async (req: AuthenticatedRequest, res) => {
-      try {
-        const type = req.body;
-        const existingType = await getEquipmentType(type.manufacturer, type.model);
-
-        if (existingType) {
-          return res.json(existingType);
-        }
-
-        const newType = await createEquipmentType(type);
-        res.json(newType);
-      } catch (error) {
-        console.error("Error creating equipment type:", error);
-        res.status(500).json({
-          error: "Failed to create equipment type",
-          details: error instanceof Error ? error.message : "Unknown error"
-        });
-      }
     });
 
     // Equipment Operations
@@ -386,23 +363,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Chat history endpoint
+    // Chat history endpoint  (Removed Cosmos DB related parts)
     app.get("/api/chats", async (req, res) => {
       try {
-        const userKey = 'default_user';
-        const chats = await listChats(userKey);
-        const formattedChats = chats.map(chat => ({
-          id: chat.id,
-          title: chat.title,
-          lastMessageAt: chat.lastMessageAt,
-          isArchived: chat.isDeleted || false
-        }));
-        res.json(formattedChats);
+        //  Cosmos DB chat listing removed
+        res.json([]); // Return empty array for now
       } catch (error) {
         console.error("Error fetching chats:", error);
         res.status(500).json({ error: "Failed to fetch chats" });
       }
     });
+
 
     // Blob Storage endpoints
     app.get("/api/documents/browse", async (req, res) => {
@@ -420,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (containerClient) {
           // Get all blobs with the specified prefix
-          const blobs = containerClient.listBlobsByHierarchy('/', listOptions);
+          const blobs = containerClient.getContainerClient("documents").listBlobsFlat(listOptions);
 
           console.log("Starting blob enumeration...");
           for await (const item of blobs) {
@@ -479,8 +450,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (containerClient) {
           const uploadPromises = files.map(async (file) => {
             const blobName = path ? `${path}/${file.originalname}` : file.originalname;
-            const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-            await blockBlobClient.uploadData(file.buffer);
+            const blockBlobClient = containerClient.getContainerClient("documents").getBlockBlobClient(blobName);
+            await blockBlobClient.upload(file.buffer, file.buffer.length);
             return blobName;
           });
 
@@ -511,8 +482,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (containerClient) {
           // Create a zero-length blob with the folder name as prefix
           const folderPath = path.endsWith('/') ? path : `${path}/`;
-          const blockBlobClient = containerClient.getBlockBlobClient(`${folderPath}.folder`);
-          await blockBlobClient.uploadData(Buffer.from(''));
+          const blockBlobClient = containerClient.getContainerClient("documents").getBlockBlobClient(`${folderPath}.folder`);
+          await blockBlobClient.upload(Buffer.from(''), Buffer.from('').length);
 
           console.log("Successfully created folder:", path);
           res.json({ message: "Folder created successfully", path });
@@ -585,25 +556,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Fetching document content for:", documentPath);
 
         if (containerClient) {
-          const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
+          const blockBlobClient = containerClient.getContainerClient("documents").getBlockBlobClient(documentPath);
 
           try {
-            const downloadResponse = await blockBlobClient.download();
+            const downloadBlockBlobResponse = await blockBlobClient.download();
+            const download = await streamToString(downloadBlockBlobResponse.readableStreamBody);
             const properties = await blockBlobClient.getProperties();
 
-            if (!downloadResponse.readableStreamBody) {
-              return res.status(404).json({ error: "No content available" });
-            }
-
-            // Read the stream into a buffer
-            const chunks: Buffer[] = [];
-            for await (const chunk of downloadResponse.readableStreamBody) {
-              chunks.push(Buffer.from(chunk));
-            }
-            const content = Buffer.concat(chunks).toString('utf-8');
-
             res.json({
-              content,
+              content: download,
               revision: properties.metadata?.revision,
             });
           } catch (error: any) {
@@ -634,7 +595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Updating document content for:", documentPath);
 
         if (containerClient) {
-          const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
+          const blockBlobClient = containerClient.getContainerClient("documents").getBlockBlobClient(documentPath);
 
           // Add revision information as metadata
           const metadata = revision ? { revision } : undefined;
@@ -962,4 +923,17 @@ async function trackAIEngineUsage(
   } catch (error) {
     console.error("Error tracking AI Engine usage:", error);
   }
+}
+
+async function streamToString(readableStream: NodeJS.ReadableStream): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Uint8Array[] = [];
+    readableStream.on("data", (data) => {
+      chunks.push(data);
+    });
+    readableStream.on("end", () => {
+      resolve(Buffer.concat(chunks).toString());
+    });
+    readableStream.on("error", reject);
+  });
 }
