@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, integer, decimal, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer, decimal, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -116,8 +116,6 @@ export const equipment = pgTable("equipment", {
   lastPredictionUpdate: timestamp("last_prediction_update"),
   position: jsonb("position"),
   metadata: jsonb("metadata").default('{}'),
-  maintenanceType: text("maintenance_type"),
-  maintenanceNotes: text("maintenance_notes"),
   deviceConnectionStatus: text("device_connection_status", { enum: ['connected', 'disconnected', 'pairing'] }).default('disconnected'),
   deviceType: text("device_type"),
   deviceIdentifier: text("device_identifier").unique(),
@@ -125,7 +123,6 @@ export const equipment = pgTable("equipment", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
-  // Add indices for commonly queried fields for better performance
   nameIdx: index("equipment_name_idx").on(table.name),
   statusIdx: index("equipment_status_idx").on(table.status),
   healthScoreIdx: index("equipment_health_score_idx").on(table.healthScore),
@@ -510,3 +507,4 @@ export type UserNotification = typeof userNotifications.$inferSelect;
 
 // Add to types section
 export type AiEngineActivity = typeof aiEngineActivity.$inferSelect;
+export type InsertAiEngineActivity = typeof aiEngineActivity.$inferInsert;

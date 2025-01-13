@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
@@ -27,13 +27,16 @@ import {
   createEquipment,
   updateEquipment,
 } from "./services/azure/equipment_service";
+import { setupWebSocketServer } from "./services/websocket";
+import { generateReport, generateEquipmentReport } from "./services/report_generator";
 
 // Types
-interface AuthenticatedRequest extends Express.Request {
+interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     username: string;
   };
+  body: any;
 }
 
 // Initialize Azure Blob Storage if available
@@ -61,19 +64,19 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log("Starting routes registration...");
 
-  // Create HTTP server first
-  const httpServer = createServer(app);
-
-  // Create Socket.IO server with proper types
-  const io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    },
-    path: "/socket.io/"
-  });
-
   try {
+    // Create HTTP server first
+    const httpServer = createServer(app);
+
+    // Set up Socket.IO server
+    const io = new SocketIOServer(httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      },
+      path: "/socket.io/"
+    });
+
     // Set up middleware
     app.use('/uploads', express.static('uploads'));
 
@@ -84,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Equipment Type Operations
-    app.post("/api/equipment-types", async (req, res) => {
+    app.post("/api/equipment-types", async (req: AuthenticatedRequest, res) => {
       try {
         const type = req.body;
         const existingType = await getEquipmentType(type.manufacturer, type.model);
@@ -97,7 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(newType);
       } catch (error) {
         console.error("Error creating equipment type:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           error: "Failed to create equipment type",
           details: error instanceof Error ? error.message : "Unknown error"
         });
@@ -111,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(equipment);
       } catch (error) {
         console.error("Error getting equipment:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           error: "Failed to get equipment",
           details: error instanceof Error ? error.message : "Unknown error"
         });
@@ -125,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(newEquipment);
       } catch (error) {
         console.error("Error creating equipment:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           error: "Failed to create equipment",
           details: error instanceof Error ? error.message : "Unknown error"
         });
@@ -143,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(updatedEquipment);
       } catch (error) {
         console.error("Error updating equipment:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           error: "Failed to update equipment",
           details: error instanceof Error ? error.message : "Unknown error"
         });
@@ -151,7 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Generate detailed report endpoint
-    app.post("/api/generate-report", async (req, res) => {
+    app.post("/api/generate-report", async (req: AuthenticatedRequest, res) => {
       try {
         const { topic } = req.body;
 
@@ -184,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Messages endpoint
-    app.post("/api/messages", async (req, res) => {
+    app.post("/api/messages", async (req: AuthenticatedRequest, res) => {
       try {
         console.log("Received message request:", req.body);
         const { content } = req.body;
@@ -911,6 +914,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
+    // Initialize WebSocket server
+    const wsServer = setupWebSocketServer(httpServer);
+
     console.log("Routes registered successfully");
     return httpServer;
   } catch (error) {
@@ -919,8 +925,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 }
 
-// Helper functions
-export async function getUserTrainingLevel(userId: string) {
+// Helper function to get user's training level
+export async function getUserTrainingLevel(userId: string): Promise<number> {
   const trainings = await db
     .select()
     .from(userTraining)
@@ -957,7 +963,3 @@ async function trackAIEngineUsage(
     console.error("Error tracking AI Engine usage:", error);
   }
 }
-
-import type { Request, Response } from "express";
-import { wsServer } from "./services/websocket";
-import { generateReport } from "./services/report_generator";

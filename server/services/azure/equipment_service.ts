@@ -15,6 +15,18 @@ const RETRY_DELAY = 1000; // 1 second
 // Initialize Cosmos DB if available, otherwise operate in PostgreSQL-only mode
 export async function initializeEquipmentDatabase() {
   console.log("Starting equipment database initialization...");
+
+  // Initialize PostgreSQL connection first
+  try {
+    // Test PostgreSQL connection
+    await db.select().from(equipmentTable).limit(1);
+    console.log("PostgreSQL connection successful");
+  } catch (error) {
+    console.error("Failed to connect to PostgreSQL:", error);
+    throw new Error("PostgreSQL connection failed - database is required for equipment management");
+  }
+
+  // Try to initialize Cosmos DB if credentials are available
   if (process.env.AZURE_COSMOS_CONNECTION_STRING) {
     try {
       console.log("Attempting to connect to Cosmos DB...");
@@ -32,7 +44,7 @@ export async function initializeEquipmentDatabase() {
         }
       });
 
-      console.log("Cosmos DB initialized successfully");
+      console.log("✓ Cosmos DB initialized successfully");
       return true;
     } catch (error) {
       console.error("Failed to initialize Cosmos DB:", error);
@@ -44,10 +56,53 @@ export async function initializeEquipmentDatabase() {
   return false;
 }
 
+// Utility function to handle database errors with retries
+async function withRetry<T>(operation: () => Promise<T>, context: string): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`${context} failed (attempt ${attempt}/${MAX_RETRIES}):`, error);
+
+      if (attempt < MAX_RETRIES) {
+        const delay = RETRY_DELAY * attempt;
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw new Error(`Operation '${context}' failed after ${MAX_RETRIES} attempts: ${lastError?.message}`);
+}
+
+// Get equipment type by ID
+export async function getEquipmentTypeById(id: number): Promise<EquipmentType | null> {
+  return withRetry(async () => {
+    const [type] = await db
+      .select()
+      .from(equipmentTypes)
+      .where(eq(equipmentTypes.id, id))
+      .limit(1);
+
+    if (!type) return null;
+
+    return {
+      id: type.id.toString(),
+      name: type.name,
+      manufacturer: type.manufacturer || undefined,
+      model: type.model || undefined,
+      category: type.category,
+      connectivityType: type.connectivityType,
+    };
+  }, "Get equipment type");
+}
+
 // Get equipment type by manufacturer and model
 export async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
-  console.log(`Fetching equipment type for manufacturer: ${manufacturer}, model: ${model}`);
-  try {
+  return withRetry(async () => {
     const [type] = await db
       .select()
       .from(equipmentTypes)
@@ -59,12 +114,9 @@ export async function getEquipmentType(manufacturer: string, model: string): Pro
       )
       .limit(1);
 
-    if (!type) {
-      console.log("No equipment type found");
-      return null;
-    }
+    if (!type) return null;
 
-    const mappedType = {
+    return {
       id: type.id.toString(),
       name: type.name,
       manufacturer: type.manufacturer || undefined,
@@ -72,19 +124,12 @@ export async function getEquipmentType(manufacturer: string, model: string): Pro
       category: type.category,
       connectivityType: type.connectivityType,
     };
-
-    console.log("Found equipment type:", mappedType);
-    return mappedType;
-  } catch (error) {
-    console.error("Error getting equipment type:", error);
-    return null;
-  }
+  }, "Get equipment type by manufacturer and model");
 }
 
 // Create new equipment type
 export async function createEquipmentType(type: Omit<EquipmentType, "id">): Promise<EquipmentType> {
-  console.log("Creating new equipment type:", type);
-  try {
+  return withRetry(async () => {
     const [newType] = await db
       .insert(equipmentTypes)
       .values({
@@ -96,7 +141,7 @@ export async function createEquipmentType(type: Omit<EquipmentType, "id">): Prom
       })
       .returning();
 
-    const createdType = {
+    return {
       id: newType.id.toString(),
       name: newType.name,
       manufacturer: newType.manufacturer || undefined,
@@ -104,39 +149,68 @@ export async function createEquipmentType(type: Omit<EquipmentType, "id">): Prom
       category: newType.category,
       connectivityType: newType.connectivityType,
     };
-
-    console.log("Successfully created equipment type:", createdType);
-    return createdType;
-  } catch (error) {
-    console.error("Failed to create equipment type:", error);
-    throw new Error(`Failed to create equipment type: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
+  }, "Create equipment type");
 }
 
-// Utility function to handle database errors with retries
-async function withRetry<T>(operation: () => Promise<T>): Promise<T> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+// Get all equipment
+export async function getAllEquipment(): Promise<Equipment[]> {
+  return withRetry(async () => {
     try {
-      return await operation();
-    } catch (error) {
-      lastError = error as Error;
-      console.error(`Database operation failed (attempt ${attempt}/${MAX_RETRIES}):`, error);
+      const pgEquipment = await db.query.equipment.findMany({
+        orderBy: (equipment, { desc }) => [desc(equipment.createdAt)]
+      });
 
-      if (attempt < MAX_RETRIES) {
-        const delay = RETRY_DELAY * attempt;
-        console.log(`Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+      const mappedEquipment = pgEquipment.map(e => ({
+        id: e.id.toString(),
+        name: e.name,
+        equipmentTypeId: e.equipmentTypeId?.toString() || null,
+        status: e.status,
+        healthScore: parseFloat(e.healthScore.toString()),
+        deviceConnectionStatus: e.deviceConnectionStatus || undefined,
+        deviceIdentifier: e.deviceIdentifier || undefined,
+        deviceType: e.deviceType || undefined,
+        maintenanceScore: e.maintenanceScore ? parseFloat(e.maintenanceScore.toString()) : undefined,
+        lastMaintenance: e.lastMaintenance?.toISOString(),
+        nextMaintenance: e.nextMaintenance?.toISOString(),
+        position: e.position as { x: number; y: number } | undefined,
+        riskFactors: e.riskFactors as unknown[],
+        lastPredictionUpdate: e.lastPredictionUpdate?.toISOString(),
+        serialNumber: e.serialNumber || undefined,
+        modelNumber: e.modelNumber || undefined,
+        modelYear: e.modelYear || undefined,
+        createdAt: e.createdAt.toISOString(),
+        updatedAt: e.updatedAt.toISOString()
+      }));
+
+      // Sync to Cosmos DB if available
+      if (client && equipmentContainer) {
+        await Promise.all(mappedEquipment.map(equipment => 
+          syncToCosmosDB(equipment).catch(console.error)
+        ));
       }
-    }
-  }
 
-  throw new Error(`Operation failed after ${MAX_RETRIES} attempts: ${lastError?.message}`);
+      return mappedEquipment;
+    } catch (error) {
+      console.error("Failed to retrieve equipment from PostgreSQL:", error);
+
+      // Try Cosmos DB as fallback if available
+      if (client && equipmentContainer) {
+        try {
+          const { resources: equipment } = await equipmentContainer.items
+            .query("SELECT * FROM c ORDER BY c._ts DESC")
+            .fetchAll();
+          return equipment;
+        } catch (cosmosError) {
+          console.error("Failed to retrieve equipment from Cosmos DB:", cosmosError);
+        }
+      }
+      throw new Error("Failed to retrieve equipment data from all available sources");
+    }
+  }, "Get all equipment");
 }
 
-// Synchronize data between PostgreSQL and Cosmos DB
-async function syncToCosmosDB(equipment: Equipment) {
+// Sync data to Cosmos DB
+async function syncToCosmosDB(equipment: Equipment): Promise<void> {
   if (!client || !equipmentContainer) return;
 
   try {
@@ -147,7 +221,7 @@ async function syncToCosmosDB(equipment: Equipment) {
     };
 
     await equipmentContainer.items.upsert(cosmosEquipment);
-    console.log(`Synced equipment ${equipment.id} to Cosmos DB`);
+    console.log(`✓ Synced equipment ${equipment.id} to Cosmos DB`);
   } catch (error) {
     console.error("Failed to sync with Cosmos DB:", error);
     // Don't throw - we don't want to fail the operation if sync fails
@@ -186,64 +260,7 @@ export async function getEquipmentById(id: string): Promise<Equipment | null> {
       createdAt: equipment.createdAt.toISOString(),
       updatedAt: equipment.updatedAt.toISOString()
     };
-  });
-}
-
-// Get all equipment with retries
-export async function getAllEquipment(): Promise<Equipment[]> {
-  return withRetry(async () => {
-    try {
-      const pgEquipment = await db.query.equipment.findMany({
-        orderBy: (equipment, { desc }) => [desc(equipment.createdAt)]
-      });
-
-      const mappedEquipment = pgEquipment.map(e => ({
-        id: e.id.toString(),
-        name: e.name,
-        equipmentTypeId: e.equipmentTypeId?.toString() || null,
-        status: e.status,
-        healthScore: parseFloat(e.healthScore.toString()),
-        deviceConnectionStatus: e.deviceConnectionStatus || undefined,
-        deviceIdentifier: e.deviceIdentifier || undefined,
-        deviceType: e.deviceType || undefined,
-        maintenanceScore: e.maintenanceScore ? parseFloat(e.maintenanceScore.toString()) : undefined,
-        lastMaintenance: e.lastMaintenance?.toISOString(),
-        nextMaintenance: e.nextMaintenance?.toISOString(),
-        position: e.position as { x: number; y: number } | undefined,
-        riskFactors: e.riskFactors as unknown[],
-        lastPredictionUpdate: e.lastPredictionUpdate?.toISOString(),
-        serialNumber: e.serialNumber || undefined,
-        modelNumber: e.modelNumber || undefined,
-        modelYear: e.modelYear || undefined,
-        createdAt: e.createdAt.toISOString(),
-        updatedAt: e.updatedAt.toISOString()
-      }));
-
-      // If PostgreSQL is successful, ensure Cosmos DB is in sync
-      if (client && equipmentContainer) {
-        await Promise.all(mappedEquipment.map(equipment =>
-          syncToCosmosDB(equipment).catch(console.error)
-        ));
-      }
-
-      return mappedEquipment;
-    } catch (error) {
-      console.error("Failed to retrieve equipment from PostgreSQL:", error);
-
-      // Try Cosmos DB as fallback if available
-      if (client && equipmentContainer) {
-        try {
-          const { resources: equipment } = await equipmentContainer.items
-            .query("SELECT * FROM c ORDER BY c.createdAt DESC")
-            .fetchAll();
-          return equipment;
-        } catch (cosmosError) {
-          console.error("Failed to retrieve equipment from Cosmos DB:", cosmosError);
-        }
-      }
-      throw new Error("Failed to retrieve equipment data from all available sources");
-    }
-  });
+  }, "Get equipment by ID");
 }
 
 // Create new equipment with retries
@@ -295,7 +312,7 @@ export async function createEquipment(equipment: Omit<Equipment, "id" | "created
       console.error("Failed to create equipment:", error);
       throw error;
     }
-  });
+  }, "Create equipment");
 }
 
 // Update equipment with retries
@@ -359,7 +376,7 @@ export async function updateEquipment(id: string, updates: Partial<Equipment>): 
       console.error("Failed to update equipment:", error);
       throw error;
     }
-  });
+  }, "Update equipment");
 }
 
 // Types
