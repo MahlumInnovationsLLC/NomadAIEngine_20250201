@@ -1,6 +1,6 @@
 import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle, LogOut } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -14,7 +14,6 @@ import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "./lib/msal-config";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import Home from "@/pages/Home";
 import ChatPage from "@/pages/ChatPage";
@@ -23,12 +22,11 @@ import ClubControlPage from "@/pages/ClubControlPage";
 import LoginPage from "@/pages/LoginPage";
 import { DocManage } from "@/pages/DocManage";
 import TrainingModule from "@/pages/TrainingModule";
-import React, { useEffect } from 'react';
+import React from 'react';
 import { OnlineUsersDropdown } from "@/components/ui/online-users-dropdown";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
-// Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
@@ -49,64 +47,40 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
   );
 }
 
-function NavbarWithAuth() {
-  const { instance } = useMsal();
-  const { toast } = useToast();
-  const [, setLocation] = useLocation();
-
-  const handleLogout = async () => {
-    try {
-      await instance.logoutPopup();
-      setLocation("/login");
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your account.",
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to log out. Please try again.",
-      });
-    }
-  };
-
-  return (
-    <AnimateTransition variant="slide-down" delay={0.1}>
-      <div className="container flex h-14 items-center">
-        <Navbar />
-        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-          <OnlineUsersDropdown />
-          <NotificationCenter />
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-2"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
-      </div>
-    </AnimateTransition>
-  );
-}
-
 function App() {
   const [location, setLocation] = useLocation();
   const isAuthenticated = useIsAuthenticated();
+  const { instance } = useMsal();
+  const { toast } = useToast();
 
   const currentPath = location?.split('/')[1] || '';
   const showModuleSelector = currentPath === 'docmanage';
 
-  // Handle default routing to DocManagement when accessing /docmanage
-  useEffect(() => {
+  React.useEffect(() => {
     if (location === '/docmanage') {
       setLocation('/docmanage/docmanagement');
     }
   }, [location, setLocation]);
+
+  const handleLogout = React.useCallback(() => {
+    instance
+      .logoutPopup()
+      .then(() => {
+        setLocation("/login");
+        toast({
+          title: "Logged out successfully",
+          description: "You have been logged out of your account.",
+        });
+      })
+      .catch((error) => {
+        console.error('Logout error:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to log out. Please try again.",
+        });
+      });
+  }, [instance, setLocation, toast]);
 
   if (!isAuthenticated && currentPath !== 'login') {
     return (
@@ -118,7 +92,6 @@ function App() {
 
   return (
     <div className="relative min-h-screen w-full flex flex-col bg-background/95">
-      {/* Add background with red tint and ParticleBackground */}
       <div className="absolute inset-0 -z-20 bg-red-50/90" />
       <ErrorBoundary>
         <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
@@ -126,9 +99,10 @@ function App() {
 
       {isAuthenticated && (
         <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <NavbarWithAuth />
+          <Navbar onLogout={handleLogout} />
         </div>
       )}
+
       <main className="flex-1 pt-6 relative z-10">
         <div className="container mx-auto">
           <div className="flex gap-4">
