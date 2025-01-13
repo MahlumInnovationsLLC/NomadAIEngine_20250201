@@ -2,14 +2,11 @@ import { db } from "@db";
 import { equipment as equipmentTable, equipmentTypes } from "@db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { v4 as uuidv4 } from 'uuid';
-import { BlobServiceClient } from "@azure/storage-blob";
+import { azureBlobStorage, CONTAINERS } from "./blob_storage_service";
 
 // Maximum retry attempts for database operations
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
-
-let blobServiceClient: BlobServiceClient | null = null;
-let containerClient: any = null;
 
 // Initialize database and blob storage if available
 export async function initializeEquipmentDatabase() {
@@ -36,44 +33,11 @@ export async function initializeEquipmentDatabase() {
     // Test equipment table access
     await db.select().from(equipmentTable).limit(1);
     console.log("✓ PostgreSQL connection and schema verification successful");
+    return true;
   } catch (error) {
     console.error("Failed to connect to PostgreSQL:", error);
     throw new Error("PostgreSQL connection failed - database is required for equipment management");
   }
-
-  // Try to initialize Azure Blob Storage if connection string is available
-  if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        console.log(`Attempting to connect to Azure Blob Storage (attempt ${attempt}/${MAX_RETRIES})...`);
-        blobServiceClient = BlobServiceClient.fromConnectionString(
-          process.env.AZURE_STORAGE_CONNECTION_STRING
-        );
-
-        // Create container if it doesn't exist
-        containerClient = blobServiceClient.getContainerClient("equipment-backups");
-        await containerClient.createIfNotExists({
-          access: 'container' // This makes the container public
-        });
-
-        console.log("✓ Azure Blob Storage initialized successfully");
-        return true;
-      } catch (error) {
-        console.error(`Failed to initialize Azure Blob Storage (attempt ${attempt}/${MAX_RETRIES}):`, error);
-
-        if (attempt < MAX_RETRIES) {
-          const delay = RETRY_DELAY * attempt;
-          console.log(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        } else {
-          console.log("Operating in PostgreSQL-only mode");
-          return false;
-        }
-      }
-    }
-  }
-  console.log("No Azure Storage connection string found, operating in PostgreSQL-only mode");
-  return false;
 }
 
 // Utility function to handle database errors with retries
@@ -100,12 +64,11 @@ async function withRetry<T>(operation: () => Promise<T>, context: string): Promi
 
 // Backup data to Azure Blob Storage
 async function backupToBlob(data: any, blobName: string): Promise<void> {
-  if (!containerClient) return;
+  if (!azureBlobStorage.isInitialized()) return;
 
   try {
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
     const content = JSON.stringify(data, null, 2); // Pretty print JSON
-    await blockBlobClient.upload(content, content.length);
+    await azureBlobStorage.uploadBlob(CONTAINERS.EQUIPMENT_BACKUPS, blobName, content);
     console.log(`✓ Backed up ${blobName} to Azure Blob Storage`);
   } catch (error) {
     console.error("Failed to backup to Azure Blob Storage:", error);
@@ -144,7 +107,7 @@ export async function getAllEquipment(): Promise<Equipment[]> {
     }));
 
     // Backup to blob storage if available
-    if (containerClient) {
+    if (azureBlobStorage.isInitialized()) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       await backupToBlob(mappedEquipment, `equipment-list-${timestamp}.json`);
     }
@@ -221,7 +184,7 @@ export async function createEquipment(equipment: Omit<Equipment, "id" | "created
       };
 
       // Backup to blob storage if available
-      if (containerClient) {
+      if (azureBlobStorage.isInitialized()) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         await backupToBlob(createdEquipment, `equipment-${createdEquipment.id}-${timestamp}.json`);
       }
@@ -289,7 +252,7 @@ export async function updateEquipment(id: string, updates: Partial<Equipment>): 
       };
 
       // Backup to blob storage if available
-      if (containerClient) {
+      if (azureBlobStorage.isInitialized()) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         await backupToBlob(updatedEquipment, `equipment-${id}-${timestamp}.json`);
       }

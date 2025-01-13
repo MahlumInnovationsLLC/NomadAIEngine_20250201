@@ -1,8 +1,7 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer } from "socket.io";
-import { BlobServiceClient } from "@azure/storage-blob";
 import multer from "multer";
 import { v4 as uuidv4 } from 'uuid';
 import { db } from "@db";
@@ -27,6 +26,7 @@ import {
 } from "./services/azure/equipment_service";
 import { setupWebSocketServer } from "./services/websocket";
 import { generateReport, generateEquipmentReport } from "./services/report_generator";
+import { azureBlobStorage, CONTAINERS } from "./services/azure/blob_storage_service";
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -35,20 +35,6 @@ interface AuthenticatedRequest extends Request {
     username: string;
   };
   body: any;
-}
-
-// Initialize Azure Blob Storage if available
-const sasUrl = process.env.AZURE_BLOB_CONNECTION_STRING;
-let containerClient: BlobServiceClient | null = null;
-
-if (sasUrl) {
-  try {
-    containerClient = BlobServiceClient.fromConnectionString(sasUrl);
-    console.log("Azure Blob Storage initialized successfully");
-  } catch (error) {
-    console.error("Failed to initialize Azure Blob Storage:", error);
-    console.log("Operating without Blob Storage capabilities");
-  }
 }
 
 // Configure multer for memory storage
@@ -375,59 +361,39 @@ export function registerRoutes(app: Express): Server {
     });
 
 
-    // Blob Storage endpoints
+    // Update blob storage related routes to use the new service
     app.get("/api/documents/browse", async (req, res) => {
       try {
-        console.log("Listing blobs from container:", "documents");
+        console.log("Listing blobs from container:", CONTAINERS.DOCUMENTS);
         const path = (req.query.path as string) || "";
         console.log("Browsing path:", path);
 
+        if (!azureBlobStorage.isInitialized()) {
+          return res.status(503).json({ error: "Blob storage not available" });
+        }
+
+        const containerClient = azureBlobStorage.getContainerClient(CONTAINERS.DOCUMENTS);
+        if (!containerClient) {
+          return res.status(503).json({ error: "Documents container not available" });
+        }
+
         // List all blobs in the path
         const items = [];
-        const listOptions = {
-          prefix: path,
-          delimiter: '/'
-        };
+        const blobs = containerClient.listBlobsFlat({ prefix: path });
 
-        if (containerClient) {
-          // Get all blobs with the specified prefix
-          const blobs = containerClient.getContainerClient("documents").listBlobsFlat(listOptions);
-
-          console.log("Starting blob enumeration...");
-          for await (const item of blobs) {
-            console.log("Found item:", item.kind === "prefix" ? "Directory:" : "File:", item.name);
-
-            // Check if it's a virtual directory (folder)
-            if (item.kind === "prefix") {
-              // Get folder name by removing the trailing slash
-              const folderPath = item.name;
-              const folderName = folderPath.split('/').filter(Boolean).pop() || "";
-
-              items.push({
-                name: folderName,
-                path: folderPath,
-                type: "folder"
-              });
-            } else {
-              // It's a blob (file)
-              const blobItem = item;
-              const fileName = blobItem.name.split("/").pop() || "";
-
-              // Don't include folder markers
-              if (!fileName.startsWith('.folder')) {
-                items.push({
-                  name: fileName,
-                  path: blobItem.name,
-                  type: "file",
-                  size: blobItem.properties?.contentLength,
-                  lastModified: blobItem.properties?.lastModified?.toISOString()
-                });
-              }
-            }
+        for await (const blob of blobs) {
+          const name = blob.name.split('/').pop() || '';
+          if (!name.startsWith('.folder')) {
+            items.push({
+              name,
+              path: blob.name,
+              type: "file",
+              size: blob.properties.contentLength,
+              lastModified: blob.properties.lastModified?.toISOString()
+            });
           }
         }
 
-        console.log("Found items:", items);
         res.json(items);
       } catch (error) {
         console.error("Error listing blobs:", error);
@@ -437,6 +403,10 @@ export function registerRoutes(app: Express): Server {
 
     app.post("/api/documents/upload", upload.array('files'), async (req, res) => {
       try {
+        if (!azureBlobStorage.isInitialized()) {
+          return res.status(503).json({ error: "Blob storage not available" });
+        }
+
         const path = req.body.path || "";
         const files = req.files as Express.Multer.File[];
 
@@ -444,24 +414,28 @@ export function registerRoutes(app: Express): Server {
           return res.status(400).json({ error: "No files provided" });
         }
 
-        console.log("Uploading files to container:", "documents", "path:", path);
+        console.log("Uploading files to container:", CONTAINERS.DOCUMENTS, "path:", path);
         console.log("Files to upload:", files.map(f => f.originalname));
 
-        if (containerClient) {
-          const uploadPromises = files.map(async (file) => {
-            const blobName = path ? `${path}/${file.originalname}` : file.originalname;
-            const blockBlobClient = containerClient.getContainerClient("documents").getBlockBlobClient(blobName);
-            await blockBlobClient.upload(file.buffer, file.buffer.length);
-            return blobName;
-          });
+        const uploadPromises = files.map(async (file) => {
+          const blobName = path ? `${path}/${file.originalname}` : file.originalname;
+          const success = await azureBlobStorage.uploadBlob(
+            CONTAINERS.DOCUMENTS,
+            blobName,
+            file.buffer
+          );
+          return success ? blobName : null;
+        });
 
-          const uploadedFiles = await Promise.all(uploadPromises);
-          console.log("Successfully uploaded files:", uploadedFiles);
+        const results = await Promise.all(uploadPromises);
+        const uploadedFiles = results.filter(Boolean);
 
-          res.json({ message: "Files uploaded successfully", files: uploadedFiles });
-        } else {
-          res.status(500).json({ error: "Blob storage not initialized" });
+        if (uploadedFiles.length === 0) {
+          return res.status(500).json({ error: "Failed to upload files" });
         }
+
+        console.log("Successfully uploaded files:", uploadedFiles);
+        res.json({ message: "Files uploaded successfully", files: uploadedFiles });
       } catch (error) {
         console.error("Error uploading files:", error);
         res.status(500).json({ error: "Failed to upload files" });
@@ -479,14 +453,16 @@ export function registerRoutes(app: Express): Server {
 
         console.log("Creating folder:", path);
 
-        if (containerClient) {
+        if (azureBlobStorage.isInitialized()) {
           // Create a zero-length blob with the folder name as prefix
           const folderPath = path.endsWith('/') ? path : `${path}/`;
-          const blockBlobClient = containerClient.getContainerClient("documents").getBlockBlobClient(`${folderPath}.folder`);
-          await blockBlobClient.upload(Buffer.from(''), Buffer.from('').length);
-
-          console.log("Successfully created folder:", path);
-          res.json({ message: "Folder created successfully", path });
+          const success = await azureBlobStorage.createFolder(CONTAINERS.DOCUMENTS, folderPath);
+          if(success){
+            console.log("Successfully created folder:", path);
+            res.json({ message: "Folder created successfully", path });
+          } else {
+            res.status(500).json({ error: "Failed to create folder" });
+          }
         } else {
           res.status(500).json({ error: "Blob storage not initialized" });
         }
@@ -539,8 +515,8 @@ export function registerRoutes(app: Express): Server {
             },
           });
 
-        // Broadcast the updated training level
-        await wsServer.broadcastTrainingLevel(req.user.id);
+        // Since broadcastTrainingLevel is not implemented, we'll skip it for now
+        // TODO: Implement training level broadcast in websocket service
 
         res.json({ message: "Training progress updated successfully" });
       } catch (error) {
@@ -550,29 +526,20 @@ export function registerRoutes(app: Express): Server {
     });
 
     // Add document content endpoint
-    app.get("/api/documents/:path*/content", async (req, res) => {
+    app.get("/api/documents/:documentPath(*)/content", async (req, res) => {
       try {
-        const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
+        const documentPath = req.params.documentPath;
         console.log("Fetching document content for:", documentPath);
 
-        if (containerClient) {
-          const blockBlobClient = containerClient.getContainerClient("documents").getBlockBlobClient(documentPath);
-
-          try {
-            const downloadBlockBlobResponse = await blockBlobClient.download();
-            const download = await streamToString(downloadBlockBlobResponse.readableStreamBody);
-            const properties = await blockBlobClient.getProperties();
-
-            res.json({
-              content: download,
-              revision: properties.metadata?.revision,
-            });
-          } catch (error: any) {
-            if (error.statusCode === 404) {
-              return res.status(404).json({ error: "Document not found" });
-            }
-            throw error;
+        if (azureBlobStorage.isInitialized()) {
+          const blob = await azureBlobStorage.getBlob(CONTAINERS.DOCUMENTS, documentPath);
+          if (!blob) {
+            return res.status(404).json({ error: "Document not found" });
           }
+          res.json({
+            content: blob.content,
+            revision: blob.metadata?.revision,
+          });
         } else {
           res.status(500).json({ error: "Blob storage not initialized" });
         }
@@ -583,9 +550,9 @@ export function registerRoutes(app: Express): Server {
     });
 
     // Add document content update endpoint
-    app.put("/api/documents/:path*/content", async (req, res) => {
+    app.put("/api/documents/:documentPath(*)/content", async (req, res) => {
       try {
-        const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
+        const documentPath = req.params.documentPath;
         const { content, revision } = req.body;
 
         if (!content) {
@@ -594,20 +561,13 @@ export function registerRoutes(app: Express): Server {
 
         console.log("Updating document content for:", documentPath);
 
-        if (containerClient) {
-          const blockBlobClient = containerClient.getContainerClient("documents").getBlockBlobClient(documentPath);
-
-          // Add revision information as metadata
-          const metadata = revision ? { revision } : undefined;
-
-          await blockBlobClient.upload(content, content.length, {
-            metadata,
-            blobHTTPHeaders: {
-              blobContentType: "text/html",
-            },
-          });
-
-          res.json({ message: "Document updated successfully" });
+        if (azureBlobStorage.isInitialized()) {
+          const success = await azureBlobStorage.updateBlob(CONTAINERS.DOCUMENTS, documentPath, content, { revision });
+          if(success){
+            res.json({ message: "Document updated successfully" });
+          } else {
+            res.status(500).json({ error: "Failed to update document" });
+          }
         } else {
           res.status(500).json({ error: "Blob storage not initialized" });
         }
