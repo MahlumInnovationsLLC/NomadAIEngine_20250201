@@ -115,10 +115,9 @@ export default function Navbar() {
                 className="text-red-600" 
                 onSelect={async (e) => {
                   e?.preventDefault();
-                  const { instance } = useMsal();
                   try {
-                    await instance.logoutRedirect({
-                      postLogoutRedirectUri: window.location.origin + '/login'
+                    await msalInstance.logoutRedirect({
+                      postLogoutRedirectUri: `${window.location.origin}/login`
                     });
                   } catch (error) {
                     console.error('Logout error:', error);
