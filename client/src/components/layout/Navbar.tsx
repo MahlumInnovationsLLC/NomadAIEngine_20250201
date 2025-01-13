@@ -113,14 +113,15 @@ export default function Navbar() {
               </DropdownMenuItem>
               <DropdownMenuItem 
                 className="text-red-600" 
-                onSelect={() => {
-                  const instance = window.msal?.instance;
-                  if (instance) {
-                    instance.logoutPopup().then(() => {
-                      window.location.href = '/login';
-                    }).catch((error) => {
-                      console.error('Logout error:', error);
+                onSelect={async (e) => {
+                  e?.preventDefault();
+                  const { instance } = useMsal();
+                  try {
+                    await instance.logoutRedirect({
+                      postLogoutRedirectUri: window.location.origin + '/login'
                     });
+                  } catch (error) {
+                    console.error('Logout error:', error);
                   }
                 }}
               >
