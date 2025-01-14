@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SearchInterface from "@/components/document/SearchInterface";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "wouter";
 
 interface DocumentStatus {
   status: 'draft' | 'in_review' | 'approved' | 'rejected';
@@ -23,8 +23,7 @@ interface DocumentStatus {
 export function DocManage() {
   const [selectedDocumentPath, setSelectedDocumentPath] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [location, setLocation] = useLocation();
 
   const { data: documentStatus } = useQuery<DocumentStatus>({
     queryKey: ['/api/documents/workflow', selectedDocumentPath],
@@ -47,7 +46,7 @@ export function DocManage() {
           <div className="flex justify-center mb-4">
             <div className="inline-flex rounded-md shadow-sm" role="group">
               <button
-                onClick={() => navigate("/docmanage/docmanagement")}
+                onClick={() => setLocation("/docmanage/docmanagement")}
                 className={`px-6 py-2 text-sm font-medium border ${
                   location.pathname.includes("docmanagement")
                     ? "bg-primary text-primary-foreground border-primary"
@@ -57,7 +56,7 @@ export function DocManage() {
                 DocManagement
               </button>
               <button
-                onClick={() => navigate("/docmanage/training")}
+                onClick={() => setLocation("/docmanage/training")}
                 className={`px-6 py-2 text-sm font-medium border-t border-b border-r ${
                   location.pathname.includes("training")
                     ? "bg-primary text-primary-foreground border-primary"
