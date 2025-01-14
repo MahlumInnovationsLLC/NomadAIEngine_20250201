@@ -45,19 +45,21 @@ export function DocumentManagement() {
   return (
     <div>
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
-        <div className="px-4">
+        <div className="text-center px-4">
           <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
           <p className="text-muted-foreground mb-4">
             Manage, review, and approve documents with advanced training and workflow control.
           </p>
         </div>
+        <div className="px-4 pb-4">
+          <ModuleSelector
+            activeModule={activeModule}
+            onModuleChange={setActiveModule}
+          />
+        </div>
       </div>
 
       <div className="px-4 space-y-6">
-        <ModuleSelector
-          activeModule={activeModule}
-          onModuleChange={setActiveModule}
-        />
 
         <div className="space-y-6">
           <div className="w-full">
