@@ -1,47 +1,37 @@
-# ============================
-# 1) Builder Stage
-# ============================
-FROM node:20-alpine AS builder
-
-# Install any needed build tools (Python, make, g++)
+FROM node:20-alpine as builder
 RUN apk add --no-cache python3 make g++
-
-# Set working directory
 WORKDIR /app
 
-# Copy package manifests and .npmrc
 COPY package*.json ./
 COPY .npmrc .npmrc
 
-# Pass the Font Awesome token as a build arg
-ARG FONTAWESOME_TOKEN
-ENV FONTAWESOME_TOKEN=$FONTAWESOME_TOKEN
-
-# Install dependencies (dev + prod)
+# Install dev + prod deps
 RUN npm install
 
-# Copy the rest of the source code
 COPY . .
 
-# Build the application (compile TypeScript, build frontend, etc.)
+# Build your app
 RUN npm run build
 
-# ============================
-# 2) Final Stage (Slimmer)
-# ============================
-FROM node:20-alpine
+# ==================================
+# Distroless or Slim final image
+# ==================================
+# If you want distroless, do:
+# FROM gcr.io/distroless/nodejs:20
+# or if you want Node.js slim:
+FROM node:20-slim
 
 WORKDIR /app
 
-# Copy only the final build output and node_modules from the builder
+# Just copy your final package.json
+COPY package*.json ./
+COPY .npmrc .npmrc
+
+# Only install production deps
+RUN npm install --omit=dev
+
+# Copy compiled code from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-# (Optional) If you need .npmrc at runtime, copy it:
-COPY --from=builder /app/.npmrc .npmrc
 
-# Expose port 8080 for Azure
 EXPOSE 8080
-
-# Start the application
 CMD ["npm", "run", "start"]
