@@ -4,10 +4,15 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    // For local dev (hot reloading) with TS
     "dev": "tsx server/index.ts",
+    // Build your frontend (via vite) and backend (via esbuild)
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "NODE_ENV=production node dist/index.js",
+    // Start script for production (Azure will call this)
+    "start": "node dist/index.js",
+    // Run TypeScript checks
     "check": "tsc",
+    // Drizzle ORM migration script
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
