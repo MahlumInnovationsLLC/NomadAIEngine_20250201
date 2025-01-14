@@ -19,9 +19,16 @@ interface FileItem {
 }
 
 export function DocumentManagement() {
-  const [activeModule, setActiveModule] = useState("documents");
+  const [activeTab, setActiveTab] = useState("docmanagement");
   const [currentPath, setCurrentPath] = useState("");
   const [selectedDocument, setSelectedDocument] = useState<number | null>(null);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === "training") {
+      window.location.href = "/docmanage/training";
+    }
+  };
 
   const { data: files = [], isLoading, refetch } = useQuery<FileItem[]>({
     queryKey: [`/api/documents/browse?path=${currentPath}`],
@@ -51,10 +58,28 @@ export function DocumentManagement() {
           Manage, review, and approve documents with advanced training and workflow control.
         </p>
         <div className="flex justify-center mb-4">
-          <ModuleSelector
-            activeModule={activeModule}
-            onModuleChange={setActiveModule}
-          />
+          <div className="flex gap-4">
+            <button
+              className={`px-4 py-2 rounded-md ${
+                activeTab === "docmanagement"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary"
+              }`}
+              onClick={() => handleTabChange("docmanagement")}
+            >
+              DocManagement
+            </button>
+            <button
+              className={`px-4 py-2 rounded-md ${
+                activeTab === "training"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary"
+              }`}
+              onClick={() => handleTabChange("training")}
+            >
+              Training Module
+            </button>
+          </div>
         </div>
       </div>
 

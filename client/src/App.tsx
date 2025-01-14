@@ -132,16 +132,7 @@ function App() {
       <main className="flex-1 pt-6 relative z-10">
         <div className="container mx-auto">
           <div className="flex gap-4">
-            {showModuleSelector && isAuthenticated && (
-              <AnimateTransition variant="slide-right" delay={0.2}>
-                <ModuleSelector 
-                  activeModule={location.includes('training') ? 'training' : 'docmanagement'} 
-                  onModuleChange={(moduleId) => {
-                    setLocation(`/docmanage/${moduleId}`);
-                  }}
-                />
-              </AnimateTransition>
-            )}
+            
             <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
               <AnimatePresenceWrapper>
                 <Switch>
