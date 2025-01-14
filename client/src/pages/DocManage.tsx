@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SearchInterface from "@/components/document/SearchInterface";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import TrainingModule from "./TrainingModule";
 
 interface DocumentStatus {
   status: 'draft' | 'in_review' | 'approved' | 'rejected';
@@ -40,7 +41,7 @@ export function DocManage() {
 
   return (
     <div className="container mx-auto">
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="px-4 py-4">
           <h1 className="text-2xl font-bold text-center mb-4">Document Training & Control</h1>
           <div className="flex justify-center mb-4">
@@ -69,6 +70,10 @@ export function DocManage() {
           </div>
         </div>
       </div>
+      <div className="mt-6 space-y-6">
+        {location.includes("training") ? (
+          <TrainingModule />
+        ) : (
 
       <div className="mt-6 space-y-6">
         <Card>
@@ -185,6 +190,7 @@ export function DocManage() {
             </CardContent>
           </Card>
         </div>
+      )}
       </div>
     </div>
   );
