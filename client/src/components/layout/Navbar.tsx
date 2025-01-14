@@ -28,6 +28,7 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
+  const { instance } = useMsal();
 
   return (
     <header className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -116,7 +117,6 @@ export default function Navbar() {
               <DropdownMenuItem 
                 className="text-red-600"
                 onSelect={() => {
-                  const { instance } = useMsal();
                   instance.logoutRedirect({
                     postLogoutRedirectUri: window.location.origin + "/login",
                     mainWindowRedirectUri: window.location.origin + "/login"
