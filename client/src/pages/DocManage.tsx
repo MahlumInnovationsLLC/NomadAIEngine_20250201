@@ -74,123 +74,123 @@ export function DocManage() {
         {location.includes("training") ? (
           <TrainingModule />
         ) : (
+          <>
+            <Card>
+              <CardContent className="pt-6">
+                <SearchInterface />
+              </CardContent>
+            </Card>
 
-      <div className="mt-6 space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <SearchInterface />
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-[300px,1fr] gap-6">
-          <Card className="h-[calc(100vh-24rem)] overflow-hidden">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <FileText className="h-5 w-5 mr-2" />
-                  DocExplorer
-                </CardTitle>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="icon">
-                    <FolderPlus className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon">
-                    <Upload className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="-mx-2">
-              <FileExplorer onSelectDocument={(path) => setSelectedDocumentPath(path)} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <FileText className="h-5 w-5 mr-2" />
-                  DocManage
-                </div>
-                {documentStatus && (
-                  <span className={`text-sm px-2 py-1 rounded ${
-                    documentStatus.status === 'approved' ? 'bg-green-100 text-green-800' :
-                    documentStatus.status === 'in_review' ? 'bg-yellow-100 text-yellow-800' :
-                    documentStatus.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {documentStatus.status.toUpperCase()}
-                  </span>
-                )}
-              </CardTitle>
-              <div className="flex gap-2 mt-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                  disabled={!selectedDocumentPath}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleDownload}
-                  disabled={!selectedDocumentPath}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </Button>
-                {selectedDocumentPath && (
-                  <WorkflowDialog
-                    documentId={selectedDocumentPath}
-                    documentTitle={selectedDocumentPath.split('/').pop() || ''}
-                    trigger={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!selectedDocumentPath}
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        Send for Review/Approval
+            <div className="grid grid-cols-[300px,1fr] gap-6">
+              <Card className="h-[calc(100vh-24rem)] overflow-hidden">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center">
+                      <FileText className="h-5 w-5 mr-2" />
+                      DocExplorer
+                    </CardTitle>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="icon">
+                        <FolderPlus className="h-4 w-4" />
                       </Button>
-                    }
-                  />
-                )}
-              </div>
-              <Separator className="mt-2" />
-            </CardHeader>
-            <CardContent>
-              {selectedDocumentPath ? (
-                <Tabs defaultValue="content">
-                  <TabsList>
-                    <TabsTrigger value="content">Content</TabsTrigger>
-                    <TabsTrigger value="permissions">Permissions</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="content" className="space-y-4">
-                    <DocumentViewer 
-                      documentId={selectedDocumentPath} 
-                      isEditing={isEditing}
-                    />
-                  </TabsContent>
-                  <TabsContent value="permissions">
-                    <DocumentPermissions 
-                      documentId={selectedDocumentPath}
-                    />
-                  </TabsContent>
-                </Tabs>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-muted-foreground">
-                    Select a document from the explorer to view and manage its details.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                      <Button size="icon">
+                        <Upload className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="-mx-2">
+                  <FileExplorer onSelectDocument={(path) => setSelectedDocumentPath(path)} />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <FileText className="h-5 w-5 mr-2" />
+                      DocManage
+                    </div>
+                    {documentStatus && (
+                      <span className={`text-sm px-2 py-1 rounded ${
+                        documentStatus.status === 'approved' ? 'bg-green-100 text-green-800' :
+                        documentStatus.status === 'in_review' ? 'bg-yellow-100 text-yellow-800' :
+                        documentStatus.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {documentStatus.status.toUpperCase()}
+                      </span>
+                    )}
+                  </CardTitle>
+                  <div className="flex gap-2 mt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setIsEditing(!isEditing)}
+                      disabled={!selectedDocumentPath}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleDownload}
+                      disabled={!selectedDocumentPath}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                    {selectedDocumentPath && (
+                      <WorkflowDialog
+                        documentId={selectedDocumentPath}
+                        documentTitle={selectedDocumentPath.split('/').pop() || ''}
+                        trigger={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!selectedDocumentPath}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            Send for Review/Approval
+                          </Button>
+                        }
+                      />
+                    )}
+                  </div>
+                  <Separator className="mt-2" />
+                </CardHeader>
+                <CardContent>
+                  {selectedDocumentPath ? (
+                    <Tabs defaultValue="content">
+                      <TabsList>
+                        <TabsTrigger value="content">Content</TabsTrigger>
+                        <TabsTrigger value="permissions">Permissions</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="content" className="space-y-4">
+                        <DocumentViewer 
+                          documentId={selectedDocumentPath} 
+                          isEditing={isEditing}
+                        />
+                      </TabsContent>
+                      <TabsContent value="permissions">
+                        <DocumentPermissions 
+                          documentId={selectedDocumentPath}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">
+                        Select a document from the explorer to view and manage its details.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
