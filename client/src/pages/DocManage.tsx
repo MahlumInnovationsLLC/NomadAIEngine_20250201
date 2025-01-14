@@ -48,7 +48,7 @@ export function DocManage() {
               <button
                 onClick={() => setLocation("/docmanage/docmanagement")}
                 className={`px-6 py-2 text-sm font-medium border ${
-                  location.pathname.includes("docmanagement")
+                  location.includes("docmanagement")
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background hover:bg-secondary"
                 } rounded-l-lg focus:z-10 focus:outline-none`}
@@ -58,7 +58,7 @@ export function DocManage() {
               <button
                 onClick={() => setLocation("/docmanage/training")}
                 className={`px-6 py-2 text-sm font-medium border-t border-b border-r ${
-                  location.pathname.includes("training")
+                  location.includes("training")
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background hover:bg-secondary"
                 } rounded-r-lg focus:z-10 focus:outline-none`}
