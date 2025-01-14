@@ -43,7 +43,10 @@ export function DocManage() {
     <div className="container mx-auto">
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="px-4 py-4">
-          <h1 className="text-2xl font-bold text-center mb-4">Document Training & Control</h1>
+          <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
+          <p className="text-muted-foreground mb-4">
+            Manage your documents, configure training modules, and control document workflows.
+          </p>
           <div className="flex justify-center mb-4">
             <div className="inline-flex rounded-md shadow-sm" role="group">
               <button
