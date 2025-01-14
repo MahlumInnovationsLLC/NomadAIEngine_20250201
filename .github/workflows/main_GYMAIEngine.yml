@@ -1,56 +1,99 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy container app to Azure Web App - GYMAIEngine
+name: GYMAIEngine
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# Ensure we can read contents (source code) and write packages (to GHCR).
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+      AZURE_BLOB_CONTAINER: ${{ secrets.AZURE_BLOB_CONTAINER }}
+      AZURE_TEMP_CONTAINER: ${{ secrets.AZURE_TEMP_CONTAINER }}
+      AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
+      COSMOS_ENDPOINT: ${{ secrets.COSMOS_ENDPOINT }}
+      COSMOS_KEY: ${{ secrets.COSMOS_KEY }}
+      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      AZURE_SEARCH_KEY: ${{ secrets.AZURE_SEARCH_KEY }}
+      AZURE_SEARCH_ENDPOINT: ${{ secrets.AZURE_SEARCH_ENDPOINT }}
+      FORM_RECOGNIZER_KEY: ${{ secrets.FORM_RECOGNIZER_KEY }}
+      FORM_RECOGNIZER_ENDPOINT: ${{ secrets.FORM_RECOGNIZER_ENDPOINT }}
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-      # 1) Log in to GHCR properly (no https://)
-      - name: Log in to registry
+      # Backend Build & Test
+      - name: Clean
+        run: rm -rf node_modules
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm install
+
+      - name: Test backend
+        working-directory: ./backend
+        run: npm test
+
+      # Frontend Build & Test
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+        # We build here just to verify it compiles successfully.
+
+  dockerize:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
-          username: ${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}
-          password: ${{ secrets.AzureAppService_ContainerPassword_cbf0f1ab467a4bf9ad34c4193696c215 }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2) Build and push the Docker image to GHCR
-      - name: Build and push container image to registry
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          # Example tag using your GHCR username/secret + "mahluminnovationsllc/chatbot-app"
-          # If this is actually your organization name, keep it. Otherwise, adjust as needed.
-          tags: ghcr.io/${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}/mahluminnovationsllc/chatbot-app:${{ github.sha }}
+      # Build single image that contains both frontend and backend
+      # (Adjust your Dockerfile or context as needed)
+      - name: Build combined image
+        run: docker build -t ghcr.io/mahluminnovationsllc/chatbot-app:latest .
+
+      - name: Push combined image
+        run: docker push ghcr.io/mahluminnovationsllc/chatbot-app:latest
 
   deploy:
+    needs: dockerize
     runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: 'production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-
     steps:
-      - name: Deploy to Azure Web App
-        id: deploy-to-webapp
+      - name: Azure Login
+        uses: azure/login@v1.6.0
+        with:
+          auth-type: SERVICE_PRINCIPAL
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure WebApp
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'GYMAIEngine'
-          slot-name: 'production'
-          publish-profile: ${{ secrets.AzureAppService_PublishProfile_62085907b7c1484bb409457265784452 }}
-          images: 'ghcr.io/${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}/mahluminnovationsllc/chatbot-app:${{ github.sha }}'
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          resource-group-name: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          images: 'ghcr.io/mahluminnovationsllc/chatbot-app:latest'
