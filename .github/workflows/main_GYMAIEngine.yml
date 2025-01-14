@@ -27,7 +27,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GIT_TOKEN }}
 
       - name: Build and push container image to registry
         uses: docker/build-push-action@v3
@@ -38,7 +38,7 @@ jobs:
           # Pass in the Font Awesome token from GitHub Secrets
           build-args: |
             FONTAWESOME_TOKEN=${{ secrets.FONTAWESOME_TOKEN }}
-          tags: ghcr.io/MahlumInnovationsLLC/chatbot-app:${{ github.sha }}
+          tags: ghcr.io/mahluminnovationsllc/chatbot-app:${{ github.sha }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -51,4 +51,4 @@ jobs:
           app-name: 'GYMAIEngine'
           slot-name: 'production'
           publish-profile: ${{ secrets.AzureAppService_PublishProfile_62085907b7c1484bb409457265784452 }}
-          images: 'ghcr.io/MahlumInnovationsLLC/chatbot-app:${{ github.sha }}'
+          images: 'ghcr.io/mahluminnovationsllc/chatbot-app:${{ github.sha }}'
