@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ModuleSelector } from "@/components/layout/ModuleSelector";
@@ -43,15 +44,13 @@ export function DocumentManagement() {
   };
 
   return (
-    <div>
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
-        <div className="text-center px-4">
-          <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
-          <p className="text-muted-foreground mb-4">
-            Manage, review, and approve documents with advanced training and workflow control.
-          </p>
-        </div>
-        <div className="px-4 pb-4">
+    <div className="container mx-auto">
+      <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <h1 className="text-3xl font-bold mb-4">Document Training & Control</h1>
+        <p className="text-muted-foreground mb-6">
+          Manage, review, and approve documents with advanced training and workflow control.
+        </p>
+        <div className="flex justify-center mb-4">
           <ModuleSelector
             activeModule={activeModule}
             onModuleChange={setActiveModule}
@@ -59,68 +58,65 @@ export function DocumentManagement() {
         </div>
       </div>
 
-      <div className="px-4 space-y-6">
+      <div className="px-4 py-6">
+        <div className="grid grid-cols-[30%_70%] gap-6">
+          <Card className="h-[calc(100vh-16rem)]">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FileText className="mr-2 h-5 w-5" />
+                  DocExplorer
+                </div>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => refetch()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                  <Button size="sm" onClick={handleUploadClick}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center space-x-2 mb-4">
+                <Input
+                  placeholder="Search documents..."
+                  className="max-w-sm"
+                />
+              </div>
+              <div className="border rounded-lg p-4 overflow-auto h-[calc(100vh-24rem)]">
+                <Tree>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="h-5 w-5 animate-spin" />
+                      <span className="ml-2">Loading files...</span>
+                    </div>
+                  ) : (
+                    files.map((item) => (
+                      <TreeNode
+                        key={item.path}
+                        id={item.path}
+                        label={item.name}
+                        icon={item.type === 'folder' ? <Folder className="h-4 w-4" /> : <File className="h-4 w-4" />}
+                        onClick={() => handleFileClick(item)}
+                      />
+                    ))
+                  )}
+                  {!isLoading && files.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No files found in this location.</p>
+                      <p className="text-sm">Upload a document or select another folder.</p>
+                    </div>
+                  )}
+                </Tree>
+              </div>
+            </CardContent>
+          </Card>
 
-        <div className="space-y-6">
-          <div className="w-full">
+          <div className="h-[calc(100vh-16rem)]">
             <DocManage documentId={selectedDocument} />
-          </div>
-
-          <div className="w-[30%]">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FileText className="mr-2 h-5 w-5" />
-                    Document Explorer
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => refetch()}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Refresh
-                    </Button>
-                    <Button size="sm" onClick={handleUploadClick}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload
-                    </Button>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-2 mb-4">
-                  <Input
-                    placeholder="Search documents..."
-                    className="max-w-sm"
-                  />
-                </div>
-                <div className="border rounded-lg p-4">
-                  <Tree>
-                    {isLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <RefreshCw className="h-5 w-5 animate-spin" />
-                        <span className="ml-2">Loading files...</span>
-                      </div>
-                    ) : (
-                      files.map((item) => (
-                        <TreeNode
-                          key={item.path}
-                          id={item.path}
-                          label={item.name}
-                          icon={item.type === 'folder' ? <Folder className="h-4 w-4" /> : <File className="h-4 w-4" />}
-                          onClick={() => handleFileClick(item)}
-                        />
-                      ))
-                    )}
-                    {!isLoading && files.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>No files found in this location.</p>
-                        <p className="text-sm">Upload a document or select another folder.</p>
-                      </div>
-                    )}
-                  </Tree>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
