@@ -90,6 +90,15 @@ export default function TrainingModule() {
   const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'achievements' | 'create' | 'assessment'>('overview');
   const [isCreating, setIsCreating] = useState(false);
 
+  return (
+    <div className="container mx-auto">
+      <div className="p-8 border-b bg-background">
+        <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
+        <p className="text-muted-foreground mb-4">
+          Manage your documents, configure training modules, and control document workflows.
+        </p>
+      </div>
+
   // For now, use the example data
   const { data: trainingData } = useQuery({
     queryKey: ['/api/training/progress'],
@@ -126,8 +135,7 @@ export default function TrainingModule() {
     );
   }
 
-  return (
-    <div className="space-y-6 mt-24">
+  <div className="space-y-6 mt-6">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
