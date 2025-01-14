@@ -116,6 +116,7 @@ export default function Navbar() {
               <DropdownMenuItem 
                 className="text-red-600"
                 onSelect={() => {
+                  const { instance } = useMsal();
                   instance.logoutRedirect({
                     postLogoutRedirectUri: window.location.origin + "/login",
                     mainWindowRedirectUri: window.location.origin + "/login"
