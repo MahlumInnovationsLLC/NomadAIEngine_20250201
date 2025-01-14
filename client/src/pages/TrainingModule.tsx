@@ -127,7 +127,7 @@ export default function TrainingModule() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-24">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
