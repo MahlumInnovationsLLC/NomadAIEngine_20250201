@@ -1,14 +1,21 @@
+// index.ts
+
 import express, { type Request, Response, NextFunction } from "express";
+import http from "http";
 import { WebSocketServer } from "ws";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeCosmosDB } from "./services/azure/cosmos_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
 
+// Create the Express app
 const app = express();
+
+// Basic middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Simple request-logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -27,11 +34,9 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
@@ -41,7 +46,7 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // Initialize Azure services first
+    // Initialize Azure services
     log("Initializing Azure services...");
 
     // Initialize Cosmos DB
@@ -64,15 +69,18 @@ app.use((req, res, next) => {
       console.error("Failed to initialize OpenAI, continuing with limited functionality:", error);
     }
 
-    const server = await registerRoutes(app);
+    // Register routes on the Express app
+    await registerRoutes(app);
 
-    // Create WebSocket server
+    // Create an HTTP server from the Express app
+    const server = http.createServer(app);
+
+    // Create WebSocket server (noServer = true)
     const wss = new WebSocketServer({ noServer: true });
 
-    // Handle WebSocket connection
+    // Handle incoming WebSocket connections
     wss.on("connection", (ws) => {
       ws.on("error", console.error);
-
       ws.on("message", (data) => {
         try {
           console.log("received: %s", data);
@@ -82,9 +90,9 @@ app.use((req, res, next) => {
       });
     });
 
-    // Handle upgrade requests
+    // Attach upgrade handler to the HTTP server for WebSockets
     server.on("upgrade", (request, socket, head) => {
-      // Skip non-websocket upgrade requests
+      // Optional: skip upgrade if not a websocket handshake
       if (!request.headers["sec-websocket-protocol"]) {
         wss.handleUpgrade(request, socket, head, (ws) => {
           wss.emit("connection", ws, request);
@@ -92,24 +100,27 @@ app.use((req, res, next) => {
       }
     });
 
+    // Error-handling middleware for Express
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      console.error('Server error:', err);
+      console.error("Server error:", err);
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
-
-      res.status(status).json({ message });
+      return res.status(status).json({ message });
     });
 
+    // If in development, enable Vite dev middleware; otherwise, serve static
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
 
+    // Listen on PORT from environment (Azure sets PORT=8080), else 5000
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
+    server.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
     });
+
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
