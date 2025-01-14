@@ -116,17 +116,11 @@ export default function Navbar() {
               <DropdownMenuItem 
                 className="text-red-600"
                 onSelect={async () => {
-                  const { toast } = useToast();
                   try {
                     await instance.logoutPopup();
-                    window.location.href = '/login';
+                    setLocation("/login");
                   } catch (error) {
                     console.error('Logout error:', error);
-                    toast({
-                      variant: "destructive",
-                      title: "Error",
-                      description: "Failed to log out. Please try again."
-                    });
                   }
                 }}
               >
