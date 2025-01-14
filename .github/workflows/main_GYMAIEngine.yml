@@ -11,27 +11,32 @@ on:
 
 jobs:
   build:
-    runs-on: 'ubuntu-latest'
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Log in to registry
-      uses: docker/login-action@v2
-      with:
-        registry: https://ghcr.io/
-        username: ${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}
-        password: ${{ secrets.AzureAppService_ContainerPassword_cbf0f1ab467a4bf9ad34c4193696c215 }}
+      # 1) Log in to GHCR properly (no https://)
+      - name: Log in to registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}
+          password: ${{ secrets.AzureAppService_ContainerPassword_cbf0f1ab467a4bf9ad34c4193696c215 }}
 
-    - name: Build and push container image to registry
-      uses: docker/build-push-action@v3
-      with:
-        push: true
-        tags: ghcr.io/${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}/mahluminnovationsllc/chatbot-app:${{ github.sha }}
-        file: ./Dockerfile
+      # 2) Build and push the Docker image to GHCR
+      - name: Build and push container image to registry
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          # Example tag using your GHCR username/secret + "mahluminnovationsllc/chatbot-app"
+          # If this is actually your organization name, keep it. Otherwise, adjust as needed.
+          tags: ghcr.io/${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}/mahluminnovationsllc/chatbot-app:${{ github.sha }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -41,11 +46,11 @@ jobs:
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
-    - name: Deploy to Azure Web App
-      id: deploy-to-webapp
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: 'GYMAIEngine'
-        slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_62085907b7c1484bb409457265784452 }}
-        images: 'ghcr.io/${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}/mahluminnovationsllc/chatbot-app:${{ github.sha }}'
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'GYMAIEngine'
+          slot-name: 'production'
+          publish-profile: ${{ secrets.AzureAppService_PublishProfile_62085907b7c1484bb409457265784452 }}
+          images: 'ghcr.io/${{ secrets.AzureAppService_ContainerUsername_9f41de5348b24b139b699f1fc0550283 }}/mahluminnovationsllc/chatbot-app:${{ github.sha }}'
