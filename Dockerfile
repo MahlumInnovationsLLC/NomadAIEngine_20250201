@@ -1,5 +1,9 @@
-# Base Node.js image
-FROM node:20-slim
+
+# Base Node.js Alpine image
+FROM node:20-alpine
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
 # Set the working directory
 WORKDIR /app
@@ -18,7 +22,7 @@ RUN npm install
 # Copy the rest of the source code
 COPY . .
 
-# Build the application (assuming you have a "build" script in package.json)
+# Build the application
 RUN npm run build
 
 # Expose port 8080
