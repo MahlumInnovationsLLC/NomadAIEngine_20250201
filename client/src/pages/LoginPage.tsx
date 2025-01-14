@@ -27,6 +27,7 @@ export default function LoginPage() {
         ...loginRequest,
         prompt: "select_account",
         redirectUri: window.location.origin,
+        authenticationScheme: "PKCE",
       });
 
       if (result) {

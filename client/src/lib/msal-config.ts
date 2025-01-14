@@ -6,11 +6,19 @@ export const msalConfig = {
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
     navigateToLoginRequestUrl: false,
+    protocolMode: "OIDC",
   },
   cache: {
     cacheLocation: "localStorage",
     storeAuthStateInCookie: false,
   },
+  system: {
+    allowNativeBroker: false,
+    loggerOptions: {
+      logLevel: 3,
+      piiLoggingEnabled: false
+    }
+  }
   system: {
     allowNativeBroker: false,
     windowHashTimeout: 60000,
