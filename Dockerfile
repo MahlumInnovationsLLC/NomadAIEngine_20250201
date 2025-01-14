@@ -21,8 +21,8 @@ COPY . .
 # Build the application (assuming you have a "build" script in package.json)
 RUN npm run build
 
-# Expose port 5000
-EXPOSE 5000
+# Expose port 8080
+EXPOSE 8080
 
 # Start the application
 CMD ["npm", "run", "start"]
