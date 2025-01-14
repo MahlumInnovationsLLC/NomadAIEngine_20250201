@@ -6,7 +6,7 @@ on:
       - main
   workflow_dispatch:
 
-# Give us permission to push images to GHCR
+# (Optional) You can keep or remove this. It doesn't affect the PAT usage:
 permissions:
   contents: read
   packages: write
@@ -21,23 +21,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # (Optional) Log in to GHCR using GitHub Actions token
-      - name: Log in to GitHub Container Registry
+      # Log in to GHCR with your Personal Access Token
+      - name: Log in to GitHub Container Registry (using PAT)
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: mahluminnovationsllc
+          password: ${{ secrets.GHCR_PAT }}
 
+      # Build & push the Docker image to GHCR
       - name: Build and push container image to registry
         uses: docker/build-push-action@v3
         with:
           context: .
           file: ./Dockerfile
           push: true
-          # Pass in the Font Awesome token from GitHub Secrets
           build-args: |
             FONTAWESOME_TOKEN=${{ secrets.FONTAWESOME_TOKEN }}
+          # Make sure your username is all lowercase here, too
           tags: ghcr.io/mahluminnovationsllc/chatbot-app:${{ github.sha }}
 
   deploy:
@@ -51,4 +52,5 @@ jobs:
           app-name: 'GYMAIEngine'
           slot-name: 'production'
           publish-profile: ${{ secrets.AzureAppService_PublishProfile_62085907b7c1484bb409457265784452 }}
+          # Must match the image tag used above
           images: 'ghcr.io/mahluminnovationsllc/chatbot-app:${{ github.sha }}'
