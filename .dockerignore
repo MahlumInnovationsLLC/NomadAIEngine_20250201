@@ -1,0 +1,27 @@
+# Ignore node_modules—dependencies will be installed inside the container
+node_modules
+
+# Ignore any local environment or config files
+.env
+*.local
+
+# Ignore VCS directories and files
+.git
+.gitignore
+
+# Ignore Dockerfiles themselves (optional, but common)
+Dockerfile
+docker-compose*
+
+# Ignore OS or IDE artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Ignore test coverage output
+coverage
+
+# Ignore logs
+*.log
+logs/
