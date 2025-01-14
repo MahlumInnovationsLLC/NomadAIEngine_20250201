@@ -116,13 +116,15 @@ export default function Navbar() {
               </DropdownMenuItem>
               <DropdownMenuItem 
                 className="text-red-600"
-                onSelect={() => {
-                  instance.logoutRedirect({
-                    postLogoutRedirectUri: window.location.origin + "/login",
-                    mainWindowRedirectUri: window.location.origin + "/login"
-                  }).catch(error => {
+                onSelect={async () => {
+                  try {
+                    await instance.logoutPopup({
+                      mainWindowRedirectUri: window.location.origin + "/login"
+                    });
+                    window.location.href = window.location.origin + "/login";
+                  } catch (error) {
                     console.error('Logout error:', error);
-                  });
+                  }
                 }}
               >
                 <LogOut className="mr-2 h-4 w-4" />
