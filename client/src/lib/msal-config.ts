@@ -1,3 +1,4 @@
+
 // MSAL configuration options
 export const msalConfig = {
   auth: {
@@ -12,13 +13,6 @@ export const msalConfig = {
     cacheLocation: "localStorage",
     storeAuthStateInCookie: false,
   },
-  system: {
-    allowNativeBroker: false,
-    loggerOptions: {
-      logLevel: 3,
-      piiLoggingEnabled: false
-    }
-  }
   system: {
     allowNativeBroker: false,
     windowHashTimeout: 60000,
@@ -47,7 +41,8 @@ export const msalConfig = {
             break;
         }
       },
-      piiLoggingEnabled: false
+      piiLoggingEnabled: false,
+      logLevel: 3
     }
   }
 };
