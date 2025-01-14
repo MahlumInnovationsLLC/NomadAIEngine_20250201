@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ModuleSelector } from "@/components/layout/ModuleSelector";
@@ -9,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Folder, File, Upload, RefreshCw, FileText } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
 interface FileItem {
   name: string;
@@ -22,12 +22,10 @@ export function DocumentManagement() {
   const [activeTab, setActiveTab] = useState("docmanagement");
   const [currentPath, setCurrentPath] = useState("");
   const [selectedDocument, setSelectedDocument] = useState<number | null>(null);
+  const location = useLocation();
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    if (tab === "training") {
-      window.location.href = "/docmanage/training";
-    }
   };
 
   const { data: files = [], isLoading, refetch } = useQuery<FileItem[]>({
@@ -41,7 +39,7 @@ export function DocumentManagement() {
       const documentId = parseInt(file.path.split('/').pop()?.split('.')[0] || '0');
       if (documentId > 0) {
         setSelectedDocument(documentId);
-        setActiveModule("docmanagement");
+        setActiveTab("docmanagement");
       }
     }
   };
@@ -58,28 +56,28 @@ export function DocumentManagement() {
           Manage, review, and approve documents with advanced training and workflow control.
         </p>
         <div className="flex justify-center mb-4">
-          <div className="flex gap-4">
+          <Link href="/docmanage/docmanagement">
             <button
-              className={`px-4 py-2 rounded-md ${
-                activeTab === "docmanagement"
+              className={`px-4 py-2 rounded-md mr-2 ${
+                location.pathname.includes("docmanagement")
                   ? "bg-primary text-primary-foreground"
                   : "bg-secondary"
               }`}
-              onClick={() => handleTabChange("docmanagement")}
             >
               DocManagement
             </button>
+          </Link>
+          <Link href="/docmanage/training">
             <button
               className={`px-4 py-2 rounded-md ${
-                activeTab === "training"
+                location.pathname.includes("training")
                   ? "bg-primary text-primary-foreground"
                   : "bg-secondary"
               }`}
-              onClick={() => handleTabChange("training")}
             >
               Training Module
             </button>
-          </div>
+          </Link>
         </div>
       </div>
 
