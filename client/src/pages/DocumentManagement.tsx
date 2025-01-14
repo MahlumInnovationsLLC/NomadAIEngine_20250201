@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Folder, File, Upload, RefreshCw, FileText } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 interface FileItem {
   name: string;
@@ -52,32 +52,32 @@ export function DocumentManagement() {
     <div className="container mx-auto">
       <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <h1 className="text-3xl font-bold mb-4">Document Training & Control</h1>
-        <p className="text-muted-foreground mb-6">
+        <p className="text-muted-foreground mb-4">
           Manage, review, and approve documents with advanced training and workflow control.
         </p>
         <div className="flex justify-center mb-4">
-          <Link href="/docmanage/docmanagement">
+          <div className="inline-flex rounded-md shadow-sm" role="group">
             <button
-              className={`px-4 py-2 rounded-md mr-2 ${
+              onClick={() => navigate("/docmanage/docmanagement")}
+              className={`px-6 py-2 text-sm font-medium border ${
                 location.pathname.includes("docmanagement")
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary"
-              }`}
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-secondary"
+              } rounded-l-lg focus:z-10 focus:outline-none`}
             >
               DocManagement
             </button>
-          </Link>
-          <Link href="/docmanage/training">
             <button
-              className={`px-4 py-2 rounded-md ${
+              onClick={() => navigate("/docmanage/training")}
+              className={`px-6 py-2 text-sm font-medium border-t border-b border-r ${
                 location.pathname.includes("training")
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary"
-              }`}
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-secondary"
+              } rounded-r-lg focus:z-10 focus:outline-none`}
             >
               Training Module
             </button>
-          </Link>
+          </div>
         </div>
       </div>
 
