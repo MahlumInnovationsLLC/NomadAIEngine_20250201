@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Menu, X, Settings, Share2, LogOut, MoonIcon, SunIcon, Cloud } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useState } from "react";
+import { useMsal } from "@azure/msal-react";
+import { useToast } from "@/hooks/use-toast";
 import SettingsDialog from "@/components/settings/SettingsDialog";
 import { AzureServicesStatus } from "@/components/azure/AzureServicesStatus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -111,7 +113,23 @@ export default function Navbar() {
                 <Share2 className="mr-2 h-4 w-4" />
                 Share
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600">
+              <DropdownMenuItem 
+                className="text-red-600"
+                onSelect={async () => {
+                  try {
+                    const { instance } = useMsal();
+                    await instance.logoutPopup();
+                    window.location.href = '/login';
+                  } catch (error) {
+                    console.error('Logout error:', error);
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: "Failed to log out. Please try again."
+                    });
+                  }
+                }}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </DropdownMenuItem>
