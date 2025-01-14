@@ -17,7 +17,7 @@ import { useTheme } from "next-themes";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import { useMsal } from "@azure/msal-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import SettingsDialog from "@/components/settings/SettingsDialog";
 import { AzureServicesStatus } from "@/components/azure/AzureServicesStatus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -116,8 +116,8 @@ export default function Navbar() {
               <DropdownMenuItem 
                 className="text-red-600"
                 onSelect={async () => {
+                  const { toast } = useToast();
                   try {
-                    const { instance } = useMsal();
                     await instance.logoutPopup();
                     window.location.href = '/login';
                   } catch (error) {
