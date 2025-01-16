@@ -1,7 +1,7 @@
 ### =========== 1) BUILDER STAGE =============
-FROM node:20-alpine AS builder
+FROM node:-20alpine AS builder
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
@@ -35,4 +35,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 
 EXPOSE 8080
-CMD ["npm", "run", "start"]
+
+# Use gunicorn and bind to $PORT.
+# Azure App Service sets PORT=8080 by default, but we use $PORT for flexibility.
+CMD ["sh", "-c", "gunicorn -b 0.0.0.0:${PORT:-8080} app:app --log-level debug"]
