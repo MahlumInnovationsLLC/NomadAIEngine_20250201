@@ -85,7 +85,6 @@ server.listen(PORT, () => {
 
   // Now do async tasks AFTER binding to the port
   void postStartupInit();
-});
 
 // Our main async init tasks that we now run AFTER the server is up:
 async function postStartupInit() {
