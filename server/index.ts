@@ -76,9 +76,12 @@ async function initializeDevOrStatic() {
 }
 
 // Immediately start listening so Azure sees a responding container
-const PORT = process.env.PORT || 5000;
-server.listen(port, "0.0.0.0", () => {
-  console.log(`Server running on port ${port}`);
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  // Now do async tasks AFTER binding to the port
+  void postStartupInit();
+});
 
   // Now do async tasks AFTER binding to the port
   void postStartupInit();
