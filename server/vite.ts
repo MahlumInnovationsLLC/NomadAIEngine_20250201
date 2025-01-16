@@ -2,15 +2,10 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-// Removed top-level import from 'vite':
-// import { createServer as createViteServer, createLogger } from "vite";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 import { type Server } from "http";
-import viteConfig from "../vite.config";
+// ❌ Remove top-level import of viteConfig
+// import viteConfig from "../vite.config";
 
-// A local log function (not from Vite). This is safe for production.
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -18,7 +13,6 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
-
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
@@ -26,11 +20,14 @@ export function log(message: string, source = "express") {
 export async function setupVite(app: Express, server: Server) {
   // 1) Dynamically import 'vite'
   const { createServer: createViteServer, createLogger } = await import("vite");
+  // 2) Dynamically import your vite.config
+  const viteConfigModule = await import("../vite.config");
+  const viteConfig = viteConfigModule.default || viteConfigModule;
 
-  // 2) Create Vite's logger
+  // 3) Create Vite's logger
   const viteLogger = createLogger();
 
-  // 3) Build the dev server config
+  // 4) Build the dev server config
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
@@ -61,9 +58,13 @@ export async function setupVite(app: Express, server: Server) {
     appType: "custom",
   });
 
-  // 4) Apply Vite dev middleware
+  // 5) Apply Vite dev middleware
   app.use(vite.middlewares);
 
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+
+  // 6) Catch-all route to transform index.html
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
@@ -74,7 +75,6 @@ export async function setupVite(app: Express, server: Server) {
         "client",
         "index.html"
       );
-
       const template = await fs.promises.readFile(clientTemplate, "utf-8");
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -87,6 +87,8 @@ export async function setupVite(app: Express, server: Server) {
 
 // Serve static files in production
 export function serveStatic(app: Express) {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
   const distPath = path.resolve(__dirname, "public");
 
   if (!fs.existsSync(distPath)) {
