@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Copy your package JSON and .npmrc (if needed for private packages)
 COPY package*.json ./
-COPY .npmrc .npmrc
+# COPY .npmrc .npmrc
 
 ARG FONTAWESOME_TOKEN
 ENV FONTAWESOME_TOKEN=$FONTAWESOME_TOKEN
