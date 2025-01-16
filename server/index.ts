@@ -3,8 +3,9 @@
 import express, { type Request, Response, NextFunction } from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
+// 1) Remove setupVite from this import so it never loads in production
+import { serveStatic, log } from "./vite";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
 import { initializeCosmosDB } from "./services/azure/cosmos_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
 
@@ -65,10 +66,11 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   return res.status(status).json({ message });
 });
 
-// If in development, enable Vite dev middleware; otherwise, serve static
-// We'll do this AFTER server starts listening in an async post-start block.
+// If in development, dynamically import setupVite; otherwise, serve static
 async function initializeDevOrStatic() {
   if (app.get("env") === "development") {
+    // 2) Dynamically import setupVite only in dev mode
+    const { setupVite } = await import("./vite");
     await setupVite(app, server);
   } else {
     serveStatic(app);
@@ -82,9 +84,6 @@ server.listen(PORT, () => {
   // Now do async tasks AFTER binding to the port
   void postStartupInit();
 });
-
-  // Now do async tasks AFTER binding to the port
-  void postStartupInit();
 
 // Our main async init tasks that we now run AFTER the server is up:
 async function postStartupInit() {
