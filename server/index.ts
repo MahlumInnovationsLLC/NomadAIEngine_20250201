@@ -3,7 +3,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
-// 1) Remove setupVite from this import so it never loads in production
+// import only serveStatic, log from "./vite"; no 'setupVite' at top-level
 import { serveStatic, log } from "./vite";
 import { registerRoutes } from "./routes";
 import { initializeCosmosDB } from "./services/azure/cosmos_service";
@@ -52,7 +52,6 @@ const wss = new WebSocketServer({ noServer: true });
 
 // Attach WebSocket upgrade event
 server.on("upgrade", (request, socket, head) => {
-  // If needed, skip non-websocket upgrade checks, or do your own auth logic.
   wss.handleUpgrade(request, socket, head, (ws) => {
     wss.emit("connection", ws, request);
   });
@@ -66,10 +65,9 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   return res.status(status).json({ message });
 });
 
-// If in development, dynamically import setupVite; otherwise, serve static
+// If in development, dynamically import "setupVite"; otherwise, serve static
 async function initializeDevOrStatic() {
   if (app.get("env") === "development") {
-    // 2) Dynamically import setupVite only in dev mode
     const { setupVite } = await import("./vite");
     await setupVite(app, server);
   } else {
@@ -112,7 +110,10 @@ async function initializeServices() {
     await initializeCosmosDB();
     log("Cosmos DB initialized successfully");
   } catch (error) {
-    console.error("Failed to initialize Cosmos DB, continuing with limited functionality:", error);
+    console.error(
+      "Failed to initialize Cosmos DB, continuing with limited functionality:",
+      error
+    );
   }
 
   // 2) Initialize Azure OpenAI
@@ -124,7 +125,10 @@ async function initializeServices() {
       log("Azure OpenAI initialized successfully");
     }
   } catch (error) {
-    console.error("Failed to initialize OpenAI, continuing with limited functionality:", error);
+    console.error(
+      "Failed to initialize OpenAI, continuing with limited functionality:",
+      error
+    );
   }
 }
 

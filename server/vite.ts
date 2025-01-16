@@ -2,14 +2,15 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer, createLogger } from "vite";
+// Removed top-level import from 'vite':
+// import { createServer as createViteServer, createLogger } from "vite";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 
-const viteLogger = createLogger();
-
+// A local log function (not from Vite). This is safe for production.
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -21,7 +22,15 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// Dynamically import and create the Vite dev server
 export async function setupVite(app: Express, server: Server) {
+  // 1) Dynamically import 'vite'
+  const { createServer: createViteServer, createLogger } = await import("vite");
+
+  // 2) Create Vite's logger
+  const viteLogger = createLogger();
+
+  // 3) Build the dev server config
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
@@ -52,7 +61,9 @@ export async function setupVite(app: Express, server: Server) {
     appType: "custom",
   });
 
+  // 4) Apply Vite dev middleware
   app.use(vite.middlewares);
+
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
@@ -61,10 +72,9 @@ export async function setupVite(app: Express, server: Server) {
         __dirname,
         "..",
         "client",
-        "index.html",
+        "index.html"
       );
 
-      // always reload the index.html file from disk incase it changes
       const template = await fs.promises.readFile(clientTemplate, "utf-8");
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -75,12 +85,13 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
+// Serve static files in production
 export function serveStatic(app: Express) {
   const distPath = path.resolve(__dirname, "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
   }
 
