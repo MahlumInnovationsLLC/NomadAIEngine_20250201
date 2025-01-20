@@ -1,10 +1,11 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { lazy, Suspense } from "react";
 import { 
   Award, 
-  GraduationCap,
+  ChalkboardTeacher, 
   Circle,
-  Trophy 
+  Trophy
 } from "lucide-react";
 
 interface TrainingModule {
@@ -24,7 +25,7 @@ const StatusIcon = ({ status }: { status: TrainingModule['status'] }) => {
     case 'completed':
       return <Award className="h-5 w-5 text-green-500 mr-2" />;
     case 'in_progress':
-      return <GraduationCap className="h-5 w-5 text-blue-500 mr-2" />;
+      return <ChalkboardTeacher className="h-5 w-5 text-blue-500 mr-2" />;
     case 'not_started':
       return <Circle className="h-5 w-5 text-gray-400 mr-2" />;
   }
