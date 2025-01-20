@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, GripVertical, FileText, BrainCircuit, Microscope, X } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 
 type ContentBlockType = 'text' | 'quiz' | 'lab';
@@ -23,10 +23,10 @@ interface ModuleData {
   blocks: ContentBlock[];
 }
 
-const BLOCK_TYPES: { type: ContentBlockType; label: string; icon: any }[] = [
-  { type: 'text', label: 'Text Content', icon: FileText },
-  { type: 'quiz', label: 'Quiz', icon: BrainCircuit },
-  { type: 'lab', label: 'Hands-on Lab', icon: Microscope },
+const BLOCK_TYPES: { type: ContentBlockType; label: string; icon: string }[] = [
+  { type: 'text', label: 'Text Content', icon: 'file-lines' },
+  { type: 'quiz', label: 'Quiz', icon: 'brain' },
+  { type: 'lab', label: 'Hands-on Lab', icon: 'microscope' },
 ];
 
 export function ModuleCreator() {
@@ -139,15 +139,15 @@ export function ModuleCreator() {
       </Card>
 
       <div className="flex gap-2">
-        {BLOCK_TYPES.map(({ type, label, icon: Icon }) => (
+        {BLOCK_TYPES.map(({ type, label, icon }) => (
           <Button
             key={type}
             variant="outline"
             onClick={() => addBlock(type)}
             className="flex items-center gap-2"
           >
-            <PlusCircle className="h-4 w-4" />
-            <Icon className="h-4 w-4" />
+            <FontAwesomeIcon icon="circle-plus" className="h-4 w-4" />
+            <FontAwesomeIcon icon={icon} className="h-4 w-4" />
             {label}
           </Button>
         ))}
@@ -173,7 +173,7 @@ export function ModuleCreator() {
                           {...provided.dragHandleProps}
                           className="flex items-center gap-2"
                         >
-                          <GripVertical className="h-5 w-5 text-muted-foreground" />
+                          <FontAwesomeIcon icon="grip-vertical" className="h-5 w-5 text-muted-foreground" />
                           <CardTitle className="text-lg">
                             {BLOCK_TYPES.find(t => t.type === block.type)?.label}
                           </CardTitle>
@@ -183,7 +183,7 @@ export function ModuleCreator() {
                           size="sm"
                           onClick={() => removeBlock(block.id)}
                         >
-                          <X className="h-4 w-4" />
+                          <FontAwesomeIcon icon="xmark" className="h-4 w-4" />
                         </Button>
                       </CardHeader>
                       <CardContent>

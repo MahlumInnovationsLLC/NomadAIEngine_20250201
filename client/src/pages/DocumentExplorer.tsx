@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import FileUpload from "@/components/document/FileUpload";
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PageSkeleton, SkeletonCard } from "@/components/ui/skeleton-loader";
+import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function DocumentExplorer() {
@@ -52,14 +52,14 @@ export default function DocumentExplorer() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <FontAwesomeIcon icon="file-lines" className="h-5 w-5" />
                 Document Explorer
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="mb-4">
                 <Button onClick={() => setShowUploadDialog(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
+                  <FontAwesomeIcon icon="upload" className="h-4 w-4 mr-2" />
                   Upload Documents
                 </Button>
               </div>

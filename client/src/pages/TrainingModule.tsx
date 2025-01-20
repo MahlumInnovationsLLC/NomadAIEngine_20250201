@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, Book, CheckCircle, Award, Brain, Clock } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
@@ -64,7 +64,7 @@ export default function TrainingModule() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Trophy className="h-5 w-5" />
+                      <FontAwesomeIcon icon="trophy" className="h-5 w-5" />
                       Current Progress
                     </CardTitle>
                   </CardHeader>
@@ -86,7 +86,7 @@ export default function TrainingModule() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Clock className="h-5 w-5" />
+                      <FontAwesomeIcon icon="clock" className="h-5 w-5" />
                       Recent Activity
                     </CardTitle>
                   </CardHeader>
@@ -94,21 +94,21 @@ export default function TrainingModule() {
                     <ScrollArea className="h-[200px]">
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <FontAwesomeIcon icon="circle-check" className="h-4 w-4 text-green-500" />
                           <div>
                             <p className="font-medium">Completed Lesson: Introduction to Document Types</p>
                             <p className="text-sm text-muted-foreground">1/13/2025</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <Award className="h-4 w-4 text-yellow-500" />
+                          <FontAwesomeIcon icon="award" className="h-4 w-4 text-yellow-500" />
                           <div>
                             <p className="font-medium">Passed Quiz: Document Classification</p>
                             <p className="text-sm text-muted-foreground">1/12/2025</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <Book className="h-4 w-4 text-blue-500" />
+                          <FontAwesomeIcon icon="book" className="h-4 w-4 text-blue-500" />
                           <div>
                             <p className="font-medium">Started Lesson: Advanced Search Techniques</p>
                             <p className="text-sm text-muted-foreground">1/11/2025</p>
@@ -123,7 +123,7 @@ export default function TrainingModule() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Book className="h-5 w-5" />
+                    <FontAwesomeIcon icon="book" className="h-5 w-5" />
                     Current Modules
                   </CardTitle>
                 </CardHeader>
@@ -139,9 +139,9 @@ export default function TrainingModule() {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               {module.status === 'completed' ? (
-                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <FontAwesomeIcon icon="circle-check" className="h-4 w-4 text-green-500" />
                               ) : (
-                                <Book className="h-4 w-4 text-blue-500" />
+                                <FontAwesomeIcon icon="book" className="h-4 w-4 text-blue-500" />
                               )}
                               <h3 className="font-medium">{module.title}</h3>
                             </div>

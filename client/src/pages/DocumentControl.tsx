@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, GraduationCap, Shield } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import SearchInterface from "@/components/document/SearchInterface";
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocumentConfig } from "@/components/document/DocumentConfig";
@@ -100,7 +100,7 @@ export default function DocumentControl() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <FileText className="mr-2 h-5 w-5" />
+                  <FontAwesomeIcon icon="file-lines" className="mr-2 h-5 w-5" />
                   Document Explorer
                 </CardTitle>
               </CardHeader>
@@ -124,7 +124,7 @@ export default function DocumentControl() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Shield className="mr-2 h-5 w-5" />
+                  <FontAwesomeIcon icon="shield" className="mr-2 h-5 w-5" />
                   Role Status
                 </CardTitle>
               </CardHeader>
@@ -154,7 +154,7 @@ export default function DocumentControl() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <GraduationCap className="mr-2 h-5 w-5" />
+                  <FontAwesomeIcon icon="graduation-cap" className="mr-2 h-5 w-5" />
                   Current Training
                 </CardTitle>
               </CardHeader>

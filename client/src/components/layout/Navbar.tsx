@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, Settings, Share2, LogOut, MoonIcon, SunIcon, Cloud } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useTheme } from "next-themes";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
@@ -80,7 +80,7 @@ export default function Navbar() {
             className="h-9 w-9"
             onClick={() => setShowStatus(!showStatus)}
           >
-            <Cloud className="h-4 w-4" />
+            <FontAwesomeIcon icon="cloud" className="h-4 w-4" />
             <span className="sr-only">Azure services status</span>
           </Button>
 
@@ -90,8 +90,8 @@ export default function Navbar() {
             className="h-9 w-9"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
-            <SunIcon className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <MoonIcon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <FontAwesomeIcon icon="sun" className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <FontAwesomeIcon icon="moon" className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">Toggle theme</span>
           </Button>
 
@@ -99,19 +99,19 @@ export default function Navbar() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9">
                 {isMenuOpen ? (
-                  <X className="h-4 w-4 transition-transform duration-200" />
+                  <FontAwesomeIcon icon="xmark" className="h-4 w-4 transition-transform duration-200" />
                 ) : (
-                  <Menu className="h-4 w-4 transition-transform duration-200" />
+                  <FontAwesomeIcon icon="bars" className="h-4 w-4 transition-transform duration-200" />
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => setShowSettings(true)}>
-                <Settings className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <Share2 className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon="share" className="mr-2 h-4 w-4" />
                 Share
               </DropdownMenuItem>
               <DropdownMenuItem 
@@ -127,7 +127,7 @@ export default function Navbar() {
                   }
                 }}
               >
-                <LogOut className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon="right-from-bracket" className="mr-2 h-4 w-4" />
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>
