@@ -64,20 +64,16 @@ export async function setupVite(app: Express, server: Server) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
 
-  // 6) Catch-all route to transform index.html
-  app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-
+  // Handle SPA routing
+  app.get('*', async (req, res, next) => {
     try {
-      const clientTemplate = path.resolve(
-        __dirname,
-        "..",
-        "client",
-        "index.html"
+      const url = req.originalUrl;
+      const template = fs.readFileSync(
+        path.resolve(__dirname, '../client/index.html'),
+        'utf-8'
       );
-      const template = await fs.promises.readFile(clientTemplate, "utf-8");
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      const html = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);
