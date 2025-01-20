@@ -2,8 +2,11 @@ import { DocumentConfig } from "@/components/document/DocumentConfig";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings } from "lucide-react";
+import { useLocation } from "wouter";
 
 export function DocManagement() {
+  const [, setLocation] = useLocation();
+
   // Fetch all documents
   const { data: documents } = useQuery({
     queryKey: ['/api/documents'],
@@ -22,13 +25,13 @@ export function DocManagement() {
         <div className="flex justify-center mb-4">
           <div className="inline-flex rounded-md shadow-sm" role="group">
             <button
-              onClick={() => window.location.href = '/docmanage/docmanagement'}
+              onClick={() => setLocation("/docmanage/docmanagement")}
               className="px-6 py-2 text-sm font-medium border bg-primary text-primary-foreground border-primary rounded-l-lg focus:z-10 focus:outline-none"
             >
               DocManagement
             </button>
             <button
-              onClick={() => window.location.href = '/docmanage/training'}
+              onClick={() => setLocation("/docmanage/training")}
               className="px-6 py-2 text-sm font-medium border-t border-b border-r bg-background hover:bg-secondary rounded-r-lg focus:z-10 focus:outline-none"
             >
               Training Module
@@ -44,18 +47,16 @@ export function DocManagement() {
               Document Management
             </CardTitle>
           </CardHeader>
-        <CardContent>
-          {documentId ? (
-            <DocumentConfig documentId={documentId} />
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">No documents found. Please upload a document first.</p>
-              {/* TODO: Add document upload button here */}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          <CardContent>
+            {documentId ? (
+              <DocumentConfig documentId={documentId} />
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">No documents found. Please upload a document first.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
