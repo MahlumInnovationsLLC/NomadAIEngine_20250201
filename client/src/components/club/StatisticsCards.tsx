@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Activity } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { Equipment } from "@db/schema";
 
 interface StatisticsCardsProps {
@@ -24,7 +24,7 @@ export default function StatisticsCards({ equipment }: StatisticsCardsProps) {
                 {equipment.length}
               </h3>
             </div>
-            <Activity className="h-8 w-8 text-muted-foreground" />
+            <FontAwesomeIcon icon="chart-line" className="h-8 w-8 text-muted-foreground" />
           </div>
         </CardContent>
       </Card>

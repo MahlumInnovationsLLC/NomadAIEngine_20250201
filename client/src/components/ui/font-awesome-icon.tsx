@@ -55,6 +55,7 @@ import {
   faMessagePlus,
   faSquare,
   faPaperPlane,
+  faChartLine,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -164,7 +165,8 @@ const iconMap: Record<string, IconDefinition> = {
   'play': faPlay,
   'message-plus': faMessagePlus,
   'square': faSquare,
-  'paper-plane': faPaperPlane
+  'paper-plane': faPaperPlane,
+  'chart-line': faChartLine
 };
 
 export function FontAwesomeIcon({ 
