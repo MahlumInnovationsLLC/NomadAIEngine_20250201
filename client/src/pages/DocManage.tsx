@@ -1,18 +1,13 @@
 import { useState, lazy, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, FolderPlus, Upload, Download, Edit, Send } from "lucide-react";
+import { FileText, FolderPlus, Upload, Download, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 
 // Lazy load heavy components
 const FileExplorer = lazy(() => import("@/components/document/FileExplorer"));
 const DocumentViewer = lazy(() => import("@/components/document/DocumentViewer").then(mod => ({ default: mod.DocumentViewer })));
-const WorkflowDialog = lazy(() => import("@/components/document/WorkflowDialog").then(mod => ({ default: mod.WorkflowDialog })));
-const DocumentPermissions = lazy(() => import("@/components/document/DocumentPermissions").then(mod => ({ default: mod.DocumentPermissions })));
-const SearchInterface = lazy(() => import("@/components/document/SearchInterface"));
 const TrainingModule = lazy(() => import("./TrainingModule"));
 
 const LoadingSpinner = () => (
@@ -40,48 +35,95 @@ export function DocManage() {
 
   return (
     <div className="container mx-auto">
-      <div className="text-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-4 py-4">
-          <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
-          <p className="text-muted-foreground mb-4">
-            Manage your documents, configure training modules, and control document workflows.
-          </p>
-          <div className="flex justify-center mb-4">
-            <div className="inline-flex rounded-md shadow-sm" role="group">
-              <Button
-                variant="outline"
-                onClick={() => setLocation("/docmanage/docmanagement")}
-              >
-                DocManagement
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLocation("/docmanage/training")}
-              >
-                Training Module
-              </Button>
-            </div>
+      <div className="p-8 border-b bg-background">
+        <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
+        <p className="text-muted-foreground mb-4">
+          Manage your documents, configure training modules, and control document workflows.
+        </p>
+        <div className="flex justify-center mb-4">
+          <div className="inline-flex rounded-md shadow-sm" role="group">
+            <Button
+              variant="outline"
+              onClick={() => setLocation("/docmanage/docmanagement")}
+            >
+              DocManagement
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setLocation("/docmanage/training")}
+            >
+              Training Module
+            </Button>
           </div>
         </div>
       </div>
       <div className="p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Document Management
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {selectedDocumentPath ? (
-              <DocumentViewer documentId={selectedDocumentPath} isEditing={isEditing} />
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">No documents found. Please upload a document first.</p>
+        <div className="grid grid-cols-[30%_70%] gap-6">
+          {/* DocExplore Panel - Left 30% */}
+          <Card className="h-[calc(100vh-24rem)] overflow-hidden">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center">
+                  <FileText className="h-5 w-5 mr-2" />
+                  DocExplore
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="icon">
+                    <FolderPlus className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon">
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent>
+              <Suspense fallback={<LoadingSpinner />}>
+                <FileExplorer onSelectDocument={(path) => setSelectedDocumentPath(path)} />
+              </Suspense>
+            </CardContent>
+          </Card>
+
+          {/* Document Viewer Panel - Right 70% */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FileText className="h-5 w-5 mr-2" />
+                  Document Viewer
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsEditing(!isEditing)}
+                    disabled={!selectedDocumentPath}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled={!selectedDocumentPath}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedDocumentPath ? (
+                <DocumentViewer documentId={selectedDocumentPath} isEditing={isEditing} />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">Select a document from DocExplore to view or edit.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
