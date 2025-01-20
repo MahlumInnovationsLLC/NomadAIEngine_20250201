@@ -12,7 +12,7 @@ export default function DocManage() {
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
         <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <h1 className="text-3xl font-bold mb-4">Document Training & Control</h1>
+          <h1 className="text-3xl font-bold mb-8">Document Training & Control</h1>
           <p className="text-muted-foreground mb-4">
             Manage your documents and track training progress in one centralized platform
           </p>
