@@ -100,8 +100,26 @@ app.use((req, res, next) => {
     }
 
     const PORT = 5000;
+    
+    // Kill any existing process on port 5000
+    server.on('error', (e: any) => {
+      if (e.code === 'EADDRINUSE') {
+        log(`Port ${PORT} is busy, attempting to close previous instance...`);
+        server.close();
+        process.exit(1);
+      }
+    });
+
     server.listen(PORT, "0.0.0.0", () => {
       log(`Server running on port ${PORT} with WebSocket support`);
+    });
+
+    // Handle cleanup on shutdown
+    process.on('SIGTERM', () => {
+      server.close(() => {
+        log('Server shutting down');
+        process.exit(0);
+      });
     });
   } catch (error) {
     console.error("Failed to start server:", error);
