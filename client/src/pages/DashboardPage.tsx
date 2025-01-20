@@ -2,20 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  BarChart,
-  MessageSquare,
-  FileText,
-  Users,
-  ArrowUpRight,
-  Clock,
-  Calendar,
-  HardDrive,
-  CheckCircle,
-  XCircle,
-  GraduationCap,
-  ClipboardList
-} from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatBytes } from "@/lib/utils";
@@ -75,7 +62,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <Button variant="outline" className="gap-2">
-          <Calendar className="h-4 w-4" />
+          <FontAwesomeIcon icon="calendar" className="h-4 w-4" />
           Last 7 Days
         </Button>
       </div>
@@ -96,7 +83,7 @@ export default function DashboardPage() {
                   </h3>
                 )}
               </div>
-              <FileText className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon="file-lines" className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -116,7 +103,7 @@ export default function DashboardPage() {
                   </h3>
                 )}
               </div>
-              <HardDrive className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon="hard-drive" className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -134,19 +121,19 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 mt-2">
                     {stats?.aiServiceStatus ? (
                       <>
-                        <CheckCircle className="h-5 w-5 text-green-500" />
+                        <FontAwesomeIcon icon="circle-check" className="h-5 w-5 text-green-500" />
                         <span className="text-lg font-medium">Connected</span>
                       </>
                     ) : (
                       <>
-                        <XCircle className="h-5 w-5 text-red-500" />
+                        <FontAwesomeIcon icon="circle-xmark" className="h-5 w-5 text-red-500" />
                         <span className="text-lg font-medium">Disconnected</span>
                       </>
                     )}
                   </div>
                 )}
               </div>
-              <MessageSquare className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon="message" className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -164,19 +151,19 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 mt-2">
                     {stats?.storageStatus ? (
                       <>
-                        <CheckCircle className="h-5 w-5 text-green-500" />
+                        <FontAwesomeIcon icon="circle-check" className="h-5 w-5 text-green-500" />
                         <span className="text-lg font-medium">Connected</span>
                       </>
                     ) : (
                       <>
-                        <XCircle className="h-5 w-5 text-red-500" />
+                        <FontAwesomeIcon icon="circle-xmark" className="h-5 w-5 text-red-500" />
                         <span className="text-lg font-medium">Disconnected</span>
                       </>
                     )}
                   </div>
                 )}
               </div>
-              <BarChart className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon="chart-mixed" className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -196,7 +183,7 @@ export default function DashboardPage() {
                   </h3>
                 )}
               </div>
-              <Users className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon="users" className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -222,7 +209,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              <MessageSquare className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon="message" className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -247,7 +234,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              <GraduationCap className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon="graduation-cap" className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -267,7 +254,7 @@ export default function DashboardPage() {
                   </h3>
                 )}
               </div>
-              <ClipboardList className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon="clipboard-list" className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -356,7 +343,7 @@ export default function DashboardPage() {
               ) : (
                 recentActivity?.map((activity, index) => (
                   <div key={index} className="flex items-center gap-4">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <FontAwesomeIcon icon="clock" className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="font-medium">
                         {activity.type === 'upload' && 'Uploaded'}

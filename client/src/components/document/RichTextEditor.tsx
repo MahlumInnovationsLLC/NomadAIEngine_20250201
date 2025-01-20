@@ -2,17 +2,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
-import {
-  Bold,
-  Italic,
-  List,
-  ListOrdered,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Heading1,
-  Heading2
-} from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface RichTextEditorProps {
   content: string;
@@ -40,14 +30,14 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
           pressed={editor.isActive('bold')}
           onPressedChange={() => editor.chain().focus().toggleBold().run()}
         >
-          <Bold className="h-4 w-4" />
+          <FontAwesomeIcon icon="bold" className="h-4 w-4" />
         </Toggle>
         <Toggle
           size="sm"
           pressed={editor.isActive('italic')}
           onPressedChange={() => editor.chain().focus().toggleItalic().run()}
         >
-          <Italic className="h-4 w-4" />
+          <FontAwesomeIcon icon="italic" className="h-4 w-4" />
         </Toggle>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
@@ -57,14 +47,14 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
           pressed={editor.isActive('heading', { level: 1 })}
           onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         >
-          <Heading1 className="h-4 w-4" />
+          <FontAwesomeIcon icon="heading" className="h-4 w-4" />
         </Toggle>
         <Toggle
           size="sm"
           pressed={editor.isActive('heading', { level: 2 })}
           onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         >
-          <Heading2 className="h-4 w-4" />
+          <FontAwesomeIcon icon="heading-2" className="h-4 w-4" />
         </Toggle>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
@@ -74,14 +64,14 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
           pressed={editor.isActive('bulletList')}
           onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
         >
-          <List className="h-4 w-4" />
+          <FontAwesomeIcon icon="list-ul" className="h-4 w-4" />
         </Toggle>
         <Toggle
           size="sm"
           pressed={editor.isActive('orderedList')}
           onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
         >
-          <ListOrdered className="h-4 w-4" />
+          <FontAwesomeIcon icon="list-ol" className="h-4 w-4" />
         </Toggle>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
@@ -91,21 +81,21 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
           pressed={editor.isActive({ textAlign: 'left' })}
           onPressedChange={() => editor.chain().focus().setTextAlign('left').run()}
         >
-          <AlignLeft className="h-4 w-4" />
+          <FontAwesomeIcon icon="align-left" className="h-4 w-4" />
         </Toggle>
         <Toggle
           size="sm"
           pressed={editor.isActive({ textAlign: 'center' })}
           onPressedChange={() => editor.chain().focus().setTextAlign('center').run()}
         >
-          <AlignCenter className="h-4 w-4" />
+          <FontAwesomeIcon icon="align-center" className="h-4 w-4" />
         </Toggle>
         <Toggle
           size="sm"
           pressed={editor.isActive({ textAlign: 'right' })}
           onPressedChange={() => editor.chain().focus().setTextAlign('right').run()}
         >
-          <AlignRight className="h-4 w-4" />
+          <FontAwesomeIcon icon="align-right" className="h-4 w-4" />
         </Toggle>
       </div>
 

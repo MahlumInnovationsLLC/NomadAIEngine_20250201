@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, MessageSquare, Archive, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface ChatItem {
   id: string;
@@ -45,7 +45,7 @@ export default function ChatHistorySidebar() {
     <div className="w-64 border-r h-full flex flex-col bg-background">
       <div className="p-4 border-b">
         <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <FontAwesomeIcon icon="magnifying-glass" className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search chats..."
             value={search}
@@ -62,7 +62,7 @@ export default function ChatHistorySidebar() {
           onClick={() => setShowArchived(false)}
           className="flex-1"
         >
-          <MessageSquare className="h-4 w-4 mr-2" />
+          <FontAwesomeIcon icon="message" className="h-4 w-4 mr-2" />
           Active
         </Button>
         <Button
@@ -71,7 +71,7 @@ export default function ChatHistorySidebar() {
           onClick={() => setShowArchived(true)}
           className="flex-1"
         >
-          <Archive className="h-4 w-4 mr-2" />
+          <FontAwesomeIcon icon="box-archive" className="h-4 w-4 mr-2" />
           Archived
         </Button>
       </div>
@@ -79,7 +79,7 @@ export default function ChatHistorySidebar() {
       <ScrollArea className="flex-1">
         {error ? (
           <Alert variant="destructive" className="m-4">
-            <AlertCircle className="h-4 w-4" />
+            <FontAwesomeIcon icon="circle-exclamation" className="h-4 w-4" />
             <AlertDescription>{error.message}</AlertDescription>
           </Alert>
         ) : isLoading ? (

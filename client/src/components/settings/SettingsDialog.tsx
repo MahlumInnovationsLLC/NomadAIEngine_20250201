@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Laptop, Moon, Sun } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 
 interface SettingsDialogProps {
@@ -93,7 +93,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   onClick={() => setTheme('light')}
                   className="theme-transition"
                 >
-                  <Sun className="h-4 w-4 mr-1" />
+                  <FontAwesomeIcon icon="sun" className="h-4 w-4 mr-1" />
                   Light
                 </Button>
                 <Button
@@ -102,7 +102,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   onClick={() => setTheme('dark')}
                   className="theme-transition"
                 >
-                  <Moon className="h-4 w-4 mr-1" />
+                  <FontAwesomeIcon icon="moon" className="h-4 w-4 mr-1" />
                   Dark
                 </Button>
                 <Button
@@ -111,7 +111,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   onClick={() => setTheme('system')}
                   className="theme-transition"
                 >
-                  <Laptop className="h-4 w-4 mr-1" />
+                  <FontAwesomeIcon icon="laptop" className="h-4 w-4 mr-1" />
                   System
                 </Button>
               </div>

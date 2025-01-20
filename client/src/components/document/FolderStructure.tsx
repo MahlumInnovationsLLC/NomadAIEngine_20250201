@@ -3,7 +3,7 @@ import { Tree, TreeNode } from "@/components/ui/tree";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Folder, File, Plus, FolderPlus } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,7 +56,10 @@ export function FolderStructure() {
       key={node.path}
       id={node.path}
       label={node.name}
-      icon={node.type === 'folder' ? <Folder className="h-4 w-4" /> : <File className="h-4 w-4" />}
+      icon={node.type === 'folder' ? 
+        <FontAwesomeIcon icon="folder" className="h-4 w-4" /> : 
+        <FontAwesomeIcon icon="file" className="h-4 w-4" />
+      }
     >
       {node.children?.map(renderNode)}
     </TreeNode>
@@ -73,7 +76,7 @@ export function FolderStructure() {
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              <FolderPlus className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon="folder-plus" className="h-4 w-4 mr-2" />
               New Folder
             </Button>
           </DialogTrigger>

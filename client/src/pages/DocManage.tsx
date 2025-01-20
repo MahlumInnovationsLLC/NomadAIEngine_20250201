@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, GraduationCap, ChevronRight } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
@@ -22,7 +22,7 @@ export default function DocManage() {
           <Card className="group hover:shadow-lg transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <FontAwesomeIcon icon="file-lines" className="h-5 w-5" />
                 Document Management
               </CardTitle>
             </CardHeader>
@@ -36,7 +36,7 @@ export default function DocManage() {
                 onClick={() => navigate("/docmanage/docmanagement")}
               >
                 Go to Document Management
-                <ChevronRight className="h-4 w-4 ml-2" />
+                <FontAwesomeIcon icon="chevron-right" className="h-4 w-4 ml-2" />
               </Button>
             </CardContent>
           </Card>
@@ -44,7 +44,7 @@ export default function DocManage() {
           <Card className="group hover:shadow-lg transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5" />
+                <FontAwesomeIcon icon="graduation-cap" className="h-5 w-5" />
                 Training Progress
               </CardTitle>
             </CardHeader>
@@ -58,7 +58,7 @@ export default function DocManage() {
                 onClick={() => navigate("/docmanage/training")}
               >
                 Go to Training Progress
-                <ChevronRight className="h-4 w-4 ml-2" />
+                <FontAwesomeIcon icon="chevron-right" className="h-4 w-4 ml-2" />
               </Button>
             </CardContent>
           </Card>

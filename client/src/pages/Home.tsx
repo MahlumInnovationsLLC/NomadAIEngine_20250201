@@ -1,8 +1,7 @@
-
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MessageSquarePlus, FileText, Play, LayoutDashboard, Dumbbell } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
 
 export default function Home() {
@@ -20,7 +19,7 @@ export default function Home() {
         </p>
         {isFirstVisit && (
           <Button onClick={startOnboarding} size="lg" className="gap-2">
-            <Play className="h-4 w-4" />
+            <FontAwesomeIcon icon="play" className="h-4 w-4" />
             Start Platform Tour
           </Button>
         )}
@@ -37,7 +36,7 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/chat')}
           >
-            <MessageSquarePlus className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon="message-plus" className="mr-2 h-5 w-5" />
             New Chat
           </Button>
         </Card>
@@ -52,7 +51,7 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/documents')}
           >
-            <FileText className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon="file-lines" className="mr-2 h-5 w-5" />
             Manage Documents
           </Button>
         </Card>
@@ -67,7 +66,7 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/dashboard')}
           >
-            <LayoutDashboard className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon="chart-mixed" className="mr-2 h-5 w-5" />
             Open Dashboard
           </Button>
         </Card>
@@ -82,7 +81,7 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/club-control')}
           >
-            <Dumbbell className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon="dumbbell" className="mr-2 h-5 w-5" />
             Club Control
           </Button>
         </Card>
