@@ -1,3 +1,4 @@
+
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,7 +10,7 @@ export default function Home() {
   const { startOnboarding, isFirstVisit } = useOnboarding();
 
   return (
-    <div className="max-w-4xl mx-auto py-12">
+    <div className="max-w-4xl mx-auto py-12 pt-20">
       <div className="text-center mb-12" data-tour="welcome-section">
         <h1 className="text-4xl font-bold tracking-tight mb-4">
           Welcome to GYM AI Engine
