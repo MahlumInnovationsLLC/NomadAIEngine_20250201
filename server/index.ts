@@ -67,35 +67,8 @@ app.use((req, res, next) => {
 
     const server = await registerRoutes(app);
     
-    // Create Socket.IO server
-    const io = new Server(server, {
-      cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-      }
-    });
-
-    // Handle socket connections
-    io.on("connection", (socket) => {
-      console.log("New client connected");
-
-      socket.on("error", (error) => {
-        console.error("Socket error:", error);
-      });
-
-      socket.on("disconnect", () => {
-        console.log("Client disconnected");
-      });
-
-      socket.on("message", (data) => {
-        try {
-          console.log("received:", data);
-          socket.emit("response", { status: "received" });
-        } catch (error) {
-          console.error("Error processing message:", error);
-        }
-      });
-    });
+    // Initialize WebSocket service with proper error handling
+    const wsServer = setupWebSocketServer(server);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Server error:', err);
