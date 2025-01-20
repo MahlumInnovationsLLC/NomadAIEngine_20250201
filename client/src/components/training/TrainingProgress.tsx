@@ -20,12 +20,14 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
     ? (modules.filter(m => m.status === 'completed').length / modules.length) * 100
     : 0;
 
-  const renderStatusIcon = (status: string) => {
+  const renderStatusIcon = (status: TrainingModule['status']) => {
     switch (status) {
-      case 'passed':
+      case 'completed':
         return <FontAwesomeIcon icon="award" className="text-green-500 mr-2" />;
-      case 'started':
+      case 'in_progress':
         return <FontAwesomeIcon icon="person-chalkboard" className="text-blue-500 mr-2" />;
+      case 'not_started':
+        return <FontAwesomeIcon icon="circle" className="text-gray-400 mr-2" />;
       default:
         return null;
     }
@@ -85,14 +87,7 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
           >
             <Card className="p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center gap-4">
-                {module.status === 'completed' ? (
-                  <FontAwesomeIcon icon="circle-check" className="w-6 h-6 text-green-500" />
-                ) : module.status === 'in_progress' ? (
-                  <FontAwesomeIcon icon="clock" className="w-6 h-6 text-blue-500" />
-                ) : (
-                  <FontAwesomeIcon icon="circle" className="w-6 h-6 text-gray-400" />
-                )}
-
+                {renderStatusIcon(module.status)}
                 <div className="flex-1 space-y-2">
                   <div className="flex justify-between items-center">
                     <h3 className="font-medium">{module.title}</h3>
