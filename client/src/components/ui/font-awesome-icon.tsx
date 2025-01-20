@@ -3,9 +3,13 @@ import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { 
-  faCheck, 
-  faChevronRight, 
+  faCheck,
+  faChevronRight,
   faCircle,
+  faAward,
+  faTrophyStar,
+  faPersonChalkboard,
+  faPlus,
   faCircleCheck,
   faCalendar,
   faTriangleExclamation,
@@ -54,6 +58,10 @@ library.add(
   faCheck,
   faChevronRight,
   faCircle,
+  faAward,
+  faTrophyStar,
+  faPersonChalkboard,
+  faPlus,
   faCircleCheck,
   faCalendar,
   faTriangleExclamation,

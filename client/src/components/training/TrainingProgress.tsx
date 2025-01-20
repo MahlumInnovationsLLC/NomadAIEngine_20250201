@@ -20,8 +20,23 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
     ? (modules.filter(m => m.status === 'completed').length / modules.length) * 100
     : 0;
 
+  const renderStatusIcon = (status: string) => {
+    switch (status) {
+      case 'passed':
+        return <FontAwesomeIcon icon="award" className="text-green-500 mr-2" />;
+      case 'started':
+        return <FontAwesomeIcon icon="person-chalkboard" className="text-blue-500 mr-2" />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2 mb-4">
+        <h2 className="text-2xl font-bold">Current Progress</h2>
+        <FontAwesomeIcon icon="trophy-star" className="text-yellow-500" />
+      </div>
       <div className="flex justify-center">
         <motion.div
           className="relative w-32 h-32"

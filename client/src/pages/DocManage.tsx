@@ -57,7 +57,10 @@ export default function DocManage() {
                 className="w-full flex items-center justify-between"
                 onClick={() => navigate("/docmanage/training")}
               >
-                Go to Training Progress
+                <span className="flex items-center gap-2">
+                  <FontAwesomeIcon icon="plus" />
+                  Go to Training Progress
+                </span>
                 <FontAwesomeIcon icon="chevron-right" className="h-4 w-4 ml-2" />
               </Button>
             </CardContent>
