@@ -1,12 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { lazy, Suspense } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
-  Award, 
-  ChalkboardTeacher, 
-  Circle,
-  Trophy
-} from "lucide-react";
+  faTrophy,
+  faAward,
+  faChalkboard,
+  faCircle
+} from "@fortawesome/free-solid-svg-icons";
 
 interface TrainingModule {
   id: number;
@@ -23,11 +23,11 @@ interface TrainingProgressProps {
 const StatusIcon = ({ status }: { status: TrainingModule['status'] }) => {
   switch (status) {
     case 'completed':
-      return <Award className="h-5 w-5 text-green-500 mr-2" />;
+      return <FontAwesomeIcon icon={faAward} className="h-5 w-5 text-green-500 mr-2" />;
     case 'in_progress':
-      return <ChalkboardTeacher className="h-5 w-5 text-blue-500 mr-2" />;
+      return <FontAwesomeIcon icon={faChalkboard} className="h-5 w-5 text-blue-500 mr-2" />;
     case 'not_started':
-      return <Circle className="h-5 w-5 text-gray-400 mr-2" />;
+      return <FontAwesomeIcon icon={faCircle} className="h-5 w-5 text-gray-400 mr-2" />;
   }
 };
 
@@ -40,7 +40,7 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-2xl font-bold">Current Progress</h2>
-        <Trophy className="h-6 w-6 text-yellow-500" />
+        <FontAwesomeIcon icon={faTrophy} className="h-6 w-6 text-yellow-500" />
       </div>
 
       <div className="flex justify-center mb-8">
