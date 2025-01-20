@@ -67,11 +67,23 @@ app.use((req, res, next) => {
     const server = await registerRoutes(app);
 
     // Create WebSocket server
-    const wss = new WebSocketServer({ noServer: true });
+    const wss = new WebSocketServer({ 
+      noServer: true,
+      clientTracking: true,
+      handleProtocols: () => false
+    });
 
     // Handle WebSocket connection
     wss.on("connection", (ws) => {
-      ws.on("error", console.error);
+      console.log("New client connected");
+      
+      ws.on("error", (error) => {
+        console.error("WebSocket error:", error.message);
+      });
+
+      ws.on("close", () => {
+        console.log("Client disconnected");
+      });
 
       ws.on("message", (data) => {
         try {
@@ -84,12 +96,9 @@ app.use((req, res, next) => {
 
     // Handle upgrade requests
     server.on("upgrade", (request, socket, head) => {
-      // Skip non-websocket upgrade requests
-      if (!request.headers["sec-websocket-protocol"]) {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-          wss.emit("connection", ws, request);
-        });
-      }
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit("connection", ws, request);
+      });
     });
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
