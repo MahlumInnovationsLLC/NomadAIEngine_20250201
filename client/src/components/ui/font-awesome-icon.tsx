@@ -52,8 +52,21 @@ import {
   faList,
   faDumbbell,
   faPlay,
-  faMessagePlus
-} from '@fortawesome/pro-light-svg-icons';
+  faMessagePlus,
+  faTrophy,
+  faBook,
+  faSignOut,
+  faX,
+  faLogOut,
+  faChartLine,
+  faFolderPlus,
+  faArrowsRotate,
+  faPen,
+  faDownload,
+  faFolder,
+  faUser
+
+} from '@fortawesome/free-solid-svg-icons';
 
 // Add icons to library
 library.add(
@@ -104,7 +117,21 @@ library.add(
   faChartColumn,
   faArrowTrendUp,
   faList,
-  faDumbbell
+  faDumbbell,
+  faPlay,
+  faMessagePlus,
+  faTrophy,
+  faBook,
+  faSignOut,
+  faX,
+  faLogOut,
+  faChartLine,
+  faFolderPlus,
+  faArrowsRotate,
+  faPen,
+  faDownload,
+  faFolder,
+  faUser
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
@@ -158,7 +185,19 @@ const iconMap: Record<string, IconDefinition> = {
   'list': faList,
   'dumbbell': faDumbbell,
   'play': faPlay,
-  'message-plus': faMessagePlus
+  'message-plus': faMessagePlus,
+  'trophy': faTrophy,
+  'book': faBook,
+  'sign-out': faSignOut,
+  'x': faX,
+  'log-out': faLogOut,
+  'chart-line': faChartLine,
+  'folder-plus': faFolderPlus,
+  'arrows-rotate': faArrowsRotate,
+  'pen': faPen,
+  'download': faDownload,
+  'folder': faFolder,
+  'user': faUser
 };
 
 export function FontAwesomeIcon({ 
