@@ -34,7 +34,18 @@ import {
   faChevronDown,
   faChevronUp,
   faShield,
-  faChevronLeft
+  faChevronLeft,
+  faClock,
+  faCalendarDays,
+  faCircleExclamation,
+  faQuestionCircle,
+  faCircleCheck as faCircleCheck2,
+  faGear,
+  faRotate,
+  faTriangleCircleSquare,
+  faChartColumn,
+  faArrowTrendUp,
+  faList
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -70,7 +81,18 @@ library.add(
   faChevronDown,
   faChevronUp,
   faShield,
-  faChevronLeft
+  faChevronLeft,
+  faClock,
+  faCalendarDays,
+  faCircleExclamation,
+  faQuestionCircle,
+  faCircleCheck2,
+  faGear,
+  faRotate,
+  faTriangleCircleSquare,
+  faChartColumn,
+  faArrowTrendUp,
+  faList
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
@@ -110,7 +132,18 @@ const iconMap: Record<string, IconDefinition> = {
   'chevron-down': faChevronDown,
   'chevron-up': faChevronUp,
   'shield': faShield,
-  'chevron-left': faChevronLeft
+  'chevron-left': faChevronLeft,
+  'calendar-days': faCalendarDays,
+  'clock': faClock,
+  'circle-exclamation': faCircleExclamation,
+  'question-circle': faQuestionCircle,
+  'circle-check-2': faCircleCheck2,
+  'gear': faGear,
+  'rotate': faRotate,
+  'triangle-circle-square': faTriangleCircleSquare,
+  'chart-column': faChartColumn,
+  'arrow-trend-up': faArrowTrendUp,
+  'list': faList
 };
 
 export function FontAwesomeIcon({ 

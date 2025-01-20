@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AlertTriangle, Shield, Activity } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
@@ -26,12 +26,10 @@ export default function MaintenanceScoreIndicator({
   lastUpdate,
 }: MaintenanceScoreIndicatorProps) {
   const riskLevel = useMemo(() => {
-    if (score >= 80) return { level: "Low", color: "text-green-500", icon: Shield };
-    if (score >= 60) return { level: "Moderate", color: "text-yellow-500", icon: Activity };
-    return { level: "High", color: "text-red-500", icon: AlertTriangle };
+    if (score >= 80) return { level: "Low", color: "text-green-500", icon: "shield" };
+    if (score >= 60) return { level: "Moderate", color: "text-yellow-500", icon: "cloud" };
+    return { level: "High", color: "text-red-500", icon: "triangle-exclamation" };
   }, [score]);
-
-  const Icon = riskLevel.icon;
 
   const formattedRiskFactors = riskFactors.map(factor => ({
     ...factor,
@@ -45,7 +43,7 @@ export default function MaintenanceScoreIndicator({
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center gap-2 text-sm">
-            <Icon className={`h-4 w-4 ${riskLevel.color}`} />
+            <FontAwesomeIcon icon={riskLevel.icon} className={`h-4 w-4 ${riskLevel.color}`} />
             <div className="flex flex-col">
               <span className="text-xs font-medium">Maintenance Score</span>
               <div className="flex items-center gap-1">

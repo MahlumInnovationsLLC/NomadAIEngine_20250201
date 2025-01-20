@@ -23,7 +23,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Clock } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import {
   Select,
   SelectContent,
@@ -141,7 +141,7 @@ export function MaintenanceScheduler({ equipment, open, onOpenChange }: Maintena
                           ) : (
                             <span>Pick a date</span>
                           )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <FontAwesomeIcon icon="calendar-days" className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -173,7 +173,7 @@ export function MaintenanceScheduler({ equipment, open, onOpenChange }: Maintena
                       <SelectTrigger>
                         <SelectValue placeholder="Select a time slot">
                           <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
+                            <FontAwesomeIcon icon="clock" className="h-4 w-4" />
                             {field.value}
                           </div>
                         </SelectValue>

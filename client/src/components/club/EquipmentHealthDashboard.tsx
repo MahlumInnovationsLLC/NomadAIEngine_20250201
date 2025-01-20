@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, Activity, Calendar, CheckCircle2 } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { MaintenanceTimeline } from "./MaintenanceTimeline";
@@ -54,7 +54,7 @@ export function EquipmentHealthDashboard() {
             <CardTitle className="text-sm font-medium">
               Equipment Health Overview
             </CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <FontAwesomeIcon icon="arrow-trend-up" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -74,7 +74,7 @@ export function EquipmentHealthDashboard() {
             <CardTitle className="text-sm font-medium">
               Maintenance Required
             </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <FontAwesomeIcon icon="triangle-exclamation" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -91,7 +91,7 @@ export function EquipmentHealthDashboard() {
             <CardTitle className="text-sm font-medium">
               Healthy Equipment
             </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            <FontAwesomeIcon icon="circle-check" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -154,7 +154,7 @@ export function EquipmentHealthDashboard() {
                       className={`h-2 bg-${riskInfo.color}-100`}
                     />
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
-                      <Calendar className="h-3 w-3" />
+                      <FontAwesomeIcon icon="calendar-days" className="h-3 w-3" />
                       Next maintenance: {
                         eq.nextMaintenance 
                           ? new Date(eq.nextMaintenance).toLocaleDateString()
@@ -206,7 +206,7 @@ export function EquipmentHealthDashboard() {
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span className={healthStatus.color}>{healthStatus.label}</span>
                     <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
+                      <FontAwesomeIcon icon="calendar-days" className="h-3 w-3" />
                       Next predicted maintenance: {predictedMaintenance.toLocaleDateString()}
                     </span>
                   </div>
@@ -230,7 +230,7 @@ export function EquipmentHealthDashboard() {
               transition={{ duration: 0.3 }}
             >
               <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
+                <FontAwesomeIcon icon="triangle-exclamation" className="h-4 w-4" />
                 <AlertTitle>Maintenance Required</AlertTitle>
                 <AlertDescription>
                   {eq.name} needs attention. Current health score: {eq.healthScore}%.

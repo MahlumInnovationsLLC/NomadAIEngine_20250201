@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, HelpCircle } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Equipment } from "@db/schema";
 
 interface TroubleshootingGuideProps {
@@ -55,7 +55,7 @@ export function TroubleshootingGuide({ equipment, open, onOpenChange }: Troubles
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <HelpCircle className="h-5 w-5" />
+            <FontAwesomeIcon icon="question-circle" className="h-5 w-5" />
             Troubleshooting Guide: {equipment.name}
           </DialogTitle>
           <DialogDescription>
@@ -66,7 +66,7 @@ export function TroubleshootingGuide({ equipment, open, onOpenChange }: Troubles
         <div className="space-y-4">
           {/* Current Health Status */}
           <Alert variant={getHealthStatus() === 'good' ? 'default' : 'destructive'}>
-            <CheckCircle2 className="h-4 w-4" />
+            <FontAwesomeIcon icon="circle-check-2" className="h-4 w-4" />
             <AlertTitle>Current Health Status</AlertTitle>
             <AlertDescription className="mt-2">
               Health Score: {equipment.healthScore}%
@@ -83,7 +83,10 @@ export function TroubleshootingGuide({ equipment, open, onOpenChange }: Troubles
             {guide?.steps?.map((step: TroubleshootingStep) => (
               <AccordionItem key={step.id} value={step.id}>
                 <AccordionTrigger className="flex items-center gap-2">
-                  <AlertCircle className={`h-4 w-4 text-${getSeverityColor(step.severity)}-500`} />
+                  <FontAwesomeIcon 
+                    icon="circle-exclamation" 
+                    className={`h-4 w-4 text-${getSeverityColor(step.severity)}-500`} 
+                  />
                   {step.title}
                 </AccordionTrigger>
                 <AccordionContent className="px-4">
@@ -92,7 +95,7 @@ export function TroubleshootingGuide({ equipment, open, onOpenChange }: Troubles
                       {step.description}
                     </p>
                     <Alert>
-                      <CheckCircle2 className="h-4 w-4" />
+                      <FontAwesomeIcon icon="circle-check-2" className="h-4 w-4" />
                       <AlertTitle>Recommended Solution</AlertTitle>
                       <AlertDescription>
                         {step.solution}
