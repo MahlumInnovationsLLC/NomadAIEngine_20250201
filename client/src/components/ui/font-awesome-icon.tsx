@@ -50,7 +50,9 @@ import {
   faChartColumn,
   faArrowTrendUp,
   faList,
-  faDumbbell
+  faDumbbell,
+  faPlay,
+  faMessagePlus
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -154,7 +156,9 @@ const iconMap: Record<string, IconDefinition> = {
   'chart-column': faChartColumn,
   'arrow-trend-up': faArrowTrendUp,
   'list': faList,
-  'dumbbell': faDumbbell
+  'dumbbell': faDumbbell,
+  'play': faPlay,
+  'message-plus': faMessagePlus
 };
 
 export function FontAwesomeIcon({ 
