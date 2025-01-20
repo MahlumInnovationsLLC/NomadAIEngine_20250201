@@ -2,7 +2,7 @@ import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { List, MapPin } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { Equipment, FloorPlan } from "@db/schema";
 
 // Lazy load components
@@ -63,7 +63,7 @@ export default function ClubControlPage() {
             onClick={() => setView("list")}
             className="gap-2"
           >
-            <List className="h-4 w-4" />
+            <FontAwesomeIcon icon="list" className="h-4 w-4" />
             List View
           </Button>
           <Button
@@ -71,7 +71,7 @@ export default function ClubControlPage() {
             onClick={() => setView("map")}
             className="gap-2"
           >
-            <MapPin className="h-4 w-4" />
+            <FontAwesomeIcon icon="map-pin" className="h-4 w-4" />
             Map View
           </Button>
         </div>

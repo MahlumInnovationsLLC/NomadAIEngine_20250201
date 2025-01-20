@@ -56,6 +56,7 @@ import {
   faSquare,
   faPaperPlane,
   faChartLine,
+  faMapPin,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -166,7 +167,8 @@ const iconMap: Record<string, IconDefinition> = {
   'message-plus': faMessagePlus,
   'square': faSquare,
   'paper-plane': faPaperPlane,
-  'chart-line': faChartLine
+  'chart-line': faChartLine,
+  'map-pin': faMapPin
 };
 
 export function FontAwesomeIcon({ 
