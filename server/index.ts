@@ -1,6 +1,7 @@
 
 import express, { type Request, Response, NextFunction } from "express";
 import { Server } from "socket.io";
+import http from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeCosmosDB } from "./services/azure/cosmos_service";
@@ -65,10 +66,28 @@ app.use((req, res, next) => {
       console.error("Failed to initialize OpenAI, continuing with limited functionality:", error);
     }
 
-    const server = await registerRoutes(app);
+    const server = http.createServer(app);
+    await registerRoutes(app);
     
-    // Initialize WebSocket service with proper error handling
-    const wsServer = setupWebSocketServer(server);
+    // Set up Socket.IO
+    const io = new Server(server, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      }
+    });
+
+    io.on("connection", (socket) => {
+      console.log("Client connected");
+      
+      socket.on("disconnect", () => {
+        console.log("Client disconnected");
+      });
+      
+      socket.on("error", (error) => {
+        console.error("Socket error:", error);
+      });
+    });
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Server error:', err);
