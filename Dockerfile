@@ -1,25 +1,39 @@
-# Base Node.js image
-FROM node:20-slim
+# Builder stage
+FROM node:20-slim AS builder
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy package manifests and .npmrc
+# Copy package manifests
 COPY package*.json ./
 COPY .npmrc .npmrc
 
-# Declare and set build args for the token
-ARG FONTAWESOME_TOKEN
-ENV FONTAWESOME_TOKEN=$FONTAWESOME_TOKEN
-
 # Install dependencies
+ENV NODE_ENV=development
 RUN npm install
 
-# Copy the rest of the source code
+# Copy source files
 COPY . .
 
-# Build the application (assuming you have a "build" script in package.json)
+# Build the application
 RUN npm run build
+
+# Production stage
+FROM node:20-slim AS production
+
+# Set working directory
+WORKDIR /app
+
+# Copy package manifests
+COPY package*.json ./
+COPY .npmrc .npmrc
+
+# Install only production dependencies
+ENV NODE_ENV=production
+RUN npm install --only=production
+
+# Copy built assets from builder stage
+COPY --from=builder /app/dist ./dist
 
 # Expose port 5000
 EXPOSE 5000

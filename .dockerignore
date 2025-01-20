@@ -1,27 +1,40 @@
-# Ignore node_modules—dependencies will be installed inside the container
+# Development artifacts
 node_modules
-
-# Ignore any local environment or config files
-.env
-*.local
-
-# Ignore VCS directories and files
+npm-debug.log
 .git
 .gitignore
-
-# Ignore Dockerfiles themselves (optional, but common)
-Dockerfile
-docker-compose*
-
-# Ignore OS or IDE artifacts
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Ignore test coverage output
+.env*
+*.local
+.vscode
+.idea
 coverage
+__tests__
+test
+tests
+*.test.*
 
-# Ignore logs
+# Build artifacts
+dist
+build
 *.log
 logs/
+
+# Docker related
+Dockerfile*
+docker-compose*
+.docker
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Other unnecessary files
+README.md
+CHANGELOG.md
+*.md
+.editorconfig
+.eslintrc*
+.prettier*
+.travis.yml
+jest.config.*
