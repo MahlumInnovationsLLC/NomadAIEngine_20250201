@@ -1,40 +1,28 @@
-### =========== 1) BUILDER STAGE =============
-FROM node:20-alpine AS builder
+# Base Node.js image
+FROM node:20-slim
 
-# If you compile native modules, you may need:
-RUN apk add --no-cache python3 make g++
-
+# Set the working directory
 WORKDIR /app
 
-# Copy your package JSON and .npmrc (if needed for private packages)
+# Copy package manifests and .npmrc
 COPY package*.json ./
 COPY .npmrc .npmrc
 
+# Declare and set build args for the token
 ARG FONTAWESOME_TOKEN
 ENV FONTAWESOME_TOKEN=$FONTAWESOME_TOKEN
 
-# Install all dependencies (dev + prod)
+# Install dependencies
 RUN npm install
 
-# Copy source, build
+# Copy the rest of the source code
 COPY . .
+
+# Build the application (assuming you have a "build" script in package.json)
 RUN npm run build
 
-# We can optionally prune out dev dependencies
-RUN npm prune --production
+# Expose port 5000
+EXPOSE 5000
 
-### =========== 2) FINAL STAGE ==============
-FROM node:20-slim
-
-WORKDIR /app
-
-# Copy node_modules from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-# Copy compiled code
-COPY --from=builder /app/dist ./dist
-
-EXPOSE 8080
-
-# Start the app (assuming “start” runs “node dist/index.js” or similar)
+# Start the application
 CMD ["npm", "run", "start"]

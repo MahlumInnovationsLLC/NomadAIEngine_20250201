@@ -2,9 +2,13 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
+import { createServer as createViteServer, createLogger } from "vite";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import { type Server } from "http";
-// ❌ Remove top-level import of viteConfig
-// import viteConfig from "../vite.config";
+import viteConfig from "../vite.config";
+
+const viteLogger = createLogger();
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -13,21 +17,11 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
+
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-// Dynamically import and create the Vite dev server
 export async function setupVite(app: Express, server: Server) {
-  // 1) Dynamically import 'vite'
-  const { createServer: createViteServer, createLogger } = await import("vite");
-  // 2) Dynamically import your vite.config
-  const viteConfigModule = await import("../vite.config");
-  const viteConfig = viteConfigModule.default || viteConfigModule;
-
-  // 3) Create Vite's logger
-  const viteLogger = createLogger();
-
-  // 4) Build the dev server config
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
@@ -58,22 +52,22 @@ export async function setupVite(app: Express, server: Server) {
     appType: "custom",
   });
 
-  // 5) Apply Vite dev middleware
   app.use(vite.middlewares);
+  app.use("*", async (req, res, next) => {
+    const url = req.originalUrl;
 
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-
-  // Handle SPA routing
-  app.get('*', async (req, res, next) => {
     try {
-      const url = req.originalUrl;
-      const template = fs.readFileSync(
-        path.resolve(__dirname, '../client/index.html'),
-        'utf-8'
+      const clientTemplate = path.resolve(
+        __dirname,
+        "..",
+        "client",
+        "index.html",
       );
-      const html = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+
+      // always reload the index.html file from disk incase it changes
+      const template = await fs.promises.readFile(clientTemplate, "utf-8");
+      const page = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);
@@ -81,15 +75,12 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-// Serve static files in production
 export function serveStatic(app: Express) {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
   const distPath = path.resolve(__dirname, "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
+      `Could not find the build directory: ${distPath}, make sure to build the client first`,
     );
   }
 
