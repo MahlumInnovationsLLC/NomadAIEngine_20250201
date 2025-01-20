@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresenceWrapper, AnimateTransition } from "@/components/ui/AnimateTransition";
 
 const DocManagement = lazy(() => import("./DocManagement"));
 const TrainingModule = lazy(() => import("./TrainingModule"));
@@ -39,36 +39,26 @@ function DocManage() {
             >
               Training Progress
             </Button>
-            <motion.div
-              className="absolute bottom-0 h-0.5 bg-primary"
-              initial={{ x: 0 }}
-              animate={{ 
-                x: showTraining ? "100%" : 0,
-                width: "50%"
-              }}
-              transition={{
-                duration: 0.3,
-                ease: "easeInOut"
-              }}
+            <div 
+              className={`absolute bottom-0 h-0.5 bg-primary transition-all duration-300 ease-in-out w-1/2 ${
+                showTraining ? 'translate-x-full' : 'translate-x-0'
+              }`}
             />
           </div>
         </div>
       </div>
 
       <div className="p-6">
-        <AnimatePresence mode="wait">
-          <motion.div
+        <AnimatePresenceWrapper>
+          <AnimateTransition
             key={showTraining ? "training" : "docmanage"}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            variant="fade"
           >
             <Suspense fallback={<LoadingSpinner />}>
               {showTraining ? <TrainingModule /> : <DocManagement />}
             </Suspense>
-          </motion.div>
-        </AnimatePresence>
+          </AnimateTransition>
+        </AnimatePresenceWrapper>
       </div>
     </div>
   );
