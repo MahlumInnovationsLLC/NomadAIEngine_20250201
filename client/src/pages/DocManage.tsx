@@ -47,6 +47,9 @@ export function DocManage() {
     if (!selectedDocumentPath) return;
   };
 
+  const currentPath = location.split('/').pop();
+  const isDocManagement = currentPath === 'docmanagement' || currentPath === 'docmanage';
+
   return (
     <div className="container mx-auto">
       <div className="text-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -60,7 +63,7 @@ export function DocManage() {
               <button
                 onClick={() => setLocation("/docmanage/docmanagement")}
                 className={`px-6 py-2 text-sm font-medium border ${
-                  location.includes("docmanagement")
+                  isDocManagement
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background hover:bg-secondary"
                 } rounded-l-lg focus:z-10 focus:outline-none`}
@@ -70,7 +73,7 @@ export function DocManage() {
               <button
                 onClick={() => setLocation("/docmanage/training")}
                 className={`px-6 py-2 text-sm font-medium border-t border-b border-r ${
-                  location.includes("training")
+                  currentPath === 'training'
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background hover:bg-secondary"
                 } rounded-r-lg focus:z-10 focus:outline-none`}
@@ -82,7 +85,7 @@ export function DocManage() {
         </div>
       </div>
       <div className="mt-6 space-y-6">
-        {location.includes("training") ? (
+        {currentPath === 'training' ? (
           <Suspense fallback={<LoadingSpinner />}>
             <TrainingModule />
           </Suspense>
