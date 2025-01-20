@@ -19,7 +19,6 @@ export default function Home() {
         </p>
         {isFirstVisit && (
           <Button onClick={startOnboarding} size="lg" className="gap-2">
-            <FontAwesomeIcon icon="play" className="h-4 w-4" />
             <FontAwesomeIcon icon="play" className="mr-2 h-4 w-4" />
             Start Platform Tour
           </Button>
@@ -38,7 +37,6 @@ export default function Home() {
             onClick={() => navigate('/chat')}
           >
             <FontAwesomeIcon icon="message-plus" className="mr-2 h-5 w-5" />
-            <FontAwesomeIcon icon="message-plus" className="mr-2 h-4 w-4" />
             New Chat
           </Button>
         </Card>
