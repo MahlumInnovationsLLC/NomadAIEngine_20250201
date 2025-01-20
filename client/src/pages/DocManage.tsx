@@ -12,30 +12,6 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Animation variants
-const pageVariants = {
-  initial: {
-    opacity: 0,
-    x: -20,
-  },
-  animate: {
-    opacity: 1,
-    x: 0,
-    transition: {
-      duration: 0.3,
-      ease: "easeOut",
-    },
-  },
-  exit: {
-    opacity: 0,
-    x: 20,
-    transition: {
-      duration: 0.2,
-      ease: "easeIn",
-    },
-  },
-};
-
 export function DocManage() {
   const [location, setLocation] = useLocation();
   const showTraining = location === "/docmanage/training";
@@ -63,32 +39,33 @@ export function DocManage() {
             >
               Training Progress
             </Button>
-            {/* Animated underline indicator */}
             <motion.div
               className="absolute bottom-0 h-0.5 bg-primary"
-              initial={false}
-              animate={{
-                x: showTraining ? "100%" : "0%",
-                width: "50%",
+              initial={{ x: 0 }}
+              animate={{ 
+                x: showTraining ? "100%" : 0,
+                width: "50%"
               }}
               transition={{
-                type: "spring",
-                stiffness: 500,
-                damping: 30,
+                duration: 0.3,
+                ease: "easeInOut"
               }}
             />
           </div>
         </div>
       </div>
 
-      <div className="p-6 relative">
+      <div className="p-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={showTraining ? "training" : "docmanage"}
-            variants={pageVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{
+              duration: 0.2,
+              ease: "easeInOut"
+            }}
           >
             <Suspense fallback={<LoadingSpinner />}>
               {showTraining ? <TrainingModule /> : <DocManagement />}
