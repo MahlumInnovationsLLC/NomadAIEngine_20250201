@@ -1,7 +1,10 @@
+import { Suspense, lazy } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Lazy load the heavy chart components
+const ComparisonChart = lazy(() => import("./charts/ComparisonChart"));
 
 interface EquipmentComparisonDashboardProps {
   selectedEquipment: Equipment[];
@@ -45,14 +48,6 @@ export default function EquipmentComparisonDashboard({ selectedEquipment }: Equi
     }
   ];
 
-  const colors = [
-    "hsl(var(--chart-1))",
-    "hsl(var(--chart-2))",
-    "hsl(var(--chart-3))",
-    "hsl(var(--chart-4))",
-    "hsl(var(--chart-5))"
-  ];
-
   return (
     <Card>
       <CardHeader>
@@ -60,23 +55,9 @@ export default function EquipmentComparisonDashboard({ selectedEquipment }: Equi
       </CardHeader>
       <CardContent>
         <div className="h-[300px] w-full">
-          <ResponsiveContainer>
-            <BarChart data={comparisonData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="metric" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {selectedEquipment.map((eq, index) => (
-                <Bar
-                  key={eq.id}
-                  dataKey={eq.name}
-                  fill={colors[index % colors.length]}
-                  name={eq.name}
-                />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          <Suspense fallback={<Skeleton className="h-full w-full" />}>
+            <ComparisonChart data={comparisonData} selectedEquipment={selectedEquipment} />
+          </Suspense>
         </div>
       </CardContent>
     </Card>
