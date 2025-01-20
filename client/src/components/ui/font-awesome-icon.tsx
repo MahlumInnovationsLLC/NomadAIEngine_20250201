@@ -1,4 +1,3 @@
-
 import { HTMLAttributes } from 'react';
 import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -44,6 +43,7 @@ import {
   faCalendarDays,
   faCircleExclamation,
   faQuestionCircle,
+  faCircleCheck as faCircleCheck2,
   faGear,
   faRotate,
   faTriangleCircleSquare,
@@ -52,19 +52,7 @@ import {
   faList,
   faDumbbell,
   faPlay,
-  faMessagePlus,
-  faTrophy,
-  faBook,
-  faSignOut,
-  faX,
-  faLogOut,
-  faChartLine,
-  faFolderPlus,
-  faArrowsRotate,
-  faPen,
-  faDownload,
-  faFolder,
-  faUser
+  faMessagePlus
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -109,27 +97,14 @@ library.add(
   faCalendarDays,
   faCircleExclamation,
   faQuestionCircle,
+  faCircleCheck2,
   faGear,
   faRotate,
   faTriangleCircleSquare,
   faChartColumn,
   faArrowTrendUp,
   faList,
-  faDumbbell,
-  faPlay,
-  faMessagePlus,
-  faTrophy,
-  faBook,
-  faSignOut,
-  faX,
-  faLogOut,
-  faChartLine,
-  faFolderPlus,
-  faArrowsRotate,
-  faPen,
-  faDownload,
-  faFolder,
-  faUser
+  faDumbbell
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
@@ -174,6 +149,7 @@ const iconMap: Record<string, IconDefinition> = {
   'clock': faClock,
   'circle-exclamation': faCircleExclamation,
   'question-circle': faQuestionCircle,
+  'circle-check-2': faCircleCheck2,
   'gear': faGear,
   'rotate': faRotate,
   'triangle-circle-square': faTriangleCircleSquare,
@@ -182,19 +158,7 @@ const iconMap: Record<string, IconDefinition> = {
   'list': faList,
   'dumbbell': faDumbbell,
   'play': faPlay,
-  'message-plus': faMessagePlus,
-  'trophy': faTrophy,
-  'book': faBook,
-  'sign-out': faSignOut,
-  'x': faX,
-  'log-out': faLogOut,
-  'chart-line': faChartLine,
-  'folder-plus': faFolderPlus,
-  'arrows-rotate': faArrowsRotate,
-  'pen': faPen,
-  'download': faDownload,
-  'folder': faFolder,
-  'user': faUser
+  'message-plus': faMessagePlus
 };
 
 export function FontAwesomeIcon({ 
