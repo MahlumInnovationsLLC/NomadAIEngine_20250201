@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface Props {
   children: ReactNode;
@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <Card className="w-full max-w-md mx-auto mt-4">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
+              <FontAwesomeIcon icon="circle-exclamation" className="h-5 w-5" />
               <p className="text-sm">Something went wrong with the animation.</p>
             </div>
           </CardContent>
