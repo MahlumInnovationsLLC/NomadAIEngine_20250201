@@ -64,7 +64,7 @@ export default function TrainingModule() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <FontAwesomeIcon icon="trophy" className="h-5 w-5" />
+                      <FontAwesomeIcon icon="faTrophyStar" className="h-5 w-5" />
                       Current Progress
                     </CardTitle>
                   </CardHeader>
@@ -101,14 +101,14 @@ export default function TrainingModule() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <FontAwesomeIcon icon="award" className="h-4 w-4 text-yellow-500" />
+                          <FontAwesomeIcon icon="faAward" className="h-4 w-4 text-yellow-500" />
                           <div>
                             <p className="font-medium">Passed Quiz: Document Classification</p>
                             <p className="text-sm text-muted-foreground">1/12/2025</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <FontAwesomeIcon icon="book" className="h-4 w-4 text-blue-500" />
+                          <FontAwesomeIcon icon="faCirclePlus" className="h-4 w-4 text-blue-500" />
                           <div>
                             <p className="font-medium">Started Lesson: Advanced Search Techniques</p>
                             <p className="text-sm text-muted-foreground">1/11/2025</p>
