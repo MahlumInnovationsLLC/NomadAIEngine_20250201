@@ -1,43 +1,231 @@
-import { Server } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { WebSocket, WebSocketServer } from 'ws';
 import { db } from "@db";
 import { userTraining } from "@db/schema";
 import { eq } from "drizzle-orm";
+import { z } from 'zod';
 
-interface User {
-  id: string;
-  name: string;
-  avatar?: string;
-  status: 'online' | 'away' | 'offline';
-  lastSeen?: Date;
-  socketId: string;
-  trainingLevel?: {
-    level: string;
-    progress: number;
-  };
+// Validation schemas
+const userSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatar: z.string().optional(),
+  status: z.enum(['online', 'away', 'offline']),
+  lastSeen: z.date().optional(),
+  socketId: z.string(),
+  trainingLevel: z.object({
+    level: z.string(),
+    progress: z.number()
+  }).optional()
+});
+
+type User = z.infer<typeof userSchema>;
+
+interface SocketMessage {
+  type: string;
+  data?: any;
 }
 
-const users = new Map<string, User>();
-const clients = new Map<string, string>(); // userId -> socketId
+class WebSocketManager {
+  private io: SocketIOServer;
+  private wss: WebSocketServer;
+  private users: Map<string, User> = new Map();
+  private clients: Map<string, string> = new Map();
+  private connectionPool: Map<string, Set<WebSocket | SocketIOServer.Socket>> = new Map();
+  private heartbeatInterval: NodeJS.Timeout;
 
-export function setupWebSocketServer(server: HttpServer) {
-  const io = new Server(server, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
-  });
+  constructor(server: HttpServer) {
+    this.io = new SocketIOServer(server, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      },
+      pingInterval: 10000,
+      pingTimeout: 5000,
+      transports: ['websocket']
+    });
 
-  // Broadcast presence update to all clients
-  function broadcastPresence() {
-    const activeUsers = Array.from(users.values()).map(({ socketId, ...user }) => user);
-    io.emit('presence:update', activeUsers);
+    this.wss = new WebSocketServer({ 
+      server,
+      path: "/ws",
+      perMessageDeflate: true
+    });
+
+    this.setupSocketIO();
+    this.setupWebSocket();
+    this.setupHeartbeat();
   }
 
-  // Broadcast training level update to a specific user
-  async function broadcastTrainingLevel(userId: string) {
+  private setupHeartbeat() {
+    this.heartbeatInterval = setInterval(() => {
+      this.connectionPool.forEach((connections, userId) => {
+        connections.forEach((conn) => {
+          if (conn instanceof WebSocket) {
+            if (conn.readyState === WebSocket.OPEN) {
+              conn.ping();
+            } else {
+              this.handleDisconnect(userId, conn);
+            }
+          }
+        });
+      });
+    }, 30000);
+  }
+
+  private setupSocketIO() {
+    this.io.on('connection', (socket) => {
+      console.log('Socket.IO client connected');
+      const userId = socket.handshake.query.userId as string;
+
+      if (!userId) {
+        socket.disconnect();
+        return;
+      }
+
+      this.addToConnectionPool(userId, socket);
+      this.registerUser(userId);
+
+      socket.join(`user-${userId}`);
+
+      // Send initial state
+      socket.emit('ONLINE_USERS_UPDATE', {
+        type: 'ONLINE_USERS_UPDATE',
+        users: this.getActiveUsers()
+      });
+
+      socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
+        await this.handleUserJoin(uid, name);
+      });
+
+      socket.on('presence:status', ({ status }) => {
+        this.updateUserStatus(userId, status);
+      });
+
+      socket.on('training:request_level', async () => {
+        await this.broadcastTrainingLevel(userId);
+      });
+
+      socket.on('disconnect', () => {
+        this.handleDisconnect(userId, socket);
+      });
+
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
+        this.handleDisconnect(userId, socket);
+      });
+    });
+  }
+
+  private setupWebSocket() {
+    this.wss.on('connection', (ws, req) => {
+      console.log('Raw WebSocket client connected');
+      const url = new URL(req.url!, `ws://${req.headers.host}`);
+      const userId = url.searchParams.get('userId');
+
+      if (!userId) {
+        ws.close();
+        return;
+      }
+
+      this.addToConnectionPool(userId, ws);
+      this.registerUser(userId);
+
+      // Send initial state
+      ws.send(JSON.stringify({
+        type: 'ONLINE_USERS_UPDATE',
+        data: this.getActiveUsers()
+      }));
+
+      ws.on('message', async (message) => {
+        try {
+          const data = JSON.parse(message.toString()) as SocketMessage;
+          await this.handleWebSocketMessage(userId, data, ws);
+        } catch (error) {
+          console.error('Error handling WebSocket message:', error);
+        }
+      });
+
+      ws.on('close', () => {
+        this.handleDisconnect(userId, ws);
+      });
+
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+        this.handleDisconnect(userId, ws);
+      });
+
+      ws.on('pong', () => {
+        const user = this.users.get(userId);
+        if (user) {
+          user.lastSeen = new Date();
+          this.users.set(userId, user);
+        }
+      });
+    });
+  }
+
+  private addToConnectionPool(userId: string, connection: WebSocket | SocketIOServer.Socket) {
+    if (!this.connectionPool.has(userId)) {
+      this.connectionPool.set(userId, new Set());
+    }
+    this.connectionPool.get(userId)!.add(connection);
+  }
+
+  private handleDisconnect(userId: string, connection: WebSocket | SocketIOServer.Socket) {
+    const connections = this.connectionPool.get(userId);
+    if (connections) {
+      connections.delete(connection);
+      if (connections.size === 0) {
+        this.connectionPool.delete(userId);
+        this.users.delete(userId);
+        this.clients.delete(userId);
+        this.broadcastPresence();
+      }
+    }
+  }
+
+  private async handleUserJoin(userId: string, name: string) {
+    this.registerUser(userId);
+    await this.broadcastTrainingLevel(userId);
+  }
+
+  private async handleWebSocketMessage(userId: string, data: SocketMessage, ws: WebSocket) {
+    switch (data.type) {
+      case 'presence:join':
+        await this.handleUserJoin(userId, data.data?.name || `User ${userId.slice(0, 4)}`);
+        break;
+      case 'presence:status':
+        this.updateUserStatus(userId, data.data?.status);
+        break;
+      case 'training:request_level':
+        await this.broadcastTrainingLevel(userId);
+        break;
+      default:
+        console.warn('Unknown message type:', data.type);
+    }
+  }
+
+  private updateUserStatus(userId: string, status: User['status']) {
+    const user = this.users.get(userId);
+    if (user) {
+      user.status = status;
+      user.lastSeen = new Date();
+      this.users.set(userId, user);
+      this.broadcastPresence();
+    }
+  }
+
+  private broadcastPresence() {
+    const activeUsers = Array.from(this.users.values()).map(({ socketId, ...user }) => user);
+    this.broadcast(Array.from(this.users.keys()), { 
+      type: 'presence:update',
+      data: activeUsers 
+    });
+  }
+
+  private async broadcastTrainingLevel(userId: string) {
     try {
-      // Get all completed training modules for the user
       const completedModules = await db
         .select({
           moduleId: userTraining.moduleId,
@@ -47,122 +235,76 @@ export function setupWebSocketServer(server: HttpServer) {
         .from(userTraining)
         .where(eq(userTraining.userId, userId));
 
-      // Calculate overall progress
       let totalProgress = 0;
       if (completedModules.length > 0) {
         const completedCount = completedModules.filter(m => m.status === 'completed').length;
         totalProgress = (completedCount / completedModules.length) * 100;
       }
 
-      // Determine level based on overall progress
-      let level = "Beginner";
-      if (totalProgress >= 80) {
-        level = "Expert";
-      } else if (totalProgress >= 50) {
-        level = "Intermediate";
-      }
+      const level = totalProgress >= 80 ? "Expert" : totalProgress >= 50 ? "Intermediate" : "Beginner";
+      const trainingLevel = { level, progress: Math.round(totalProgress) };
 
-      const trainingLevel = {
-        level,
-        progress: Math.round(totalProgress)
-      };
-
-      // Update user's training level in memory
-      const user = users.get(userId);
+      const user = this.users.get(userId);
       if (user) {
-        users.set(userId, { ...user, trainingLevel });
+        user.trainingLevel = trainingLevel;
+        this.users.set(userId, user);
       }
 
-      // Emit training level update to the specific user
-      io.to(`user-${userId}`).emit('training:level', trainingLevel);
+      this.broadcast([userId], { 
+        type: 'training:level',
+        data: trainingLevel 
+      });
     } catch (error) {
       console.error("Error broadcasting training level:", error);
     }
   }
 
-  // Create WebSocket interface object with all required methods
-  const wsInterface = {
-    broadcast: (userIds: string[], message: any) => {
-      // Broadcast to specific users' rooms
-      userIds.forEach(userId => {
-        io.to(`user-${userId}`).emit('notification', message);
-      });
-    },
-    registerUser: (userId: string) => {
-      users.set(userId, {
-        id: userId,
-        name: `User ${userId.slice(0, 4)}`,
-        status: 'online',
-        socketId: clients.get(userId) || '',
-        lastSeen: new Date()
-      });
-      broadcastPresence();
-    },
-    unregisterUser: (userId: string) => {
-      users.delete(userId);
-      clients.delete(userId);
-      broadcastPresence();
-    },
-    broadcastTrainingLevel,
-    getActiveUsers: () => {
-      return Array.from(users.values())
-        .filter(user => user.status === 'online')
-        .map(user => user.id);
-    },
-    close: () => {
-      io.close();
-    }
-  };
-
-  // Handle socket connections
-  io.on('connection', (socket) => {
-    const userId = socket.handshake.query.userId as string;
-
-    if (!userId) {
-      socket.disconnect();
-      return;
-    }
-
-    // Store the socket ID for this user
-    clients.set(userId, socket.id);
-
-    // Join user-specific room for targeted notifications
-    socket.join(`user-${userId}`);
-
-    // Handle presence events
-    socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
-      wsInterface.registerUser(uid);
-      await broadcastTrainingLevel(uid);
-    });
-
-    // Handle disconnection
-    socket.on('disconnect', () => {
-      if (userId) {
-        wsInterface.unregisterUser(userId);
+  public broadcast(userIds: string[], message: SocketMessage) {
+    userIds.forEach(userId => {
+      const connections = this.connectionPool.get(userId);
+      if (connections) {
+        connections.forEach(conn => {
+          try {
+            if (conn instanceof WebSocket) {
+              if (conn.readyState === WebSocket.OPEN) {
+                conn.send(JSON.stringify(message));
+              }
+            } else {
+              conn.emit(message.type, message.data);
+            }
+          } catch (error) {
+            console.error('Error broadcasting message:', error);
+            this.handleDisconnect(userId, conn);
+          }
+        });
       }
     });
+  }
 
-    // Handle user status updates
-    socket.on('presence:status', ({ status }) => {
-      const user = users.get(userId);
-      if (user) {
-        users.set(userId, { ...user, status, lastSeen: new Date() });
-        broadcastPresence();
-      }
+  public registerUser(userId: string) {
+    this.users.set(userId, {
+      id: userId,
+      name: `User ${userId.slice(0, 4)}`,
+      status: 'online',
+      socketId: '',
+      lastSeen: new Date()
     });
+    this.broadcastPresence();
+  }
 
-    // Handle training level requests
-    socket.on('training:request_level', async () => {
-      await broadcastTrainingLevel(userId);
-    });
+  public getActiveUsers(): string[] {
+    return Array.from(this.users.values())
+      .filter(user => user.status === 'online')
+      .map(user => user.id);
+  }
 
-    socket.on('error', (error) => {
-      console.error('Socket error:', error);
-      if (clients.get(userId) === socket.id) {
-        wsInterface.unregisterUser(userId);
-      }
-    });
-  });
+  public cleanup() {
+    clearInterval(this.heartbeatInterval);
+    this.io.close();
+    this.wss.close();
+  }
+}
 
-  return wsInterface;
+export function setupWebSocketServer(server: HttpServer) {
+  return new WebSocketManager(server);
 }

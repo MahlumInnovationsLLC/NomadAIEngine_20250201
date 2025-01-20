@@ -1,7 +1,6 @@
-import type { Express, Request, Response } from "express";
+import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
-import { Server as SocketIOServer } from "socket.io";
 import { CosmosClient, Container } from "@azure/cosmos";
 import { ContainerClient } from "@azure/storage-blob";
 import multer from "multer";
@@ -21,26 +20,6 @@ import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
-
-interface Equipment {
-  id: string;
-  name: string;
-  type: string;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  yearManufactured: number;
-  lastMaintenanceDate?: Date;
-  nextMaintenanceDate?: Date;
-  status: 'active' | 'maintenance' | 'retired';
-}
-
-interface EquipmentType {
-  id: string;
-  manufacturer: string;
-  model: string;
-  type: string;
-}
 
 // Initialize Cosmos DB container for equipment
 let equipmentContainer: Container;
@@ -133,16 +112,14 @@ export function registerRoutes(app: Express): Server {
   initializeContainers().catch(console.error);
 
   const httpServer = createServer(app);
-  const io = new SocketIOServer(httpServer);
-  const wsServer = setupWebSocketServer(io);
+  const wsServer = setupWebSocketServer(httpServer);
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
 
   // Add user authentication middleware and user status tracking
-  app.use((req: AuthenticatedRequest, res: Response, next) => {
+  app.use((req: AuthenticatedRequest, res, next) => {
     // TODO: Replace with actual user authentication
-    // For now, we'll use a mock user ID for testing
     req.user = { id: '1', username: 'test_user' };
     const userId = req.headers['x-user-id'];
     if (userId && typeof userId === 'string') {
@@ -154,7 +131,6 @@ export function registerRoutes(app: Express): Server {
 
   // Update online users endpoint
   app.get("/api/users/online-status", (req, res) => {
-    // Get online users from WebSocket service
     const activeUsers = wsServer.getActiveUsers();
     res.json(activeUsers);
   });
@@ -930,33 +906,27 @@ export function registerRoutes(app: Express): Server {
   });
 
 
-  // Update Socket.IO connection handling
-  io.on('connection', (socket) => {
-    console.log('New client connected');
-    const userId = socket.handshake.query.userId;
-
-    if (userId && typeof userId === 'string') {
-      wsServer.registerUser(userId);
-
-      // Emit current online users to the newly connected client
-      socket.emit('ONLINE_USERS_UPDATE', {
-        type: 'ONLINE_USERS_UPDATE',
-        users: wsServer.getActiveUsers()
-      });
-
-      socket.on('disconnect', () => {
-        console.log('Client disconnected');
-        wsServer.unregisterUser(userId);
-        // Broadcast updated online users list to all clients
-        io.emit('ONLINE_USERS_UPDATE', {
-          type: 'ONLINE_USERS_UPDATE',
-          users: wsServer.getActiveUsers()
-        });
-      });
-    }
-  });
-
   return httpServer;
+}
+
+interface Equipment {
+  id: string;
+  name: string;
+  type: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  yearManufactured: number;
+  lastMaintenanceDate?: Date;
+  nextMaintenanceDate?: Date;
+  status: 'active' | 'maintenance' | 'retired';
+}
+
+interface EquipmentType {
+  id: string;
+  manufacturer: string;
+  model: string;
+  type: string;
 }
 
 interface AuthenticatedRequest extends Request {

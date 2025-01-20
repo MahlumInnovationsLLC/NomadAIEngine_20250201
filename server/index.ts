@@ -1,15 +1,22 @@
-
 import express, { type Request, Response, NextFunction } from "express";
-import { Server } from "socket.io";
-import http from "http";
+import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeCosmosDB } from "./services/azure/cosmos_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
+import { setupWebSocketServer } from "./services/websocket";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Add CORS middleware for WebSocket
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -43,10 +50,16 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // Initialize Azure services first
+    // Kill any existing process on port 5000
+    try {
+      const server = app.listen(5000);
+      server.close();
+    } catch (error) {
+      console.log('Port 5000 is free to use');
+    }
+
     log("Initializing Azure services...");
 
-    // Initialize Cosmos DB
     try {
       await initializeCosmosDB();
       log("Cosmos DB initialized successfully");
@@ -54,7 +67,6 @@ app.use((req, res, next) => {
       console.error("Failed to initialize Cosmos DB, continuing with limited functionality:", error);
     }
 
-    // Initialize Azure OpenAI
     try {
       const openAIClient = await initializeOpenAI();
       if (!openAIClient) {
@@ -66,28 +78,13 @@ app.use((req, res, next) => {
       console.error("Failed to initialize OpenAI, continuing with limited functionality:", error);
     }
 
-    const server = http.createServer(app);
-    await registerRoutes(app);
-    
-    // Set up Socket.IO
-    const io = new Server(server, {
-      cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-      }
-    });
+    const server = createServer(app);
 
-    io.on("connection", (socket) => {
-      console.log("Client connected");
-      
-      socket.on("disconnect", () => {
-        console.log("Client disconnected");
-      });
-      
-      socket.on("error", (error) => {
-        console.error("Socket error:", error);
-      });
-    });
+    // Setup WebSocket server with both Socket.IO and raw WebSocket support
+    const wsServer = setupWebSocketServer(server);
+
+    // Register routes after WebSocket setup
+    await registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Server error:', err);
@@ -104,7 +101,7 @@ app.use((req, res, next) => {
 
     const PORT = 5000;
     server.listen(PORT, "0.0.0.0", () => {
-      log(`Server running on port ${PORT}`);
+      log(`Server running on port ${PORT} with WebSocket support`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
