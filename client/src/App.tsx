@@ -27,9 +27,9 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const DocManage = lazy(() => import("@/pages/DocManage"));
+const DocumentManagement = lazy(() => import("@/pages/DocumentManagement"));
 const TrainingModule = lazy(() => import("@/pages/TrainingModule"));
 
-// Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
 
 function LoadingFallback() {
@@ -103,7 +103,8 @@ function App() {
                     <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                     <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
                     <Route path="/docmanage" component={() => <ProtectedRoute component={DocManage} />} />
-                    <Route path="/docmanage/training" component={() => <ProtectedRoute component={DocManage} />} />
+                    <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagement} />} />
+                    <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
                     <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
                     <Route component={NotFound} />
                   </Switch>
