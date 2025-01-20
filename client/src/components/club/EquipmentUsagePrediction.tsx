@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PredictionResponse {
@@ -50,7 +50,7 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <FontAwesomeIcon icon="circle-exclamation" className="h-4 w-4" />
             <AlertDescription>
               {error instanceof Error ? error.message : 'Error loading predictions'}
             </AlertDescription>
