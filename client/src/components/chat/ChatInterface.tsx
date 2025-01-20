@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, FileText, Square, Loader2 } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
@@ -122,7 +122,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
                 />
                 {message.role === 'assistant' && index === messages.length - 1 && sendMessage.isPending && (
                   <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-background/50">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <FontAwesomeIcon icon="rotate" className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 )}
               </div>
@@ -141,7 +141,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
             onClick={() => setShowFileUpload(true)}
             className="shrink-0"
           >
-            <FileText className="h-4 w-4" />
+            <FontAwesomeIcon icon="file-lines" className="h-4 w-4" />
           </Button>
           <Input
             value={input}
@@ -157,7 +157,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
               size="icon"
               className="aspect-square"
             >
-              <Square className="h-4 w-4" />
+              <FontAwesomeIcon icon="square" className="h-4 w-4" />
             </Button>
           ) : (
             <Button
@@ -165,7 +165,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
               disabled={!input.trim() || sendMessage.isPending}
               className="bg-primary hover:bg-primary/90"
             >
-              <Send className="h-4 w-4" />
+              <FontAwesomeIcon icon="paper-plane" className="h-4 w-4" />
             </Button>
           )}
         </form>

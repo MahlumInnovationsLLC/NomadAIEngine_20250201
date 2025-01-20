@@ -52,7 +52,9 @@ import {
   faList,
   faDumbbell,
   faPlay,
-  faMessagePlus
+  faMessagePlus,
+  faSquare,
+  faPaperPlane,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -160,7 +162,9 @@ const iconMap: Record<string, IconDefinition> = {
   'list': faList,
   'dumbbell': faDumbbell,
   'play': faPlay,
-  'message-plus': faMessagePlus
+  'message-plus': faMessagePlus,
+  'square': faSquare,
+  'paper-plane': faPaperPlane
 };
 
 export function FontAwesomeIcon({ 
