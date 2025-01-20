@@ -3,7 +3,7 @@ import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { RiMicrosoftFill } from "react-icons/ri";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { loginRequest } from "@/lib/msal-config";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
@@ -71,7 +71,7 @@ export default function LoginPage() {
               size="lg"
               onClick={handleLogin}
             >
-              <RiMicrosoftFill className="mr-2 h-5 w-5" />
+              <FontAwesomeIcon icon="microsoft" className="mr-2 h-5 w-5" />
               Sign in with Microsoft
             </Button>
           </CardContent>

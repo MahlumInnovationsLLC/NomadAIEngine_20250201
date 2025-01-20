@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
-import { Calendar, Wrench, AlertTriangle, CheckCircle } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -98,9 +98,9 @@ export function MaintenanceTimeline({ equipment }: MaintenanceTimelineProps) {
                         event.type === 'completed' ? "default" :
                         event.type === 'scheduled' ? "outline" : "destructive"
                       }>
-                        {event.type === 'completed' && <CheckCircle className="w-3 h-3 mr-1" />}
-                        {event.type === 'scheduled' && <Calendar className="w-3 h-3 mr-1" />}
-                        {event.type === 'missed' && <AlertTriangle className="w-3 h-3 mr-1" />}
+                        {event.type === 'completed' && <FontAwesomeIcon icon="circle-check" className="w-3 h-3 mr-1" />}
+                        {event.type === 'scheduled' && <FontAwesomeIcon icon="calendar" className="w-3 h-3 mr-1" />}
+                        {event.type === 'missed' && <FontAwesomeIcon icon="triangle-exclamation" className="w-3 h-3 mr-1" />}
                         {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
                       </Badge>
                     </div>
