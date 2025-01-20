@@ -60,6 +60,84 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
   );
 }
 
+function App() {
+  const [location] = useLocation();
+  const isAuthenticated = useIsAuthenticated();
+
+  // Extract the current path from location
+  const pathSegments = location.split('/');
+  const currentPath = pathSegments[1] || '';
+  const showModuleSelector = currentPath === 'docmanage';
+
+  if (!isAuthenticated && currentPath !== 'login') {
+    return (
+      <AnimateTransition variant="fade">
+        <Suspense fallback={<LoadingFallback />}>
+          <LoginPage />
+        </Suspense>
+      </AnimateTransition>
+    );
+  }
+
+  return (
+    <div className="relative min-h-screen w-full flex flex-col bg-background/95">
+      <div className="absolute inset-0 -z-20 bg-red-50/90" />
+      <ErrorBoundary>
+        <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
+      </ErrorBoundary>
+
+      {isAuthenticated && (
+        <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <NavbarWithAuth />
+        </div>
+      )}
+      <main className="flex-1 pt-6 relative z-10">
+        <div className="container mx-auto">
+          <div className="flex gap-4">
+            <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
+              <AnimatePresenceWrapper>
+                <Suspense fallback={<LoadingFallback />}>
+                  <Switch>
+                    <Route path="/login" component={LoginPage} />
+                    <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+                    <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
+                    <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
+                    <Route path="/docmanage" component={() => <ProtectedRoute component={DocManage} />} />
+                    <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocManage} />} />
+                    <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
+                    <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
+                    <Route component={NotFound} />
+                  </Switch>
+                </Suspense>
+              </AnimatePresenceWrapper>
+            </div>
+          </div>
+        </div>
+      </main>
+      <OnboardingTour />
+      <Toaster />
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <AnimateTransition variant="slide-up">
+      <Card className="w-full max-w-md mx-4 mt-8">
+        <CardContent className="pt-6">
+          <div className="flex mb-4 gap-2">
+            <AlertCircle className="h-8 w-8 text-red-500" />
+            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
+          </div>
+          <p className="mt-4 text-sm text-gray-600">
+            The page you're looking for doesn't exist.
+          </p>
+        </CardContent>
+      </Card>
+    </AnimateTransition>
+  );
+}
+
 function NavbarWithAuth() {
   const { instance } = useMsal();
   const { toast } = useToast();
@@ -101,89 +179,6 @@ function NavbarWithAuth() {
           </Button>
         </div>
       </div>
-    </AnimateTransition>
-  );
-}
-
-function App() {
-  const [location, setLocation] = useLocation();
-  const isAuthenticated = useIsAuthenticated();
-
-  // Extract the current path from location
-  const currentPath = location.split('/')[1] || '';
-  const showModuleSelector = currentPath === 'docmanage';
-
-  // Handle default routing to DocManagement when accessing /docmanage
-  useEffect(() => {
-    if (location === '/docmanage') {
-      setLocation('/docmanage/docmanagement');
-    }
-  }, [location, setLocation]);
-
-  if (!isAuthenticated && currentPath !== 'login') {
-    return (
-      <AnimateTransition variant="fade">
-        <Suspense fallback={<LoadingFallback />}>
-          <LoginPage />
-        </Suspense>
-      </AnimateTransition>
-    );
-  }
-
-  return (
-    <div className="relative min-h-screen w-full flex flex-col bg-background/95">
-      <div className="absolute inset-0 -z-20 bg-red-50/90" />
-      <ErrorBoundary>
-        <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
-      </ErrorBoundary>
-
-      {isAuthenticated && (
-        <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <NavbarWithAuth />
-        </div>
-      )}
-      <main className="flex-1 pt-6 relative z-10">
-        <div className="container mx-auto">
-          <div className="flex gap-4">
-            <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
-              <AnimatePresenceWrapper>
-                <Suspense fallback={<LoadingFallback />}>
-                  <Switch>
-                    <Route path="/login" component={LoginPage} />
-                    <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-                    <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
-                    <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                    <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocManage} />} />
-                    <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
-                    <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
-                    <Route component={NotFound} />
-                  </Switch>
-                </Suspense>
-              </AnimatePresenceWrapper>
-            </div>
-          </div>
-        </div>
-      </main>
-      <OnboardingTour />
-      <Toaster />
-    </div>
-  );
-}
-
-function NotFound() {
-  return (
-    <AnimateTransition variant="slide-up">
-      <Card className="w-full max-w-md mx-4 mt-8">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
-          <p className="mt-4 text-sm text-gray-600">
-            The page you're looking for doesn't exist.
-          </p>
-        </CardContent>
-      </Card>
     </AnimateTransition>
   );
 }
