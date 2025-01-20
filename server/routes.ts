@@ -13,6 +13,7 @@ import {
   roles,
   userTraining,
   aiEngineActivity,
+  trainingModules,
 } from "@db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
@@ -20,6 +21,7 @@ import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
+import type { Request, Response } from "express";
 
 // Initialize Cosmos DB container for equipment
 let equipmentContainer: Container;
@@ -905,10 +907,51 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add training module creation endpoint
+  app.post("/api/training/modules", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title, description, content, questions } = req.body;
+
+      if (!req.user) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      // Create the training module
+      const [module] = await db
+        .insert(trainingModules)
+        .values({
+          title,
+          description,
+          content,
+          questions,
+          createdBy: req.user.id,
+          status: 'active',
+          createdAt: new Date(),
+        })
+        .returning();
+
+      // Update the user's training progress
+      await db
+        .insert(userTraining)
+        .values({
+          userId: req.user.id,
+          moduleId: module.id,
+          progress: 0,
+          status: 'not_started',
+          assignedBy: req.user.id,
+        });
+
+      res.json(module);
+    } catch (error) {
+      console.error("Error creating training module:", error);
+      res.status(500).json({ error: "Failed to create module" });
+    }
+  });
 
   return httpServer;
 }
 
+// Types
 interface Equipment {
   id: string;
   name: string;
@@ -990,6 +1033,3 @@ async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_an
     console.error("Error tracking AI Engine usage:", error);
   }
 }
-
-import type { Request, Response } from "express";
-import {v4 as uuidv4} from 'uuid';

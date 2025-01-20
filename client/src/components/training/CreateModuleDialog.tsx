@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { z } from "zod";
 
 interface Question {
   text: string;
@@ -16,13 +16,22 @@ interface Question {
   correctAnswer?: string;
 }
 
-interface Module {
-  title: string;
-  description: string;
-  content: string;
-  questions: Question[];
-  dueDate: string;
-}
+const moduleSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
+  content: z.object({
+    text: z.string().min(1, "Content is required"),
+    questions: z.array(z.object({
+      text: z.string().min(1, "Question text is required"),
+      type: z.enum(['multiple_choice', 'text']),
+      options: z.array(z.string()).optional(),
+      correctAnswer: z.string().optional(),
+    }))
+  }),
+  requiredRoleLevel: z.number().min(1, "Required role level must be at least 1"),
+});
+
+type Module = z.infer<typeof moduleSchema>;
 
 export function CreateModuleDialog() {
   const [open, setOpen] = useState(false);
@@ -35,23 +44,29 @@ export function CreateModuleDialog() {
       const response = await fetch('/api/training/modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(module),
       });
-      if (!response.ok) throw new Error('Failed to create module');
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to create module');
+      }
+
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/training/current']);
+      queryClient.invalidateQueries({ queryKey: ['/api/training/current'] });
       toast({
         title: 'Success',
         description: 'Training module created successfully',
       });
       setOpen(false);
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
-        description: 'Failed to create training module',
+        description: error.message || 'Failed to create training module',
         variant: 'destructive',
       });
     },
@@ -60,16 +75,30 @@ export function CreateModuleDialog() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
-    const module: Module = {
+
+    const module = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
-      content: formData.get('content') as string,
-      questions,
+      content: {
+        text: formData.get('content') as string,
+        questions,
+      },
+      requiredRoleLevel: 1, // Default to level 1 for now
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     };
 
-    createModule.mutate(module);
+    try {
+      const validatedModule = moduleSchema.parse(module);
+      createModule.mutate(validatedModule);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Validation Error',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   const addQuestion = (type: 'multiple_choice' | 'text') => {
@@ -96,7 +125,7 @@ export function CreateModuleDialog() {
               <Label htmlFor="title">Module Title</Label>
               <Input id="title" name="title" required />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" name="description" required />
@@ -119,6 +148,7 @@ export function CreateModuleDialog() {
                       setQuestions(newQuestions);
                     }}
                     placeholder="Question text"
+                    required
                   />
                   {question.type === 'multiple_choice' && (
                     <div className="space-y-2">
@@ -134,6 +164,7 @@ export function CreateModuleDialog() {
                             }
                           }}
                           placeholder={`Option ${optionIndex + 1}`}
+                          required
                         />
                       ))}
                       <Button
@@ -152,7 +183,7 @@ export function CreateModuleDialog() {
                   )}
                 </div>
               ))}
-              
+
               <div className="flex gap-2">
                 <Button
                   type="button"
