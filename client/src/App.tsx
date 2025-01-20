@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle, LogOut } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -10,13 +10,6 @@ import { AnimatePresenceWrapper, AnimateTransition } from "@/components/ui/Anima
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { NotificationCenter } from "@/components/ui/NotificationCenter";
-import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
-import { PublicClientApplication } from "@azure/msal-browser";
-import { msalConfig } from "./lib/msal-config";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { OnlineUsersDropdown } from "@/components/ui/online-users-dropdown";
-import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import Navbar from "@/components/layout/Navbar";
 
@@ -30,8 +23,6 @@ const DocManage = lazy(() => import("@/pages/DocManage"));
 const DocumentManagement = lazy(() => import("@/pages/DocumentManagement"));
 const TrainingModule = lazy(() => import("@/pages/TrainingModule"));
 
-const msalInstance = new PublicClientApplication(msalConfig);
-
 function LoadingFallback() {
   return (
     <div className="flex items-center justify-center min-h-screen">
@@ -41,7 +32,7 @@ function LoadingFallback() {
 }
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
-  const isAuthenticated = useIsAuthenticated();
+  const isAuthenticated = true; // Replace with your auth logic
   const [, setLocation] = useLocation();
 
   if (!isAuthenticated) {
@@ -61,57 +52,29 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 }
 
 function App() {
-  const [location] = useLocation();
-  const isAuthenticated = useIsAuthenticated();
-
-  // Extract the current path from location
-  const pathSegments = location.split('/');
-  const currentPath = pathSegments[1] || '';
-  const showModuleSelector = currentPath === 'docmanage';
-
-  if (!isAuthenticated && currentPath !== 'login') {
-    return (
-      <AnimateTransition variant="fade">
-        <Suspense fallback={<LoadingFallback />}>
-          <LoginPage />
-        </Suspense>
-      </AnimateTransition>
-    );
-  }
-
   return (
     <div className="relative min-h-screen w-full flex flex-col bg-background/95">
-      <div className="absolute inset-0 -z-20 bg-red-50/90" />
-      <ErrorBoundary>
-        <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
-      </ErrorBoundary>
+      <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <Navbar />
+      </div>
 
-      {isAuthenticated && (
-        <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <NavbarWithAuth />
-        </div>
-      )}
       <main className="flex-1 pt-6 relative z-10">
         <div className="container mx-auto">
-          <div className="flex gap-4">
-            <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
-              <AnimatePresenceWrapper>
-                <Suspense fallback={<LoadingFallback />}>
-                  <Switch>
-                    <Route path="/login" component={LoginPage} />
-                    <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-                    <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
-                    <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                    <Route path="/docmanage" component={() => <ProtectedRoute component={DocManage} />} />
-                    <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagement} />} />
-                    <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
-                    <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
-                    <Route component={NotFound} />
-                  </Switch>
-                </Suspense>
-              </AnimatePresenceWrapper>
-            </div>
-          </div>
+          <AnimatePresenceWrapper>
+            <Suspense fallback={<LoadingFallback />}>
+              <Switch>
+                <Route path="/login" component={LoginPage} />
+                <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+                <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
+                <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
+                <Route path="/docmanage" component={() => <ProtectedRoute component={DocManage} />} />
+                <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagement} />} />
+                <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
+                <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
+                <Route component={NotFound} />
+              </Switch>
+            </Suspense>
+          </AnimatePresenceWrapper>
         </div>
       </main>
       <OnboardingTour />
@@ -138,63 +101,16 @@ function NotFound() {
   );
 }
 
-function NavbarWithAuth() {
-  const { instance } = useMsal();
-  const { toast } = useToast();
-  const [, setLocation] = useLocation();
-
-  const handleLogout = async () => {
-    try {
-      await instance.logoutPopup();
-      setLocation("/login");
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your account.",
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to log out. Please try again.",
-      });
-    }
-  };
-
-  return (
-    <AnimateTransition variant="slide-down" delay={0.1}>
-      <div className="container flex h-14 items-center">
-        <Navbar />
-        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-          <OnlineUsersDropdown />
-          <NotificationCenter />
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-2"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
-      </div>
-    </AnimateTransition>
-  );
-}
-
 export default function AppWrapper() {
   return (
     <ErrorBoundary>
-      <MsalProvider instance={msalInstance}>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <OnboardingProvider>
-              <App />
-            </OnboardingProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </MsalProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <OnboardingProvider>
+            <App />
+          </OnboardingProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
