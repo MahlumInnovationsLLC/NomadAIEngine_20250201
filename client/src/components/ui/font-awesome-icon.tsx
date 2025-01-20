@@ -1,7 +1,7 @@
 import { HTMLAttributes } from 'react';
 import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import * as lightIcons from '@fortawesome/free-light-svg-icons';
+import * as lightIcons from '@fortawesome/pro-light-svg-icons';
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
   icon: string;

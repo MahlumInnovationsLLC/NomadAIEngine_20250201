@@ -6,11 +6,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Grid, Wand2 } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { IconSuggestionDialog } from "./IconSuggestionDialog";
 import { useToast } from "@/hooks/use-toast";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faWifi, faBluetooth, faSignalSlash } from "@fortawesome/pro-solid-svg-icons";
 
 interface EquipmentIconProps {
   equipment: Equipment;
@@ -55,9 +53,9 @@ const EquipmentIcon = ({
 }: EquipmentIconProps) => {
   const getConnectivityIcon = () => {
     if (equipment.deviceConnectionStatus === 'connected') {
-      return equipment.deviceIdentifier?.includes('bluetooth') ? faBluetooth : faWifi;
+      return equipment.deviceIdentifier?.includes('bluetooth') ? 'bluetooth' : 'wifi';
     }
-    return faSignalSlash;
+    return 'signal-slash';
   };
 
   const connectivityColor = equipment.deviceConnectionStatus === 'connected' ? 
@@ -89,7 +87,7 @@ const EquipmentIcon = ({
       <StatusIndicator status={equipment.status} />
       <div className="flex flex-col items-center gap-2">
         <div className="p-2 rounded-md bg-muted relative">
-          <i className={`fa-kit fa-${equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'} text-2xl`} />
+          <FontAwesomeIcon icon={equipment.deviceType || '10250144-stationary-bike-sports-competition-fitness-icon'} className="text-2xl" />
         </div>
         <span className="text-xs font-medium text-center line-clamp-2">
           {equipment.name}
@@ -113,7 +111,7 @@ const EquipmentIcon = ({
             onRequestSuggestion();
           }}
         >
-          <Wand2 className="w-4 h-4" />
+          <FontAwesomeIcon icon="wand-magic" className="w-4 h-4" />
         </Button>
       )}
     </motion.div>
@@ -208,7 +206,7 @@ export function EquipmentIconLibrary({ equipment, onDragEnd }: EquipmentIconLibr
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Grid className="w-5 h-5" />
+          <FontAwesomeIcon icon="grid" className="w-5 h-5" />
           Equipment Icons
         </CardTitle>
       </CardHeader>

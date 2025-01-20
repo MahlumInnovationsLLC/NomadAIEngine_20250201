@@ -71,15 +71,11 @@ const fitnessIcons = [
   // Connectivity Icons
   { 
     name: 'wifi', 
-    label: 'WiFi Connected',
-    type: 'solid',
-    category: 'connectivity' 
+    label: 'WiFi Connected'
   },
   { 
     name: 'bluetooth', 
-    label: 'Bluetooth',
-    type: 'solid',
-    category: 'connectivity' 
+    label: 'Bluetooth'
   }
 ];
 
@@ -105,8 +101,8 @@ export function IconSuggestionDialog({
   };
 
   const filteredIcons = fitnessIcons.filter(icon => 
-    (icon.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    icon.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    icon.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    icon.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -143,15 +139,14 @@ export function IconSuggestionDialog({
                   <div className="flex flex-col items-center gap-3">
                     <div className="p-3 rounded-md bg-background">
                       <FontAwesomeIcon 
-                        iconName={icon.name}
-                        type={icon.type || 'kit'}
+                        icon={icon.name}
                         size="lg"
                       />
                     </div>
                     <div className="text-sm font-medium text-center">
                       {icon.label}
                     </div>
-                    {icon.category === 'connectivity' && (
+                    {(icon.name === 'wifi' || icon.name === 'bluetooth') && (
                       <Badge variant="secondary" className="text-xs">
                         Connectivity
                       </Badge>

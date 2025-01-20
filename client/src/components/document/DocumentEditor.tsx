@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Save, Users } from 'lucide-react';
+import { FontAwesomeIcon } from '@/components/ui/font-awesome-icon';
 
 interface DocumentEditorProps {
   documentId: number;
@@ -53,7 +53,7 @@ export default function DocumentEditor({ documentId, userId }: DocumentEditorPro
 
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
-      
+
       switch (message.type) {
         case 'operation':
           applyOperation(message.operation);
@@ -151,7 +151,7 @@ export default function DocumentEditor({ documentId, userId }: DocumentEditorPro
         />
         <div className="flex items-center gap-2">
           <div className="flex items-center">
-            <Users className="w-4 h-4 mr-2" />
+            <FontAwesomeIcon icon="users" className="w-4 h-4 mr-2" />
             <span className="text-sm text-muted-foreground">
               {collaborators.length} active
             </span>
@@ -160,7 +160,7 @@ export default function DocumentEditor({ documentId, userId }: DocumentEditorPro
             onClick={() => saveDocument.mutate()}
             disabled={saveDocument.isPending}
           >
-            <Save className="w-4 h-4 mr-2" />
+            <FontAwesomeIcon icon="save" className="w-4 h-4 mr-2" />
             Save
           </Button>
         </div>

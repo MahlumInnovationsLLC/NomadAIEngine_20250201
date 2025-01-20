@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, FileText, ArrowRight, Filter, Calendar } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { HelpBubble } from "@/components/ui/HelpBubble";
 import {
@@ -94,11 +94,11 @@ export default function SearchInterface() {
             </HelpBubble>
           </div>
           <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
-            <Filter className="h-4 w-4 mr-2" />
+            <FontAwesomeIcon icon="filter" className="h-4 w-4 mr-2" />
             Filters
           </Button>
           <Button onClick={handleSearch} disabled={isLoading}>
-            <Search className="h-4 w-4 mr-2" />
+            <FontAwesomeIcon icon="search" className="h-4 w-4 mr-2" />
             Search
           </Button>
         </div>
@@ -171,7 +171,7 @@ export default function SearchInterface() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <FontAwesomeIcon icon="file-text" className="h-4 w-4 text-muted-foreground" />
                       <h3 className="font-medium">{result.document_title}</h3>
                       <Badge 
                         variant="secondary"
@@ -191,14 +191,14 @@ export default function SearchInterface() {
                         : result.section_text}
                     </p>
                     <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
+                      <FontAwesomeIcon icon="calendar" className="h-3 w-3" />
                       <span>
                         Modified: {new Date(result.last_modified).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
                   <Button variant="ghost" size="sm" className="shrink-0">
-                    <ArrowRight className="h-4 w-4" />
+                    <FontAwesomeIcon icon="arrow-right" className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>
