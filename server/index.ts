@@ -70,7 +70,8 @@ app.use((req, res, next) => {
     const wss = new WebSocketServer({ 
       noServer: true,
       clientTracking: true,
-      perMessageDeflate: false
+      perMessageDeflate: false,
+      maxPayload: 65536
     });
 
     // Handle WebSocket connection
@@ -79,7 +80,6 @@ app.use((req, res, next) => {
       
       ws.on("error", (error) => {
         console.error("WebSocket error:", error.message);
-        ws.close(1000, "Connection closed due to error");
       });
 
       ws.on("close", () => {
@@ -88,11 +88,11 @@ app.use((req, res, next) => {
 
       ws.on("message", (data) => {
         try {
-          console.log("received: %s", data);
+          const message = data.toString();
+          console.log("received: %s", message);
           ws.send(JSON.stringify({ status: "received" }));
         } catch (e) {
           console.error("Error processing message:", e);
-          ws.close(1000, "Error processing message");
         }
       });
     });
