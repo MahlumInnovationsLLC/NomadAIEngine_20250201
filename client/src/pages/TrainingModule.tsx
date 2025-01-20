@@ -96,6 +96,19 @@ export default function TrainingModule() {
     initialData: exampleTrainingData
   });
 
+  // If this component is rendered as a child of DocManage, skip the header
+  if (window.location.pathname.includes('/docmanage/training')) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent>
+            <TrainingProgress modules={trainingData?.modules || []} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const handleModuleComplete = () => {
     setSelectedModuleId(null);
     setActiveTab('modules');

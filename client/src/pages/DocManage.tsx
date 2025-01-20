@@ -13,8 +13,8 @@ const LoadingSpinner = () => (
 );
 
 function DocManage() {
-  const [location, setLocation] = useLocation();
-  const showTraining = location === "/docmanage/training";
+  const [, navigate] = useLocation();
+  const showTraining = window.location.pathname.includes("/training");
 
   return (
     <div className="container mx-auto">
@@ -24,26 +24,19 @@ function DocManage() {
           Manage your documents, configure training modules, and control document workflows.
         </p>
         <div className="flex justify-center mb-4">
-          <div className="flex gap-2 relative">
+          <div className="inline-flex rounded-md shadow-sm" role="group">
             <Button
               variant={!showTraining ? "default" : "outline"}
-              onClick={() => setLocation("/docmanage")}
-              className="relative z-10"
+              onClick={() => navigate("/docmanage/docmanagement")}
             >
               Document Management
             </Button>
             <Button
               variant={showTraining ? "default" : "outline"}
-              onClick={() => setLocation("/docmanage/training")}
-              className="relative z-10"
+              onClick={() => navigate("/docmanage/training")}
             >
               Training Progress
             </Button>
-            <div 
-              className={`absolute bottom-0 h-0.5 bg-primary transition-all duration-300 ease-in-out w-1/2 ${
-                showTraining ? 'translate-x-full' : 'translate-x-0'
-              }`}
-            />
           </div>
         </div>
       </div>
