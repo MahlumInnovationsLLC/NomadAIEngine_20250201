@@ -76,3 +76,5 @@ export function DocManage() {
     </div>
   );
 }
+
+export default DocManage;
