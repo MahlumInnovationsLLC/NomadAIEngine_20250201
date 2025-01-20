@@ -6,13 +6,15 @@ import { useQuery } from "@tanstack/react-query";
 
 // Lazy load components
 const FileExplorer = lazy(() => import("@/components/document/FileExplorer"));
-const DocumentViewer = lazy(() => import("@/components/document/DocumentViewer").then(mod => ({ default: mod.DocumentViewer })));
+const DocumentViewer = lazy(() => import("@/components/document/DocumentViewer"));
 
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center p-4">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-  </div>
-);
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center p-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
 
 interface DocumentStatus {
   status: 'draft' | 'in_review' | 'approved' | 'rejected';
@@ -21,13 +23,13 @@ interface DocumentStatus {
   updatedAt: string;
 }
 
-export function DocManagement() {
-  const [selectedDocumentPath, setSelectedDocumentPath] = useState<string | null>(null);
+export default function DocManagement() {
+  const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  const { data: documentStatus } = useQuery<DocumentStatus>({
-    queryKey: ['/api/documents/workflow', selectedDocumentPath],
-    enabled: !!selectedDocumentPath,
+  const { data: documentStatus } = useQuery({
+    queryKey: ['/api/documents/workflow', selectedDoc],
+    enabled: !!selectedDoc,
   });
 
   return (
@@ -51,7 +53,7 @@ export function DocManagement() {
         </CardHeader>
         <CardContent>
           <Suspense fallback={<LoadingSpinner />}>
-            <FileExplorer onSelectDocument={setSelectedDocumentPath} />
+            <FileExplorer onSelectDocument={setSelectedDoc} />
           </Suspense>
         </CardContent>
       </Card>
@@ -68,7 +70,7 @@ export function DocManagement() {
                 variant="outline" 
                 size="sm"
                 onClick={() => setIsEditing(!isEditing)}
-                disabled={!selectedDocumentPath}
+                disabled={!selectedDoc}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
@@ -76,7 +78,7 @@ export function DocManagement() {
               <Button 
                 variant="outline" 
                 size="sm"
-                disabled={!selectedDocumentPath}
+                disabled={!selectedDoc}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download
@@ -85,8 +87,10 @@ export function DocManagement() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {selectedDocumentPath ? (
-            <DocumentViewer documentId={selectedDocumentPath} isEditing={isEditing} />
+          {selectedDoc ? (
+            <Suspense fallback={<LoadingSpinner />}>
+              <DocumentViewer documentId={selectedDoc} isEditing={isEditing} />
+            </Suspense>
           ) : (
             <div className="text-center py-8">
               <p className="text-muted-foreground mb-4">

@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 
-const DocManagement = lazy(() => import("./DocManagement").then(mod => ({ default: mod.DocManagement })));
+const DocManagement = lazy(() => import("./DocManagement"));
 const TrainingModule = lazy(() => import("./TrainingModule"));
 
 const LoadingSpinner = () => (
@@ -12,7 +12,8 @@ const LoadingSpinner = () => (
 );
 
 export function DocManage() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const showTraining = location === "/docmanage/training";
 
   return (
     <div className="container mx-auto">
@@ -23,21 +24,25 @@ export function DocManage() {
         </p>
         <div className="flex justify-center mb-4">
           <div className="flex gap-2">
-            <Button onClick={() => setLocation("/docmanage/docmanagement")}>
+            <Button
+              variant={!showTraining ? "default" : "outline"}
+              onClick={() => setLocation("/docmanage/docmanagement")}
+            >
               Document Management
             </Button>
             <Button
-              variant="outline"
+              variant={showTraining ? "default" : "outline"}
               onClick={() => setLocation("/docmanage/training")}
             >
-              Training Module
+              Training Progress
             </Button>
           </div>
         </div>
       </div>
+
       <div className="p-6">
         <Suspense fallback={<LoadingSpinner />}>
-          <DocManagement />
+          {showTraining ? <TrainingModule /> : <DocManagement />}
         </Suspense>
       </div>
     </div>
