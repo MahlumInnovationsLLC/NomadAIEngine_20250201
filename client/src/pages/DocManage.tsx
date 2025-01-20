@@ -1,18 +1,26 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, FolderPlus, Upload, Download, Edit, Send } from "lucide-react";
-import { FileExplorer } from "@/components/document/FileExplorer";
-import { DocumentViewer } from "@/components/document/DocumentViewer";
-import { WorkflowDialog } from "@/components/document/WorkflowDialog";
-import { DocumentPermissions } from "@/components/document/DocumentPermissions";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import SearchInterface from "@/components/document/SearchInterface";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import TrainingModule from "./TrainingModule";
+
+// Lazy load heavy components
+const FileExplorer = lazy(() => import("@/components/document/FileExplorer"));
+const DocumentViewer = lazy(() => import("@/components/document/DocumentViewer").then(mod => ({ default: mod.DocumentViewer })));
+const WorkflowDialog = lazy(() => import("@/components/document/WorkflowDialog").then(mod => ({ default: mod.WorkflowDialog })));
+const DocumentPermissions = lazy(() => import("@/components/document/DocumentPermissions").then(mod => ({ default: mod.DocumentPermissions })));
+const SearchInterface = lazy(() => import("@/components/document/SearchInterface"));
+const TrainingModule = lazy(() => import("./TrainingModule"));
+
+// Loading fallback component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center p-4">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+);
 
 interface DocumentStatus {
   status: 'draft' | 'in_review' | 'approved' | 'rejected';
@@ -41,7 +49,7 @@ export function DocManage() {
 
   return (
     <div className="container mx-auto">
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+      <div className="text-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="px-4 py-4">
           <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
           <p className="text-muted-foreground mb-4">
@@ -75,16 +83,20 @@ export function DocManage() {
       </div>
       <div className="mt-6 space-y-6">
         {location.includes("training") ? (
-          <TrainingModule />
+          <Suspense fallback={<LoadingSpinner />}>
+            <TrainingModule />
+          </Suspense>
         ) : (
           <>
             <Card>
               <CardContent className="pt-6">
-                <SearchInterface />
+                <Suspense fallback={<LoadingSpinner />}>
+                  <SearchInterface />
+                </Suspense>
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-[300px,1fr] gap-6">
+            <div className="grid grid-cols-[30%_70%] gap-6">
               <Card className="h-[calc(100vh-24rem)] overflow-hidden">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -103,7 +115,9 @@ export function DocManage() {
                   </div>
                 </CardHeader>
                 <CardContent className="-mx-2">
-                  <FileExplorer onSelectDocument={(path) => setSelectedDocumentPath(path)} />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <FileExplorer onSelectDocument={(path) => setSelectedDocumentPath(path)} />
+                  </Suspense>
                 </CardContent>
               </Card>
 
@@ -145,20 +159,22 @@ export function DocManage() {
                       Download
                     </Button>
                     {selectedDocumentPath && (
-                      <WorkflowDialog
-                        documentId={selectedDocumentPath}
-                        documentTitle={selectedDocumentPath.split('/').pop() || ''}
-                        trigger={
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!selectedDocumentPath}
-                          >
-                            <Send className="h-4 w-4 mr-2" />
-                            Send for Review/Approval
-                          </Button>
-                        }
-                      />
+                      <Suspense fallback={<LoadingSpinner />}>
+                        <WorkflowDialog
+                          documentId={selectedDocumentPath}
+                          documentTitle={selectedDocumentPath.split('/').pop() || ''}
+                          trigger={
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!selectedDocumentPath}
+                            >
+                              <Send className="h-4 w-4 mr-2" />
+                              Send for Review/Approval
+                            </Button>
+                          }
+                        />
+                      </Suspense>
                     )}
                   </div>
                   <Separator className="mt-2" />
@@ -171,15 +187,19 @@ export function DocManage() {
                         <TabsTrigger value="permissions">Permissions</TabsTrigger>
                       </TabsList>
                       <TabsContent value="content" className="space-y-4">
-                        <DocumentViewer 
-                          documentId={selectedDocumentPath} 
-                          isEditing={isEditing}
-                        />
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <DocumentViewer 
+                            documentId={selectedDocumentPath} 
+                            isEditing={isEditing}
+                          />
+                        </Suspense>
                       </TabsContent>
                       <TabsContent value="permissions">
-                        <DocumentPermissions 
-                          documentId={selectedDocumentPath}
-                        />
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <DocumentPermissions 
+                            documentId={selectedDocumentPath}
+                          />
+                        </Suspense>
                       </TabsContent>
                     </Tabs>
                   ) : (

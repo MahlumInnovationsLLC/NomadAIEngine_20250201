@@ -1,12 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { RichTextEditor } from "./RichTextEditor";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useToast } from "@/hooks/use-toast";
+
+// Lazy load heavy components
+const ScrollArea = lazy(() => import("@/components/ui/scroll-area").then(mod => ({ default: mod.ScrollArea })));
+const RichTextEditor = lazy(() => import("./RichTextEditor"));
+
+// Loading spinner component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center p-4">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+);
 
 interface DocumentViewerProps {
   documentId: string;
@@ -17,6 +26,31 @@ interface DocumentData {
   content: string;
   revision?: string;
 }
+
+// Separate viewer component for better code splitting
+const DocumentContent = ({ content, isEditing, onChange }: { 
+  content: string; 
+  isEditing: boolean;
+  onChange?: (content: string) => void;
+}) => {
+  if (isEditing) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <RichTextEditor
+          content={content}
+          onChange={onChange || (() => {})}
+        />
+      </Suspense>
+    );
+  }
+
+  return (
+    <div 
+      className="p-4 prose prose-sm max-w-none"
+      dangerouslySetInnerHTML={{ __html: content ?? 'No content available' }}
+    />
+  );
+};
 
 export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const [revision, setRevision] = useState<string>("");
@@ -29,7 +63,6 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     enabled: !!documentId,
   });
 
-  // Reset states when document changes
   useEffect(() => {
     if (document) {
       setEditedContent(document.content);
@@ -64,11 +97,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[500px]">
-        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (error) {
@@ -78,10 +107,6 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       </div>
     );
   }
-
-  const handleSave = () => {
-    saveMutation.mutate(editedContent);
-  };
 
   return (
     <Card className="relative">
@@ -99,7 +124,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
               />
             </div>
             <Button 
-              onClick={handleSave}
+              onClick={() => saveMutation.mutate(editedContent)}
               disabled={saveMutation.isPending}
             >
               Save Changes
@@ -107,19 +132,15 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
           </div>
         </div>
       )}
-      <ScrollArea className="h-[500px] w-full rounded-md border">
-        {isEditing ? (
-          <RichTextEditor
-            content={editedContent}
+      <Suspense fallback={<LoadingSpinner />}>
+        <ScrollArea className="h-[500px] w-full rounded-md border">
+          <DocumentContent 
+            content={editedContent} 
+            isEditing={isEditing}
             onChange={setEditedContent}
           />
-        ) : (
-          <div 
-            className="p-4 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: document?.content ?? 'No content available' }}
-          />
-        )}
-      </ScrollArea>
+        </ScrollArea>
+      </Suspense>
     </Card>
   );
 }

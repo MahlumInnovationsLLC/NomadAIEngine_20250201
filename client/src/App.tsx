@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, LogOut } from "lucide-react";
@@ -6,30 +7,38 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AnimatePresenceWrapper, AnimateTransition } from "@/components/ui/AnimateTransition";
-import Navbar from "@/components/layout/Navbar";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
-import { ModuleSelector } from "@/components/layout/ModuleSelector";
 import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "./lib/msal-config";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import Home from "@/pages/Home";
-import ChatPage from "@/pages/ChatPage";
-import DashboardPage from "@/pages/DashboardPage";
-import ClubControlPage from "@/pages/ClubControlPage";
-import LoginPage from "@/pages/LoginPage";
-import { DocManage } from "@/pages/DocManage";
-import TrainingModule from "@/pages/TrainingModule";
-import React, { useEffect } from 'react';
 import { OnlineUsersDropdown } from "@/components/ui/online-users-dropdown";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import Navbar from "@/components/layout/Navbar";
+
+// Lazy load route components
+const Home = lazy(() => import("@/pages/Home"));
+const ChatPage = lazy(() => import("@/pages/ChatPage"));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
+const LoginPage = lazy(() => import("@/pages/LoginPage"));
+const DocManage = lazy(() => import("@/pages/DocManage").then(module => ({ default: module.DocManage })));
+const TrainingModule = lazy(() => import("@/pages/TrainingModule"));
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
+
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
   const isAuthenticated = useIsAuthenticated();
@@ -42,9 +51,11 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 
   return (
     <ErrorBoundary>
-      <AnimateTransition variant="fade">
-        <Component {...rest} />
-      </AnimateTransition>
+      <Suspense fallback={<LoadingFallback />}>
+        <AnimateTransition variant="fade">
+          <Component {...rest} />
+        </AnimateTransition>
+      </Suspense>
     </ErrorBoundary>
   );
 }
@@ -111,7 +122,9 @@ function App() {
   if (!isAuthenticated && currentPath !== 'login') {
     return (
       <AnimateTransition variant="fade">
-        <LoginPage />
+        <Suspense fallback={<LoadingFallback />}>
+          <LoginPage />
+        </Suspense>
       </AnimateTransition>
     );
   }
@@ -132,19 +145,20 @@ function App() {
       <main className="flex-1 pt-6 relative z-10">
         <div className="container mx-auto">
           <div className="flex gap-4">
-            
             <div className={`${showModuleSelector ? 'flex-1' : 'w-full'}`}>
               <AnimatePresenceWrapper>
-                <Switch>
-                  <Route path="/login" component={LoginPage} />
-                  <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-                  <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
-                  <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                  <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocManage} />} />
-                  <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
-                  <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
-                  <Route component={NotFound} />
-                </Switch>
+                <Suspense fallback={<LoadingFallback />}>
+                  <Switch>
+                    <Route path="/login" component={LoginPage} />
+                    <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+                    <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
+                    <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
+                    <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocManage} />} />
+                    <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
+                    <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
+                    <Route component={NotFound} />
+                  </Switch>
+                </Suspense>
               </AnimatePresenceWrapper>
             </div>
           </div>
