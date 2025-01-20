@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ChatHistorySidebar from "@/components/chat/ChatHistorySidebar";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { Plus } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useState } from "react";
 import { useChatHistory } from "@/hooks/use-chat-history";
 
@@ -49,7 +49,7 @@ export default function ChatPage() {
               variant="outline"
               className="w-full sm:w-auto"
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
               New Chat
             </Button>
           </div>

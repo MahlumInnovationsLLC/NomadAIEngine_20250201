@@ -108,7 +108,8 @@ library.add(
   faChartColumn,
   faArrowTrendUp,
   faList,
-  faDumbbell
+  faDumbbell,
+  faPlus
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
@@ -168,7 +169,8 @@ const iconMap: Record<string, IconDefinition> = {
   'square': faSquare,
   'paper-plane': faPaperPlane,
   'chart-line': faChartLine,
-  'map-pin': faMapPin
+  'map-pin': faMapPin,
+  'plus': faPlus
 };
 
 export function FontAwesomeIcon({ 
