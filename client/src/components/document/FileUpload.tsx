@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, X, Check, AlertCircle } from "lucide-react";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; // Import Font Awesome
+
 
 interface FileUploadProps {
   onUpload: (files: File[], version: string, notes: string) => void;
@@ -163,7 +164,7 @@ export default function FileUpload({ onUpload, onClose, currentVersion = "1.0" }
             />
 
             <div className="flex flex-col items-center gap-2">
-              <Upload className={`h-8 w-8 ${isDragging ? 'text-primary' : 'text-muted-foreground/50'}`} />
+              <FontAwesomeIcon icon="upload" className={`h-8 w-8 ${isDragging ? 'text-primary' : 'text-muted-foreground/50'}`} /> {/* Replaced Upload icon */}
               <Button
                 type="button"
                 variant="outline"
@@ -191,7 +192,7 @@ export default function FileUpload({ onUpload, onClose, currentVersion = "1.0" }
                       onClick={() => removeFile(index)}
                       disabled={isUploading}
                     >
-                      <X className="h-4 w-4" />
+                      <FontAwesomeIcon icon="xmark" className="h-4 w-4" /> {/* Replaced X icon */}
                     </Button>
                   </li>
                 ))}
@@ -231,7 +232,7 @@ export default function FileUpload({ onUpload, onClose, currentVersion = "1.0" }
                 </>
               ) : (
                 <>
-                  <Check className="mr-2 h-4 w-4" />
+                  <FontAwesomeIcon icon="check" className="mr-2 h-4 w-4" /> {/* Replaced Check icon */}
                   Upload Version
                 </>
               )}
