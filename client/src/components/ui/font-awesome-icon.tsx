@@ -113,6 +113,8 @@ interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
 }
 
 const iconMap: Record<string, IconDefinition> = {
+  'award': faAward,
+  'trophy-star': faTrophyStar,
   'check': faCheck,
   'chevron-right': faChevronRight,
   'circle': faCircle,
