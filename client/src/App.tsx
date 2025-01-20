@@ -11,6 +11,7 @@ import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import Navbar from "@/components/layout/Navbar";
 
 // Lazy load route components
@@ -19,9 +20,9 @@ const ChatPage = lazy(() => import("@/pages/ChatPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const DocManage = lazy(() => import("@/pages/DocManage"));
-const DocumentManagement = lazy(() => import("@/pages/DocumentManagement"));
-const TrainingModule = lazy(() => import("@/pages/TrainingModule"));
+const DocManagePage = lazy(() => import("@/pages/DocManage"));
+const DocumentManagementPage = lazy(() => import("@/pages/DocumentManagement"));
+const TrainingModulePage = lazy(() => import("@/pages/TrainingModule"));
 
 function LoadingFallback() {
   return (
@@ -54,6 +55,11 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 function App() {
   return (
     <div className="relative min-h-screen w-full flex flex-col bg-background/95">
+      <div className="absolute inset-0 -z-20 bg-red-50/90" />
+      <ErrorBoundary>
+        <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
+      </ErrorBoundary>
+
       <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Navbar />
       </div>
@@ -67,9 +73,9 @@ function App() {
                 <Route path="/" component={() => <ProtectedRoute component={Home} />} />
                 <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                 <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                <Route path="/docmanage" component={() => <ProtectedRoute component={DocManage} />} />
-                <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagement} />} />
-                <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
+                <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
+                <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
+                <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
                 <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
                 <Route component={NotFound} />
               </Switch>
