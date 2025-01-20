@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ZoomIn, ZoomOut, Move, Edit2 } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import FloorPlanEditor from "./FloorPlanEditor";
 
@@ -117,13 +117,13 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
           {!isEditing && (
             <>
               <Button variant="outline" size="icon" onClick={() => handleZoom(0.1)}>
-                <ZoomIn className="h-4 w-4" />
+                <FontAwesomeIcon icon="magnifying-glass-plus" className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="icon" onClick={() => handleZoom(-0.1)}>
-                <ZoomOut className="h-4 w-4" />
+                <FontAwesomeIcon icon="magnifying-glass-minus" className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="icon">
-                <Move className="h-4 w-4" />
+                <FontAwesomeIcon icon="arrows-up-down-left-right" className="h-4 w-4" />
               </Button>
             </>
           )}
@@ -132,7 +132,7 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
             size="icon"
             onClick={() => setIsEditing(!isEditing)}
           >
-            <Edit2 className="h-4 w-4" />
+            <FontAwesomeIcon icon="pen" className="h-4 w-4" />
           </Button>
         </div>
       </div>

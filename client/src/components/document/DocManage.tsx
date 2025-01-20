@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { Edit, Download, Save } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
@@ -72,17 +72,17 @@ export function DocManage({ documentId }: DocManageProps) {
                 onClick={() => setIsEditing(!isEditing)}
                 disabled={!documentId}
               >
-                <Edit className="h-4 w-4 mr-2" />
+                <FontAwesomeIcon icon="pen" className="h-4 w-4 mr-2" />
                 {isEditing ? "Cancel" : "Edit"}
               </Button>
               {isEditing && (
                 <Button size="sm" onClick={handleSave}>
-                  <Save className="h-4 w-4 mr-2" />
+                  <FontAwesomeIcon icon="floppy-disk" className="h-4 w-4 mr-2" />
                   Save
                 </Button>
               )}
               <Button variant="outline" size="sm" disabled={!documentId}>
-                <Download className="h-4 w-4 mr-2" />
+                <FontAwesomeIcon icon="download" className="h-4 w-4 mr-2" />
                 Download
               </Button>
             </div>

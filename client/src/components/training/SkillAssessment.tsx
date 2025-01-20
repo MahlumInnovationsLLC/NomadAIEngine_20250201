@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Award, Book, Brain, Target, TrendingUp } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+
 
 interface Skill {
   id: number;
@@ -41,7 +42,7 @@ export function SkillAssessment() {
   }>>([]);
 
   // Fetch skills and assessment data
-  const { data: skillGaps } = useQuery<{ 
+  const { data: skillGaps } = useQuery<{
     skillGaps: SkillGap[];
     recommendedModules: any[];
     currentRole: any;
@@ -118,15 +119,21 @@ export function SkillAssessment() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5" />
+            <FontAwesomeIcon icon="brain" className="h-5 w-5" />
             Skill Gap Assessment
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="gaps" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="gaps">Skill Gaps</TabsTrigger>
-              <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+              <TabsTrigger value="gaps">
+                <FontAwesomeIcon icon="chart-gap" className="h-4 w-4 mr-2" />
+                Skill Gaps
+              </TabsTrigger>
+              <TabsTrigger value="recommendations">
+                <FontAwesomeIcon icon="lightbulb" className="h-4 w-4 mr-2" />
+                Recommendations
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="gaps">
@@ -202,7 +209,7 @@ export function SkillAssessment() {
                 <span>Question {currentQuestionIndex + 1} of 5</span>
                 <span>Time: 2:00</span>
               </div>
-              
+
               {/* Placeholder for assessment questions */}
               <div className="p-6 border rounded-lg">
                 <h3 className="text-lg font-medium mb-4">

@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
-import { CheckCircle2, Circle, Clock } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface TrainingModule {
   id: number;
@@ -22,9 +22,8 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
 
   return (
     <div className="space-y-6">
-      {/* Overall Progress Circle */}
       <div className="flex justify-center">
-        <motion.div 
+        <motion.div
           className="relative w-32 h-32"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -48,7 +47,7 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
               cy="50"
               strokeLinecap="round"
               initial={{ strokeDasharray: "0 251.2" }}
-              animate={{ 
+              animate={{
                 strokeDasharray: `${totalProgress * 2.512} 251.2`
               }}
               transition={{ duration: 1, ease: "easeOut" }}
@@ -60,7 +59,6 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
         </motion.div>
       </div>
 
-      {/* Training Timeline */}
       <div className="space-y-4">
         {modules.map((module, index) => (
           <motion.div
@@ -73,18 +71,18 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
             <Card className="p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center gap-4">
                 {module.status === 'completed' ? (
-                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  <FontAwesomeIcon icon="circle-check" className="w-6 h-6 text-green-500" />
                 ) : module.status === 'in_progress' ? (
-                  <Clock className="w-6 h-6 text-blue-500" />
+                  <FontAwesomeIcon icon="clock" className="w-6 h-6 text-blue-500" />
                 ) : (
-                  <Circle className="w-6 h-6 text-gray-400" />
+                  <FontAwesomeIcon icon="circle" className="w-6 h-6 text-gray-400" />
                 )}
-                
+
                 <div className="flex-1 space-y-2">
                   <div className="flex justify-between items-center">
                     <h3 className="font-medium">{module.title}</h3>
                     <span className={`px-2 py-1 rounded text-sm ${
-                      module.status === 'completed' 
+                      module.status === 'completed'
                         ? 'bg-green-100 text-green-800'
                         : module.status === 'in_progress'
                         ? 'bg-blue-100 text-blue-800'
@@ -93,10 +91,10 @@ export function TrainingProgress({ modules }: TrainingProgressProps) {
                       {module.status.replace('_', ' ')}
                     </span>
                   </div>
-                  
+
                   <div className="space-y-1">
-                    <Progress 
-                      value={module.progress} 
+                    <Progress
+                      value={module.progress}
                       className="h-2"
                     />
                     <div className="flex justify-between text-sm text-muted-foreground">

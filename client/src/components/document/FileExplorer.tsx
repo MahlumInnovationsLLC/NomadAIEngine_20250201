@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Folder, File, FolderPlus, RefreshCw } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -106,7 +106,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
             <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <FolderPlus className="h-4 w-4 mr-2" />
+                  <FontAwesomeIcon icon="folder-plus" className="h-4 w-4 mr-2" />
                   New Folder
                 </Button>
               </DialogTrigger>
@@ -133,7 +133,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
               size="sm" 
               onClick={refreshCurrentFolder}
             >
-              <RefreshCw className="h-4 w-4" />
+              <FontAwesomeIcon icon="arrows-rotate" className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -146,7 +146,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <Folder className="h-8 w-8 mb-2" />
+              <FontAwesomeIcon icon="folder" className="h-8 w-8 mb-2" />
               <p>This folder is empty</p>
             </div>
           ) : (
@@ -158,9 +158,9 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
                   onClick={() => handleItemClick(item)}
                 >
                   {item.type === 'folder' ? (
-                    <Folder className="h-4 w-4 mr-2" />
+                    <FontAwesomeIcon icon="folder" className="h-4 w-4 mr-2" />
                   ) : (
-                    <File className="h-4 w-4 mr-2" />
+                    <FontAwesomeIcon icon="file" className="h-4 w-4 mr-2" />
                   )}
                   <span className="flex-1">{item.name}</span>
                   {item.type === 'file' && (

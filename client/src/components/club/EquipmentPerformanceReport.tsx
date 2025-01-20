@@ -3,7 +3,7 @@ import { Equipment } from "@db/schema";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Loader2 } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Accordion,
@@ -166,7 +166,7 @@ export default function EquipmentPerformanceReport({ selectedEquipment }: Equipm
               size="icon"
               onClick={() => report && downloadReport(report)}
             >
-              <Download className="h-4 w-4" />
+              <FontAwesomeIcon icon="download" className="h-4 w-4" />
             </Button>
           )}
           <Button
@@ -176,9 +176,9 @@ export default function EquipmentPerformanceReport({ selectedEquipment }: Equipm
             disabled={generateReportMutation.isPending}
           >
             {generateReportMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <FontAwesomeIcon icon="spinner" className="h-4 w-4 animate-spin" />
             ) : (
-              <FileText className="h-4 w-4" />
+              <FontAwesomeIcon icon="file-lines" className="h-4 w-4" />
             )}
             Generate Report
           </Button>

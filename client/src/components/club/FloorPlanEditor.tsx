@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { Plus, Save } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface Zone {
   id: string;
@@ -90,7 +90,7 @@ export default function FloorPlanEditor({
           name: floorPlan?.name || 'Default Layout',
           description: floorPlan?.description || null,
           dimensions,
-          gridSize: 20, 
+          gridSize: 20,
           zones,
           metadata: floorPlan?.metadata || {},
           isActive: true
@@ -146,11 +146,11 @@ export default function FloorPlanEditor({
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleAddZone}>
-            <Plus className="h-4 w-4 mr-2" />
+            <FontAwesomeIcon icon="plus" className="h-4 w-4 mr-2" />
             Add Zone
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
-            <Save className="h-4 w-4 mr-2" />
+            <FontAwesomeIcon icon="floppy-disk" className="h-4 w-4 mr-2" />
             {isSaving ? 'Saving...' : 'Save Layout'}
           </Button>
         </div>

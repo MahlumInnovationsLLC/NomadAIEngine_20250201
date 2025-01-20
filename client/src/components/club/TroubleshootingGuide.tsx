@@ -55,7 +55,7 @@ export function TroubleshootingGuide({ equipment, open, onOpenChange }: Troubles
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FontAwesomeIcon icon="question-circle" className="h-5 w-5" />
+            <FontAwesomeIcon icon="circle-question" className="h-5 w-5" />
             Troubleshooting Guide: {equipment.name}
           </DialogTitle>
           <DialogDescription>
@@ -66,7 +66,7 @@ export function TroubleshootingGuide({ equipment, open, onOpenChange }: Troubles
         <div className="space-y-4">
           {/* Current Health Status */}
           <Alert variant={getHealthStatus() === 'good' ? 'default' : 'destructive'}>
-            <FontAwesomeIcon icon="circle-check-2" className="h-4 w-4" />
+            <FontAwesomeIcon icon="circle-check" className="h-4 w-4" />
             <AlertTitle>Current Health Status</AlertTitle>
             <AlertDescription className="mt-2">
               Health Score: {equipment.healthScore}%
@@ -95,7 +95,7 @@ export function TroubleshootingGuide({ equipment, open, onOpenChange }: Troubles
                       {step.description}
                     </p>
                     <Alert>
-                      <FontAwesomeIcon icon="circle-check-2" className="h-4 w-4" />
+                      <FontAwesomeIcon icon="circle-check" className="h-4 w-4" />
                       <AlertTitle>Recommended Solution</AlertTitle>
                       <AlertDescription>
                         {step.solution}

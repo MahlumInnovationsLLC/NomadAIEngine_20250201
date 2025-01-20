@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Plus, User, UserPlus, ShieldAlert } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 
 interface Permission {
@@ -115,7 +115,7 @@ export function DocumentPermissions({ documentId }: DocumentPermissionsProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5" />
+          <FontAwesomeIcon icon="shield" className="h-5 w-5" />
           Document Permissions
         </CardTitle>
       </CardHeader>
@@ -142,7 +142,7 @@ export function DocumentPermissions({ documentId }: DocumentPermissionsProps) {
               onClick={handleAddRole}
               disabled={!selectedRole || addPermissionMutation.isPending}
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon="plus" className="h-4 w-4 mr-2" />
               Add Role
             </Button>
           </div>
@@ -166,7 +166,7 @@ export function DocumentPermissions({ documentId }: DocumentPermissionsProps) {
                     <div className="text-center">
                       <Checkbox
                         checked={permission.permissions.view}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handlePermissionChange(permission.id, 'view', checked as boolean)
                         }
                       />
@@ -174,7 +174,7 @@ export function DocumentPermissions({ documentId }: DocumentPermissionsProps) {
                     <div className="text-center">
                       <Checkbox
                         checked={permission.permissions.edit}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handlePermissionChange(permission.id, 'edit', checked as boolean)
                         }
                       />
@@ -182,7 +182,7 @@ export function DocumentPermissions({ documentId }: DocumentPermissionsProps) {
                     <div className="text-center">
                       <Checkbox
                         checked={permission.permissions.review}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handlePermissionChange(permission.id, 'review', checked as boolean)
                         }
                       />
@@ -190,7 +190,7 @@ export function DocumentPermissions({ documentId }: DocumentPermissionsProps) {
                     <div className="text-center">
                       <Checkbox
                         checked={permission.permissions.approve}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handlePermissionChange(permission.id, 'approve', checked as boolean)
                         }
                       />
@@ -198,7 +198,7 @@ export function DocumentPermissions({ documentId }: DocumentPermissionsProps) {
                     <div className="text-center">
                       <Checkbox
                         checked={permission.permissions.manage}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handlePermissionChange(permission.id, 'manage', checked as boolean)
                         }
                       />

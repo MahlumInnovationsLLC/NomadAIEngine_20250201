@@ -261,7 +261,7 @@ const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar } = useSidebar();
 
   return (
     <Button
@@ -276,12 +276,11 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      <FontAwesomeIcon icon="panel-left" />
+      <FontAwesomeIcon icon="bars-to-panel" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
 })
-SidebarTrigger.displayName = "SidebarTrigger"
 
 const SidebarRail = React.forwardRef<
   HTMLButtonElement,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings2 } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import {
   Dialog,
   DialogContent,
@@ -82,7 +82,7 @@ export function AdminModuleManager() {
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon">
-          <Settings2 className="h-5 w-5" />
+          <FontAwesomeIcon icon="gear" className="h-5 w-5" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
