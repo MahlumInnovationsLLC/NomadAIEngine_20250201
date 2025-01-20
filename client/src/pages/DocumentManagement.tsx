@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocManage } from "@/components/document/DocManage";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
@@ -23,7 +23,7 @@ export default function DocumentManagement() {
             <Card className="h-[calc(100vh-16rem)]">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <FileText className="mr-2 h-5 w-5" />
+                  <FontAwesomeIcon icon="file-lines" className="mr-2 h-5 w-5" />
                   DocExplorer
                 </CardTitle>
               </CardHeader>
