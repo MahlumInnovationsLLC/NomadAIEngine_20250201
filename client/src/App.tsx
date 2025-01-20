@@ -109,7 +109,8 @@ function App() {
   const [location, setLocation] = useLocation();
   const isAuthenticated = useIsAuthenticated();
 
-  const currentPath = location?.split('/')[1] || '';
+  // Extract the current path from location
+  const currentPath = location.split('/')[1] || '';
   const showModuleSelector = currentPath === 'docmanage';
 
   // Handle default routing to DocManagement when accessing /docmanage
@@ -131,7 +132,6 @@ function App() {
 
   return (
     <div className="relative min-h-screen w-full flex flex-col bg-background/95">
-      {/* Add background with red tint and ParticleBackground */}
       <div className="absolute inset-0 -z-20 bg-red-50/90" />
       <ErrorBoundary>
         <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
