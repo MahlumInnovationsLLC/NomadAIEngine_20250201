@@ -1,3 +1,4 @@
+
 import { HTMLAttributes } from 'react';
 import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -43,7 +44,6 @@ import {
   faCalendarDays,
   faCircleExclamation,
   faQuestionCircle,
-  faCircleCheck as faCircleCheck2,
   faGear,
   faRotate,
   faTriangleCircleSquare,
@@ -65,8 +65,7 @@ import {
   faDownload,
   faFolder,
   faUser
-
-} from '@fortawesome/free-solid-svg-icons';
+} from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
 library.add(
@@ -110,7 +109,6 @@ library.add(
   faCalendarDays,
   faCircleExclamation,
   faQuestionCircle,
-  faCircleCheck2,
   faGear,
   faRotate,
   faTriangleCircleSquare,
@@ -176,7 +174,6 @@ const iconMap: Record<string, IconDefinition> = {
   'clock': faClock,
   'circle-exclamation': faCircleExclamation,
   'question-circle': faQuestionCircle,
-  'circle-check-2': faCircleCheck2,
   'gear': faGear,
   'rotate': faRotate,
   'triangle-circle-square': faTriangleCircleSquare,
