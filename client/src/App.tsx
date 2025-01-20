@@ -26,7 +26,7 @@ const ChatPage = lazy(() => import("@/pages/ChatPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const DocManage = lazy(() => import("@/pages/DocManage").then(module => ({ default: module.DocManage })));
+const DocManage = lazy(() => import("@/pages/DocManage"));
 const TrainingModule = lazy(() => import("@/pages/TrainingModule"));
 
 // Initialize MSAL instance

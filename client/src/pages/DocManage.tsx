@@ -12,7 +12,7 @@ const LoadingSpinner = () => (
   </div>
 );
 
-export function DocManage() {
+function DocManage() {
   const [location, setLocation] = useLocation();
   const showTraining = location === "/docmanage/training";
 
@@ -77,4 +77,5 @@ export function DocManage() {
   );
 }
 
+// Only export default, remove named export
 export default DocManage;
