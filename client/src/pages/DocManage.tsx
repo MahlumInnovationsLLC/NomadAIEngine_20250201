@@ -27,7 +27,7 @@ function DocManage() {
           <div className="flex gap-2 relative">
             <Button
               variant={!showTraining ? "default" : "outline"}
-              onClick={() => setLocation("/docmanage/docmanagement")}
+              onClick={() => setLocation("/docmanage")}
               className="relative z-10"
             >
               Document Management
@@ -59,13 +59,10 @@ function DocManage() {
         <AnimatePresence mode="wait">
           <motion.div
             key={showTraining ? "training" : "docmanage"}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{
-              duration: 0.2,
-              ease: "easeInOut"
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
           >
             <Suspense fallback={<LoadingSpinner />}>
               {showTraining ? <TrainingModule /> : <DocManagement />}
@@ -77,5 +74,4 @@ function DocManage() {
   );
 }
 
-// Only export default, remove named export
 export default DocManage;

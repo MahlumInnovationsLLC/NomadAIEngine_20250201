@@ -103,8 +103,7 @@ function App() {
                     <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                     <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
                     <Route path="/docmanage" component={() => <ProtectedRoute component={DocManage} />} />
-                    <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocManage} />} />
-                    <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModule} />} />
+                    <Route path="/docmanage/training" component={() => <ProtectedRoute component={DocManage} />} />
                     <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
                     <Route component={NotFound} />
                   </Switch>
