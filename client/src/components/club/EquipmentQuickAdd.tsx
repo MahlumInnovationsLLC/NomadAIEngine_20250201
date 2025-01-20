@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Dumbbell } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { Equipment } from "@db/schema";
 
@@ -28,7 +28,7 @@ const equipmentPresets = [
   {
     id: "treadmill",
     name: "Treadmill",
-    icon: Dumbbell,
+    icon: "dumbbell",
     description: "Commercial grade treadmill with speed and incline control",
     type: {
       name: "Treadmill",
@@ -41,7 +41,7 @@ const equipmentPresets = [
   {
     id: "elliptical",
     name: "Elliptical",
-    icon: Dumbbell,
+    icon: "dumbbell",
     description: "Cross trainer with adjustable resistance and programs",
     type: {
       name: "Elliptical",
@@ -54,7 +54,7 @@ const equipmentPresets = [
   {
     id: "bike",
     name: "Exercise Bike",
-    icon: Dumbbell,
+    icon: "dumbbell",
     description: "Upright stationary bike with digital display",
     type: {
       name: "Exercise Bike",
@@ -67,7 +67,7 @@ const equipmentPresets = [
   {
     id: "rower",
     name: "Rowing Machine",
-    icon: Dumbbell,
+    icon: "dumbbell",
     description: "Air-resistance rowing machine with performance monitor",
     type: {
       name: "Rower",
@@ -80,7 +80,7 @@ const equipmentPresets = [
   {
     id: "stairmaster",
     name: "StairMaster",
-    icon: Dumbbell,
+    icon: "dumbbell",
     description: "Step climbing machine with varied programs",
     type: {
       name: "StairMaster",
@@ -171,7 +171,7 @@ export function EquipmentQuickAdd({ open, onOpenChange, onEquipmentAdded }: Equi
                 <CardTitle className="text-sm font-medium">
                   {preset.name}
                 </CardTitle>
-                <preset.icon className="h-4 w-4 text-muted-foreground" />
+                <FontAwesomeIcon icon={preset.icon} className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <CardDescription>{preset.description}</CardDescription>

@@ -1,9 +1,9 @@
-import React from "react"; // Added React import
+import React from "react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
-import { Calendar, Wrench, AlertTriangle, CheckCircle2, Activity, Settings } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -24,17 +24,17 @@ interface EquipmentLifecycleTimelineProps {
 const getEventIcon = (type: TimelineEvent['type']) => {
   switch (type) {
     case 'installation':
-      return Settings;
+      return 'gear';
     case 'maintenance':
-      return Wrench;
+      return 'rotate';
     case 'repair':
-      return AlertTriangle;
+      return 'triangle-exclamation';
     case 'upgrade':
-      return Activity;
+      return 'arrow-trend-up';
     case 'inspection':
-      return CheckCircle2;
+      return 'circle-check';
     default:
-      return Calendar;
+      return 'calendar-days';
   }
 };
 
@@ -95,7 +95,7 @@ export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTime
   const events = generateLifecycleEvents(equipment);
 
   return (
-    <Card className="mt-4"> {/*Restored mt-4 */}
+    <Card className="mt-4">
       <CardHeader>
         <CardTitle className="text-xl">Equipment Lifecycle Timeline</CardTitle>
       </CardHeader>
@@ -106,7 +106,7 @@ export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTime
 
           <div className="space-y-6">
             {events.map((event, index) => {
-              const Icon = getEventIcon(event.type);
+              const iconName = getEventIcon(event.type);
               return (
                 <motion.div
                   key={`${event.type}-${event.date.getTime()}`}
@@ -129,7 +129,7 @@ export function EquipmentLifecycleTimeline({ equipment }: EquipmentLifecycleTime
                   <div className="flex items-start gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <Icon className={cn("h-4 w-4", getEventColor(event.type))} />
+                        <FontAwesomeIcon icon={iconName} className={cn("h-4 w-4", getEventColor(event.type))} />
                         <span className="text-sm font-medium capitalize">
                           {event.type}
                         </span>

@@ -45,7 +45,8 @@ import {
   faTriangleCircleSquare,
   faChartColumn,
   faArrowTrendUp,
-  faList
+  faList,
+  faDumbbell
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -92,7 +93,8 @@ library.add(
   faTriangleCircleSquare,
   faChartColumn,
   faArrowTrendUp,
-  faList
+  faList,
+  faDumbbell
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
@@ -143,7 +145,8 @@ const iconMap: Record<string, IconDefinition> = {
   'triangle-circle-square': faTriangleCircleSquare,
   'chart-column': faChartColumn,
   'arrow-trend-up': faArrowTrendUp,
-  'list': faList
+  'list': faList,
+  'dumbbell': faDumbbell
 };
 
 export function FontAwesomeIcon({ 
