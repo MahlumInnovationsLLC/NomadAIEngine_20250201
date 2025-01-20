@@ -8,7 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 // Lazy load heavy components
 const FileExplorer = lazy(() => import("@/components/document/FileExplorer"));
 const DocumentViewer = lazy(() => import("@/components/document/DocumentViewer").then(mod => ({ default: mod.DocumentViewer })));
-const TrainingModule = lazy(() => import("./TrainingModule"));
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center p-4">
@@ -41,12 +40,11 @@ export function DocManage() {
           Manage your documents, configure training modules, and control document workflows.
         </p>
         <div className="flex justify-center mb-4">
-          <div className="inline-flex rounded-md shadow-sm" role="group">
+          <div className="flex gap-2">
             <Button
-              variant="outline"
               onClick={() => setLocation("/docmanage/docmanagement")}
             >
-              DocManagement
+              Document Management
             </Button>
             <Button
               variant="outline"
@@ -57,9 +55,9 @@ export function DocManage() {
           </div>
         </div>
       </div>
+
       <div className="p-6">
         <div className="grid grid-cols-[30%_70%] gap-6">
-          {/* DocExplore Panel - Left 30% */}
           <Card className="h-[calc(100vh-24rem)] overflow-hidden">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -79,12 +77,11 @@ export function DocManage() {
             </CardHeader>
             <CardContent>
               <Suspense fallback={<LoadingSpinner />}>
-                <FileExplorer onSelectDocument={(path) => setSelectedDocumentPath(path)} />
+                <FileExplorer onSelectDocument={setSelectedDocumentPath} />
               </Suspense>
             </CardContent>
           </Card>
 
-          {/* Document Viewer Panel - Right 70% */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
