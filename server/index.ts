@@ -1,5 +1,6 @@
+
 import express, { type Request, Response, NextFunction } from "express";
-import { WebSocketServer } from "ws";
+import { Server } from "socket.io";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeCosmosDB } from "./services/azure/cosmos_service";
@@ -65,42 +66,34 @@ app.use((req, res, next) => {
     }
 
     const server = await registerRoutes(app);
-
-    // Create WebSocket server
-    const wss = new WebSocketServer({ 
-      noServer: true,
-      clientTracking: true,
-      perMessageDeflate: false,
-      maxPayload: 65536
+    
+    // Create Socket.IO server
+    const io = new Server(server, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      }
     });
 
-    // Handle WebSocket connection
-    wss.on("connection", (ws) => {
+    // Handle socket connections
+    io.on("connection", (socket) => {
       console.log("New client connected");
-      
-      ws.on("error", (error) => {
-        console.error("WebSocket error:", error.message);
+
+      socket.on("error", (error) => {
+        console.error("Socket error:", error);
       });
 
-      ws.on("close", () => {
+      socket.on("disconnect", () => {
         console.log("Client disconnected");
       });
 
-      ws.on("message", (data) => {
+      socket.on("message", (data) => {
         try {
-          const message = data.toString();
-          console.log("received: %s", message);
-          ws.send(JSON.stringify({ status: "received" }));
-        } catch (e) {
-          console.error("Error processing message:", e);
+          console.log("received:", data);
+          socket.emit("response", { status: "received" });
+        } catch (error) {
+          console.error("Error processing message:", error);
         }
-      });
-    });
-
-    // Handle upgrade requests
-    server.on("upgrade", (request, socket, head) => {
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit("connection", ws, request);
       });
     });
 
@@ -108,7 +101,6 @@ app.use((req, res, next) => {
       console.error('Server error:', err);
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
-
       res.status(status).json({ message });
     });
 
