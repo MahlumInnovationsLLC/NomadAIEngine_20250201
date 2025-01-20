@@ -1,4 +1,4 @@
-import { FileIcon, ImageIcon, FileTextIcon, FileArchiveIcon, ExternalLink, Maximize2 } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -23,15 +23,15 @@ export default function FilePreview({ file }: FilePreviewProps) {
 
   const getFileIcon = () => {
     if (file.mimeType.startsWith('image/')) {
-      return <ImageIcon className="h-4 w-4" />;
+      return <FontAwesomeIcon icon="image" className="h-4 w-4" />;
     }
     if (file.mimeType === 'application/pdf') {
-      return <FileTextIcon className="h-4 w-4" />;
+      return <FontAwesomeIcon icon="file-pdf" className="h-4 w-4" />;
     }
     if (file.mimeType.includes('zip') || file.mimeType.includes('compressed')) {
-      return <FileArchiveIcon className="h-4 w-4" />;
+      return <FontAwesomeIcon icon="file-archive" className="h-4 w-4" />;
     }
-    return <FileIcon className="h-4 w-4" />;
+    return <FontAwesomeIcon icon="file" className="h-4 w-4" />;
   };
 
   const getPreviewContent = () => {
@@ -65,11 +65,11 @@ export default function FilePreview({ file }: FilePreviewProps) {
             </div>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" onClick={() => setShowPreview(true)}>
-                <Maximize2 className="h-4 w-4" />
+                <FontAwesomeIcon icon="expand" className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="icon" asChild>
                 <a href={file.path} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4" />
+                  <FontAwesomeIcon icon="external-link" className="h-4 w-4" />
                 </a>
               </Button>
             </div>

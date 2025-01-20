@@ -1,29 +1,33 @@
 import { HTMLAttributes } from 'react';
-import { cn } from "@/lib/utils";
+import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
+import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import * as lightIcons from '@fortawesome/free-light-svg-icons';
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
-  iconName: string;
-  type?: 'kit' | 'solid' | 'regular' | 'light' | 'thin' | 'duotone' | 'brands';
+  icon: string;
   size?: 'xs' | 'sm' | 'lg' | '2x' | '3x' | '4x' | '5x';
 }
 
 export function FontAwesomeIcon({ 
-  iconName, 
-  type = 'kit', 
+  icon, 
   size,
   className,
   ...props 
 }: FontAwesomeIconProps) {
-  const prefix = type === 'kit' ? 'fa-kit' : `fa-${type}`;
+  // Convert icon name to light icon key
+  const iconKey = `fal${icon.charAt(0).toUpperCase() + icon.slice(1)}` as keyof typeof lightIcons;
+  const faIcon = lightIcons[iconKey] as IconDefinition;
+
+  if (!faIcon) {
+    console.warn(`Icon ${icon} not found in Font Awesome light icons`);
+    return null;
+  }
 
   return (
-    <i 
-      className={cn(
-        prefix,
-        type === 'kit' ? `fa-${iconName}` : iconName,
-        size && `fa-${size}`,
-        className
-      )} 
+    <FAIcon 
+      icon={faIcon}
+      size={size}
+      className={className}
       {...props}
     />
   );

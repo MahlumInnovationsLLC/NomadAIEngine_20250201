@@ -8,9 +8,13 @@ WORKDIR /app
 COPY package*.json .npmrc ./
 
 # Install dependencies with specific flags to reduce size
-ENV NODE_ENV=development
-RUN npm ci --only=production && \
-    npm ci && \
+ENV NODE_ENV=production \
+    NPM_CONFIG_LOGLEVEL=error \
+    NPM_CONFIG_PRODUCTION=true \
+    NPM_CONFIG_PREFER_OFFLINE=true \
+    NODE_OPTIONS="--max-old-space-size=2048"
+
+RUN npm ci --only=production --no-optional --prefer-offline && \
     npm cache clean --force && \
     du -sh /app/node_modules || true  # Monitor node_modules size
 
@@ -19,7 +23,8 @@ COPY . .
 
 # Build the application
 RUN npm run build && \
-    du -sh /app/dist || true  # Monitor build size
+    du -sh /app/dist || true && \  # Monitor build size
+    rm -rf node_modules # Remove node_modules after build
 
 # Production stage
 FROM node:20-alpine AS production
@@ -31,8 +36,13 @@ WORKDIR /app
 COPY package*.json .npmrc ./
 
 # Install only production dependencies with aggressive optimization
-ENV NODE_ENV=production
-RUN npm ci --only=production --no-optional && \
+ENV NODE_ENV=production \
+    NPM_CONFIG_LOGLEVEL=error \
+    NPM_CONFIG_PRODUCTION=true \
+    NPM_CONFIG_PREFER_OFFLINE=true \
+    NODE_OPTIONS="--max-old-space-size=2048"
+
+RUN npm ci --only=production --no-optional --prefer-offline && \
     npm cache clean --force && \
     npm prune --production && \
     du -sh /app/node_modules || true  # Monitor production node_modules size
@@ -41,7 +51,11 @@ RUN npm ci --only=production --no-optional && \
 COPY --from=builder /app/dist ./dist
 
 # Remove unnecessary files and show final size
-RUN rm -rf .npmrc package*.json && \
+RUN rm -rf .npmrc package*.json \
+           /usr/local/lib/node_modules \
+           /usr/local/share/.cache \
+           /root/.npm \
+           /tmp/* && \
     du -sh /app || true && \
     find /app -type f -ls  # List all files for size analysis
 
@@ -49,4 +63,4 @@ RUN rm -rf .npmrc package*.json && \
 EXPOSE 5000
 
 # Start the application
-CMD ["npm", "run", "start"]
+CMD ["node", "dist/index.js"]

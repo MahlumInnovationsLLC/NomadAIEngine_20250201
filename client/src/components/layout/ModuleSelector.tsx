@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Settings, Trophy } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -9,13 +9,13 @@ const modules = [
   {
     id: "docmanagement",
     label: "DocManagement",
-    icon: <Settings className="h-5 w-5" />,
+    icon: <FontAwesomeIcon icon="cog" className="h-5 w-5" />,
     description: "Document Management"
   },
   {
     id: "training",
     label: "Training Module",
-    icon: <Trophy className="h-5 w-5" />,
+    icon: <FontAwesomeIcon icon="trophy" className="h-5 w-5" />,
     description: "View Training Progress"
   }
 ];

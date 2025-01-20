@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, AlertCircle, Edit, Plus, LayoutDashboard, List, FileText, Activity, Download, Grid } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { TroubleshootingGuide } from "./TroubleshootingGuide";
 import { useState } from "react";
 import { MaintenanceScheduler } from "./MaintenanceScheduler";
@@ -284,7 +284,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
                 Export List
               </Button>
             </DropdownMenuTrigger>
@@ -298,7 +298,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={() => setShowQuickAdd(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Quick Add Equipment
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" /> Quick Add Equipment
           </Button>
         </div>
       </div>
@@ -306,15 +306,15 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
       <Tabs defaultValue="list" className="space-y-4">
         <TabsList>
           <TabsTrigger value="list" className="flex items-center gap-2">
-            <List className="h-4 w-4" />
+            <FontAwesomeIcon icon="list" className="h-4 w-4" />
             List View
           </TabsTrigger>
           <TabsTrigger value="icons" className="flex items-center gap-2">
-            <Grid className="h-4 w-4" />
+            <FontAwesomeIcon icon="grid" className="h-4 w-4" />
             Icon View
           </TabsTrigger>
           <TabsTrigger value="health" className="flex items-center gap-2">
-            <LayoutDashboard className="h-4 w-4" />
+            <FontAwesomeIcon icon="chart-line" className="h-4 w-4" />
             Health Dashboard
           </TabsTrigger>
         </TabsList>
@@ -341,9 +341,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                     "cursor-pointer hover:bg-accent/50",
                     isSelected(item) && "bg-accent"
                   )}
-                  onClick={() => {
-                    handleRowClick(item);
-                  }}
+                  onClick={() => handleRowClick(item)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
@@ -403,7 +401,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                         className="flex items-center gap-2"
                         onClick={() => setMaintenanceEquipment(item)}
                       >
-                        <Settings className="h-4 w-4" />
+                        <FontAwesomeIcon icon="cog" className="h-4 w-4" />
                         Schedule
                       </Button>
                       <Button
@@ -411,14 +409,14 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                         size="icon"
                         onClick={() => setEditEquipment(item)}
                       >
-                        <Edit className="h-4 w-4" />
+                        <FontAwesomeIcon icon="edit" className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => setSelectedTroubleshoot(item)}
                       >
-                        <AlertCircle className="h-4 w-4" />
+                        <FontAwesomeIcon icon="exclamation-circle" className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -428,7 +426,7 @@ export default function EquipmentList({ equipment, onEquipmentSelect, selectedEq
                           generateSingleReport(item.id);
                         }}
                       >
-                        <FileText className="h-4 w-4" />
+                        <FontAwesomeIcon icon="file-alt" className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>

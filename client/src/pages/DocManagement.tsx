@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, FolderPlus, Upload, Download, Edit } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 
@@ -38,15 +38,15 @@ export default function DocManagement() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
+              <FontAwesomeIcon icon="file-lines" className="h-5 w-5 mr-2" />
               DocExplore
             </CardTitle>
             <div className="flex gap-2">
               <Button variant="outline" size="icon">
-                <FolderPlus className="h-4 w-4" />
+                <FontAwesomeIcon icon="folder-plus" className="h-4 w-4" />
               </Button>
               <Button size="icon">
-                <Upload className="h-4 w-4" />
+                <FontAwesomeIcon icon="upload" className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -62,7 +62,7 @@ export default function DocManagement() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
+              <FontAwesomeIcon icon="file-lines" className="h-5 w-5 mr-2" />
               Document Viewer
             </div>
             <div className="flex gap-2">
@@ -72,7 +72,7 @@ export default function DocManagement() {
                 onClick={() => setIsEditing(!isEditing)}
                 disabled={!selectedDoc}
               >
-                <Edit className="h-4 w-4 mr-2" />
+                <FontAwesomeIcon icon="edit" className="h-4 w-4 mr-2" />
                 Edit
               </Button>
               <Button 
@@ -80,7 +80,7 @@ export default function DocManagement() {
                 size="sm"
                 disabled={!selectedDoc}
               >
-                <Download className="h-4 w-4 mr-2" />
+                <FontAwesomeIcon icon="download" className="h-4 w-4 mr-2" />
                 Download
               </Button>
             </div>

@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Users } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface User {
@@ -52,7 +52,7 @@ export function UserPresence({ currentUserId }: UserPresenceProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Users className="h-5 w-5" />
+          <FontAwesomeIcon icon="users" className="h-5 w-5" />
           {onlineCount > 0 && (
             <Badge
               variant="secondary"

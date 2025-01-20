@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Book, Microscope, Brain } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { LectureViewer } from "./LectureViewer";
 import { QuizCard } from "./QuizCard";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -55,7 +55,7 @@ export function ModuleViewer({ moduleId, onComplete }: ModuleViewerProps) {
   const [activeTab, setActiveTab] = useState<'content' | 'labs' | 'assessment'>('content');
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [quizScores, setQuizScores] = useState<Record<string, boolean>>({});
-  
+
   const { data: moduleContent } = useQuery<ModuleContent>({
     queryKey: [`/api/training/modules/${moduleId}`],
   });
@@ -72,10 +72,10 @@ export function ModuleViewer({ moduleId, onComplete }: ModuleViewerProps) {
 
   const handleQuizAnswer = (correct: boolean) => {
     if (!moduleContent) return;
-    
+
     const currentQuiz = moduleContent.assessment.quizzes[currentQuizIndex];
     setQuizScores(prev => ({ ...prev, [currentQuiz.id]: correct }));
-    
+
     // Wait a bit before moving to next question
     setTimeout(() => {
       if (currentQuizIndex < moduleContent.assessment.quizzes.length - 1) {
@@ -103,15 +103,15 @@ export function ModuleViewer({ moduleId, onComplete }: ModuleViewerProps) {
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
           <TabsList>
             <TabsTrigger value="content">
-              <Book className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon="book" className="h-4 w-4 mr-2" />
               Learning Content
             </TabsTrigger>
             <TabsTrigger value="labs">
-              <Microscope className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon="microscope" className="h-4 w-4 mr-2" />
               Hands-on Labs
             </TabsTrigger>
             <TabsTrigger value="assessment">
-              <Brain className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon="brain" className="h-4 w-4 mr-2" />
               Assessment
             </TabsTrigger>
           </TabsList>
@@ -166,7 +166,7 @@ export function ModuleViewer({ moduleId, onComplete }: ModuleViewerProps) {
                 </h3>
                 <Badge variant="outline">Progress: {Math.round(quizProgress)}%</Badge>
               </div>
-              
+
               {currentQuiz && (
                 <QuizCard
                   question={currentQuiz}

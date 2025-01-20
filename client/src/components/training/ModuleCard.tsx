@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Book, CheckCircle, Lock } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
 
 interface ModuleCardProps {
   moduleId: string;
@@ -34,18 +34,18 @@ export function ModuleCard({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Book className="h-5 w-5" />
+            <FontAwesomeIcon icon="book" className="h-5 w-5" />
             {title}
           </CardTitle>
           {isCompleted && (
             <Badge variant="success" className="bg-green-500">
-              <CheckCircle className="h-4 w-4 mr-1" />
+              <FontAwesomeIcon icon="check-circle" className="h-4 w-4 mr-1" />
               Completed
             </Badge>
           )}
           {isLocked && (
             <Badge variant="secondary" className="bg-gray-500">
-              <Lock className="h-4 w-4 mr-1" />
+              <FontAwesomeIcon icon="lock" className="h-4 w-4 mr-1" />
               Level {requiredLevel} Required
             </Badge>
           )}

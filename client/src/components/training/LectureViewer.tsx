@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -85,11 +85,11 @@ export function LectureViewer({ moduleId, sections, onComplete, onNext, onPrevio
         <ScrollArea className="h-[60vh] pr-4">
           <div className="space-y-4">
             <h3 className="text-xl font-semibold">{currentContent.title}</h3>
-            
+
             {currentContent.type === 'text' && (
               <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: currentContent.content }} />
             )}
-            
+
             {currentContent.type === 'diagram' && currentContent.mediaUrl && (
               <div className="flex justify-center">
                 <img 
@@ -99,13 +99,13 @@ export function LectureViewer({ moduleId, sections, onComplete, onNext, onPrevio
                 />
               </div>
             )}
-            
+
             {currentContent.type === 'code' && (
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
                 <code>{currentContent.content}</code>
               </pre>
             )}
-            
+
             {currentContent.type === 'video' && currentContent.mediaUrl && (
               <div className="aspect-video">
                 <iframe
@@ -117,20 +117,20 @@ export function LectureViewer({ moduleId, sections, onComplete, onNext, onPrevio
             )}
           </div>
         </ScrollArea>
-        
+
         <div className="flex justify-between mt-6">
           <Button
             variant="outline"
             onClick={handlePrevious}
             disabled={currentSectionIndex === 0 && currentContentIndex === 0}
           >
-            <ChevronLeft className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon="chevron-left" className="mr-2 h-4 w-4" />
             Previous
           </Button>
-          
+
           <Button onClick={handleNext}>
             {isLastContent && isLastSection ? 'Complete Section' : 'Next'}
-            <ChevronRight className="ml-2 h-4 w-4" />
+            <FontAwesomeIcon icon="chevron-right" className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </CardContent>
