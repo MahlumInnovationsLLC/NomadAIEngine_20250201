@@ -23,13 +23,19 @@ const upload = multer({
 });
 
 // Initialize SendGrid
+if (!process.env.SENDGRID_API_KEY) {
+  throw new Error('SENDGRID_API_KEY environment variable is required');
+}
+
 const mailService = new MailService();
-mailService.setApiKey(process.env.SENDGRID_API_KEY!);
+mailService.setApiKey(process.env.SENDGRID_API_KEY);
 
 router.post('/ticket', upload.single('attachment'), async (req, res) => {
   try {
     const { name, company, email, notes } = req.body;
     const attachment = req.file;
+
+    console.log('Received support ticket request:', { name, company, email, hasAttachment: !!attachment });
 
     let emailContent = `
       <h2>New Support Ticket</h2>
@@ -42,7 +48,10 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
 
     const msg: any = {
       to: 'colter@mahluminnovations.com',
-      from: 'support@gymaiengine.com', // You should update this to your verified sender
+      from: {
+        email: 'support@gymaiengine.com',
+        name: 'GYM AI Engine Support'
+      },
       subject: `New Support Ticket from ${name} - ${company}`,
       text: `New support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
       html: emailContent,
@@ -50,6 +59,7 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
 
     // Add attachment if present
     if (attachment) {
+      console.log('Adding attachment:', attachment.originalname);
       msg.attachments = [
         {
           content: attachment.buffer.toString('base64'),
@@ -60,15 +70,18 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       ];
     }
 
+    console.log('Sending email via SendGrid...');
     await mailService.send(msg);
+    console.log('Email sent successfully');
 
     res.json({ success: true, message: 'Support ticket submitted successfully' });
   } catch (error) {
     console.error('Error sending support ticket:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({
       success: false,
       message: 'Failed to submit support ticket',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage
     });
   }
 });
