@@ -39,18 +39,28 @@ export default function Navbar() {
         description: "Please wait...",
       });
 
-      // Clear local storage
+      // Get all accounts
+      const accounts = instance.getAllAccounts();
+
+      if (accounts.length === 0) {
+        window.location.href = "/login";
+        return;
+      }
+
+      // Clear session storage
       sessionStorage.clear();
       localStorage.clear();
 
-      // Get all accounts and remove them
-      const accounts = instance.getAllAccounts();
-      for (const account of accounts) {
-        instance.logoutPopup({
-          account,
-          postLogoutRedirectUri: `${window.location.origin}/login`,
-        });
-      }
+      // Sign out from all accounts
+      await Promise.all(
+        accounts.map(account => 
+          instance.logoutPopup({
+            account,
+            postLogoutRedirectUri: window.location.origin + "/login",
+            mainWindowRedirectUri: window.location.origin + "/login"
+          })
+        )
+      );
 
     } catch (error) {
       console.error('Logout error:', error);
@@ -59,6 +69,8 @@ export default function Navbar() {
         title: "Error",
         description: "Failed to sign out. Please try again.",
       });
+      // Fallback: redirect to login page
+      window.location.href = "/login";
     }
   };
 

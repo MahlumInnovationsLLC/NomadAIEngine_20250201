@@ -38,27 +38,27 @@ function LoadingFallback() {
   );
 }
 
-function AuthenticationHandler({ children }: { children: React.ReactNode }) {
+function RedirectToLogin() {
   const [, setLocation] = useLocation();
-  const { instance } = useMsal();
 
   useEffect(() => {
-    const handleRedirect = async () => {
-      try {
-        await instance.handleRedirectPromise();
-      } catch (error) {
-        console.error("Error handling redirect:", error);
-      }
-    };
-    handleRedirect();
-  }, [instance]);
+    setLocation("/login");
+  }, [setLocation]);
 
-  return <>{children}</>;
+  return <LoadingFallback />;
+}
+
+function RedirectToDashboard() {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    setLocation("/dashboard");
+  }, [setLocation]);
+
+  return <LoadingFallback />;
 }
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
-  const [, setLocation] = useLocation();
-
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
@@ -68,9 +68,7 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
           </AnimateTransition>
         </AuthenticatedTemplate>
         <UnauthenticatedTemplate>
-          <AuthenticationHandler>
-            {setLocation("/login")}
-          </AuthenticationHandler>
+          <RedirectToLogin />
         </UnauthenticatedTemplate>
       </Suspense>
     </ErrorBoundary>
@@ -101,9 +99,7 @@ function App() {
                     <LoginPage />
                   </UnauthenticatedTemplate>
                   <AuthenticatedTemplate>
-                    <AuthenticationHandler>
-                      {setLocation("/dashboard")}
-                    </AuthenticationHandler>
+                    <RedirectToDashboard />
                   </AuthenticatedTemplate>
                 </Route>
                 <Route path="/" component={() => <ProtectedRoute component={Home} />} />
