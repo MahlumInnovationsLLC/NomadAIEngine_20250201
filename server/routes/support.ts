@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { MailService } from '@sendgrid/mail';
+import { db } from '@db';
+import { supportTickets } from '@db/schema';
 import path from 'path';
 
 const router = Router();
@@ -54,7 +56,7 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       });
     }
 
-    const { name, company, email, notes } = req.body;
+    const { name, company, email, notes, title = `Support Request from ${company}` } = req.body;
     const attachment = req.file;
 
     // Validate required fields
@@ -71,6 +73,28 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
         message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
+
+    // Save ticket to database
+    const [ticket] = await db.insert(supportTickets)
+      .values({
+        title,
+        description: notes,
+        status: 'open',
+        priority: 'medium',
+        category: 'general',
+        submitterName: name,
+        submitterEmail: email,
+        submitterCompany: company,
+        attachmentUrl: attachment?.originalname,
+        metadata: attachment ? {
+          originalName: attachment.originalname,
+          mimeType: attachment.mimetype,
+          size: attachment.size
+        } : undefined
+      })
+      .returning();
+
+    console.log('Ticket saved to database:', ticket);
 
     // Prepare email content
     const emailContent = `
@@ -121,7 +145,8 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
 
       res.json({
         success: true,
-        message: 'Support ticket submitted successfully'
+        message: 'Support ticket submitted successfully',
+        ticket
       });
     } catch (error: any) {
       console.error('SendGrid Error:', {
