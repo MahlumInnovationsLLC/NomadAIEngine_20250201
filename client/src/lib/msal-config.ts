@@ -1,14 +1,16 @@
+import type { Configuration } from "@azure/msal-browser";
+
 // MSAL configuration options
-export const msalConfig = {
+export const msalConfig: Configuration = {
   auth: {
     clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "",
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID}`,
     redirectUri: window.location.origin,
     postLogoutRedirectUri: `${window.location.origin}/login`,
-    navigateToLoginRequestUrl: true,
+    navigateToLoginRequestUrl: false,
   },
   cache: {
-    cacheLocation: "localStorage",
+    cacheLocation: "sessionStorage",
     storeAuthStateInCookie: false,
   },
   system: {
@@ -48,6 +50,7 @@ export const msalConfig = {
 // Add here scopes for id token to be used at MS Identity Platform endpoints.
 export const loginRequest = {
   scopes: ["User.Read", "openid", "profile"],
+  prompt: "select_account"
 };
 
 // Add here the endpoints for MS Graph API services you would like to use.

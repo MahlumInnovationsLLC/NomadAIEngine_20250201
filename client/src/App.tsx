@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -13,6 +13,12 @@ import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import Navbar from "@/components/layout/Navbar";
+import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
+import { PublicClientApplication } from "@azure/msal-browser";
+import { msalConfig } from "@/lib/msal-config";
+
+// Initialize MSAL instance
+const msalInstance = new PublicClientApplication(msalConfig);
 
 // Lazy load route components
 const Home = lazy(() => import("@/pages/Home"));
@@ -32,21 +38,40 @@ function LoadingFallback() {
   );
 }
 
-function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
-  const isAuthenticated = true; // Replace with your auth logic
+function AuthenticationHandler({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
+  const { instance } = useMsal();
 
-  if (!isAuthenticated) {
-    setLocation("/login");
-    return null;
-  }
+  useEffect(() => {
+    const handleRedirect = async () => {
+      try {
+        await instance.handleRedirectPromise();
+      } catch (error) {
+        console.error("Error handling redirect:", error);
+      }
+    };
+    handleRedirect();
+  }, [instance]);
+
+  return <>{children}</>;
+}
+
+function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
+  const [, setLocation] = useLocation();
 
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
-        <AnimateTransition variant="fade">
-          <Component {...rest} />
-        </AnimateTransition>
+        <AuthenticatedTemplate>
+          <AnimateTransition variant="fade">
+            <Component {...rest} />
+          </AnimateTransition>
+        </AuthenticatedTemplate>
+        <UnauthenticatedTemplate>
+          <AuthenticationHandler>
+            {setLocation("/login")}
+          </AuthenticationHandler>
+        </UnauthenticatedTemplate>
       </Suspense>
     </ErrorBoundary>
   );
@@ -60,16 +85,27 @@ function App() {
         <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
       </ErrorBoundary>
 
-      <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <Navbar />
-      </div>
+      <AuthenticatedTemplate>
+        <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <Navbar />
+        </div>
+      </AuthenticatedTemplate>
 
       <main className="flex-1 pt-6 relative z-10">
         <div className="container mx-auto">
           <AnimatePresenceWrapper>
             <Suspense fallback={<LoadingFallback />}>
               <Switch>
-                <Route path="/login" component={LoginPage} />
+                <Route path="/login">
+                  <UnauthenticatedTemplate>
+                    <LoginPage />
+                  </UnauthenticatedTemplate>
+                  <AuthenticatedTemplate>
+                    <AuthenticationHandler>
+                      {setLocation("/dashboard")}
+                    </AuthenticationHandler>
+                  </AuthenticatedTemplate>
+                </Route>
                 <Route path="/" component={() => <ProtectedRoute component={Home} />} />
                 <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                 <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
@@ -110,13 +146,15 @@ function NotFound() {
 export default function AppWrapper() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <OnboardingProvider>
-            <App />
-          </OnboardingProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+      <MsalProvider instance={msalInstance}>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <OnboardingProvider>
+              <App />
+            </OnboardingProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </MsalProvider>
     </ErrorBoundary>
   );
 }

@@ -23,27 +23,27 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     try {
-      const result = await instance.loginPopup({
-        ...loginRequest,
-        prompt: "select_account",
-        redirectUri: window.location.origin,
-        authenticationScheme: "PKCE",
+      // Show loading toast
+      toast({
+        title: "Signing in",
+        description: "Please wait...",
       });
 
-      if (result) {
-        console.log("Login successful");
-        toast({
-          title: "Success",
-          description: "Successfully signed in",
-        });
-        setLocation("/dashboard");
-      }
+      // Clear any existing sessions
+      sessionStorage.clear();
+      localStorage.clear();
+
+      // Attempt login with popup
+      await instance.loginPopup({
+        ...loginRequest,
+        redirectUri: window.location.origin,
+      });
     } catch (error: any) {
       console.error("Login error:", error);
       toast({
         variant: "destructive",
         title: "Authentication Error",
-        description: error.errorMessage || error.message || "Failed to sign in. Please try again.",
+        description: error.message || "Failed to sign in. Please try again.",
       });
     }
   };

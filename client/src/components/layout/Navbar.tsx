@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useTheme } from "next-themes";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import { useToast } from "@/hooks/use-toast";
@@ -29,40 +29,36 @@ export default function Navbar() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
   const { instance } = useMsal();
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const handleLogout = async () => {
     try {
-      // First try to end the session
-      await instance.logoutPopup({
-        postLogoutRedirectUri: window.location.origin + "/login",
-        mainWindowRedirectUri: window.location.origin + "/login"
-      });
-
+      // Show loading toast
       toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
+        title: "Signing out",
+        description: "Please wait...",
       });
 
-      // Ensure we redirect even if the popup was blocked
-      window.location.href = window.location.origin + "/login";
-    } catch (error) {
-      console.error('Logout error:', error);
+      // Clear local storage
+      sessionStorage.clear();
+      localStorage.clear();
 
-      // If popup fails, try redirect
-      try {
-        await instance.logoutRedirect({
-          postLogoutRedirectUri: window.location.origin + "/login",
-        });
-      } catch (redirectError) {
-        console.error('Redirect logout error:', redirectError);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to log out. Please try again.",
+      // Get all accounts and remove them
+      const accounts = instance.getAllAccounts();
+      for (const account of accounts) {
+        instance.logoutPopup({
+          account,
+          postLogoutRedirectUri: `${window.location.origin}/login`,
         });
       }
+
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+      });
     }
   };
 
@@ -151,11 +147,11 @@ export default function Navbar() {
                 Share
               </DropdownMenuItem>
               <DropdownMenuItem
-                className="text-red-600"
+                className="text-red-600 cursor-pointer"
                 onSelect={handleLogout}
               >
                 <FontAwesomeIcon icon="right-from-bracket" className="mr-2 h-4 w-4" />
-                Logout
+                Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
