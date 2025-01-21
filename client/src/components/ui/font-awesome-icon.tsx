@@ -109,7 +109,12 @@ library.add(
   faArrowTrendUp,
   faList,
   faDumbbell,
-  faPlus
+  faPlay,
+  faMessagePlus,
+  faSquare,
+  faPaperPlane,
+  faChartLine,
+  faMapPin
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
@@ -118,6 +123,7 @@ interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
 }
 
 const iconMap: Record<string, IconDefinition> = {
+  'microsoft': faWindowMaximize,
   'award': faAward,
   'trophy-star': faTrophyStar,
   'check': faCheck,
@@ -134,7 +140,6 @@ const iconMap: Record<string, IconDefinition> = {
   'chart-mixed': faChartPie,
   'graduation-cap': faGraduationCap,
   'clipboard-list': faClipboardList,
-  'microsoft': faWindowMaximize,
   'upload': faUpload,
   'grip-vertical': faGripVertical,
   'brain': faBrain,
