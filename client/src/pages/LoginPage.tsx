@@ -49,8 +49,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-background/95">
-      <div className="absolute inset-0 -z-20 bg-white" />
+    <div className="relative min-h-screen w-full flex items-center justify-center">
+      <div className="fixed inset-0 -z-20 bg-background/95" />
       <ParticleBackground />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
