@@ -1,10 +1,18 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, MessageSquare } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface SupportTicket {
   id: number;
@@ -67,54 +75,76 @@ export default function SupportTicketsPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Support Tickets</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Tickets List */}
-        <div className="space-y-4">
-          {tickets?.map((ticket) => (
-            <Card 
-              key={ticket.id}
-              className={`cursor-pointer transition-all ${selectedTicket?.id === ticket.id ? 'ring-2 ring-primary' : ''}`}
-              onClick={() => setSelectedTicket(ticket)}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{ticket.title}</CardTitle>
-                  <div className="flex gap-2">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Support Tickets</h1>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Tickets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Submitter</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tickets?.map((ticket) => (
+                <TableRow key={ticket.id}>
+                  <TableCell>{ticket.id}</TableCell>
+                  <TableCell>{ticket.title}</TableCell>
+                  <TableCell>
+                    {ticket.submitterName}
+                    <div className="text-xs text-gray-500">{ticket.submitterEmail}</div>
+                  </TableCell>
+                  <TableCell>{ticket.submitterCompany}</TableCell>
+                  <TableCell>
                     <Badge className={priorityColors[ticket.priority]}>
                       {ticket.priority}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
                     <Badge className={statusColors[ticket.status]}>
                       {ticket.status.replace(/_/g, ' ')}
                     </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-gray-500">
-                  From: {ticket.submitterName} ({ticket.submitterCompany})
-                </div>
-                <div className="text-sm text-gray-500">
-                  {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </TableCell>
+                  <TableCell>{format(new Date(ticket.createdAt), 'MMM d, yyyy')}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedTicket(ticket)}
+                    >
+                      View Details
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-        {/* Ticket Details */}
-        {selectedTicket && (
-          <Card className="h-fit">
-            <CardHeader>
-              <CardTitle>Ticket Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+      {selectedTicket && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Ticket Details - #{selectedTicket.id}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <h3 className="font-semibold">Description</h3>
                 <p className="text-gray-600 whitespace-pre-wrap">{selectedTicket.description}</p>
               </div>
-              
               <div>
                 <h3 className="font-semibold">Contact Information</h3>
                 <div className="text-sm text-gray-600">
@@ -123,42 +153,29 @@ export default function SupportTicketsPage() {
                   <p>Company: {selectedTicket.submitterCompany}</p>
                 </div>
               </div>
+            </div>
 
-              <div>
-                <h3 className="font-semibold mb-2">Update Status</h3>
-                <div className="flex gap-2 flex-wrap">
-                  {['open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed'].map((status) => (
-                    <Button
-                      key={status}
-                      variant={selectedTicket.status === status ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        updateStatusMutation.mutate({ ticketId: selectedTicket.id, status });
-                      }}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      {status.replace(/_/g, ' ')}
-                    </Button>
-                  ))}
-                </div>
+            <div>
+              <h3 className="font-semibold mb-2">Update Status</h3>
+              <div className="flex gap-2 flex-wrap">
+                {['open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed'].map((status) => (
+                  <Button
+                    key={status}
+                    variant={selectedTicket.status === status ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      updateStatusMutation.mutate({ ticketId: selectedTicket.id, status });
+                    }}
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    {status.replace(/_/g, ' ')}
+                  </Button>
+                ))}
               </div>
-
-              <div>
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={() => {
-                    // TODO: Implement viewing/adding comments
-                  }}
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  View Comments
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

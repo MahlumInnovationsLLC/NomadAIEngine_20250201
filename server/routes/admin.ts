@@ -8,9 +8,12 @@ const router = Router();
 // Get all support tickets
 router.get('/tickets', async (_req, res) => {
   try {
-    const tickets = await db.query.supportTickets.findMany({
-      orderBy: [desc(supportTickets.createdAt)],
-    });
+    console.log('Fetching all support tickets from database...');
+    const tickets = await db.select()
+      .from(supportTickets)
+      .orderBy(desc(supportTickets.createdAt));
+
+    console.log(`Found ${tickets.length} tickets:`, tickets);
     res.json(tickets);
   } catch (error) {
     console.error('Error fetching tickets:', error);
@@ -51,31 +54,6 @@ router.get('/tickets/:id', async (req, res) => {
   }
 });
 
-// Add comment to ticket
-router.post('/tickets/:id/comments', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { content, isInternal } = req.body;
-
-    const [comment] = await db.insert(ticketComments)
-      .values({
-        ticketId: parseInt(id),
-        content,
-        isInternal: isInternal || false,
-        authorId: req.user?.id || 'system', // Replace with actual user ID from auth
-      })
-      .returning();
-
-    res.json(comment);
-  } catch (error) {
-    console.error('Error adding comment:', error);
-    res.status(500).json({
-      message: 'Failed to add comment',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
 // Update ticket status
 router.put('/tickets/:id/status', async (req, res) => {
   try {
@@ -108,7 +86,7 @@ router.put('/tickets/:id/status', async (req, res) => {
         field: 'status',
         oldValue: currentTicket.status,
         newValue: status,
-        changedBy: req.user?.id || 'system', // Replace with actual user ID from auth
+        changedBy: 'system', // Will be updated when auth is implemented
       });
 
     res.json(updatedTicket);

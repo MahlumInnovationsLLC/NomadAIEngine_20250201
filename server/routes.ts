@@ -121,7 +121,7 @@ export function registerRoutes(app: Express): Server {
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
 
-  // Register API routes
+  // Register API routes with proper prefixes
   app.use('/api/support', supportRouter);
   app.use('/api/admin', adminRouter);
 

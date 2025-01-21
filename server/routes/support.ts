@@ -2,8 +2,8 @@ import { Router } from 'express';
 import multer from 'multer';
 import { MailService } from '@sendgrid/mail';
 import { db } from '@db';
-import { supportTickets } from '@db/schema';
-import path from 'path';
+import { supportTickets, insertSupportTicketSchema } from '@db/schema';
+import { z } from 'zod';
 
 const router = Router();
 
@@ -47,15 +47,6 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       attachment: req.file ? 'Present' : 'Not present'
     });
 
-    // Check if SendGrid is properly initialized
-    if (!mailService) {
-      console.error('Email service not initialized');
-      return res.status(503).json({
-        success: false,
-        message: 'Email service not available'
-      });
-    }
-
     const { name, company, email, notes, title = `Support Request from ${company}` } = req.body;
     const attachment = req.file;
 
@@ -75,6 +66,14 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
     }
 
     // Save ticket to database
+    console.log('Saving ticket to database with data:', {
+      title,
+      description: notes,
+      submitterName: name,
+      submitterEmail: email,
+      submitterCompany: company
+    });
+
     const [ticket] = await db.insert(supportTickets)
       .values({
         title,
@@ -94,7 +93,7 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       })
       .returning();
 
-    console.log('Ticket saved to database:', ticket);
+    console.log('Ticket saved successfully:', ticket);
 
     // Prepare email content
     const emailContent = `
@@ -106,69 +105,38 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       <p>${notes}</p>
     `;
 
-    // Prepare email message
-    const msg = {
-      to: 'colter@mahluminnovations.com',
-      from: 'colter@mahluminnovations.com', // Updated to use a verified sender email
-      subject: `Support Ticket: ${company} - ${name}`,
-      text: `Support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
-      html: emailContent,
-      replyTo: email,
-      attachments: [] as any[]
-    };
-
-    // Add attachment if present
-    if (attachment) {
-      console.log('Processing attachment:', {
-        filename: attachment.originalname,
-        size: attachment.size,
-        type: attachment.mimetype
-      });
-
-      msg.attachments = [{
-        content: attachment.buffer.toString('base64'),
-        filename: attachment.originalname,
-        type: attachment.mimetype,
-        disposition: 'attachment'
-      }];
-    }
-
-    try {
+    // Send email notification if SendGrid is configured
+    if (mailService) {
       console.log('Attempting to send email via SendGrid...');
-      const [response] = await mailService.send(msg);
-
-      console.log('SendGrid API Response:', {
-        statusCode: response?.statusCode,
-        headers: response?.headers,
-        body: response?.body
-      });
-
-      res.json({
-        success: true,
-        message: 'Support ticket submitted successfully',
-        ticket
-      });
-    } catch (error: any) {
-      console.error('SendGrid Error:', {
-        message: error.message,
-        response: error.response?.body,
-        code: error.code
-      });
-
-      // Handle domain verification errors
-      if (error.code === 403) {
-        return res.status(503).json({
-          success: false,
-          message: 'Email configuration error. Please try again later.',
-          error: 'Sender domain not verified'
+      try {
+        await mailService.send({
+          to: 'colter@mahluminnovations.com',
+          from: 'colter@mahluminnovations.com',
+          subject: `Support Ticket: ${company} - ${name}`,
+          text: `Support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
+          html: emailContent,
+          replyTo: email,
+          attachments: attachment ? [{
+            content: attachment.buffer.toString('base64'),
+            filename: attachment.originalname,
+            type: attachment.mimetype,
+            disposition: 'attachment'
+          }] : undefined
         });
+        console.log('Email sent successfully');
+      } catch (error: any) {
+        console.error('SendGrid Error:', error);
+        // Continue with the response even if email fails
       }
-
-      throw error;
     }
+
+    res.json({
+      success: true,
+      message: 'Support ticket submitted successfully',
+      ticket
+    });
   } catch (error) {
     console.error('Support ticket error:', error);
-
     res.status(500).json({
       success: false,
       message: 'Failed to submit support ticket',
