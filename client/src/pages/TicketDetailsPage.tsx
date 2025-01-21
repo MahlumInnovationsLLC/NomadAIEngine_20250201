@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { TicketDetails } from "@/components/TicketDetails";
@@ -9,17 +8,33 @@ function TicketDetailsPage() {
   const [, params] = useRoute("/admin/support/:id");
   const id = params?.id;
 
-  const { data: ticket, isLoading } = useQuery<SupportTicket, Error>({
+  const { data: ticket, isLoading, error } = useQuery<SupportTicket, Error>({
     queryKey: [`/api/admin/tickets/${id}`],
     enabled: !!id,
   });
 
   if (isLoading) {
-    return <Skeleton className="w-full h-[400px]" />;
+    return (
+      <div className="p-6">
+        <Skeleton className="w-full h-[600px]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-red-500">
+        Error loading ticket: {error.message}
+      </div>
+    );
   }
 
   if (!ticket) {
-    return <div>Ticket not found</div>;
+    return (
+      <div className="p-6">
+        Ticket not found
+      </div>
+    );
   }
 
   return <TicketDetails ticket={ticket} />;

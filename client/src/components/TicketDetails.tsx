@@ -64,47 +64,47 @@ export function TicketDetails({ ticket }: TicketDetailsProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <Card>
         <CardHeader>
           <CardTitle>Ticket Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>Title</Label>
-            <p className="text-sm">{ticket.title}</p>
+            <Label className="font-semibold">Title</Label>
+            <p className="text-sm mt-1">{ticket.title}</p>
           </div>
           <div>
-            <Label>Description</Label>
-            <p className="text-sm whitespace-pre-wrap">{ticket.description}</p>
+            <Label className="font-semibold">Description</Label>
+            <p className="text-sm mt-1 whitespace-pre-wrap">{ticket.description}</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Status</Label>
-              <p className="text-sm capitalize">{ticket.status}</p>
+              <Label className="font-semibold">Status</Label>
+              <p className="text-sm mt-1 capitalize">{ticket.status}</p>
             </div>
             <div>
-              <Label>Priority</Label>
-              <p className="text-sm capitalize">{ticket.priority}</p>
+              <Label className="font-semibold">Priority</Label>
+              <p className="text-sm mt-1 capitalize">{ticket.priority}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Submitter</Label>
-              <p className="text-sm">{ticket.submitterName}</p>
+              <Label className="font-semibold">Submitter</Label>
+              <p className="text-sm mt-1">{ticket.submitterName}</p>
             </div>
             <div>
-              <Label>Company</Label>
-              <p className="text-sm">{ticket.submitterCompany}</p>
+              <Label className="font-semibold">Company</Label>
+              <p className="text-sm mt-1">{ticket.submitterCompany}</p>
             </div>
           </div>
           <div>
-            <Label>Email</Label>
-            <p className="text-sm">{ticket.submitterEmail}</p>
+            <Label className="font-semibold">Email</Label>
+            <p className="text-sm mt-1">{ticket.submitterEmail}</p>
           </div>
           <div>
-            <Label>Created At</Label>
-            <p className="text-sm">{new Date(ticket.createdAt).toLocaleString()}</p>
+            <Label className="font-semibold">Created At</Label>
+            <p className="text-sm mt-1">{new Date(ticket.createdAt).toLocaleString()}</p>
           </div>
         </CardContent>
       </Card>
@@ -120,11 +120,11 @@ export function TicketDetails({ ticket }: TicketDetailsProps) {
               <Textarea
                 id="message"
                 placeholder="Type your response here..."
-                {...register("message", { required: true })}
-                className="min-h-[150px]"
+                {...register("message", { required: "A response message is required" })}
+                className="min-h-[150px] mt-1"
               />
             </div>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Sending..." : "Send Response"}
             </Button>
           </form>
