@@ -73,11 +73,12 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       <p>${notes}</p>
     `;
 
+    // Use a verified sender email address
     const msg = {
       to: 'colter@mahluminnovations.com',
       from: {
-        email: email,
-        name: `${name} via GYM AI Engine Support`
+        email: 'support@gymai.app',
+        name: 'GYM AI Support'
       },
       replyTo: email,
       subject: `New Support Ticket from ${name} - ${company}`,
@@ -125,32 +126,24 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
         response: sendError.response?.body
       });
 
-      if (sendError.code === 403) {
-        res.status(503).json({
-          success: false,
-          message: 'Unable to send support ticket. Please try again later.',
-          error: 'Email service temporarily unavailable'
-        });
-      } else {
-        throw sendError;
-      }
+      // Return a more informative error message
+      const errorResponse = {
+        success: false,
+        message: 'Unable to send support ticket. Please try again later.',
+        error: sendError.message,
+        details: sendError.response?.body
+      };
+
+      res.status(sendError.code || 500).json(errorResponse);
     }
   } catch (error) {
-    console.error('Error sending support ticket:', error);
+    console.error('Error processing support ticket:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorDetails = error instanceof Error ? {
-      name: error.name,
-      stack: error.stack,
-      cause: error.cause
-    } : {};
-
-    console.error('Error details:', errorDetails);
 
     res.status(500).json({
       success: false,
       message: 'Failed to submit support ticket',
-      error: errorMessage,
-      details: errorDetails
+      error: errorMessage
     });
   }
 });
