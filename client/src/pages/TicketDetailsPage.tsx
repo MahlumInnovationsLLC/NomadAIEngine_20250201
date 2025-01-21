@@ -8,14 +8,14 @@ function TicketDetailsPage() {
   const [, params] = useRoute("/admin/support/:id");
   const id = params?.id;
 
-  const { data: ticket, isLoading, error } = useQuery<SupportTicket, Error>({
+  const { data: ticket, isLoading, error } = useQuery<SupportTicket>({
     queryKey: [`/api/admin/tickets/${id}`],
     enabled: !!id,
   });
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="container mx-auto p-6">
         <Skeleton className="w-full h-[600px]" />
       </div>
     );
@@ -23,21 +23,25 @@ function TicketDetailsPage() {
 
   if (error) {
     return (
-      <div className="p-6 text-red-500">
-        Error loading ticket: {error.message}
+      <div className="container mx-auto p-6 text-red-500">
+        Error loading ticket: {error instanceof Error ? error.message : 'Unknown error'}
       </div>
     );
   }
 
   if (!ticket) {
     return (
-      <div className="p-6">
-        Ticket not found
+      <div className="container mx-auto p-6">
+        No ticket found with ID: {id}
       </div>
     );
   }
 
-  return <TicketDetails ticket={ticket} />;
+  return (
+    <div className="container mx-auto">
+      <TicketDetails ticket={ticket} />
+    </div>
+  );
 }
 
 export default TicketDetailsPage;
