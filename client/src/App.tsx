@@ -29,6 +29,7 @@ const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const DocManagePage = lazy(() => import("@/pages/DocManage"));
 const DocumentManagementPage = lazy(() => import("@/pages/DocumentManagement"));
 const TrainingModulePage = lazy(() => import("@/pages/TrainingModule"));
+const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 
 function LoadingFallback() {
   return (
@@ -80,7 +81,7 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 
 function App() {
   const { theme } = useTheme();
-  
+
   return (
     <div className="relative min-h-screen w-full flex flex-col">
       <div className="absolute inset-0 -z-20">
@@ -118,6 +119,7 @@ function App() {
                 <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
                 <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
                 <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
+                <Route path="/admin/support" component={() => <ProtectedRoute component={AdminDashboard} />} />
                 <Route component={NotFound} />
               </Switch>
             </Suspense>

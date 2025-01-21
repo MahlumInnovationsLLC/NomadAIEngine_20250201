@@ -246,7 +246,49 @@ export const userNotifications = pgTable("user_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Add after the userNotifications table and before relations
+// Add support ticket tables
+export const supportTickets = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  status: text("status", {
+    enum: ['open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed']
+  }).notNull().default('open'),
+  priority: text("priority", {
+    enum: ['low', 'medium', 'high', 'urgent']
+  }).notNull().default('medium'),
+  category: text("category").notNull(),
+  submitterName: text("submitter_name").notNull(),
+  submitterEmail: text("submitter_email").notNull(),
+  submitterCompany: text("submitter_company").notNull(),
+  assignedTo: text("assigned_to"),
+  attachmentUrl: text("attachment_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  metadata: jsonb("metadata"),
+});
+
+export const ticketComments = pgTable("ticket_comments", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").references(() => supportTickets.id),
+  authorId: text("author_id").notNull(),
+  content: text("content").notNull(),
+  isInternal: boolean("is_internal").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const ticketHistory = pgTable("ticket_history", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").references(() => supportTickets.id),
+  field: text("field").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  changedBy: text("changed_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const aiEngineActivity = pgTable("ai_engine_activity", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
@@ -391,6 +433,26 @@ export const aiEngineActivityRelations = relations(aiEngineActivity, ({ many }) 
   // Future relations can be added here
 }));
 
+// Add relations
+export const supportTicketsRelations = relations(supportTickets, ({ many }) => ({
+  comments: many(ticketComments),
+  history: many(ticketHistory),
+}));
+
+export const ticketCommentsRelations = relations(ticketComments, ({ one }) => ({
+  ticket: one(supportTickets, {
+    fields: [ticketComments.ticketId],
+    references: [supportTickets.id],
+  }),
+}));
+
+export const ticketHistoryRelations = relations(ticketHistory, ({ one }) => ({
+  ticket: one(supportTickets, {
+    fields: [ticketHistory.ticketId],
+    references: [supportTickets.id],
+  }),
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -463,6 +525,16 @@ export const selectUserNotificationSchema = createSelectSchema(userNotifications
 export const insertAiEngineActivitySchema = createInsertSchema(aiEngineActivity);
 export const selectAiEngineActivitySchema = createSelectSchema(aiEngineActivity);
 
+// Add schemas
+export const insertSupportTicketSchema = createInsertSchema(supportTickets);
+export const selectSupportTicketSchema = createSelectSchema(supportTickets);
+
+export const insertTicketCommentSchema = createInsertSchema(ticketComments);
+export const selectTicketCommentSchema = createSelectSchema(ticketComments);
+
+export const insertTicketHistorySchema = createInsertSchema(ticketHistory);
+export const selectTicketHistorySchema = createSelectSchema(ticketHistory);
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -494,3 +566,8 @@ export type UserNotification = typeof userNotifications.$inferSelect;
 
 // Add to types section
 export type AiEngineActivity = typeof aiEngineActivity.$inferSelect;
+
+// Add types
+export type SupportTicket = typeof supportTickets.$inferSelect;
+export type TicketComment = typeof ticketComments.$inferSelect;
+export type TicketHistory = typeof ticketHistory.$inferSelect;

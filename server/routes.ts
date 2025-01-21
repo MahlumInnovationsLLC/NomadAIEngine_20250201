@@ -23,6 +23,7 @@ import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import type { Request, Response } from "express";
+import adminRouter from "./routes/admin";
 
 // Initialize Cosmos DB container for equipment
 let equipmentContainer: Container;
@@ -120,8 +121,10 @@ export function registerRoutes(app: Express): Server {
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
 
-  // Register support routes
+  // Register API routes
   app.use('/api/support', supportRouter);
+  app.use('/api/admin', adminRouter);
+
 
   // Add user authentication middleware and user status tracking
   app.use((req: AuthenticatedRequest, res, next) => {
