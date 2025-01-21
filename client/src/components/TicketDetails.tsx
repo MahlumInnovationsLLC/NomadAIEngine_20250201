@@ -64,70 +64,67 @@ export function TicketDetails({ ticket }: TicketDetailsProps) {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto">
+    <div className="space-y-6 p-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl font-bold">Ticket #{ticket.id} - {ticket.title}</CardTitle>
+          <CardTitle>Ticket Details</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Description</Label>
-            <p className="text-sm bg-muted/50 p-4 rounded-md whitespace-pre-wrap">{ticket.description}</p>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="font-semibold">Title</Label>
+            <p className="text-sm mt-1">{ticket.title}</p>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Status</Label>
-              <p className="text-sm capitalize bg-muted/50 p-2 rounded-md inline-block">{ticket.status}</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Priority</Label>
-              <p className="text-sm capitalize bg-muted/50 p-2 rounded-md inline-block">{ticket.priority}</p>
-            </div>
+          <div>
+            <Label className="font-semibold">Description</Label>
+            <p className="text-sm mt-1 whitespace-pre-wrap">{ticket.description}</p>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Submitted By</Label>
-              <p className="text-sm">{ticket.submitterName}</p>
-              <p className="text-sm text-muted-foreground">{ticket.submitterEmail}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="font-semibold">Status</Label>
+              <p className="text-sm mt-1 capitalize">{ticket.status}</p>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Company</Label>
-              <p className="text-sm">{ticket.submitterCompany}</p>
+            <div>
+              <Label className="font-semibold">Priority</Label>
+              <p className="text-sm mt-1 capitalize">{ticket.priority}</p>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Created</Label>
-            <p className="text-sm">{new Date(ticket.createdAt).toLocaleString()}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="font-semibold">Submitter</Label>
+              <p className="text-sm mt-1">{ticket.submitterName}</p>
+            </div>
+            <div>
+              <Label className="font-semibold">Company</Label>
+              <p className="text-sm mt-1">{ticket.submitterCompany}</p>
+            </div>
+          </div>
+          <div>
+            <Label className="font-semibold">Email</Label>
+            <p className="text-sm mt-1">{ticket.submitterEmail}</p>
+          </div>
+          <div>
+            <Label className="font-semibold">Created At</Label>
+            <p className="text-sm mt-1">{new Date(ticket.createdAt).toLocaleString()}</p>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-t-4 border-t-primary">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-xl font-bold">Send Response</CardTitle>
+          <CardTitle>Send Response</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="message" className="text-sm font-semibold">
-                Response Message
-              </Label>
+            <div>
+              <Label htmlFor="message">Response Message</Label>
               <Textarea
                 id="message"
                 placeholder="Type your response here..."
                 {...register("message", { required: "A response message is required" })}
-                className="min-h-[200px] resize-y"
+                className="min-h-[150px] mt-1"
               />
             </div>
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isLoading}
-              size="lg"
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Sending..." : "Send Response"}
             </Button>
           </form>

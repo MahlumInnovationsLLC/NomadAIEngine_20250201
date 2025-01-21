@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
-import { useLocation } from "wouter";
 import {
   Table,
   TableBody,
@@ -14,12 +13,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { SupportTicket } from "@db/schema";
+
+interface SupportTicket {
+  id: number;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  submitterName: string;
+  submitterEmail: string;
+  submitterCompany: string;
+  createdAt: string;
+}
 
 export default function SupportTicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
 
   const { data: tickets, isLoading } = useQuery<SupportTicket[]>({
     queryKey: ['/api/admin/tickets'],
@@ -113,7 +122,7 @@ export default function SupportTicketsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setLocation(`/admin/support/${ticket.id}`)}
+                      onClick={() => setSelectedTicket(ticket)}
                     >
                       View Details
                     </Button>
@@ -124,6 +133,49 @@ export default function SupportTicketsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {selectedTicket && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Ticket Details - #{selectedTicket.id}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-semibold">Description</h3>
+                <p className="text-gray-600 whitespace-pre-wrap">{selectedTicket.description}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold">Contact Information</h3>
+                <div className="text-sm text-gray-600">
+                  <p>Name: {selectedTicket.submitterName}</p>
+                  <p>Email: {selectedTicket.submitterEmail}</p>
+                  <p>Company: {selectedTicket.submitterCompany}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">Update Status</h3>
+              <div className="flex gap-2 flex-wrap">
+                {['open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed'].map((status) => (
+                  <Button
+                    key={status}
+                    variant={selectedTicket.status === status ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      updateStatusMutation.mutate({ ticketId: selectedTicket.id, status });
+                    }}
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    {status.replace(/_/g, ' ')}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
