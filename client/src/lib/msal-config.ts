@@ -6,7 +6,6 @@ export const msalConfig = {
     redirectUri: window.location.origin,
     postLogoutRedirectUri: `${window.location.origin}/login`,
     navigateToLoginRequestUrl: true,
-    protocolMode: "OIDC",
   },
   cache: {
     cacheLocation: "localStorage",
@@ -49,7 +48,6 @@ export const msalConfig = {
 // Add here scopes for id token to be used at MS Identity Platform endpoints.
 export const loginRequest = {
   scopes: ["User.Read", "openid", "profile"],
-  prompt: "select_account",
 };
 
 // Add here the endpoints for MS Graph API services you would like to use.
