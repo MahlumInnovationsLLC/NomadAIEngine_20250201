@@ -140,7 +140,7 @@ const iconMap: Record<string, IconDefinition> = {
   'linkedin': faLinkedin,
   'discord': faDiscord,
   'slack': faSlack,
-  'windows': faWindowMaximize, // Temporarily using window-maximize as a fallback
+  'windows': faWindows, // Temporarily using window-maximize as a fallback
   'award': faAward,
   'trophy-star': faTrophyStar,
   'check': faCheck,
