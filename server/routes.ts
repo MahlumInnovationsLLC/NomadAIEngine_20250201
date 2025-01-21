@@ -5,6 +5,7 @@ import { CosmosClient, Container } from "@azure/cosmos";
 import { ContainerClient } from "@azure/storage-blob";
 import multer from "multer";
 import { v4 as uuidv4 } from 'uuid';
+import supportRouter from "./routes/support";
 import { db } from "@db";
 import {
   documentWorkflows,
@@ -118,6 +119,9 @@ export function registerRoutes(app: Express): Server {
 
   // Add uploads directory for serving generated files
   app.use('/uploads', express.static('uploads'));
+
+  // Register support routes
+  app.use('/api/support', supportRouter);
 
   // Add user authentication middleware and user status tracking
   app.use((req: AuthenticatedRequest, res, next) => {
