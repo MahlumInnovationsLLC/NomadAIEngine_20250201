@@ -2,6 +2,13 @@ import { HTMLAttributes } from 'react';
 import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { library } from '@fortawesome/fontawesome-svg-core';
+import {
+  faGithub,
+  faTwitter,
+  faLinkedin,
+  faDiscord,
+  faSlack
+} from '@fortawesome/free-brands-svg-icons';
 import { 
   faCheck,
   faChevronRight,
@@ -61,6 +68,11 @@ import {
 
 // Add icons to library
 library.add(
+  faGithub,
+  faTwitter,
+  faLinkedin,
+  faDiscord,
+  faSlack,
   faCheck,
   faChevronRight,
   faCircle,
@@ -123,6 +135,11 @@ interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
 }
 
 const iconMap: Record<string, IconDefinition> = {
+  'github': faGithub,
+  'twitter': faTwitter,
+  'linkedin': faLinkedin,
+  'discord': faDiscord,
+  'slack': faSlack,
   'windows': faWindowMaximize, // Temporarily using window-maximize as a fallback
   'award': faAward,
   'trophy-star': faTrophyStar,
