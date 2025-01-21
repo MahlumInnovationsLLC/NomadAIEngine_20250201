@@ -94,7 +94,6 @@ function App() {
         )}
       </div>
       <ErrorBoundary>
-        <NotificationCenter />
       </ErrorBoundary>
 
       <AuthenticatedTemplate>
