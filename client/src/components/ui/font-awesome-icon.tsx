@@ -7,6 +7,7 @@ import {
   faTwitter,
   faLinkedin,
   faDiscord,
+  faWindows,
   faSlack
 } from '@fortawesome/free-brands-svg-icons';
 import { 
@@ -140,7 +141,7 @@ const iconMap: Record<string, IconDefinition> = {
   'linkedin': faLinkedin,
   'discord': faDiscord,
   'slack': faSlack,
-  'windows': faWindows, // Temporarily using window-maximize as a fallback
+  'windows': faWindows,
   'award': faAward,
   'trophy-star': faTrophyStar,
   'check': faCheck,
