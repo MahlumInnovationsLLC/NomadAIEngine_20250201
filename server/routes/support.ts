@@ -22,18 +22,28 @@ const upload = multer({
   },
 });
 
-// Initialize SendGrid
-const mailService = new MailService();
-if (!process.env.SENDGRID_API_KEY) {
-  console.error('SENDGRID_API_KEY environment variable is missing');
-} else {
-  mailService.setApiKey(process.env.SENDGRID_API_KEY);
-  console.log('SendGrid API key configured successfully');
+// Initialize SendGrid with better error handling
+let mailService: MailService | null = null;
+try {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error('SENDGRID_API_KEY environment variable is missing');
+  } else {
+    mailService = new MailService();
+    mailService.setApiKey(process.env.SENDGRID_API_KEY);
+    console.log('SendGrid API key configured successfully');
+  }
+} catch (error) {
+  console.error('Error initializing SendGrid:', error);
 }
 
 router.post('/ticket', upload.single('attachment'), async (req, res) => {
   console.log('Support ticket endpoint hit');
   try {
+    // Check if SendGrid is properly initialized
+    if (!mailService) {
+      throw new Error('Email service not properly initialized');
+    }
+
     const { name, company, email, notes } = req.body;
     const attachment = req.file;
 
@@ -65,12 +75,11 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
 
     const msg = {
       to: 'colter@mahluminnovations.com',
-      // Use the submitter's email as the from address to avoid domain verification issues
       from: {
         email: email,
         name: `${name} via GYM AI Engine Support`
       },
-      replyTo: email, // Ensure replies go back to the submitter
+      replyTo: email,
       subject: `New Support Ticket from ${name} - ${company}`,
       text: `New support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
       html: emailContent,
@@ -110,16 +119,20 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
         message: 'Support ticket submitted successfully' 
       });
     } catch (sendError: any) {
-      // Handle specific SendGrid errors
+      console.error('SendGrid send error details:', {
+        code: sendError.code,
+        message: sendError.message,
+        response: sendError.response?.body
+      });
+
       if (sendError.code === 403) {
-        console.error('SendGrid authentication error:', sendError);
         res.status(503).json({
           success: false,
           message: 'Unable to send support ticket. Please try again later.',
           error: 'Email service temporarily unavailable'
         });
       } else {
-        throw sendError; // Let the outer catch block handle other errors
+        throw sendError;
       }
     }
   } catch (error) {
