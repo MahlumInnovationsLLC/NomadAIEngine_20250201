@@ -63,9 +63,12 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
     <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
         <AuthenticatedTemplate>
-          <AnimateTransition variant="fade">
-            <Component {...rest} />
-          </AnimateTransition>
+          <OnboardingProvider>
+            <AnimateTransition variant="fade">
+              <Component {...rest} />
+            </AnimateTransition>
+            <OnboardingTour />
+          </OnboardingProvider>
         </AuthenticatedTemplate>
         <UnauthenticatedTemplate>
           <RedirectToLogin />
@@ -115,7 +118,6 @@ function App() {
           </AnimatePresenceWrapper>
         </div>
       </main>
-      <OnboardingTour />
       <Toaster />
     </div>
   );
@@ -145,9 +147,7 @@ export default function AppWrapper() {
       <MsalProvider instance={msalInstance}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <OnboardingProvider>
-              <App />
-            </OnboardingProvider>
+            <App />
           </ThemeProvider>
         </QueryClientProvider>
       </MsalProvider>
