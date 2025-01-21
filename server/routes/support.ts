@@ -65,10 +65,12 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
 
     const msg = {
       to: 'colter@mahluminnovations.com',
+      // Use the submitter's email as the from address to avoid domain verification issues
       from: {
-        email: 'support@gymaiengine.com',
-        name: 'GYM AI Engine Support'
+        email: email,
+        name: `${name} via GYM AI Engine Support`
       },
+      replyTo: email, // Ensure replies go back to the submitter
       subject: `New Support Ticket from ${name} - ${company}`,
       text: `New support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
       html: emailContent,
@@ -98,14 +100,28 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       hasAttachments: msg.attachments.length > 0
     });
 
-    const response = await mailService.send(msg);
-    console.log('SendGrid API Response:', response);
-    console.log('Email sent successfully');
+    try {
+      const response = await mailService.send(msg);
+      console.log('SendGrid API Response:', response);
+      console.log('Email sent successfully');
 
-    res.json({ 
-      success: true, 
-      message: 'Support ticket submitted successfully' 
-    });
+      res.json({ 
+        success: true, 
+        message: 'Support ticket submitted successfully' 
+      });
+    } catch (sendError: any) {
+      // Handle specific SendGrid errors
+      if (sendError.code === 403) {
+        console.error('SendGrid authentication error:', sendError);
+        res.status(503).json({
+          success: false,
+          message: 'Unable to send support ticket. Please try again later.',
+          error: 'Email service temporarily unavailable'
+        });
+      } else {
+        throw sendError; // Let the outer catch block handle other errors
+      }
+    }
   } catch (error) {
     console.error('Error sending support ticket:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
