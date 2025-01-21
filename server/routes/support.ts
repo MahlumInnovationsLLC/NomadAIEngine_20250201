@@ -23,19 +23,36 @@ const upload = multer({
 });
 
 // Initialize SendGrid
+const mailService = new MailService();
 if (!process.env.SENDGRID_API_KEY) {
-  throw new Error('SENDGRID_API_KEY environment variable is required');
+  console.error('SENDGRID_API_KEY environment variable is missing');
+} else {
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('SendGrid API key configured successfully');
 }
 
-const mailService = new MailService();
-mailService.setApiKey(process.env.SENDGRID_API_KEY);
-
 router.post('/ticket', upload.single('attachment'), async (req, res) => {
+  console.log('Support ticket endpoint hit');
   try {
     const { name, company, email, notes } = req.body;
     const attachment = req.file;
 
-    console.log('Received support ticket request:', { name, company, email, hasAttachment: !!attachment });
+    console.log('Received support ticket request:', {
+      name,
+      company,
+      email,
+      hasAttachment: !!attachment,
+      body: req.body
+    });
+
+    // Validate required fields
+    if (!name || !company || !email || !notes) {
+      console.log('Missing required fields:', { name, company, email, hasNotes: !!notes });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All fields are required' 
+      });
+    }
 
     let emailContent = `
       <h2>New Support Ticket</h2>
@@ -46,7 +63,7 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       <p>${notes}</p>
     `;
 
-    const msg: any = {
+    const msg = {
       to: 'colter@mahluminnovations.com',
       from: {
         email: 'support@gymaiengine.com',
@@ -55,33 +72,56 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       subject: `New Support Ticket from ${name} - ${company}`,
       text: `New support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
       html: emailContent,
+      attachments: [] as any[]
     };
 
     // Add attachment if present
     if (attachment) {
-      console.log('Adding attachment:', attachment.originalname);
-      msg.attachments = [
-        {
-          content: attachment.buffer.toString('base64'),
-          filename: attachment.originalname,
-          type: attachment.mimetype,
-          disposition: 'attachment',
-        },
-      ];
+      console.log('Processing attachment:', {
+        filename: attachment.originalname,
+        size: attachment.size,
+        mimetype: attachment.mimetype
+      });
+
+      msg.attachments = [{
+        content: attachment.buffer.toString('base64'),
+        filename: attachment.originalname,
+        type: attachment.mimetype,
+        disposition: 'attachment'
+      }];
     }
 
-    console.log('Sending email via SendGrid...');
-    await mailService.send(msg);
+    console.log('Preparing to send email via SendGrid...', {
+      to: msg.to,
+      from: msg.from.email,
+      subject: msg.subject,
+      hasAttachments: msg.attachments.length > 0
+    });
+
+    const response = await mailService.send(msg);
+    console.log('SendGrid API Response:', response);
     console.log('Email sent successfully');
 
-    res.json({ success: true, message: 'Support ticket submitted successfully' });
+    res.json({ 
+      success: true, 
+      message: 'Support ticket submitted successfully' 
+    });
   } catch (error) {
     console.error('Error sending support ticket:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error ? {
+      name: error.name,
+      stack: error.stack,
+      cause: error.cause
+    } : {};
+
+    console.error('Error details:', errorDetails);
+
     res.status(500).json({
       success: false,
       message: 'Failed to submit support ticket',
-      error: errorMessage
+      error: errorMessage,
+      details: errorDetails
     });
   }
 });
