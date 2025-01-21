@@ -5,9 +5,9 @@ export const msalConfig: Configuration = {
   auth: {
     clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "",
     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID}`,
-    redirectUri: window.location.origin,
-    postLogoutRedirectUri: `${window.location.origin}/login`,
-    navigateToLoginRequestUrl: false,
+    redirectUri: "https://gymaiengine.com/oauth2callback",
+    postLogoutRedirectUri: "https://gymaiengine.com/login",
+    navigateToLoginRequestUrl: true,
   },
   cache: {
     cacheLocation: "sessionStorage",
