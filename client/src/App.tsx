@@ -79,10 +79,14 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 }
 
 function App() {
+  const { theme } = useTheme();
+  
   return (
     <div className="relative min-h-screen w-full flex flex-col">
       <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
-      <div className="fixed inset-0 -z-5 bg-gray-50/90 scale-110 origin-center transform" />
+      {theme === 'light' && (
+        <div className="fixed inset-0 -z-5 bg-gray-50/90 scale-110 origin-center transform" />
+      )}
       <ErrorBoundary>
       </ErrorBoundary>
 
