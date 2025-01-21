@@ -29,6 +29,28 @@ export default function Navbar() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
   const { instance } = useMsal();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await instance.logoutRedirect({
+        postLogoutRedirectUri: window.location.origin + "/login",
+      });
+      // No need to manually redirect as MSAL will handle it
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+      });
+    }
+  };
 
   return (
     <header className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -116,16 +138,7 @@ export default function Navbar() {
               </DropdownMenuItem>
               <DropdownMenuItem 
                 className="text-red-600"
-                onSelect={async () => {
-                  try {
-                    await instance.logoutPopup({
-                      mainWindowRedirectUri: window.location.origin + "/login"
-                    });
-                    window.location.href = window.location.origin + "/login";
-                  } catch (error) {
-                    console.error('Logout error:', error);
-                  }
-                }}
+                onSelect={handleLogout}
               >
                 <FontAwesomeIcon icon="right-from-bracket" className="mr-2 h-4 w-4" />
                 Logout
