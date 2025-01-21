@@ -50,8 +50,8 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center">
-      <div className="fixed inset-0 -z-20 bg-background/95" />
-      <ParticleBackground />
+      <ParticleBackground className="absolute inset-0" />
+      <div className="absolute inset-0 bg-gray-50/90" />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
