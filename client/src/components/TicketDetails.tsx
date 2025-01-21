@@ -4,21 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+import type { SupportTicket } from "@db/schema";
 
 interface TicketDetailsProps {
-  ticket: {
-    id: number;
-    title: string;
-    description: string;
-    status: string;
-    priority: string;
-    submitterName: string;
-    submitterEmail: string;
-    submitterCompany: string;
-    createdAt: string;
-  };
+  ticket: SupportTicket;
 }
 
 interface ResponseFormData {
@@ -28,6 +19,7 @@ interface ResponseFormData {
 export function TicketDetails({ ticket }: TicketDetailsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { register, handleSubmit, reset } = useForm<ResponseFormData>();
+  const queryClient = useQueryClient();
 
   const sendResponse = useMutation({
     mutationFn: async (data: ResponseFormData) => {
@@ -51,6 +43,7 @@ export function TicketDetails({ ticket }: TicketDetailsProps) {
         description: "Your response has been sent successfully.",
       });
       reset();
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/tickets/${ticket.id}`] });
     },
     onError: () => {
       toast({
@@ -108,6 +101,10 @@ export function TicketDetails({ ticket }: TicketDetailsProps) {
           <div>
             <Label>Email</Label>
             <p className="text-sm">{ticket.submitterEmail}</p>
+          </div>
+          <div>
+            <Label>Created At</Label>
+            <p className="text-sm">{new Date(ticket.createdAt).toLocaleString()}</p>
           </div>
         </CardContent>
       </Card>

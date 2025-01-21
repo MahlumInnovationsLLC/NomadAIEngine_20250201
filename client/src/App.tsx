@@ -32,6 +32,7 @@ const TrainingModulePage = lazy(() => import("@/pages/TrainingModule"));
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const TicketDetails = lazy(() => import("@/pages/admin/TicketDetails"));
 const SupportTickets = lazy(() => import("@/pages/admin/SupportTickets"));
+const TicketDetailsPage = lazy(() => import("@/pages/TicketDetailsPage"));
 
 function LoadingFallback() {
   return (
@@ -123,8 +124,8 @@ function App() {
                 <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
                 <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
                 <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
-                <Route path="/admin/support/:id" component={({ params }) => (
-                  <ProtectedRoute component={() => <TicketDetails id={params.id} />} />
+                <Route path="/admin/support/:id" component={() => (
+                  <ProtectedRoute component={TicketDetailsPage} />
                 )} />
                 <Route component={NotFound} />
               </Switch>
