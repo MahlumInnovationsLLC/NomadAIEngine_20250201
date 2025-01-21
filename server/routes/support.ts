@@ -85,7 +85,7 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
     // Prepare email message
     const msg = {
       to: 'colter@mahluminnovations.com',
-      from: 'support@gymai.app', // Make sure this is verified in SendGrid
+      from: 'colter@mahluminnovations.com', // Updated to use a verified sender email
       subject: `Support Ticket: ${company} - ${name}`,
       text: `Support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
       html: emailContent,
