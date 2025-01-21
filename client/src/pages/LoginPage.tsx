@@ -71,7 +71,7 @@ export default function LoginPage() {
               size="lg"
               onClick={handleLogin}
             >
-              <FontAwesomeIcon icon="microsoft" className="mr-2 h-5 w-5" />
+              <FontAwesomeIcon icon="window-maximize" className="mr-2 h-5 w-5" />
               Sign in with Microsoft
             </Button>
           </CardContent>

@@ -123,7 +123,7 @@ interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
 }
 
 const iconMap: Record<string, IconDefinition> = {
-  'microsoft': faWindowMaximize,
+  'windows': faWindowMaximize, // Temporarily using window-maximize as a fallback
   'award': faAward,
   'trophy-star': faTrophyStar,
   'check': faCheck,
