@@ -81,9 +81,9 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 function App() {
   return (
     <div className="relative min-h-screen w-full flex flex-col">
-      <div className="fixed inset-0 -z-20 bg-background/95 scale-110 origin-center transform" />
+      <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
+      <div className="fixed inset-0 -z-5 bg-gray-50/90 scale-110 origin-center transform" />
       <ErrorBoundary>
-        <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
       </ErrorBoundary>
 
       <AuthenticatedTemplate>
