@@ -22,7 +22,7 @@ const upload = multer({
   },
 });
 
-// Initialize SendGrid with better error handling
+// Initialize SendGrid
 let mailService: MailService | null = null;
 try {
   if (!process.env.SENDGRID_API_KEY) {
@@ -30,7 +30,7 @@ try {
   } else {
     mailService = new MailService();
     mailService.setApiKey(process.env.SENDGRID_API_KEY);
-    console.log('SendGrid API key configured successfully');
+    console.log('SendGrid initialized with new API key');
   }
 } catch (error) {
   console.error('Error initializing SendGrid:', error);
@@ -39,32 +39,41 @@ try {
 router.post('/ticket', upload.single('attachment'), async (req, res) => {
   console.log('Support ticket endpoint hit');
   try {
+    // Log request details
+    console.log('Request body:', {
+      ...req.body,
+      attachment: req.file ? 'Present' : 'Not present'
+    });
+
     // Check if SendGrid is properly initialized
     if (!mailService) {
-      throw new Error('Email service not properly initialized');
+      console.error('Email service not initialized');
+      return res.status(503).json({
+        success: false,
+        message: 'Email service not available'
+      });
     }
 
     const { name, company, email, notes } = req.body;
     const attachment = req.file;
 
-    console.log('Received support ticket request:', {
-      name,
-      company,
-      email,
-      hasAttachment: !!attachment,
-      body: req.body
-    });
-
     // Validate required fields
     if (!name || !company || !email || !notes) {
-      console.log('Missing required fields:', { name, company, email, hasNotes: !!notes });
-      return res.status(400).json({ 
-        success: false, 
-        message: 'All fields are required' 
+      const missingFields = [];
+      if (!name) missingFields.push('name');
+      if (!company) missingFields.push('company');
+      if (!email) missingFields.push('email');
+      if (!notes) missingFields.push('notes');
+
+      console.log('Missing required fields:', missingFields);
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
 
-    let emailContent = `
+    // Prepare email content
+    const emailContent = `
       <h2>New Support Ticket</h2>
       <p><strong>From:</strong> ${name}</p>
       <p><strong>Company:</strong> ${company}</p>
@@ -73,17 +82,14 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       <p>${notes}</p>
     `;
 
-    // Use a verified sender email address
+    // Prepare email message
     const msg = {
       to: 'colter@mahluminnovations.com',
-      from: {
-        email: 'support@gymai.app',
-        name: 'GYM AI Support'
-      },
-      replyTo: email,
-      subject: `New Support Ticket from ${name} - ${company}`,
-      text: `New support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
+      from: 'support@gymai.app', // Make sure this is verified in SendGrid
+      subject: `Support Ticket: ${company} - ${name}`,
+      text: `Support ticket from ${name} (${company})\nEmail: ${email}\nNotes: ${notes}`,
       html: emailContent,
+      replyTo: email,
       attachments: [] as any[]
     };
 
@@ -92,7 +98,7 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       console.log('Processing attachment:', {
         filename: attachment.originalname,
         size: attachment.size,
-        mimetype: attachment.mimetype
+        type: attachment.mimetype
       });
 
       msg.attachments = [{
@@ -103,47 +109,45 @@ router.post('/ticket', upload.single('attachment'), async (req, res) => {
       }];
     }
 
-    console.log('Preparing to send email via SendGrid...', {
-      to: msg.to,
-      from: msg.from.email,
-      subject: msg.subject,
-      hasAttachments: msg.attachments.length > 0
-    });
-
     try {
-      const response = await mailService.send(msg);
-      console.log('SendGrid API Response:', response);
-      console.log('Email sent successfully');
+      console.log('Attempting to send email via SendGrid...');
+      const [response] = await mailService.send(msg);
 
-      res.json({ 
-        success: true, 
-        message: 'Support ticket submitted successfully' 
-      });
-    } catch (sendError: any) {
-      console.error('SendGrid send error details:', {
-        code: sendError.code,
-        message: sendError.message,
-        response: sendError.response?.body
+      console.log('SendGrid API Response:', {
+        statusCode: response?.statusCode,
+        headers: response?.headers,
+        body: response?.body
       });
 
-      // Return a more informative error message
-      const errorResponse = {
-        success: false,
-        message: 'Unable to send support ticket. Please try again later.',
-        error: sendError.message,
-        details: sendError.response?.body
-      };
+      res.json({
+        success: true,
+        message: 'Support ticket submitted successfully'
+      });
+    } catch (error: any) {
+      console.error('SendGrid Error:', {
+        message: error.message,
+        response: error.response?.body,
+        code: error.code
+      });
 
-      res.status(sendError.code || 500).json(errorResponse);
+      // Handle domain verification errors
+      if (error.code === 403) {
+        return res.status(503).json({
+          success: false,
+          message: 'Email configuration error. Please try again later.',
+          error: 'Sender domain not verified'
+        });
+      }
+
+      throw error;
     }
   } catch (error) {
-    console.error('Error processing support ticket:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Support ticket error:', error);
 
     res.status(500).json({
       success: false,
       message: 'Failed to submit support ticket',
-      error: errorMessage
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
