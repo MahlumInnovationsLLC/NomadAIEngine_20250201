@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import {
   Table,
   TableBody,
@@ -18,8 +19,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import TicketDetails from "./TicketDetails";
 
 interface SupportTicket {
   id: number;
@@ -37,7 +38,7 @@ interface SupportTicket {
 }
 
 export default function AdminDashboard() {
-  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,27 +61,8 @@ export default function AdminDashboard() {
     return true;
   });
 
-  const handleStatusChange = async (ticketId: number, newStatus: string) => {
-    try {
-      const response = await fetch(`/api/admin/tickets/${ticketId}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update ticket status");
-
-      toast({
-        title: "Status Updated",
-        description: "Ticket status has been successfully updated.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update ticket status. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleViewTicket = (ticketId: number) => {
+    setLocation(`/admin/support/${ticketId}`);
   };
 
   return (
@@ -147,37 +129,19 @@ export default function AdminDashboard() {
                 <TableCell>{ticket.submitterName}</TableCell>
                 <TableCell>{ticket.submitterCompany}</TableCell>
                 <TableCell>
-                  <Select
-                    defaultValue={ticket.status}
-                    onValueChange={(value) => handleStatusChange(ticket.id, value)}
+                  <Badge
+                    variant={
+                      ticket.status === "open"
+                        ? "default"
+                        : ticket.status === "in_progress"
+                        ? "secondary"
+                        : ticket.status === "waiting_on_customer"
+                        ? "outline"
+                        : "destructive"
+                    }
                   >
-                    <SelectTrigger>
-                      <SelectValue>
-                        <Badge
-                          variant={
-                            ticket.status === "open"
-                              ? "default"
-                              : ticket.status === "in_progress"
-                              ? "secondary"
-                              : ticket.status === "resolved"
-                              ? "success"
-                              : "outline"
-                          }
-                        >
-                          {ticket.status.replace("_", " ")}
-                        </Badge>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="waiting_on_customer">
-                        Waiting on Customer
-                      </SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    {ticket.status.replace("_", " ")}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -198,7 +162,11 @@ export default function AdminDashboard() {
                   {format(new Date(ticket.createdAt), "MMM d, yyyy")}
                 </TableCell>
                 <TableCell>
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewTicket(ticket.id)}
+                  >
                     View Details
                   </Button>
                 </TableCell>
