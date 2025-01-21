@@ -83,10 +83,12 @@ function App() {
   
   return (
     <div className="relative min-h-screen w-full flex flex-col">
-      <ParticleBackground className="absolute inset-0 -z-10" particleColor="rgba(239, 68, 68, 0.2)" />
-      {theme === 'light' && (
-        <div className="fixed inset-0 -z-20 bg-background/90 scale-110 origin-center transform" />
-      )}
+      <div className="absolute inset-0 -z-20">
+        <ParticleBackground className="absolute inset-0" particleColor="rgba(239, 68, 68, 0.2)" />
+        {theme === 'light' && (
+          <div className="absolute inset-0 bg-background/90 scale-110 origin-center transform" />
+        )}
+      </div>
       <ErrorBoundary>
       </ErrorBoundary>
 
