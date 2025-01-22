@@ -86,9 +86,9 @@ export function DocManagement() {
           </div>
           <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="ml-2">
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Files
+                Upload
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -96,7 +96,7 @@ export function DocManagement() {
                 <DialogTitle>Upload Files</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
-                <Label htmlFor="files">Select files to upload</Label>
+                <Label htmlFor="files">Select files to upload to {currentPath || '/'}</Label>
                 <input
                   id="files"
                   type="file"
@@ -126,11 +126,16 @@ export function DocManagement() {
               onClick={() => setIsEditing(!isEditing)}
             >
               {isEditing ? (
-                <Eye className="h-4 w-4 mr-2" />
+                <>
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Mode
+                </>
               ) : (
-                <Pen className="h-4 w-4 mr-2" />
+                <>
+                  <Pen className="h-4 w-4 mr-2" />
+                  Edit Mode
+                </>
               )}
-              {isEditing ? "View Mode" : "Edit Mode"}
             </Button>
           </div>
           <DocumentViewer

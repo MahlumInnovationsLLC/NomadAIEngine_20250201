@@ -31,17 +31,22 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     queryKey: [`/api/documents/${documentId}/content`],
     queryFn: async () => {
       console.log("Fetching document content for:", documentId);
-      const response = await fetch(`/api/documents/${documentId}/content`, {
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error fetching document:", errorText);
-        throw new Error(errorText || `Failed to fetch document: ${response.status}`);
+      try {
+        const response = await fetch(`/api/documents/${documentId}/content`, {
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Error fetching document:", errorText);
+          throw new Error(errorText || `Failed to fetch document: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log("Received document data:", data);
+        return data;
+      } catch (error) {
+        console.error("Error in document fetch:", error);
+        throw error;
       }
-      const data = await response.json();
-      console.log("Received document data:", data);
-      return data;
     },
     enabled: !!documentId,
     retry: 1,
@@ -101,7 +106,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     return (
       <Card className="flex items-center justify-center p-4 h-[600px] text-destructive">
         <div className="text-center">
-          <AlertCircle className="h-8 w-8 mb-2" />
+          <AlertCircle className="h-8 w-8 mb-2 mx-auto" />
           <p>Failed to load document: {error instanceof Error ? error.message : 'Unknown error'}</p>
         </div>
       </Card>
