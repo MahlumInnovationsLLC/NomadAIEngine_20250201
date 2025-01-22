@@ -3,19 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-
-// Lazy load heavy components
-const ScrollArea = lazy(() => import("@/components/ui/scroll-area").then(mod => ({ default: mod.ScrollArea })));
-const RichTextEditor = lazy(() => import("./RichTextEditor"));
-
-// Loading spinner component
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center p-4">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-  </div>
-);
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { RichTextEditor } from "./RichTextEditor";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface DocumentViewerProps {
   documentId: string;
@@ -24,64 +16,43 @@ interface DocumentViewerProps {
 
 interface DocumentData {
   content: string;
-  revision?: string;
+  version: string;
+  status: 'draft' | 'in_review' | 'approved' | 'released';
+  lastModified: string;
+  approvers?: string[];
 }
 
-// Separate viewer component for better code splitting
-const DocumentContent = ({ content, isEditing, onChange }: { 
-  content: string; 
-  isEditing: boolean;
-  onChange?: (content: string) => void;
-}) => {
-  if (isEditing) {
-    return (
-      <Suspense fallback={<LoadingSpinner />}>
-        <RichTextEditor
-          content={content}
-          onChange={onChange || (() => {})}
-        />
-      </Suspense>
-    );
-  }
-
-  return (
-    <div 
-      className="p-4 prose prose-sm max-w-none"
-      dangerouslySetInnerHTML={{ __html: content ?? 'No content available' }}
-    />
-  );
-};
-
 export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
-  const [revision, setRevision] = useState<string>("");
+  const [version, setVersion] = useState<string>("");
   const [editedContent, setEditedContent] = useState<string>("");
+  const [isSubmittingForReview, setIsSubmittingForReview] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: document, isLoading, error } = useQuery<DocumentData>({
-    queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`],
+  const { data: document, isLoading } = useQuery<DocumentData>({
+    queryKey: [`/api/documents/${documentId}/content`],
     enabled: !!documentId,
   });
 
   useEffect(() => {
     if (document) {
       setEditedContent(document.content);
-      setRevision(document.revision || "");
+      setVersion(document.version);
     }
-  }, [document, documentId]);
+  }, [document]);
 
   const saveMutation = useMutation({
     mutationFn: async (content: string) => {
-      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/content`, {
+      const response = await fetch(`/api/documents/${documentId}/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, revision }),
+        body: JSON.stringify({ content, version }),
       });
       if (!response.ok) throw new Error('Failed to save document');
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}/content`] });
       toast({
         title: "Document saved",
         description: "Your changes have been saved successfully",
@@ -96,51 +67,101 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     }
   });
 
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
+  const submitForReviewMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/documents/${documentId}/submit-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version }),
+      });
+      if (!response.ok) throw new Error('Failed to submit for review');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Submitted for review",
+        description: "Document has been submitted for review. Approvers will be notified.",
+      });
+      setIsSubmittingForReview(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}/content`] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to submit document for review",
+        variant: "destructive",
+      });
+      setIsSubmittingForReview(false);
+    }
+  });
 
-  if (error) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[500px] text-destructive">
-        <p>Error loading document content. Please try again.</p>
+      <div className="flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
     <Card className="relative">
-      {isEditing && (
-        <div className="p-4 border-b bg-muted/50">
+      <div className="p-4 border-b bg-muted/50">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <Label htmlFor="revision">Revision</Label>
-              <Input
-                id="revision"
-                value={revision}
-                onChange={(e) => setRevision(e.target.value)}
-                placeholder="Enter revision number or letter (e.g., 1.0, A)"
-                className="max-w-[200px]"
-              />
-            </div>
-            <Button 
-              onClick={() => saveMutation.mutate(editedContent)}
-              disabled={saveMutation.isPending}
-            >
-              Save Changes
-            </Button>
+            {isEditing && (
+              <>
+                <div>
+                  <Label htmlFor="version">Version</Label>
+                  <Input
+                    id="version"
+                    value={version}
+                    onChange={(e) => setVersion(e.target.value)}
+                    placeholder="e.g., 1.0.0"
+                    className="max-w-[150px]"
+                  />
+                </div>
+                <Button 
+                  onClick={() => saveMutation.mutate(editedContent)}
+                  disabled={saveMutation.isPending}
+                >
+                  <FontAwesomeIcon icon="save" className="mr-2 h-4 w-4" />
+                  Save
+                </Button>
+              </>
+            )}
           </div>
+          {document?.status === 'draft' && !isEditing && (
+            <Button
+              variant="outline"
+              onClick={() => setIsSubmittingForReview(true)}
+              disabled={submitForReviewMutation.isPending}
+            >
+              <FontAwesomeIcon icon="paper-plane" className="mr-2 h-4 w-4" />
+              Submit for Review
+            </Button>
+          )}
         </div>
-      )}
-      <Suspense fallback={<LoadingSpinner />}>
-        <ScrollArea className="h-[500px] w-full rounded-md border">
-          <DocumentContent 
-            content={editedContent} 
-            isEditing={isEditing}
+        {document && (
+          <div className="mt-2 text-sm text-muted-foreground">
+            Status: {document.status} | Last modified: {new Date(document.lastModified).toLocaleString()}
+          </div>
+        )}
+      </div>
+      <ScrollArea className="h-[500px] w-full rounded-md border">
+        {isEditing ? (
+          <RichTextEditor
+            content={editedContent}
             onChange={setEditedContent}
           />
-        </ScrollArea>
-      </Suspense>
+        ) : (
+          <div 
+            className="p-4 prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: editedContent }}
+          />
+        )}
+      </ScrollArea>
     </Card>
   );
 }
+
+export default DocumentViewer;

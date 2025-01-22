@@ -17,8 +17,10 @@ import {
   trainingModules,
   notifications,
   userNotifications,
+  documents,
+  documentCollaborators
 } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
@@ -26,6 +28,7 @@ import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_
 import type { Request, Response } from "express";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import adminRouter from "./routes/admin";
+import { sendApprovalRequestEmail } from './services/email';
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -935,7 +938,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Add workflow action endpoint (for handling review/approve actions)
-app.post("/api/documents/workflow/:documentId/action", async (req, res) => {
+  app.post("/api/documents/workflow/:documentId/action", async (req, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
       const { action, userId, comments } = req.body;
@@ -1274,6 +1277,206 @@ app.post("/api/documents/workflow/:documentId/action", async (req, res) => {
     } catch (error) {
       console.error("Error fetching unread count:", error);
       res.status(500).json({ error: "Failed to fetch unread count" });
+    }
+  });
+
+  // Document submission for review endpoint
+  app.post("/api/documents/:documentId/submit-review", async (req: AuthenticatedRequest, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+      const { version } = req.body;
+      const userId = req.user?.id;
+
+      if (!documentId || !version || !userId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Create workflow entry
+      const [workflow] = await db
+        .insert(documentWorkflows)
+        .values({
+          documentId,
+          status: 'active',
+          startedAt: new Date(),
+        })
+        .returning();
+
+      // Get document approvers
+      const approvers = await db
+        .select()
+        .from(documentCollaborators)
+        .where(
+          and(
+            eq(documentCollaborators.documentId, documentId),
+            eq(documentCollaborators.role, 'approver')
+          )
+        );
+
+      // Get document details
+      const [document] = await db
+        .select()
+        .from(documents)
+        .where(eq(documents.id, documentId));
+
+      if (!document) {
+        throw new Error("Document not found");
+      }
+
+      // Send approval requests to all approvers
+      const approvalPromises = approvers.map(async (approver) => {
+        // Create approval entry
+        const [approval] = await db
+          .insert(documentApprovals)
+          .values({
+            documentId,
+            version,
+            approverUserId: approver.userId,
+            status: 'pending',
+          })
+          .returning();
+
+        // Generate approval/reject links
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const approvalLink = `${baseUrl}/api/documents/${documentId}/approve/${approval.id}`;
+        const rejectLink = `${baseUrl}/api/documents/${documentId}/reject/${approval.id}`;
+
+        // Send email
+        await sendApprovalRequestEmail(approver.userId, {
+          documentName: document.title,
+          documentLink: `${baseUrl}/documents/${documentId}`,
+          requesterName: userId,
+          approvalLink,
+          rejectLink,
+        });
+      });
+
+      await Promise.all(approvalPromises);
+
+      // Update document status
+      await db
+        .update(documents)
+        .set({ 
+          status: 'in_review',
+          version,
+          updatedAt: new Date(),
+          updatedBy: userId,
+        })
+        .where(eq(documents.id, documentId));
+
+      res.json({
+        message: "Document submitted for review",
+        workflowId: workflow.id,
+      });
+    } catch (error) {
+      console.error("Error submitting document for review:", error);
+      res.status(500).json({ error: "Failed to submit document for review" });
+    }
+  });
+
+  // Document approval endpoint
+  app.post("/api/documents/:documentId/approve/:approvalId", async (req: AuthenticatedRequest, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+      const approvalId = parseInt(req.params.approvalId);
+      const userId = req.user?.id;
+
+      if (!documentId || !approvalId || !userId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Update approval status
+      await db
+        .update(documentApprovals)
+        .set({
+          status: 'approved',
+          approvedAt: new Date(),
+        })
+        .where(eq(documentApprovals.id, approvalId));
+
+      // Check if all approvers have approved
+      const [pendingApprovals] = await db
+        .select({ count: sql`count(*)` })
+        .from(documentApprovals)
+        .where(
+          and(
+            eq(documentApprovals.documentId, documentId),
+            eq(documentApprovals.status, 'pending')
+          )
+        );
+
+      if (pendingApprovals.count === 0) {
+        // All approvers have approved, update document status
+        await db
+          .update(documents)
+          .set({ 
+            status: 'approved',
+            updatedAt: new Date(),
+            updatedBy: userId,
+          })
+          .where(eq(documents.id, documentId));
+
+        // Complete the workflow
+        await db
+          .update(documentWorkflows)
+          .set({
+            status: 'completed',
+            completedAt: new Date(),
+          })
+          .where(eq(documentWorkflows.documentId, documentId));
+      }
+
+      res.json({ message: "Document approved successfully" });
+    } catch (error) {
+      console.error("Error approving document:", error);
+      res.status(500).json({ error: "Failed to approve document" });
+    }
+  });
+
+  // Document rejection endpoint
+  app.post("/api/documents/:documentId/reject/:approvalId", async (req: AuthenticatedRequest, res) => {
+    try {
+      const documentId = parseInt(req.params.documentId);
+      const approvalId = parseInt(req.params.approvalId);
+      const userId = req.user?.id;
+      const { comments } = req.body;
+
+      if (!documentId || !approvalId || !userId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Update approval status
+      await db
+        .update(documentApprovals)
+        .set({
+          status: 'rejected',
+          comments,
+          updatedAt: new Date(),
+        })
+        .where(eq(documentApprovals.id, approvalId));
+
+      // Update document status
+      await db
+        .update(documents)
+        .set({ 
+          status: 'draft',
+          updatedAt: new Date(),
+          updatedBy: userId,
+        })
+        .where(eq(documents.id, documentId));
+
+      // Complete the workflow
+      await db
+        .update(documentWorkflows)
+        .set({
+          status: 'completed',
+          completedAt: new Date(),
+        })
+        .where(eq(documentWorkflows.documentId, documentId));
+
+      res.json({ message: "Document rejected" });
+    } catch (error) {
+      console.error("Error rejecting document:", error);
+      res.status(500).json({ error: "Failed to reject document" });
     }
   });
 
