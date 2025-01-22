@@ -66,6 +66,7 @@ import {
   faChartLine,
   faMapPin,
   faGlobePointer,
+  faBrainCircuit,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -195,7 +196,8 @@ const iconMap: Record<string, IconDefinition> = {
   'chart-line': faChartLine,
   'map-pin': faMapPin,
   'plus': faPlus,
-  'globe-pointer': faGlobePointer
+  'globe-pointer': faGlobePointer,
+  'brain-circuit': faBrainCircuit
 };
 
 export function FontAwesomeIcon({ 

@@ -145,10 +145,10 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           />
           <Label htmlFor="mode-toggle" className="flex items-center gap-2">
             <FontAwesomeIcon 
-              icon={mode === 'web-search' ? "globe-pointer" : "message"} 
+              icon={mode === 'web-search' ? "globe-pointer" : "brain-circuit"} 
               className="h-4 w-4 text-muted-foreground"
             />
-            {mode === 'web-search' ? 'Web Search' : 'Chat'}
+            {mode === 'web-search' ? 'Web Search' : 'AI Engine Chat'}
           </Label>
         </div>
         <form onSubmit={handleSubmit} className="flex gap-2">
