@@ -74,7 +74,8 @@ import {
   faSignalSlash,
   faBluetooth,
   faWifi,
-  faCircleNotch
+  faCircleNotch,
+  faDownload
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -151,8 +152,8 @@ library.add(
   faSignalSlash,
   faBluetooth,
   faWifi,
-  faCircleNotch
-  faDowload
+  faCircleNotch,
+  faDownload
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -234,8 +235,7 @@ const iconMap: Record<string, IconDefinition> = {
   'bluetooth': faBluetooth,
   'wifi': faWifi,
   'circle-notch': faCircleNotch,
-  'bars': faBars // Use faBars as a replacement for the unavailable bars-to-panel
-  'download': faDownload,
+  'download': faDownload
 };
 
 export function FontAwesomeIcon({ 

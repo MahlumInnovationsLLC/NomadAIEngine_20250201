@@ -3,8 +3,9 @@ import { Server as SocketIOServer } from 'socket.io';
 import { WebSocket, WebSocketServer } from 'ws';
 import { db } from "@db";
 import { userTraining } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { z } from 'zod';
+import { notifications, userNotifications } from "@db/schema";
 
 // Validation schemas
 const userSchema = z.object({
@@ -27,6 +28,15 @@ interface SocketMessage {
   data?: any;
 }
 
+interface NotificationPayload {
+  type: string;
+  title: string;
+  message: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  link?: string;
+  metadata?: Record<string, any>;
+}
+
 class WebSocketManager {
   private io: SocketIOServer;
   private wss: WebSocketServer;
@@ -46,7 +56,7 @@ class WebSocketManager {
       transports: ['websocket']
     });
 
-    this.wss = new WebSocketServer({ 
+    this.wss = new WebSocketServer({
       server,
       path: "/ws",
       perMessageDeflate: true
@@ -218,9 +228,9 @@ class WebSocketManager {
 
   private broadcastPresence() {
     const activeUsers = Array.from(this.users.values()).map(({ socketId, ...user }) => user);
-    this.broadcast(Array.from(this.users.keys()), { 
+    this.broadcast(Array.from(this.users.keys()), {
       type: 'presence:update',
-      data: activeUsers 
+      data: activeUsers
     });
   }
 
@@ -250,9 +260,9 @@ class WebSocketManager {
         this.users.set(userId, user);
       }
 
-      this.broadcast([userId], { 
+      this.broadcast([userId], {
         type: 'training:level',
-        data: trainingLevel 
+        data: trainingLevel
       });
     } catch (error) {
       console.error("Error broadcasting training level:", error);
@@ -302,6 +312,98 @@ class WebSocketManager {
     clearInterval(this.heartbeatInterval);
     this.io.close();
     this.wss.close();
+  }
+
+  public async sendNotification(userId: string, payload: NotificationPayload) {
+    try {
+      // Insert notification into database
+      const [notification] = await db.insert(notifications)
+        .values({
+          type: payload.type,
+          title: payload.title,
+          message: payload.message,
+          priority: payload.priority,
+          link: payload.link,
+          metadata: payload.metadata,
+        })
+        .returning();
+
+      // Create user notification
+      await db.insert(userNotifications)
+        .values({
+          userId: userId,
+          notificationId: notification.id,
+        });
+
+      // Send real-time notification
+      this.broadcast([userId], {
+        type: 'notification:new',
+        data: {
+          ...notification,
+          read: false,
+        }
+      });
+
+      return notification;
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      throw error;
+    }
+  }
+
+  public async markNotificationRead(userId: string, notificationId: number) {
+    try {
+      await db.update(userNotifications)
+        .set({
+          read: true,
+          readAt: new Date()
+        })
+        .where(
+          and(
+            eq(userNotifications.userId, userId),
+            eq(userNotifications.notificationId, notificationId)
+          )
+        );
+
+      this.broadcast([userId], {
+        type: 'notification:read',
+        data: { notificationId }
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      throw error;
+    }
+  }
+
+  public async getUnreadNotifications(userId: string) {
+    try {
+      return await db.select({
+        id: notifications.id,
+        type: notifications.type,
+        title: notifications.title,
+        message: notifications.message,
+        priority: notifications.priority,
+        link: notifications.link,
+        metadata: notifications.metadata,
+        createdAt: notifications.createdAt,
+        read: userNotifications.read,
+        readAt: userNotifications.readAt,
+      })
+        .from(notifications)
+        .innerJoin(
+          userNotifications,
+          eq(notifications.id, userNotifications.notificationId)
+        )
+        .where(
+          and(
+            eq(userNotifications.userId, userId),
+            eq(userNotifications.read, false)
+          )
+        );
+    } catch (error) {
+      console.error('Error fetching unread notifications:', error);
+      throw error;
+    }
   }
 }
 

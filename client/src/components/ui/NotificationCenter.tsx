@@ -24,6 +24,20 @@ interface Notification {
   createdAt: string;
 }
 
+const priorityColors = {
+  low: "bg-gray-100 dark:bg-gray-800",
+  medium: "bg-blue-100 dark:bg-blue-900",
+  high: "bg-orange-100 dark:bg-orange-900",
+  urgent: "bg-red-100 dark:bg-red-900",
+};
+
+const priorityBadgeColors = {
+  low: "bg-gray-500",
+  medium: "bg-blue-500",
+  high: "bg-orange-500",
+  urgent: "bg-red-500",
+};
+
 export function NotificationCenter() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const { toast } = useToast();
@@ -49,12 +63,13 @@ export function NotificationCenter() {
       reconnectionDelay: 1000,
     });
 
-    socketInstance.on('notification', (data) => {
-      // Show toast for new notification
+    socketInstance.on('notification:new', (data) => {
+      // Show toast for new notification with priority-based styling
       toast({
-        title: data.data.title,
-        description: data.data.message,
-        duration: 5000,
+        title: data.title,
+        description: data.message,
+        duration: data.priority === 'urgent' ? 10000 : 5000,
+        variant: data.priority === 'urgent' ? 'destructive' : 'default',
       });
       // Invalidate notifications query to refresh the list
       queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
@@ -72,6 +87,7 @@ export function NotificationCenter() {
   }, [queryClient, toast]);
 
   const unreadCount = notifications?.filter(n => !n.read).length ?? 0;
+  const urgentCount = notifications?.filter(n => !n.read && n.priority === 'urgent').length ?? 0;
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.read) {
@@ -100,10 +116,10 @@ export function NotificationCenter() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+          <Bell className={`h-5 w-5 ${urgentCount > 0 ? 'text-red-500' : ''}`} />
           {unreadCount > 0 && (
             <Badge
-              variant="destructive"
+              variant={urgentCount > 0 ? "destructive" : "secondary"}
               className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
             >
               {unreadCount}
@@ -122,15 +138,22 @@ export function NotificationCenter() {
               <DropdownMenuItem
                 key={notification.id}
                 className={`flex flex-col items-start p-4 cursor-pointer ${
-                  !notification.read ? 'bg-muted/50' : ''
+                  !notification.read ? priorityColors[notification.priority] : ''
                 }`}
                 onClick={() => handleNotificationClick(notification)}
               >
                 <div className="flex items-center gap-2 w-full">
                   <span className="font-medium">{notification.title}</span>
-                  {!notification.read && (
-                    <Badge variant="secondary" className="ml-auto">New</Badge>
-                  )}
+                  <div className="ml-auto flex items-center gap-2">
+                    {!notification.read && (
+                      <Badge variant="secondary">New</Badge>
+                    )}
+                    <Badge
+                      className={priorityBadgeColors[notification.priority]}
+                    >
+                      {notification.priority}
+                    </Badge>
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   {notification.message}

@@ -15,8 +15,10 @@ import {
   userTraining,
   aiEngineActivity,
   trainingModules,
+  notifications,
+  userNotifications,
 } from "@db/schema";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
@@ -933,7 +935,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Add workflow action endpoint (for handling review/approve actions)
-  app.post("/api/documents/workflow/:documentId/action", async (req, res) => {
+app.post("/api/documents/workflow/:documentId/action", async (req, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
       const { action, userId, comments } = req.body;
@@ -1177,6 +1179,101 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error downloading report:", error);
       res.status(500).json({ error: "Failed to download report" });
+    }
+  });
+
+  // Add notification endpoints
+  app.get("/api/notifications", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const userNotifs = await db.select({
+        id: notifications.id,
+        type: notifications.type,
+        title: notifications.title,
+        message: notifications.message,
+        priority: notifications.priority,
+        link: notifications.link,
+        metadata: notifications.metadata,
+        createdAt: notifications.createdAt,
+        read: userNotifications.read,
+        readAt: userNotifications.readAt,
+      })
+      .from(notifications)
+      .innerJoin(
+        userNotifications,
+        eq(notifications.id, userNotifications.notificationId)
+      )
+      .where(eq(userNotifications.userId, userId))
+      .orderBy(notifications.createdAt);
+
+      res.json(userNotifs);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/notifications/mark-read", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { notificationIds } = req.body;
+      if (!Array.isArray(notificationIds)) {
+        return res.status(400).json({ error: "Invalid notification IDs" });
+      }
+
+      await db.update(userNotifications)
+        .set({
+          read: true,
+          readAt: new Date()
+        })
+        .where(
+          and(
+            eq(userNotifications.userId, userId),
+            eq(userNotifications.notificationId, notificationIds[0])
+          )
+        );
+
+      res.json({ message: "Notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+      res.status(500).json({ error: "Failed to mark notifications as read" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const [result] = await db.select({
+        count: notifications.id,
+      })
+      .from(notifications)
+      .innerJoin(
+        userNotifications,
+        eq(notifications.id, userNotifications.notificationId)
+      )
+      .where(
+        and(
+          eq(userNotifications.userId, userId),
+          eq(userNotifications.read, false)
+        )
+      );
+
+      res.json({ count: result?.count || 0 });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ error: "Failed to fetch unread count" });
     }
   });
 
