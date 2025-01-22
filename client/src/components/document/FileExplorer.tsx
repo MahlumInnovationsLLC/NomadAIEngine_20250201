@@ -82,6 +82,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
     if (item.type === 'folder') {
       navigateToFolder(item.path);
     } else if (onSelectDocument) {
+      console.log("Selected document:", item.path);
       onSelectDocument(item.path);
     }
   };
@@ -98,9 +99,11 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <Button variant="outline" onClick={navigateUp} disabled={!currentPath}>
-              ..
+              <FontAwesomeIcon icon="arrow-up" className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium">{currentPath || '/'}</span>
+            <span className="text-sm font-medium truncate max-w-[200px]">
+              {currentPath || '/'}
+            </span>
           </div>
           <div className="flex items-center space-x-2">
             <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
@@ -142,7 +145,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
         <div className="border rounded-md h-[500px] overflow-y-auto p-2">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <span>Loading...</span>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -157,12 +160,11 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
                   className="flex items-center p-2 hover:bg-accent rounded-md cursor-pointer"
                   onClick={() => handleItemClick(item)}
                 >
-                  {item.type === 'folder' ? (
-                    <FontAwesomeIcon icon="folder" className="h-4 w-4 mr-2" />
-                  ) : (
-                    <FontAwesomeIcon icon="file" className="h-4 w-4 mr-2" />
-                  )}
-                  <span className="flex-1">{item.name}</span>
+                  <FontAwesomeIcon 
+                    icon={item.type === 'folder' ? 'folder' : 'file'} 
+                    className="h-4 w-4 mr-2" 
+                  />
+                  <span className="flex-1 truncate">{item.name}</span>
                   {item.type === 'file' && (
                     <span className="text-sm text-muted-foreground">
                       {(item.size || 0) / 1024 > 1024
@@ -179,3 +181,5 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
     </Card>
   );
 }
+
+export default FileExplorer;

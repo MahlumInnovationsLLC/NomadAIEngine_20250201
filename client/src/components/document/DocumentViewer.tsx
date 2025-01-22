@@ -30,7 +30,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const queryClient = useQueryClient();
 
   const { data: document, isLoading } = useQuery<DocumentData>({
-    queryKey: [`/api/documents/${documentId}/content`],
+    queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`],
     enabled: !!documentId,
   });
 
@@ -43,16 +43,17 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   const saveMutation = useMutation({
     mutationFn: async (content: string) => {
-      const response = await fetch(`/api/documents/${documentId}/content`, {
+      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, version }),
+        credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to save document');
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}/content`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`] });
       toast({
         title: "Document saved",
         description: "Your changes have been saved successfully",
@@ -69,10 +70,11 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   const submitForReviewMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/documents/${documentId}/submit-review`, {
+      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/submit-review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version }),
+        credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to submit for review');
       return response.json();
@@ -83,7 +85,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
         description: "Document has been submitted for review. Approvers will be notified.",
       });
       setIsSubmittingForReview(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}/content`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`] });
     },
     onError: () => {
       toast({

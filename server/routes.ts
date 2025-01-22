@@ -784,9 +784,9 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Add document content endpoint
-  app.get("/api/documents/:path*/content", async (req, res) => {
+  app.get("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
     try {
-      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
+      const documentPath = req.params.path + (req.params[0] || '');
       console.log("Fetching document content for:", documentPath);
 
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
@@ -806,9 +806,12 @@ export function registerRoutes(app: Express): Server {
         }
         const content = Buffer.concat(chunks).toString('utf-8');
 
+        // Send back the document data
         res.json({
           content,
-          revision: properties.metadata?.revision,
+          version: properties.metadata?.version || '1.0',
+          status: properties.metadata?.status || 'draft',
+          lastModified: properties.lastModified?.toISOString() || new Date().toISOString(),
         });
       } catch (error: any) {
         if (error.statusCode === 404) {
@@ -822,11 +825,11 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add document content update endpoint
-  app.put("/api/documents/:path*/content", async (req, res) => {
+  // Update document content endpoint
+  app.put("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
     try {
-      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
-      const { content, revision } = req.body;
+      const documentPath = req.params.path + (req.params[0] || '');
+      const { content, version } = req.body;
 
       if (!content) {
         return res.status(400).json({ error: "Content is required" });
@@ -836,8 +839,12 @@ export function registerRoutes(app: Express): Server {
 
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
 
-      // Add revision information as metadata
-      const metadata = revision ? { revision } : undefined;
+      // Add metadata
+      const metadata = {
+        version: version || '1.0',
+        status: 'draft',
+        lastModified: new Date().toISOString()
+      };
 
       await blockBlobClient.upload(content, content.length, {
         metadata,
@@ -1205,13 +1212,13 @@ export function registerRoutes(app: Express): Server {
         read: userNotifications.read,
         readAt: userNotifications.readAt,
       })
-      .from(notifications)
-      .innerJoin(
-        userNotifications,
-        eq(notifications.id, userNotifications.notificationId)
-      )
-      .where(eq(userNotifications.userId, userId))
-      .orderBy(notifications.createdAt);
+        .from(notifications)
+        .innerJoin(
+          userNotifications,
+          eq(notifications.id, userNotifications.notificationId)
+        )
+        .where(eq(userNotifications.userId, userId))
+        .orderBy(notifications.createdAt);
 
       res.json(userNotifs);
     } catch (error) {
@@ -1261,17 +1268,17 @@ export function registerRoutes(app: Express): Server {
       const [result] = await db.select({
         count: notifications.id,
       })
-      .from(notifications)
-      .innerJoin(
-        userNotifications,
-        eq(notifications.id, userNotifications.notificationId)
-      )
-      .where(
-        and(
-          eq(userNotifications.userId, userId),
-          eq(userNotifications.read, false)
+        .from(notifications)
+        .innerJoin(
+          userNotifications,
+          eq(notifications.id, userNotifications.notificationId)
         )
-      );
+        .where(
+          and(
+            eq(userNotifications.userId, userId),
+            eq(userNotifications.read, false)
+          )
+        );
 
       res.json({ count: result?.count || 0 });
     } catch (error) {
@@ -1355,7 +1362,7 @@ export function registerRoutes(app: Express): Server {
       // Update document status
       await db
         .update(documents)
-        .set({ 
+        .set({
           status: 'in_review',
           version,
           updatedAt: new Date(),
@@ -1408,7 +1415,7 @@ export function registerRoutes(app: Express): Server {
         // All approvers have approved, update document status
         await db
           .update(documents)
-          .set({ 
+          .set({
             status: 'approved',
             updatedAt: new Date(),
             updatedBy: userId,
@@ -1457,7 +1464,7 @@ export function registerRoutes(app: Express): Server {
       // Update document status
       await db
         .update(documents)
-        .set({ 
+        .set({
           status: 'draft',
           updatedAt: new Date(),
           updatedBy: userId,
