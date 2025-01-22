@@ -25,6 +25,7 @@ import type { Request, Response } from "express";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import adminRouter from "./routes/admin";
 
+// Types
 interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
@@ -51,33 +52,55 @@ interface Message {
   citations?: string[];
 }
 
-// Helper function to track AI Engine usage
-async function trackAIEngineUsage(userId: string, feature: string, durationMinutes: number, metadata?: Record<string, any>) {
-  try {
-    await db
-      .insert(aiEngineActivity)
-      .values({
-        userId,
-        sessionId: uuidv4(),
-        feature: feature as any, // Type assertion needed due to enum constraint
-        startTime: new Date(),
-        durationMinutes,
-        metadata: metadata ? metadata : undefined
-      });
-  } catch (error) {
-    console.warn("Failed to track AI usage:", error);
-    // Don't throw the error - we want the main functionality to continue
-  }
+interface Equipment {
+  id: string;
+  name: string;
+  type: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  yearManufactured: number;
+  lastMaintenanceDate?: Date;
+  nextMaintenanceDate?: Date;
+  status: 'active' | 'maintenance' | 'retired';
 }
 
-// Perplexity API integration
+interface EquipmentType {
+  id: string;
+  manufacturer: string;
+  model: string;
+  type: string;
+}
+
+// Initialize Azure Blob Storage Client with SAS token
+const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
+
+if (!sasUrl) {
+  throw new Error("Azure Blob Storage SAS URL not found");
+}
+
+let containerClient: ContainerClient;
+let equipmentContainer: Container;
+let equipmentTypeContainer: Container;
+
+// Helper Functions
+async function initializeContainers() {
+  const { database } = await import("./services/azure/cosmos_service");
+  if (!database) {
+    throw new Error("Failed to initialize database");
+  }
+  equipmentContainer = database.container('equipment');
+  equipmentTypeContainer = database.container('equipment-types');
+}
+
 async function searchWithPerplexity(content: string): Promise<PerplexityResponse> {
   if (!process.env.PERPLEXITY_API_KEY) {
+    console.error("Perplexity API key missing");
     throw new Error("Perplexity API key not found in environment variables");
   }
 
   try {
-    console.log("Making request to Perplexity API...");
+    console.log("Making request to Perplexity API with content:", content);
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: {
@@ -103,38 +126,179 @@ async function searchWithPerplexity(content: string): Promise<PerplexityResponse
       })
     });
 
+    console.log("Perplexity API response status:", response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Perplexity API error response:", errorText);
-      throw new Error(`Perplexity API responded with status ${response.status}: ${response.statusText}`);
+      throw new Error(`Perplexity API responded with status ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
-    console.log("Perplexity API response:", JSON.stringify(data, null, 2));
+    console.log("Perplexity API response data:", JSON.stringify(data, null, 2));
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error("No choices returned from Perplexity API");
+    }
 
     return {
-      choices: data.choices || [],
+      choices: data.choices,
       citations: data.citations || []
     };
   } catch (error) {
-    console.error("Error calling Perplexity API:", error);
+    console.error("Error in searchWithPerplexity:", error);
     throw new Error(`Failed to get web search results: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
+async function trackAIEngineUsage(userId: string, feature: "chat" | "web_search" | "document_analysis" | "equipment_prediction" | "report_generation", durationMinutes: number, metadata?: Record<string, any>) {
+  try {
+    await db
+      .insert(aiEngineActivity)
+      .values({
+        userId,
+        sessionId: uuidv4(),
+        feature,
+        startTime: new Date(),
+        endTime: new Date(Date.now() + durationMinutes * 60000),
+        durationMinutes,
+        metadata: metadata || {}
+      });
+  } catch (error) {
+    console.warn("Failed to track AI usage:", error);
+  }
+}
+
+async function getUserTrainingLevel(userId: string) {
+  const trainings = await db
+    .select()
+    .from(userTraining)
+    .where(eq(userTraining.userId, userId));
+
+  const completedModules = trainings.filter(t => t.status === 'completed').length;
+  return Math.floor(completedModules / 3) + 1;
+}
+
+// Equipment Type Operations
+async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.manufacturer = @manufacturer AND c.model = @model",
+      parameters: [
+        { name: "@manufacturer", value: manufacturer },
+        { name: "@model", value: model }
+      ]
+    };
+
+    const { resources } = await equipmentTypeContainer.items.query(querySpec).fetchAll();
+    return resources[0] || null;
+  } catch (error) {
+    console.error("Error fetching equipment type:", error);
+    return null;
+  }
+}
+
+async function createEquipmentType(data: Partial<EquipmentType>): Promise<EquipmentType> {
+  const newType: EquipmentType = {
+    id: uuidv4(),
+    manufacturer: data.manufacturer || '',
+    model: data.model || '',
+    type: data.type || ''
+  };
+
+  const { resource } = await equipmentTypeContainer.items.create(newType);
+  if (!resource) {
+    throw new Error("Failed to create equipment type");
+  }
+  return resource;
+}
+
+// Equipment Operations
+async function getAllEquipment(): Promise<Equipment[]> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c"
+    };
+
+    const { resources } = await equipmentContainer.items.query(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Error fetching all equipment:", error);
+    return [];
+  }
+}
+
+async function createEquipment(data: Partial<Equipment>): Promise<Equipment> {
+  const newEquipment: Equipment = {
+    id: uuidv4(),
+    name: data.name || '',
+    type: data.type || '',
+    manufacturer: data.manufacturer || '',
+    model: data.model || '',
+    serialNumber: data.serialNumber || '',
+    yearManufactured: data.yearManufactured || new Date().getFullYear(),
+    lastMaintenanceDate: data.lastMaintenanceDate,
+    nextMaintenanceDate: data.nextMaintenanceDate,
+    status: data.status || 'active'
+  };
+
+  const { resource } = await equipmentContainer.items.create(newEquipment);
+  if (!resource) {
+    throw new Error("Failed to create equipment");
+  }
+  return resource;
+}
+
+async function updateEquipment(id: string, updates: Partial<Equipment>): Promise<Equipment | null> {
+  try {
+    const { resource: existingItem } = await equipmentContainer.item(id, id).read();
+    const updatedItem = { ...existingItem, ...updates };
+    const { resource } = await equipmentContainer.item(id, id).replace(updatedItem);
+    return resource;
+  } catch (error) {
+    console.error("Error updating equipment:", error);
+    return null;
+  }
+}
+
 export function registerRoutes(app: Express): Server {
+  console.log("Creating Container Client with SAS token...");
+  containerClient = new ContainerClient(sasUrl);
+  console.log("Successfully created Container Client");
+
+  // Configure multer for memory storage
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+    }
+  });
+
   // Initialize Cosmos DB containers
   const httpServer = createServer(app);
   const wsServer = setupWebSocketServer(httpServer);
+
+  // Add user authentication middleware
+  app.use((req: AuthenticatedRequest, res, next) => {
+    req.user = { id: '1', username: 'test_user' };
+    const userId = req.headers['x-user-id'];
+    if (userId && typeof userId === 'string') {
+      wsServer.broadcast([userId], { type: 'USER_ACTIVE' });
+    }
+    next();
+  });
 
   // Register API routes with proper prefixes
   app.use('/api/support', supportRouter);
   app.use('/api/admin', adminRouter);
 
+  // Add uploads directory for serving generated files
+  app.use('/uploads', express.static('uploads'));
+
   // Messages endpoint
   app.post("/api/messages", async (req, res) => {
+    console.log("Received message request:", req.body);
     try {
-      console.log("Received message request:", req.body);
       const { content, mode = 'chat' } = req.body;
 
       if (!content) {
@@ -156,34 +320,31 @@ export function registerRoutes(app: Express): Server {
 
       if (mode === 'web-search') {
         try {
-          console.log("Getting Perplexity response for content:", content);
+          console.log("Starting web search with content:", content);
           const perplexityResponse = await searchWithPerplexity(content);
-          console.log("Perplexity response received:", perplexityResponse);
+          console.log("Web search response received:", perplexityResponse);
 
           if (perplexityResponse.choices && perplexityResponse.choices.length > 0) {
             aiResponse = perplexityResponse.choices[0]?.message?.content;
             citations = perplexityResponse.citations;
+            console.log("Extracted response:", { aiResponse, citations });
           } else {
             throw new Error("No response content received from Perplexity");
           }
 
-          // Track AI usage for web search (assuming it takes about 1 minute per search)
           await trackAIEngineUsage(req.user?.id || 'anonymous', 'web_search', 1, { messageLength: content.length });
         } catch (error) {
-          console.error("Error getting Perplexity response:", error);
+          console.error("Error in web search mode:", error);
           throw error;
         }
       } else {
-        // Use existing Azure OpenAI for chat
         try {
-          console.log("Getting AI response for content:", content);
+          console.log("Starting chat mode with content:", content);
           aiResponse = await analyzeDocument(content);
-
-          // Track AI usage for chat
           await trackAIEngineUsage(req.user?.id || 'anonymous', 'chat', 0.5, { messageLength: content.length });
         } catch (error) {
-          console.error("Error getting AI response:", error);
-          throw new Error(`Failed to get chat response: ${error instanceof Error ? error.message : String(error)}`);
+          console.error("Error in chat mode:", error);
+          throw error;
         }
       }
 
@@ -197,17 +358,16 @@ export function registerRoutes(app: Express): Server {
         citations
       };
 
-      console.log("Generated AI message:", aiMessage);
+      console.log("Returning messages:", [userMessage, aiMessage]);
       res.json([userMessage, aiMessage]);
     } catch (error) {
       console.error("Error processing message:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to process message",
         details: error instanceof Error ? error.message : String(error)
       });
     }
   });
-
 
   // Update online users endpoint
   app.get("/api/users/online-status", (req, res) => {
@@ -767,7 +927,7 @@ export function registerRoutes(app: Express): Server {
         updatedAt: latestWorkflow.startedAt.toISOString(),
       });
     } catch (error) {
-      console.error("Error fetching workflow status:", error);
+      console.errorError fetching workflow status:", error);
       res.status(500).json({ error: "Failed to fetch workflow status" });
     }
   });
@@ -960,159 +1120,6 @@ export function registerRoutes(app: Express): Server {
 
   // Initialize Cosmos DB containers
   initializeContainers().catch(console.error);
-  // Add uploads directory for serving generated files
-  app.use('/uploads', express.static('uploads'));
-
 
   return httpServer;
 }
-
-// Types
-interface Equipment {
-  id: string;
-  name: string;
-  type: string;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  yearManufactured: number;
-  lastMaintenanceDate?: Date;
-  nextMaintenanceDate?: Date;
-  status: 'active' | 'maintenance' | 'retired';
-}
-
-interface EquipmentType {
-  id: string;
-  manufacturer: string;
-  model: string;
-  type: string;
-}
-
-
-// Initialize Azure Blob Storage Client with SAS token
-const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
-
-if (!sasUrl) {
-  throw new Error("Azure Blob Storage SAS URL not found");
-}
-
-console.log("Creating Container Client with SAS token...");
-const containerClient = new ContainerClient(sasUrl);
-
-console.log("Successfully created Container Client");
-
-// Configure multer for memory storage
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  }
-});
-
-// Add user authentication middleware and user status tracking
-app.use((req: AuthenticatedRequest, res, next) => {
-  // TODO: Replace with actual user authentication
-  req.user = { id: '1', username: 'test_user' };
-  const userId = req.headers['x-user-id'];
-  if (userId && typeof userId === 'string') {
-    // Notify WebSocket server about user activity
-    wsServer.broadcast([userId], { type: 'USER_ACTIVE' });
-  }
-  next();
-});
-
-async function initializeContainers() {
-  const { database } = await import("./services/azure/cosmos_service");
-  equipmentContainer = database.container('equipment');
-  equipmentTypeContainer = database.container('equipment-types');
-}
-
-// Equipment Type Operations
-async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
-  try {
-    const querySpec = {
-      query: "SELECT * FROM c WHERE c.manufacturer = @manufacturer AND c.model = @model",
-      parameters: [
-        { name: "@manufacturer", value: manufacturer },
-        { name: "@model", value: model }
-      ]
-    };
-
-    const { resources } = await equipmentTypeContainer.items.query(querySpec).fetchAll();
-    return resources[0] || null;
-  } catch (error) {
-    console.error("Error fetching equipment type:", error);
-    return null;
-  }
-}
-
-async function createEquipmentType(data: Partial<EquipmentType>): Promise<EquipmentType> {
-  const newType: EquipmentType = {
-    id: uuidv4(),
-    manufacturer: data.manufacturer || '',
-    model: data.model || '',
-    type: data.type || ''
-  };
-
-  const { resource } = await equipmentTypeContainer.items.create(newType);
-  return resource;
-}
-
-// Equipment Operations
-async function getAllEquipment(): Promise<Equipment[]> {
-  try {
-    const querySpec = {
-      query: "SELECT * FROM c"
-    };
-
-    const { resources } = await equipmentContainer.items.query(querySpec).fetchAll();
-    return resources;
-  } catch (error) {
-    console.error("Error fetching all equipment:", error);
-    return [];
-  }
-}
-
-async function createEquipment(data: Partial<Equipment>): Promise<Equipment> {
-  const newEquipment: Equipment = {
-    id: uuidv4(),
-    name: data.name || '',
-    type: data.type || '',
-    manufacturer: data.manufacturer || '',
-    model: data.model || '',
-    serialNumber: data.serialNumber || '',
-    yearManufactured: data.yearManufactured || new Date().getFullYear(),
-    lastMaintenanceDate: data.lastMaintenanceDate,
-    nextMaintenanceDate: data.nextMaintenanceDate,
-    status: data.status || 'active'
-  };
-
-  const { resource } = await equipmentContainer.items.create(newEquipment);
-  return resource;
-}
-
-async function updateEquipment(id: string, updates: Partial<Equipment>): Promise<Equipment | null> {
-  try {
-    const { resource: existingItem } = await equipmentContainer.item(id, id).read();
-    const updatedItem = { ...existingItem, ...updates };
-    const { resource } = await equipmentContainer.item(id, id).replace(updatedItem);
-    return resource;
-  } catch (error) {
-    console.error("Error updating equipment:", error);
-    return null;
-  }
-}
-
-export async function getUserTrainingLevel(userId: string) {
-  const trainings = await db
-    .select()
-    .from(userTraining)
-    .where(eq(userTraining.userId, userId));
-
-  // Calculate training level based on completed modules
-  const completedModules = trainings.filter(t => t.status === 'completed').length;
-  return Math.floor(completedModules / 3) + 1; // Level up every 3 completed modules
-}
-
-let equipmentContainer: Container;
-let equipmentTypeContainer: Container;
