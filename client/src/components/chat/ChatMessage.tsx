@@ -8,9 +8,10 @@ interface ChatMessageProps {
   role: 'user' | 'assistant';
   content: string;
   files?: any[];
+  citations?: string[];
 }
 
-export default function ChatMessage({ role, content, files }: ChatMessageProps) {
+export default function ChatMessage({ role, content, files, citations }: ChatMessageProps) {
   return (
     <div
       className={cn(
@@ -36,6 +37,26 @@ export default function ChatMessage({ role, content, files }: ChatMessageProps) 
         <div className="prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
+
+        {citations && citations.length > 0 && (
+          <div className="mt-2 text-xs border-t border-primary-foreground/20 pt-2">
+            <div className="font-medium mb-1">Sources:</div>
+            <ul className="list-disc list-inside space-y-1">
+              {citations.map((citation, index) => (
+                <li key={index}>
+                  <a 
+                    href={citation} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {new URL(citation).hostname}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {files && files.length > 0 && (
           <div className="mt-2 space-y-2">

@@ -237,64 +237,64 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/messages", async (req, res) => {
     try {
       console.log("Received message request:", req.body);
-      const { content } = req.body;
+      const { content, mode = 'chat' } = req.body;
 
       if (!content) {
         console.log("Missing content in request");
         return res.status(400).json({ error: "Content is required" });
       }
 
-      // Track AI usage for chat (assuming it takes about 0.5 minutes per message)
-      await trackAIEngineUsage(req.user!.id, 'chat', 0.5, { messageLength: content.length });
-
       // Generate user message
-      const userMessage = {
+      const userMessage: Message = {
         id: uuidv4(),
         role: 'user',
         content,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        mode
       };
 
-      console.log("Generated user message:", userMessage);
+      let aiResponse: string | undefined;
+      let citations: string[] | undefined;
 
-      // Check if user is requesting a downloadable report
-      const isReportRequest = content.toLowerCase().includes('report') ||
-        content.toLowerCase().includes('document') ||
-        content.toLowerCase().includes('download');
+      if (mode === 'web-search') {
+        // Use Perplexity for web search
+        try {
+          console.log("Getting Perplexity response for content:", content);
+          const perplexityResponse = await searchWithPerplexity(content);
+          aiResponse = perplexityResponse.choices[0]?.message?.content;
+          citations = perplexityResponse.citations;
 
-      // Get AI response using Azure OpenAI
-      let aiResponse;
-      let downloadUrl;
-      try {
-        console.log("Getting AI response for content:", content);
-        aiResponse = await analyzeDocument(content);
-        console.log("Received AI response:", aiResponse);
-
-        // If this is a report request, generate a downloadable document
-        if (isReportRequest && aiResponse) {
-          console.log("Generating downloadable report...");
-          const filename = await generateReport(aiResponse);
-          if (filename) {
-            downloadUrl = `/uploads/${filename}`;
-            aiResponse = `${aiResponse}\n\nI've prepared a detailed report for you. You can download it here: [Download Report](${downloadUrl})`;
-          }
+          // Track AI usage for web search (assuming it takes about 1 minute per search)
+          await trackAIEngineUsage(req.user!.id, 'web_search', 1, { messageLength: content.length });
+        } catch (error) {
+          console.error("Error getting Perplexity response:", error);
+          throw new Error("Failed to get web search results");
         }
-      } catch (error) {
-        console.error("Error getting AI response:", error);
-        aiResponse = "I apologize, but I'm having trouble processing your request at the moment. Could you please try again?";
+      } else {
+        // Use existing Azure OpenAI for chat
+        try {
+          console.log("Getting AI response for content:", content);
+          aiResponse = await analyzeDocument(content);
+
+          // Track AI usage for chat (assuming it takes about 0.5 minutes per message)
+          await trackAIEngineUsage(req.user!.id, 'chat', 0.5, { messageLength: content.length });
+        } catch (error) {
+          console.error("Error getting AI response:", error);
+          throw new Error("Failed to get chat response");
+        }
       }
 
       // Create AI message
-      const aiMessage = {
+      const aiMessage: Message = {
         id: uuidv4(),
         role: 'assistant',
         content: aiResponse || "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        mode,
+        citations
       };
 
       console.log("Generated AI message:", aiMessage);
-      console.log("Sending response with both messages");
-
       res.json([userMessage, aiMessage]);
     } catch (error: any) {
       console.error("Error processing message:", error);
@@ -1018,25 +1018,83 @@ const upload = multer({
 });
 
 // Helper function to track AI Engine usage
-async function trackAIEngineUsage(userId: string, feature: 'chat' | 'document_analysis' | 'equipment_prediction' | 'report_generation', duration: number, metadata?: Record<string, any>) {
-  try {
-    // Generate a session ID for tracking
-    const sessionId = uuidv4();
-    const startTime = new Date();
-    const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
-
-    await db.insert(aiEngineActivity).values({
+async function trackAIEngineUsage(userId: string, feature: string, durationMinutes: number, metadata?: Record<string, any>) {
+  await db
+    .insert(aiEngineActivity)
+    .values({
       userId,
-      sessionId,
+      sessionId: uuidv4(),
       feature,
-      startTime,
-      endTime,
-      durationMinutes: duration,
-      metadata: metadata || {}
+      startTime: new Date(),
+      durationMinutes,
+      metadata: metadata ? JSON.stringify(metadata) : undefined
     });
+}
 
-    console.log(`Tracked AI Engine usage for user ${userId}: ${duration} minutes`);
-  } catch (error) {
-    console.error("Error tracking AI Engine usage:", error);
+// Add new types at the end of the file
+interface PerplexityOptions {
+  model: string;
+  messages: {
+    role: string;
+    content: string;
+  }[];
+  temperature: number;
+  max_tokens?: number;
+  top_p?: number;
+  stream?: boolean;
+}
+
+interface PerplexityResponse {
+  choices: {
+    message: {
+      content: string;
+    };
+  }[];
+  citations: string[];
+}
+
+async function searchWithPerplexity(content: string): Promise<PerplexityResponse> {
+  if (!process.env.PERPLEXITY_API_KEY) {
+    throw new Error("Perplexity API key not found");
   }
+
+  const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-sonar-small-128k-online",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant that provides factual answers based on web search results. Be precise and concise."
+        },
+        {
+          role: "user",
+          content
+        }
+      ],
+      temperature: 0.2,
+      top_p: 0.9,
+      stream: false
+    } as PerplexityOptions)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Perplexity API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+  mode: 'chat' | 'web-search';
+  citations?: string[];
 }

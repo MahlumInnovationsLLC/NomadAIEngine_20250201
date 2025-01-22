@@ -3,12 +3,14 @@ import { useMutation } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/use-chat-history";
-import type { Message } from "@/types/chat";
+import type { Message, ChatMode } from "@/types/chat";
 
 interface ChatInterfaceProps {
   chatId?: string;
@@ -17,6 +19,7 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
+  const [mode, setMode] = useState<ChatMode>("chat");
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -39,7 +42,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         const response = await fetch('/api/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, mode }),
           signal: abortControllerRef.current.signal,
           credentials: 'include',
         });
@@ -119,6 +122,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
                 <ChatMessage
                   role={message.role}
                   content={message.content}
+                  citations={message.citations}
                 />
                 {message.role === 'assistant' && index === messages.length - 1 && sendMessage.isPending && (
                   <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-background/50">
@@ -133,6 +137,20 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       )}
 
       <div className="border-t p-4 bg-background">
+        <div className="flex items-center gap-2 mb-2">
+          <Switch
+            checked={mode === 'web-search'}
+            onCheckedChange={(checked) => setMode(checked ? 'web-search' : 'chat')}
+            id="mode-toggle"
+          />
+          <Label htmlFor="mode-toggle" className="flex items-center gap-2">
+            <FontAwesomeIcon 
+              icon={mode === 'web-search' ? "globe" : "message"} 
+              className="h-4 w-4 text-muted-foreground"
+            />
+            {mode === 'web-search' ? 'Web Search' : 'Chat'}
+          </Label>
+        </div>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Button
             type="button"
@@ -146,7 +164,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
+            placeholder={mode === 'web-search' ? "Search the web..." : "Type your message..."}
             className="flex-1"
           />
           {sendMessage.isPending ? (
