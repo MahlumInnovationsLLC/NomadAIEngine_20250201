@@ -276,7 +276,7 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      <FontAwesomeIcon icon="bars-to-panel" />
+      <FontAwesomeIcon icon="bars" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
