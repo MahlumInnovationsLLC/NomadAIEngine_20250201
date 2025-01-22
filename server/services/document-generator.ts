@@ -73,8 +73,48 @@ export async function generateReport(topic: string): Promise<string> {
             // Handle bullet points
             if (stripped.startsWith("- ")) {
               return new Paragraph({
-                text: stripped.substring(2).trim(),
-                bullet: { level: 0 },
+                children: [
+                  new TextRun({
+                    text: "• ",
+                    bold: true,
+                  }),
+                  new TextRun({
+                    text: stripped.substring(2).trim(),
+                  }),
+                ],
+                indent: { left: convertInchesToTwip(0.5) },
+                spacing: { after: 200 }
+              });
+            }
+
+            // Handle numbered lists
+            const numberedMatch = stripped.match(/^(\d+)\.\s+(.+)/);
+            if (numberedMatch) {
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `${numberedMatch[1]}. `,
+                    bold: true,
+                  }),
+                  new TextRun({
+                    text: numberedMatch[2].trim(),
+                  }),
+                ],
+                indent: { left: convertInchesToTwip(0.5) },
+                spacing: { after: 200 }
+              });
+            }
+
+            // Regular paragraph with potential bold text
+            const boldParts = stripped.split(/\*\*(.*?)\*\*/g);
+            if (boldParts.length > 1) {
+              return new Paragraph({
+                children: boldParts.map((part, index) => 
+                  new TextRun({
+                    text: part,
+                    bold: index % 2 === 1,
+                  })
+                ),
                 spacing: { after: 200 }
               });
             }

@@ -25,7 +25,7 @@ export function DownloadReportButton({ content }: DownloadReportButtonProps) {
       }
 
       const data = await response.json();
-      
+
       // Create a download link and trigger it
       const link = document.createElement('a');
       link.href = data.downloadUrl;
@@ -42,13 +42,13 @@ export function DownloadReportButton({ content }: DownloadReportButtonProps) {
 
   return (
     <Button 
-      variant="outline" 
+      variant="secondary" 
       size="sm" 
       onClick={handleDownload}
       disabled={isLoading}
-      className="mt-2"
+      className="mt-2 text-foreground bg-secondary hover:bg-secondary/90"
     >
-      <FontAwesomeIcon icon="download" className="mr-2" />
+      <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
       {isLoading ? "Generating..." : "Download Report"}
     </Button>
   );
