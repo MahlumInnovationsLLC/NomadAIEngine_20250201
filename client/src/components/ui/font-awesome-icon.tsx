@@ -152,6 +152,7 @@ library.add(
   faBluetooth,
   faWifi,
   faCircleNotch
+  faDowload
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -234,6 +235,7 @@ const iconMap: Record<string, IconDefinition> = {
   'wifi': faWifi,
   'circle-notch': faCircleNotch,
   'bars': faBars // Use faBars as a replacement for the unavailable bars-to-panel
+  'download': faDownload,
 };
 
 export function FontAwesomeIcon({ 
