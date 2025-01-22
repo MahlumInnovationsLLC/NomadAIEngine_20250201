@@ -289,11 +289,14 @@ export const ticketHistory = pgTable("ticket_history", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Update the ai_engine_activity table schema
 export const aiEngineActivity = pgTable("ai_engine_activity", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
   sessionId: text("session_id").notNull(),
-  feature: text("feature", { enum: ['chat', 'document_analysis', 'equipment_prediction', 'report_generation'] }).notNull(),
+  feature: text("feature", {
+    enum: ['chat', 'web_search', 'document_analysis', 'equipment_prediction', 'report_generation']
+  }).notNull(),
   startTime: timestamp("start_time").defaultNow().notNull(),
   endTime: timestamp("end_time"),
   durationMinutes: decimal("duration_minutes", { precision: 10, scale: 2 }).notNull(),
