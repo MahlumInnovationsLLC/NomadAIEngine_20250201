@@ -20,13 +20,13 @@ import { msalConfig } from "@/lib/msal-config";
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
 
-// Lazy load route components
-const Home = lazy(() => import("./pages/Home"));
-const ChatPage = lazy(() => import("./pages/ChatPage"));
-const DashboardPage = lazy(() => import("./pages/DashboardPage"));
-const ClubControlPage = lazy(() => import("./pages/ClubControlPage"));
-const LoginPage = lazy(() => import("./pages/LoginPage"));
-const DocManagePage = lazy(() => import("./pages/DocManage"));
+// Lazy load route components with error boundaries
+const Home = lazy(() => import("./pages/Home").catch(() => ({ default: () => <div>Error loading Home page</div> })));
+const ChatPage = lazy(() => import("./pages/ChatPage").catch(() => ({ default: () => <div>Error loading Chat page</div> })));
+const DashboardPage = lazy(() => import("./pages/DashboardPage").catch(() => ({ default: () => <div>Error loading Dashboard</div> })));
+const ClubControlPage = lazy(() => import("./pages/ClubControlPage").catch(() => ({ default: () => <div>Error loading Club Control</div> })));
+const LoginPage = lazy(() => import("./pages/LoginPage").catch(() => ({ default: () => <div>Error loading Login page</div> })));
+const DocManagePage = lazy(() => import("./pages/DocManage").catch(() => ({ default: () => <div>Error loading Document Management</div> })));
 
 function LoadingFallback() {
   return (
@@ -99,24 +99,24 @@ function App() {
       <main className="flex-1 pt-6 relative z-10">
         <div className="container mx-auto">
           <AnimatePresenceWrapper>
-            <Suspense fallback={<LoadingFallback />}>
-              <Switch>
-                <Route path="/login">
+            <Switch>
+              <Route path="/login">
+                <Suspense fallback={<LoadingFallback />}>
                   <UnauthenticatedTemplate>
                     <LoginPage />
                   </UnauthenticatedTemplate>
                   <AuthenticatedTemplate>
                     <RedirectToDashboard />
                   </AuthenticatedTemplate>
-                </Route>
-                <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-                <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
-                <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
-                <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
-                <Route component={NotFound} />
-              </Switch>
-            </Suspense>
+                </Suspense>
+              </Route>
+              <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+              <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
+              <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
+              <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
+              <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
+              <Route component={NotFound} />
+            </Switch>
           </AnimatePresenceWrapper>
         </div>
       </main>

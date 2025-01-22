@@ -2,11 +2,10 @@ import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText, Download } from "lucide-react";
 import FilePreview from "@/components/document/FilePreview";
 import ReactMarkdown from 'react-markdown';
 import { useReportDownload } from "./ReportGenerator";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useState } from "react";
 
 interface ChatMessageProps {
@@ -52,9 +51,8 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
 
       <Card className={cn(
         "p-3 max-w-[80%]",
-        role === 'assistant' 
-          ? "bg-primary text-primary-foreground [&_*]:text-primary-foreground" 
-          : "bg-secondary text-foreground"
+        role === 'assistant' ? "bg-primary" : "bg-secondary",
+        role === 'assistant' ? "text-primary-foreground" : "text-foreground"
       )}>
         <div className="prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown>{content}</ReactMarkdown>
@@ -65,28 +63,28 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
             <Button 
               onClick={() => handleDownload('docx')} 
               variant="secondary" 
-              className="gap-2 text-foreground hover:text-foreground"
+              className="gap-2 text-primary hover:text-primary-foreground bg-background hover:bg-primary"
               disabled={isGenerating}
             >
               {isGenerating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <FontAwesomeIcon icon="download" className="h-4 w-4" />
+                <FileText className="h-4 w-4" />
               )}
-              Download Word Document
+              Download as Word
             </Button>
             <Button 
               onClick={() => handleDownload('pdf')} 
               variant="secondary" 
-              className="gap-2 text-foreground hover:text-foreground"
+              className="gap-2 text-primary hover:text-primary-foreground bg-background hover:bg-primary"
               disabled={isGenerating}
             >
               {isGenerating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <FontAwesomeIcon icon="download" className="h-4 w-4" />
+                <Download className="h-4 w-4" />
               )}
-              Download PDF
+              Download as PDF
             </Button>
           </div>
         )}
