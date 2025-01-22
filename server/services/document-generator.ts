@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, convertInchesToTwip, AlignmentType, HeadingLevel, NumberingLevel, LevelFormat } from 'docx';
+import { Document, Packer, Paragraph, TextRun, convertInchesToTwip, AlignmentType, HeadingLevel, LevelFormat } from 'docx';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { analyzeDocument } from './azure/openai_service';
@@ -22,28 +22,8 @@ export async function generateReport(topic: string): Promise<string> {
     const lines = response.split('\n');
     let docTitle = "Generated Report";
 
-    // Create document with proper styling and numbering
+    // Create document with proper styling
     const doc = new Document({
-      numbering: {
-        config: [
-          {
-            reference: "default-bullet",
-            levels: [
-              {
-                level: 0,
-                format: LevelFormat.BULLET,
-                text: "•",
-                alignment: AlignmentType.LEFT,
-                style: {
-                  paragraph: {
-                    indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) }
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      },
       sections: [{
         properties: {
           page: {
@@ -94,22 +74,7 @@ export async function generateReport(topic: string): Promise<string> {
             if (stripped.startsWith("- ")) {
               return new Paragraph({
                 text: stripped.substring(2).trim(),
-                bullet: {
-                  level: 0
-                },
-                spacing: { after: 200 }
-              });
-            }
-
-            // Handle numbered lists
-            const numberedMatch = stripped.match(/^\d+\.\s+(.+)/);
-            if (numberedMatch) {
-              return new Paragraph({
-                text: numberedMatch[1].trim(),
-                numbering: {
-                  reference: "default-bullet",
-                  level: 0
-                },
+                bullet: { level: 0 },
                 spacing: { after: 200 }
               });
             }

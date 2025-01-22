@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
+import { DownloadReportButton } from "@/components/ui/download-report-button";
 import FilePreview from "@/components/document/FilePreview";
 import ReactMarkdown from 'react-markdown';
 
@@ -12,6 +13,9 @@ interface ChatMessageProps {
 }
 
 export default function ChatMessage({ role, content, files, citations }: ChatMessageProps) {
+  // Check if the message contains a report (starts with a markdown heading)
+  const isReport = role === 'assistant' && content.trim().startsWith('#');
+
   return (
     <div
       className={cn(
@@ -64,6 +68,10 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
               <FilePreview key={index} file={file} />
             ))}
           </div>
+        )}
+
+        {isReport && (
+          <DownloadReportButton content={content} />
         )}
       </Card>
     </div>

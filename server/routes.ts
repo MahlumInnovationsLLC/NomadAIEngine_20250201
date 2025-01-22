@@ -431,7 +431,7 @@ export function registerRoutes(app: Express): Server {
   });
 
 
-  // Generate detailed report endpoint
+  // Add generate detailed report endpoint
   app.post("/api/generate-report", async (req, res) => {
     try {
       const { topic } = req.body;
