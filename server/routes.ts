@@ -1121,5 +1121,64 @@ export function registerRoutes(app: Express): Server {
   // Initialize Cosmos DB containers
   initializeContainers().catch(console.error);
 
+  // Add report generation endpoint with proper Azure Blob Storage integration
+  app.post("/api/reports/upload", upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      const file = req.file;
+      const { title } = req.body;
+
+      if (!file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+
+      console.log("Uploading report to Azure Blob Storage:", title);
+
+      // Generate a unique blob name for the report
+      const blobName = `reports/${Date.now()}-${title.toLowerCase().replace(/\s+/g, '-')}.docx`;
+      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+      // Upload to Azure Blob Storage
+      await blockBlobClient.uploadData(file.buffer, {
+        blobHTTPHeaders: {
+          blobContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+      });
+
+      // Get the download URL (this will be a SAS URL that expires)
+      const downloadUrl = `/api/reports/download/${encodeURIComponent(blobName)}`;
+
+      console.log("Report uploaded successfully:", blobName);
+      res.json({ downloadUrl });
+    } catch (error) {
+      console.error("Error uploading report:", error);
+      res.status(500).json({ error: "Failed to upload report" });
+    }
+  });
+
+  // Add download endpoint for reports
+  app.get("/api/reports/download/:blobName", async (req: Request, res: Response) => {
+    try {
+      const blobName = decodeURIComponent(req.params.blobName);
+      console.log("Downloading report:", blobName);
+
+      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+      const downloadResponse = await blockBlobClient.download(0);
+
+      if (!downloadResponse.readableStreamBody) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      // Set response headers
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${blobName.split('/').pop()}"`);
+
+      // Pipe the stream to the response
+      downloadResponse.readableStreamBody.pipe(res);
+    } catch (error) {
+      console.error("Error downloading report:", error);
+      res.status(500).json({ error: "Failed to download report" });
+    }
+  });
+
   return httpServer;
 }
