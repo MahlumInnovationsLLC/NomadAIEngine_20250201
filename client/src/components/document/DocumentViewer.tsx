@@ -19,37 +19,52 @@ interface DocumentData {
   version: string;
   status: 'draft' | 'in_review' | 'approved' | 'released';
   lastModified: string;
-  approvers?: string[];
 }
 
 export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const [version, setVersion] = useState<string>("");
   const [editedContent, setEditedContent] = useState<string>("");
-  const [isSubmittingForReview, setIsSubmittingForReview] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: document, isLoading } = useQuery<DocumentData>({
+  // Fetch document content
+  const { data: document, isLoading, error } = useQuery<DocumentData>({
     queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`],
     enabled: !!documentId,
+    retry: 1,
+    onError: (err: any) => {
+      console.error("Error fetching document:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to load document content",
+        variant: "destructive",
+      });
+    }
   });
 
+  // Update local state when document data changes
   useEffect(() => {
     if (document) {
-      setEditedContent(document.content);
-      setVersion(document.version);
+      console.log("Document data received:", document);
+      setEditedContent(document.content || '');
+      setVersion(document.version || '1.0');
     }
   }, [document]);
 
+  // Save document changes
   const saveMutation = useMutation({
     mutationFn: async (content: string) => {
+      console.log("Saving document:", documentId);
       const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, version }),
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to save document');
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -59,7 +74,8 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
         description: "Your changes have been saved successfully",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Save error:", error);
       toast({
         title: "Error",
         description: "Failed to save document changes",
@@ -68,45 +84,27 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     }
   });
 
-  const submitForReviewMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/submit-review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version }),
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to submit for review');
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Submitted for review",
-        description: "Document has been submitted for review. Approvers will be notified.",
-      });
-      setIsSubmittingForReview(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to submit document for review",
-        variant: "destructive",
-      });
-      setIsSubmittingForReview(false);
-    }
-  });
-
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-4">
+      <Card className="flex items-center justify-center p-4 h-[600px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="flex items-center justify-center p-4 h-[600px] text-destructive">
+        <div className="text-center">
+          <FontAwesomeIcon icon="exclamation-circle" className="h-8 w-8 mb-2" />
+          <p>Failed to load document: {(error as Error).message || 'Unknown error'}</p>
+        </div>
+      </Card>
     );
   }
 
   return (
-    <Card className="relative">
+    <Card className="relative h-[600px]">
       <div className="p-4 border-b bg-muted/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -132,20 +130,10 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
               </>
             )}
           </div>
-          {document?.status === 'draft' && !isEditing && (
-            <Button
-              variant="outline"
-              onClick={() => setIsSubmittingForReview(true)}
-              disabled={submitForReviewMutation.isPending}
-            >
-              <FontAwesomeIcon icon="paper-plane" className="mr-2 h-4 w-4" />
-              Submit for Review
-            </Button>
-          )}
         </div>
         {document && (
           <div className="mt-2 text-sm text-muted-foreground">
-            Status: {document.status} | Last modified: {new Date(document.lastModified).toLocaleString()}
+            Version: {document.version} | Status: {document.status} | Last modified: {new Date(document.lastModified).toLocaleString()}
           </div>
         )}
       </div>
@@ -158,7 +146,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
         ) : (
           <div 
             className="p-4 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: editedContent }}
+            dangerouslySetInnerHTML={{ __html: document?.content || '' }}
           />
         )}
       </ScrollArea>

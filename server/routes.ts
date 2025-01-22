@@ -786,7 +786,7 @@ export function registerRoutes(app: Express): Server {
   // Add document content endpoint
   app.get("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
     try {
-      const documentPath = req.params.path + (req.params[0] || '');
+      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
       console.log("Fetching document content for:", documentPath);
 
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
@@ -795,7 +795,10 @@ export function registerRoutes(app: Express): Server {
         const downloadResponse = await blockBlobClient.download();
         const properties = await blockBlobClient.getProperties();
 
+        console.log("Document properties:", properties);
+
         if (!downloadResponse.readableStreamBody) {
+          console.error("No content available for document:", documentPath);
           return res.status(404).json({ error: "No content available" });
         }
 
@@ -806,6 +809,9 @@ export function registerRoutes(app: Express): Server {
         }
         const content = Buffer.concat(chunks).toString('utf-8');
 
+        console.log("Successfully retrieved document content, size:", content.length);
+        console.log("Document metadata:", properties.metadata);
+
         // Send back the document data
         res.json({
           content,
@@ -814,6 +820,7 @@ export function registerRoutes(app: Express): Server {
           lastModified: properties.lastModified?.toISOString() || new Date().toISOString(),
         });
       } catch (error: any) {
+        console.error("Error downloading document:", error);
         if (error.statusCode === 404) {
           return res.status(404).json({ error: "Document not found" });
         }
@@ -828,7 +835,7 @@ export function registerRoutes(app: Express): Server {
   // Update document content endpoint
   app.put("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
     try {
-      const documentPath = req.params.path + (req.params[0] || '');
+      const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
       const { content, version } = req.body;
 
       if (!content) {
@@ -853,6 +860,7 @@ export function registerRoutes(app: Express): Server {
         },
       });
 
+      console.log("Successfully updated document content");
       res.json({ message: "Document updated successfully" });
     } catch (error) {
       console.error("Error updating document content:", error);

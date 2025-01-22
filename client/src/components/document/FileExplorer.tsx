@@ -16,9 +16,10 @@ interface BlobItem {
 
 interface FileExplorerProps {
   onSelectDocument?: (path: string) => void;
+  onPathChange?: (path: string) => void;
 }
 
-export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
+export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState<string>("");
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
@@ -40,11 +41,11 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
 
   const createFolderMutation = useMutation({
     mutationFn: async (folderName: string) => {
-      const fullPath = currentPath ? `${currentPath}${folderName}` : folderName;
       const response = await fetch('/api/documents/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: fullPath }),
+        body: JSON.stringify({ path: currentPath ? `${currentPath}${folderName}` : folderName }),
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to create folder');
       return response.json();
@@ -68,6 +69,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
   const navigateToFolder = (folderPath: string) => {
     const cleanPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
     setCurrentPath(cleanPath);
+    onPathChange?.(cleanPath);
   };
 
   const navigateUp = () => {
@@ -76,6 +78,7 @@ export function FileExplorer({ onSelectDocument }: FileExplorerProps) {
     segments.pop();
     const parentPath = segments.length > 0 ? `${segments.join('/')}/` : "";
     setCurrentPath(parentPath);
+    onPathChange?.(parentPath);
   };
 
   const handleItemClick = (item: BlobItem) => {
