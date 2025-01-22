@@ -49,7 +49,7 @@ export default function Home() {
           <Button 
             size="lg" 
             className="w-full"
-            onClick={() => navigate('/docmanage')}
+            onClick={() => navigate('/documents')}
           >
             <FontAwesomeIcon icon="file-lines" className="mr-2 h-5 w-5" />
             Manage Documents

@@ -1,12 +1,8 @@
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2, FileText, Download } from "lucide-react";
 import FilePreview from "@/components/document/FilePreview";
 import ReactMarkdown from 'react-markdown';
-import { useReportDownload } from "./ReportGenerator";
-import { useState } from "react";
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -16,23 +12,6 @@ interface ChatMessageProps {
 }
 
 export default function ChatMessage({ role, content, files, citations }: ChatMessageProps) {
-  const { downloadReport } = useReportDownload();
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const handleDownload = async (format: 'docx' | 'pdf') => {
-    try {
-      setIsGenerating(true);
-      await downloadReport(content, format);
-    } catch (error) {
-      console.error('Download error:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Check if the content appears to be a report (contains headers or sections)
-  const isReport = content.includes('# ') || content.includes('## ');
-
   return (
     <div
       className={cn(
@@ -51,43 +30,13 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
 
       <Card className={cn(
         "p-3 max-w-[80%]",
-        role === 'assistant' ? "bg-primary" : "bg-secondary",
-        role === 'assistant' ? "text-primary-foreground" : "text-foreground"
+        role === 'assistant' 
+          ? "bg-primary text-primary-foreground [&_*]:text-primary-foreground" 
+          : "bg-secondary text-foreground"
       )}>
         <div className="prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
-
-        {isReport && role === 'assistant' && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button 
-              onClick={() => handleDownload('docx')} 
-              variant="secondary" 
-              className="gap-2 text-primary hover:text-primary-foreground bg-background hover:bg-primary"
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileText className="h-4 w-4" />
-              )}
-              Download as Word
-            </Button>
-            <Button 
-              onClick={() => handleDownload('pdf')} 
-              variant="secondary" 
-              className="gap-2 text-primary hover:text-primary-foreground bg-background hover:bg-primary"
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Download as PDF
-            </Button>
-          </div>
-        )}
 
         {citations && citations.length > 0 && (
           <div className="mt-2 text-xs border-t border-primary-foreground/20 pt-2">

@@ -3,7 +3,14 @@ import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
-  faDownload,
+  faGithub,
+  faTwitter,
+  faLinkedin,
+  faDiscord,
+  faWindows,
+  faSlack
+} from '@fortawesome/free-brands-svg-icons';
+import { 
   faCheck,
   faChevronRight,
   faCircle,
@@ -60,13 +67,15 @@ import {
   faMapPin,
   faGlobePointer,
   faBrainCircuit,
-  faMagnifyingGlass,
-  faBoxArchive,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
 library.add(
-  faDownload,
+  faGithub,
+  faTwitter,
+  faLinkedin,
+  faDiscord,
+  faSlack,
   faCheck,
   faChevronRight,
   faCircle,
@@ -120,22 +129,26 @@ library.add(
   faSquare,
   faPaperPlane,
   faChartLine,
-  faMapPin,
-  faGlobePointer,
-  faBrainCircuit,
-  faMagnifyingGlass,
-  faBoxArchive
+  faMapPin
 );
 
+interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
+  icon: string;
+  size?: 'xs' | 'sm' | 'lg' | '2x' | '3x' | '4x' | '5x';
+}
+
 const iconMap: Record<string, IconDefinition> = {
-  'download': faDownload,
+  'github': faGithub,
+  'twitter': faTwitter,
+  'linkedin': faLinkedin,
+  'discord': faDiscord,
+  'slack': faSlack,
+  'windows': faWindows,
+  'award': faAward,
+  'trophy-star': faTrophyStar,
   'check': faCheck,
   'chevron-right': faChevronRight,
   'circle': faCircle,
-  'award': faAward,
-  'trophy-star': faTrophyStar,
-  'person-chalkboard': faPersonChalkboard,
-  'plus': faPlus,
   'circle-check': faCircleCheck,
   'calendar': faCalendar,
   'triangle-exclamation': faTriangleExclamation,
@@ -182,16 +195,10 @@ const iconMap: Record<string, IconDefinition> = {
   'paper-plane': faPaperPlane,
   'chart-line': faChartLine,
   'map-pin': faMapPin,
+  'plus': faPlus,
   'globe-pointer': faGlobePointer,
-  'brain-circuit': faBrainCircuit,
-  'magnifying-glass': faMagnifyingGlass,
-  'box-archive': faBoxArchive,
+  'brain-circuit': faBrainCircuit
 };
-
-interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
-  icon: string;
-  size?: 'xs' | 'sm' | 'lg' | '2x' | '3x' | '4x' | '5x';
-}
 
 export function FontAwesomeIcon({ 
   icon, 

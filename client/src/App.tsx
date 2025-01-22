@@ -13,20 +13,26 @@ import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import Navbar from "@/components/layout/Navbar";
-import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
+import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
 
-// Lazy load route components with error boundaries
-const Home = lazy(() => import("./pages/Home").catch(() => ({ default: () => <div>Error loading Home page</div> })));
-const ChatPage = lazy(() => import("./pages/ChatPage").catch(() => ({ default: () => <div>Error loading Chat page</div> })));
-const DashboardPage = lazy(() => import("./pages/DashboardPage").catch(() => ({ default: () => <div>Error loading Dashboard</div> })));
-const ClubControlPage = lazy(() => import("./pages/ClubControlPage").catch(() => ({ default: () => <div>Error loading Club Control</div> })));
-const LoginPage = lazy(() => import("./pages/LoginPage").catch(() => ({ default: () => <div>Error loading Login page</div> })));
-const DocManagePage = lazy(() => import("./pages/DocManage").catch(() => ({ default: () => <div>Error loading Document Management</div> })));
+// Lazy load route components
+const Home = lazy(() => import("@/pages/Home"));
+const ChatPage = lazy(() => import("@/pages/ChatPage"));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
+const LoginPage = lazy(() => import("@/pages/LoginPage"));
+const DocManagePage = lazy(() => import("@/pages/DocManage"));
+const DocumentManagementPage = lazy(() => import("@/pages/DocumentManagement"));
+const TrainingModulePage = lazy(() => import("@/pages/TrainingModule"));
+const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const TicketDetails = lazy(() => import("@/pages/admin/TicketDetails"));
+const SupportTickets = lazy(() => import("@/pages/admin/SupportTickets"));
+const TicketDetailsPage = lazy(() => import("@/pages/TicketDetailsPage"));
 
 function LoadingFallback() {
   return (
@@ -85,9 +91,7 @@ function App() {
         <ParticleBackground className="absolute inset-0 w-full h-full" particleColor="rgba(239, 68, 68, 0.2)" />
         <div className={`absolute inset-0 w-full h-full ${theme === 'light' ? 'bg-background/90' : ''}`} />
       </div>
-
       <ErrorBoundary>
-        <NotificationCenter />
       </ErrorBoundary>
 
       <AuthenticatedTemplate>
@@ -99,24 +103,30 @@ function App() {
       <main className="flex-1 pt-6 relative z-10">
         <div className="container mx-auto">
           <AnimatePresenceWrapper>
-            <Switch>
-              <Route path="/login">
-                <Suspense fallback={<LoadingFallback />}>
+            <Suspense fallback={<LoadingFallback />}>
+              <Switch>
+                <Route path="/login">
                   <UnauthenticatedTemplate>
                     <LoginPage />
                   </UnauthenticatedTemplate>
                   <AuthenticatedTemplate>
                     <RedirectToDashboard />
                   </AuthenticatedTemplate>
-                </Suspense>
-              </Route>
-              <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-              <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
-              <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-              <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
-              <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
-              <Route component={NotFound} />
-            </Switch>
+                </Route>
+                <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+                <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
+                <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
+                <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
+                <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
+                <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
+                <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
+                <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
+                <Route path="/admin/support/:id" component={() => (
+                  <ProtectedRoute component={TicketDetailsPage} />
+                )} />
+                <Route component={NotFound} />
+              </Switch>
+            </Suspense>
           </AnimatePresenceWrapper>
         </div>
       </main>

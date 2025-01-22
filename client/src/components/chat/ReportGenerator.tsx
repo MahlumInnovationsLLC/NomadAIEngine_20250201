@@ -1,6 +1,5 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import { useToast } from "@/hooks/use-toast";
-import { jsPDF } from "jspdf";
 
 interface GenerateReportProps {
   title: string;
@@ -12,47 +11,18 @@ interface GenerateReportProps {
   };
 }
 
-// Function to format the content for better structure
-function formatReportContent(content: string): { title: string, sections: string[] } {
-  const lines = content.split('\n');
-  let title = "AI Generated Report";
-  const sections: string[] = [];
-  let currentSection = "";
-
-  lines.forEach((line) => {
-    if (line.startsWith('# ')) {
-      title = line.replace('# ', '');
-    } else if (line.startsWith('## ')) {
-      if (currentSection) {
-        sections.push(currentSection.trim());
-      }
-      currentSection = line + '\n';
-    } else {
-      currentSection += line + '\n';
-    }
-  });
-
-  if (currentSection) {
-    sections.push(currentSection.trim());
-  }
-
-  return { title, sections };
-}
-
-export async function generateWordReport({ title, content, metadata }: GenerateReportProps): Promise<Blob> {
-  const { title: extractedTitle, sections } = formatReportContent(content);
-
+export async function generateReport({ title, content, metadata }: GenerateReportProps): Promise<Blob> {
+  const sections = content.split('\n\n');
+  
   const doc = new Document({
     sections: [{
       properties: {},
       children: [
         new Paragraph({
-          text: extractedTitle,
+          text: title,
           heading: HeadingLevel.HEADING_1,
-          alignment: AlignmentType.CENTER,
           spacing: {
-            after: 300,
-            before: 300,
+            after: 200,
           },
         }),
         ...(metadata ? [
@@ -63,159 +33,57 @@ export async function generateWordReport({ title, content, metadata }: GenerateR
                 size: 20,
               }),
             ],
-            spacing: { after: 300 },
-            alignment: AlignmentType.RIGHT,
+            spacing: { after: 200 },
           }),
         ] : []),
-        ...sections.map(section => {
-          if (section.startsWith('## ')) {
-            const [heading, ...content] = section.split('\n');
-            return [
-              new Paragraph({
-                text: heading.replace('## ', ''),
-                heading: HeadingLevel.HEADING_2,
-                spacing: { before: 200, after: 120 },
-              }),
-              new Paragraph({
-                text: content.join('\n'),
-                spacing: { after: 120 },
-              }),
-            ];
-          }
-          return new Paragraph({
+        ...sections.map(section => 
+          new Paragraph({
             text: section,
             spacing: { after: 120 },
-          });
-        }).flat(),
+          })
+        ),
       ],
     }],
   });
 
-  return await Packer.toBlob(doc);
-}
-
-export async function generatePDFReport({ title, content, metadata }: GenerateReportProps): Promise<Blob> {
-  try {
-    const { title: extractedTitle, sections } = formatReportContent(content);
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-      putOnlyUsedFonts: true,
-    });
-
-    // Add title
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(24);
-    const titleWidth = pdf.getStringUnitWidth(extractedTitle) * 24 / pdf.internal.scaleFactor;
-    const titleX = (pdf.internal.pageSize.width - titleWidth) / 2;
-    pdf.text(extractedTitle, titleX, 20);
-
-    // Add metadata
-    if (metadata) {
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      const dateText = `Generated on: ${metadata.createdAt?.toLocaleString() || new Date().toLocaleString()}`;
-      pdf.text(
-        dateText,
-        pdf.internal.pageSize.width - 15,
-        30,
-        { align: 'right' }
-      );
-    }
-
-    // Add content
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(12);
-    let yPosition = 40;
-
-    for (const section of sections) {
-      if (section.startsWith('## ')) {
-        const [heading, ...content] = section.split('\n');
-
-        // Check if we need a new page
-        if (yPosition > pdf.internal.pageSize.height - 30) {
-          pdf.addPage();
-          yPosition = 20;
-        }
-
-        // Add section heading
-        pdf.setFont("helvetica", "bold");
-        yPosition += 10;
-        pdf.text(heading.replace('## ', ''), 15, yPosition);
-
-        // Add section content
-        pdf.setFont("helvetica", "normal");
-        yPosition += 8;
-        const contentText = content.join(' ').trim();
-        const splitText = pdf.splitTextToSize(contentText, pdf.internal.pageSize.width - 30);
-
-        for (const line of splitText) {
-          if (yPosition > pdf.internal.pageSize.height - 20) {
-            pdf.addPage();
-            yPosition = 20;
-          }
-          pdf.text(line, 15, yPosition);
-          yPosition += 7;
-        }
-      } else {
-        const splitText = pdf.splitTextToSize(section, pdf.internal.pageSize.width - 30);
-        for (const line of splitText) {
-          if (yPosition > pdf.internal.pageSize.height - 20) {
-            pdf.addPage();
-            yPosition = 20;
-          }
-          pdf.text(line, 15, yPosition);
-          yPosition += 7;
-        }
-      }
-    }
-
-    return pdf.output('blob');
-  } catch (error) {
-    console.error('PDF Generation Error:', error);
-    throw new Error('Failed to generate PDF: ' + (error as Error).message);
-  }
+  return Packer.toBlob(doc);
 }
 
 export function useReportDownload() {
   const { toast } = useToast();
 
-  const downloadReport = async (response: string, format: 'docx' | 'pdf' = 'docx') => {
+  const downloadReport = async (response: string, title: string = "AI Generated Report") => {
     try {
-      const formattedContent = formatReportContent(response);
-      const blob = format === 'docx' 
-        ? await generateWordReport({
-            title: formattedContent.title,
-            content: response,
-            metadata: {
-              createdAt: new Date(),
-            },
-          })
-        : await generatePDFReport({
-            title: formattedContent.title,
-            content: response,
-            metadata: {
-              createdAt: new Date(),
-            },
-          });
+      const blob = await generateReport({
+        title,
+        content: response,
+        metadata: {
+          createdAt: new Date(),
+        },
+      });
 
-      // Create a download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${formattedContent.title.toLowerCase().replace(/\s+/g, '-')}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // Upload to Azure Blob Storage
+      const formData = new FormData();
+      formData.append('file', blob, `${title.toLowerCase().replace(/\s+/g, '-')}.docx`);
+      formData.append('title', title);
+
+      const uploadResponse = await fetch('/api/reports/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload report');
+      }
+
+      const { downloadUrl } = await uploadResponse.json();
 
       toast({
         title: "Report Generated",
-        description: `Your report has been generated as a ${format.toUpperCase()} file.`,
+        description: "Your report has been generated and is ready for download.",
       });
 
-      return url;
+      return downloadUrl;
     } catch (error) {
       console.error('Error generating report:', error);
       toast({
