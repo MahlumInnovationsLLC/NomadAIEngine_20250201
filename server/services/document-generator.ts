@@ -24,6 +24,38 @@ export async function generateReport(topic: string): Promise<string> {
 
     // Create document with proper styling
     const doc = new Document({
+      numbering: {
+        config: [
+          {
+            reference: "multilevel-list",
+            levels: [{
+              level: 0,
+              format: LevelFormat.BULLET,
+              text: "•",
+              alignment: AlignmentType.LEFT,
+              style: {
+                paragraph: {
+                  indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) }
+                }
+              }
+            }]
+          },
+          {
+            reference: "numbered-list",
+            levels: [{
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1.",
+              alignment: AlignmentType.LEFT,
+              style: {
+                paragraph: {
+                  indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) }
+                }
+              }
+            }]
+          }
+        ]
+      },
       sections: [{
         properties: {
           page: {
@@ -73,16 +105,11 @@ export async function generateReport(topic: string): Promise<string> {
             // Handle bullet points
             if (stripped.startsWith("- ")) {
               return new Paragraph({
-                children: [
-                  new TextRun({
-                    text: "• ",
-                    bold: true,
-                  }),
-                  new TextRun({
-                    text: stripped.substring(2).trim(),
-                  }),
-                ],
-                indent: { left: convertInchesToTwip(0.5) },
+                numbering: {
+                  reference: "multilevel-list",
+                  level: 0,
+                },
+                text: stripped.substring(2).trim(),
                 spacing: { after: 200 }
               });
             }
@@ -91,16 +118,11 @@ export async function generateReport(topic: string): Promise<string> {
             const numberedMatch = stripped.match(/^(\d+)\.\s+(.+)/);
             if (numberedMatch) {
               return new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `${numberedMatch[1]}. `,
-                    bold: true,
-                  }),
-                  new TextRun({
-                    text: numberedMatch[2].trim(),
-                  }),
-                ],
-                indent: { left: convertInchesToTwip(0.5) },
+                numbering: {
+                  reference: "numbered-list",
+                  level: 0,
+                },
+                text: numberedMatch[2].trim(),
                 spacing: { after: 200 }
               });
             }

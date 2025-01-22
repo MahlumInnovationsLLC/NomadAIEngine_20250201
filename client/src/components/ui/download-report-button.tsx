@@ -42,11 +42,11 @@ export function DownloadReportButton({ content }: DownloadReportButtonProps) {
 
   return (
     <Button 
-      variant="secondary" 
+      variant="outline" 
       size="sm" 
       onClick={handleDownload}
       disabled={isLoading}
-      className="mt-2 text-foreground bg-secondary hover:bg-secondary/90"
+      className="mt-2 bg-white dark:bg-black text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900"
     >
       <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
       {isLoading ? "Generating..." : "Download Report"}
