@@ -2,10 +2,12 @@ import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import FilePreview from "@/components/document/FilePreview";
 import ReactMarkdown from 'react-markdown';
 import { useReportDownload } from "./ReportGenerator";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { useState } from "react";
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -16,9 +18,17 @@ interface ChatMessageProps {
 
 export default function ChatMessage({ role, content, files, citations }: ChatMessageProps) {
   const { downloadReport } = useReportDownload();
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleDownload = async (format: 'docx' | 'pdf') => {
-    await downloadReport(content, format);
+    try {
+      setIsGenerating(true);
+      await downloadReport(content, format);
+    } catch (error) {
+      console.error('Download error:', error);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // Check if the content appears to be a report (contains headers or sections)
@@ -51,21 +61,31 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
         </div>
 
         {isReport && role === 'assistant' && (
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Button 
               onClick={() => handleDownload('docx')} 
               variant="secondary" 
               className="gap-2 text-foreground hover:text-foreground"
+              disabled={isGenerating}
             >
-              <FontAwesomeIcon icon="download" className="h-4 w-4" />
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FontAwesomeIcon icon="download" className="h-4 w-4" />
+              )}
               Download Word Document
             </Button>
             <Button 
               onClick={() => handleDownload('pdf')} 
               variant="secondary" 
               className="gap-2 text-foreground hover:text-foreground"
+              disabled={isGenerating}
             >
-              <FontAwesomeIcon icon="download" className="h-4 w-4" />
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FontAwesomeIcon icon="download" className="h-4 w-4" />
+              )}
               Download PDF
             </Button>
           </div>

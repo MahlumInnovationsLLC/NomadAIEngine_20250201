@@ -91,69 +91,91 @@ export async function generateWordReport({ title, content, metadata }: GenerateR
     }],
   });
 
-  return Packer.toBlob(doc);
+  return await Packer.toBlob(doc);
 }
 
 export async function generatePDFReport({ title, content, metadata }: GenerateReportProps): Promise<Blob> {
-  const { title: extractedTitle, sections } = formatReportContent(content);
-  const pdf = new jsPDF();
+  try {
+    const { title: extractedTitle, sections } = formatReportContent(content);
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      putOnlyUsedFonts: true,
+    });
 
-  // Add title
-  pdf.setFontSize(24);
-  pdf.text(extractedTitle, pdf.internal.pageSize.width / 2, 20, { align: 'center' });
+    // Add title
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(24);
+    const titleWidth = pdf.getStringUnitWidth(extractedTitle) * 24 / pdf.internal.scaleFactor;
+    const titleX = (pdf.internal.pageSize.width - titleWidth) / 2;
+    pdf.text(extractedTitle, titleX, 20);
 
-  // Add metadata
-  if (metadata) {
-    pdf.setFontSize(10);
-    pdf.text(
-      `Generated on: ${metadata.createdAt?.toLocaleString() || new Date().toLocaleString()}`,
-      pdf.internal.pageSize.width - 15,
-      30,
-      { align: 'right' }
-    );
-  }
-
-  // Add content
-  pdf.setFontSize(12);
-  let yPosition = 40;
-
-  sections.forEach((section) => {
-    if (section.startsWith('## ')) {
-      const [heading, ...content] = section.split('\n');
-
-      // Add section heading
-      pdf.setFont(undefined, 'bold');
-      yPosition += 10;
-      pdf.text(heading.replace('## ', ''), 15, yPosition);
-      pdf.setFont(undefined, 'normal');
-
-      // Add section content
-      yPosition += 10;
-      const contentText = content.join('\n');
-      const splitText = pdf.splitTextToSize(contentText, pdf.internal.pageSize.width - 30);
-
-      splitText.forEach((line: string) => {
-        if (yPosition > pdf.internal.pageSize.height - 20) {
-          pdf.addPage();
-          yPosition = 20;
-        }
-        pdf.text(line, 15, yPosition);
-        yPosition += 7;
-      });
-    } else {
-      const splitText = pdf.splitTextToSize(section, pdf.internal.pageSize.width - 30);
-      splitText.forEach((line: string) => {
-        if (yPosition > pdf.internal.pageSize.height - 20) {
-          pdf.addPage();
-          yPosition = 20;
-        }
-        pdf.text(line, 15, yPosition);
-        yPosition += 7;
-      });
+    // Add metadata
+    if (metadata) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      const dateText = `Generated on: ${metadata.createdAt?.toLocaleString() || new Date().toLocaleString()}`;
+      pdf.text(
+        dateText,
+        pdf.internal.pageSize.width - 15,
+        30,
+        { align: 'right' }
+      );
     }
-  });
 
-  return pdf.output('blob');
+    // Add content
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(12);
+    let yPosition = 40;
+
+    for (const section of sections) {
+      if (section.startsWith('## ')) {
+        const [heading, ...content] = section.split('\n');
+
+        // Check if we need a new page
+        if (yPosition > pdf.internal.pageSize.height - 30) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+
+        // Add section heading
+        pdf.setFont("helvetica", "bold");
+        yPosition += 10;
+        pdf.text(heading.replace('## ', ''), 15, yPosition);
+
+        // Add section content
+        pdf.setFont("helvetica", "normal");
+        yPosition += 8;
+        const contentText = content.join(' ').trim();
+        const splitText = pdf.splitTextToSize(contentText, pdf.internal.pageSize.width - 30);
+
+        for (const line of splitText) {
+          if (yPosition > pdf.internal.pageSize.height - 20) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          pdf.text(line, 15, yPosition);
+          yPosition += 7;
+        }
+      } else {
+        const splitText = pdf.splitTextToSize(section, pdf.internal.pageSize.width - 30);
+        for (const line of splitText) {
+          if (yPosition > pdf.internal.pageSize.height - 20) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          pdf.text(line, 15, yPosition);
+          yPosition += 7;
+        }
+      }
+    }
+
+    return pdf.output('blob');
+  } catch (error) {
+    console.error('PDF Generation Error:', error);
+    throw new Error('Failed to generate PDF: ' + (error as Error).message);
+  }
 }
 
 export function useReportDownload() {

@@ -60,6 +60,8 @@ import {
   faMapPin,
   faGlobePointer,
   faBrainCircuit,
+  faMagnifyingGlass,
+  faBoxArchive,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -120,7 +122,9 @@ library.add(
   faChartLine,
   faMapPin,
   faGlobePointer,
-  faBrainCircuit
+  faBrainCircuit,
+  faMagnifyingGlass,
+  faBoxArchive
 );
 
 const iconMap: Record<string, IconDefinition> = {
@@ -179,7 +183,9 @@ const iconMap: Record<string, IconDefinition> = {
   'chart-line': faChartLine,
   'map-pin': faMapPin,
   'globe-pointer': faGlobePointer,
-  'brain-circuit': faBrainCircuit
+  'brain-circuit': faBrainCircuit,
+  'magnifying-glass': faMagnifyingGlass,
+  'box-archive': faBoxArchive,
 };
 
 interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {

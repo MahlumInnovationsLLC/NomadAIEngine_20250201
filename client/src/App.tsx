@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import Navbar from "@/components/layout/Navbar";
-import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
+import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
 
@@ -21,18 +21,12 @@ import { msalConfig } from "@/lib/msal-config";
 const msalInstance = new PublicClientApplication(msalConfig);
 
 // Lazy load route components
-const Home = lazy(() => import("@/pages/Home"));
-const ChatPage = lazy(() => import("@/pages/ChatPage"));
-const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
-const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
-const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const DocManagePage = lazy(() => import("@/pages/DocManage"));
-const DocumentManagementPage = lazy(() => import("@/pages/DocumentManagement"));
-const TrainingModulePage = lazy(() => import("@/pages/TrainingModule"));
-const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
-const TicketDetails = lazy(() => import("@/pages/admin/TicketDetails"));
-const SupportTickets = lazy(() => import("@/pages/admin/SupportTickets"));
-const TicketDetailsPage = lazy(() => import("@/pages/TicketDetailsPage"));
+const Home = lazy(() => import("./pages/Home"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const ClubControlPage = lazy(() => import("./pages/ClubControlPage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const DocManagePage = lazy(() => import("./pages/DocManage"));
 
 function LoadingFallback() {
   return (
@@ -91,7 +85,9 @@ function App() {
         <ParticleBackground className="absolute inset-0 w-full h-full" particleColor="rgba(239, 68, 68, 0.2)" />
         <div className={`absolute inset-0 w-full h-full ${theme === 'light' ? 'bg-background/90' : ''}`} />
       </div>
+
       <ErrorBoundary>
+        <NotificationCenter />
       </ErrorBoundary>
 
       <AuthenticatedTemplate>
@@ -117,13 +113,7 @@ function App() {
                 <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                 <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
                 <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
-                <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
-                <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
                 <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
-                <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
-                <Route path="/admin/support/:id" component={() => (
-                  <ProtectedRoute component={TicketDetailsPage} />
-                )} />
                 <Route component={NotFound} />
               </Switch>
             </Suspense>
