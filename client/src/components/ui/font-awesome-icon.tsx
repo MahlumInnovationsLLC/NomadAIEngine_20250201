@@ -3,14 +3,7 @@ import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
-  faGithub,
-  faTwitter,
-  faLinkedin,
-  faDiscord,
-  faWindows,
-  faSlack
-} from '@fortawesome/free-brands-svg-icons';
-import { 
+  faDownload,
   faCheck,
   faChevronRight,
   faCircle,
@@ -71,11 +64,7 @@ import {
 
 // Add icons to library
 library.add(
-  faGithub,
-  faTwitter,
-  faLinkedin,
-  faDiscord,
-  faSlack,
+  faDownload,
   faCheck,
   faChevronRight,
   faCircle,
@@ -129,26 +118,20 @@ library.add(
   faSquare,
   faPaperPlane,
   faChartLine,
-  faMapPin
+  faMapPin,
+  faGlobePointer,
+  faBrainCircuit
 );
 
-interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
-  icon: string;
-  size?: 'xs' | 'sm' | 'lg' | '2x' | '3x' | '4x' | '5x';
-}
-
 const iconMap: Record<string, IconDefinition> = {
-  'github': faGithub,
-  'twitter': faTwitter,
-  'linkedin': faLinkedin,
-  'discord': faDiscord,
-  'slack': faSlack,
-  'windows': faWindows,
-  'award': faAward,
-  'trophy-star': faTrophyStar,
+  'download': faDownload,
   'check': faCheck,
   'chevron-right': faChevronRight,
   'circle': faCircle,
+  'award': faAward,
+  'trophy-star': faTrophyStar,
+  'person-chalkboard': faPersonChalkboard,
+  'plus': faPlus,
   'circle-check': faCircleCheck,
   'calendar': faCalendar,
   'triangle-exclamation': faTriangleExclamation,
@@ -195,10 +178,14 @@ const iconMap: Record<string, IconDefinition> = {
   'paper-plane': faPaperPlane,
   'chart-line': faChartLine,
   'map-pin': faMapPin,
-  'plus': faPlus,
   'globe-pointer': faGlobePointer,
   'brain-circuit': faBrainCircuit
 };
+
+interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
+  icon: string;
+  size?: 'xs' | 'sm' | 'lg' | '2x' | '3x' | '4x' | '5x';
+}
 
 export function FontAwesomeIcon({ 
   icon, 

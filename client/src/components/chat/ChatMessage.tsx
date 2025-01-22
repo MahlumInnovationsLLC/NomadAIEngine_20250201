@@ -1,8 +1,11 @@
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import FilePreview from "@/components/document/FilePreview";
 import ReactMarkdown from 'react-markdown';
+import { useReportDownload } from "./ReportGenerator";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -12,6 +15,15 @@ interface ChatMessageProps {
 }
 
 export default function ChatMessage({ role, content, files, citations }: ChatMessageProps) {
+  const { downloadReport } = useReportDownload();
+
+  const handleDownload = async () => {
+    await downloadReport(content);
+  };
+
+  // Check if the content appears to be a report (contains headers or sections)
+  const isReport = content.includes('# ') || content.includes('## ');
+
   return (
     <div
       className={cn(
@@ -37,6 +49,15 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
         <div className="prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
+
+        {isReport && role === 'assistant' && (
+          <div className="mt-4 flex gap-2">
+            <Button onClick={handleDownload} variant="secondary" className="gap-2">
+              <FontAwesomeIcon icon="download" className="h-4 w-4" />
+              Download as Word Document
+            </Button>
+          </div>
+        )}
 
         {citations && citations.length > 0 && (
           <div className="mt-2 text-xs border-t border-primary-foreground/20 pt-2">
