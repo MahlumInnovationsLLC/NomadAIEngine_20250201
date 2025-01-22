@@ -86,10 +86,10 @@ function App() {
   const { theme } = useTheme();
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col">
-      <div className="absolute inset-0 -z-20">
-        <ParticleBackground className="absolute inset-0" particleColor="rgba(239, 68, 68, 0.2)" />
-        <div className={`absolute inset-0 ${theme === 'light' ? 'bg-background/90' : ''} scale-110 origin-center transform`} />
+    <div className="fixed inset-0 w-screen h-screen flex flex-col overflow-auto">
+      <div className="fixed inset-0 -z-20 w-full h-full">
+        <ParticleBackground className="absolute inset-0 w-full h-full" particleColor="rgba(239, 68, 68, 0.2)" />
+        <div className={`absolute inset-0 w-full h-full ${theme === 'light' ? 'bg-background/90' : ''}`} />
       </div>
       <ErrorBoundary>
       </ErrorBoundary>
