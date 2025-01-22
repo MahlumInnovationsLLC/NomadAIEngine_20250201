@@ -10,6 +10,18 @@ import {
   faWindows,
   faSlack
 } from '@fortawesome/free-brands-svg-icons';
+import {
+  faMagnifyingGlass as faMagnifyingGlassRegular,
+  faBoxArchive as faBoxArchiveRegular,
+  faCircleCheck as faCircleCheckRegular,
+  faCircleXmark as faCircleXmarkRegular,
+  faChevronRight as faChevronRightRegular,
+  faChevronLeft as faChevronLeftRegular,
+  faChevronDown as faChevronDownRegular,
+  faChevronUp as faChevronUpRegular,
+  faEllipsisH as faEllipsisHRegular,
+  faSpinner as faSpinnerRegular,
+} from '@fortawesome/free-regular-svg-icons';
 import { 
   faCheck,
   faChevronRight,
@@ -67,15 +79,36 @@ import {
   faMapPin,
   faGlobePointer,
   faBrainCircuit,
+  faMagnifyingGlass,
+  faBoxArchive,
+  faEllipsisH,
+  faBarToPanel,
+  faSpinner
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
 library.add(
+  // Brand icons
   faGithub,
   faTwitter,
   faLinkedin,
   faDiscord,
   faSlack,
+  faWindows,
+
+  // Regular icons
+  faMagnifyingGlassRegular,
+  faBoxArchiveRegular,
+  faCircleCheckRegular,
+  faCircleXmarkRegular,
+  faChevronRightRegular,
+  faChevronLeftRegular,
+  faChevronDownRegular,
+  faChevronUpRegular,
+  faEllipsisHRegular,
+  faSpinnerRegular,
+
+  // Light icons
   faCheck,
   faChevronRight,
   faCircle,
@@ -129,7 +162,14 @@ library.add(
   faSquare,
   faPaperPlane,
   faChartLine,
-  faMapPin
+  faMapPin,
+  faGlobePointer,
+  faBrainCircuit,
+  faMagnifyingGlass,
+  faBoxArchive,
+  faEllipsisH,
+  faBarToPanel,
+  faSpinner
 );
 
 interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
@@ -138,18 +178,27 @@ interface FontAwesomeIconProps extends HTMLAttributes<HTMLElement> {
 }
 
 const iconMap: Record<string, IconDefinition> = {
+  // Brand icons
   'github': faGithub,
   'twitter': faTwitter,
   'linkedin': faLinkedin,
   'discord': faDiscord,
   'slack': faSlack,
   'windows': faWindows,
+
+  // Regular icons with fallbacks to light
+  'magnifying-glass': faMagnifyingGlassRegular || faMagnifyingGlass,
+  'box-archive': faBoxArchiveRegular || faBoxArchive,
+  'circle-check': faCircleCheckRegular || faCircleCheck,
+  'ellipsis-h': faEllipsisHRegular || faEllipsisH,
+  'spinner': faSpinnerRegular || faSpinner,
+
+  // Light icons
   'award': faAward,
   'trophy-star': faTrophyStar,
   'check': faCheck,
   'chevron-right': faChevronRight,
   'circle': faCircle,
-  'circle-check': faCircleCheck,
   'calendar': faCalendar,
   'triangle-exclamation': faTriangleExclamation,
   'users': faUsers,
@@ -197,7 +246,8 @@ const iconMap: Record<string, IconDefinition> = {
   'map-pin': faMapPin,
   'plus': faPlus,
   'globe-pointer': faGlobePointer,
-  'brain-circuit': faBrainCircuit
+  'brain-circuit': faBrainCircuit,
+  'bars-to-panel': faBarToPanel
 };
 
 export function FontAwesomeIcon({ 

@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import { ThemeProvider, useTheme } from "@/components/ui/theme-provider";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AnimatePresenceWrapper, AnimateTransition } from "@/components/ui/AnimateTransition";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
@@ -13,14 +13,14 @@ import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import Navbar from "@/components/layout/Navbar";
-import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
+import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
 
-// Lazy load route components
+// Lazy load route components with error boundaries
 const Home = lazy(() => import("@/pages/Home"));
 const ChatPage = lazy(() => import("@/pages/ChatPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
@@ -64,7 +64,7 @@ function RedirectToDashboard() {
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary fallback={<div>Something went wrong</div>}>
       <Suspense fallback={<LoadingFallback />}>
         <AuthenticatedTemplate>
           <OnboardingProvider>
@@ -83,54 +83,52 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 }
 
 function App() {
-  const { theme } = useTheme();
-
   return (
     <div className="fixed inset-0 w-screen h-screen flex flex-col overflow-auto">
       <div className="fixed inset-0 -z-20 w-full h-full">
         <ParticleBackground className="absolute inset-0 w-full h-full" particleColor="rgba(239, 68, 68, 0.2)" />
-        <div className={`absolute inset-0 w-full h-full ${theme === 'light' ? 'bg-background/90' : ''}`} />
+        <div className="absolute inset-0 w-full h-full bg-background/90" />
       </div>
-      <ErrorBoundary>
+
+      <ErrorBoundary fallback={<div>Something went wrong</div>}>
+        <AuthenticatedTemplate>
+          <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <Navbar />
+          </div>
+        </AuthenticatedTemplate>
+
+        <main className="flex-1 pt-6 relative z-10">
+          <div className="container mx-auto">
+            <AnimatePresenceWrapper>
+              <Suspense fallback={<LoadingFallback />}>
+                <Switch>
+                  <Route path="/login">
+                    <UnauthenticatedTemplate>
+                      <LoginPage />
+                    </UnauthenticatedTemplate>
+                    <AuthenticatedTemplate>
+                      <RedirectToDashboard />
+                    </AuthenticatedTemplate>
+                  </Route>
+                  <Route path="/" component={() => <ProtectedRoute component={Home} />} />
+                  <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
+                  <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
+                  <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
+                  <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
+                  <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
+                  <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
+                  <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
+                  <Route path="/admin/support/:id" component={() => (
+                    <ProtectedRoute component={TicketDetailsPage} />
+                  )} />
+                  <Route component={NotFound} />
+                </Switch>
+              </Suspense>
+            </AnimatePresenceWrapper>
+          </div>
+        </main>
+        <Toaster />
       </ErrorBoundary>
-
-      <AuthenticatedTemplate>
-        <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <Navbar />
-        </div>
-      </AuthenticatedTemplate>
-
-      <main className="flex-1 pt-6 relative z-10">
-        <div className="container mx-auto">
-          <AnimatePresenceWrapper>
-            <Suspense fallback={<LoadingFallback />}>
-              <Switch>
-                <Route path="/login">
-                  <UnauthenticatedTemplate>
-                    <LoginPage />
-                  </UnauthenticatedTemplate>
-                  <AuthenticatedTemplate>
-                    <RedirectToDashboard />
-                  </AuthenticatedTemplate>
-                </Route>
-                <Route path="/" component={() => <ProtectedRoute component={Home} />} />
-                <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
-                <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
-                <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
-                <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
-                <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
-                <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
-                <Route path="/admin/support/:id" component={() => (
-                  <ProtectedRoute component={TicketDetailsPage} />
-                )} />
-                <Route component={NotFound} />
-              </Switch>
-            </Suspense>
-          </AnimatePresenceWrapper>
-        </div>
-      </main>
-      <Toaster />
     </div>
   );
 }
@@ -155,7 +153,7 @@ function NotFound() {
 
 export default function AppWrapper() {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary fallback={<div>Something went wrong</div>}>
       <MsalProvider instance={msalInstance}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
