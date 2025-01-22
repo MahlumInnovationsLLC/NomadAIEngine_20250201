@@ -927,7 +927,7 @@ export function registerRoutes(app: Express): Server {
         updatedAt: latestWorkflow.startedAt.toISOString(),
       });
     } catch (error) {
-      console.errorError fetching workflow status:", error);
+      console.error("Error fetching workflow status:", error);
       res.status(500).json({ error: "Failed to fetch workflow status" });
     }
   });
