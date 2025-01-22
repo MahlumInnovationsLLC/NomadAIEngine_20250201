@@ -783,7 +783,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add document content endpoint
+  // Document content endpoint - updating to handle paths correctly
   app.get("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
     try {
       const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));

@@ -2,9 +2,16 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  FolderPlus, 
+  ArrowUp,
+  RefreshCw,
+  Folder,
+  File,
+  Loader2
+} from "lucide-react";
 
 interface BlobItem {
   name: string;
@@ -29,13 +36,16 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
   const { data: items = [], isLoading, refetch } = useQuery<BlobItem[]>({
     queryKey: ['/api/documents/browse', currentPath],
     queryFn: async () => {
+      console.log("Fetching documents for path:", currentPath);
       const params = new URLSearchParams();
       if (currentPath) params.set('path', currentPath);
       const response = await fetch(`/api/documents/browse?${params.toString()}`, {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch documents');
-      return response.json();
+      const data = await response.json();
+      console.log("Fetched documents:", data);
+      return data;
     }
   });
 
@@ -68,6 +78,7 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
 
   const navigateToFolder = (folderPath: string) => {
     const cleanPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
+    console.log("Navigating to folder:", cleanPath);
     setCurrentPath(cleanPath);
     onPathChange?.(cleanPath);
   };
@@ -77,6 +88,7 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
     const segments = currentPath.split('/').filter(Boolean);
     segments.pop();
     const parentPath = segments.length > 0 ? `${segments.join('/')}/` : "";
+    console.log("Navigating up to:", parentPath);
     setCurrentPath(parentPath);
     onPathChange?.(parentPath);
   };
@@ -102,7 +114,7 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <Button variant="outline" onClick={navigateUp} disabled={!currentPath}>
-              <FontAwesomeIcon icon="arrow-up" className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4" />
             </Button>
             <span className="text-sm font-medium truncate max-w-[200px]">
               {currentPath || '/'}
@@ -112,7 +124,7 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
             <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <FontAwesomeIcon icon="folder-plus" className="h-4 w-4 mr-2" />
+                  <FolderPlus className="h-4 w-4 mr-2" />
                   New Folder
                 </Button>
               </DialogTrigger>
@@ -139,7 +151,7 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
               size="sm" 
               onClick={refreshCurrentFolder}
             >
-              <FontAwesomeIcon icon="arrows-rotate" className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -148,11 +160,11 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
         <div className="border rounded-md h-[500px] overflow-y-auto p-2">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <FontAwesomeIcon icon="folder" className="h-8 w-8 mb-2" />
+              <Folder className="h-8 w-8 mb-2" />
               <p>This folder is empty</p>
             </div>
           ) : (
@@ -163,10 +175,11 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
                   className="flex items-center p-2 hover:bg-accent rounded-md cursor-pointer"
                   onClick={() => handleItemClick(item)}
                 >
-                  <FontAwesomeIcon 
-                    icon={item.type === 'folder' ? 'folder' : 'file'} 
-                    className="h-4 w-4 mr-2" 
-                  />
+                  {item.type === 'folder' ? (
+                    <Folder className="h-4 w-4 mr-2" />
+                  ) : (
+                    <File className="h-4 w-4 mr-2" />
+                  )}
                   <span className="flex-1 truncate">{item.name}</span>
                   {item.type === 'file' && (
                     <span className="text-sm text-muted-foreground">

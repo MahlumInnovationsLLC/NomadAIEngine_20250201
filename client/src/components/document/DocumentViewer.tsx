@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RichTextEditor } from "./RichTextEditor";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { Save, AlertCircle, Loader2 } from "lucide-react";
 
 interface DocumentViewerProps {
   documentId: string;
@@ -29,23 +28,29 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   // Fetch document content
   const { data: document, isLoading, error } = useQuery<DocumentData>({
-    queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`],
+    queryKey: [`/api/documents/${documentId}/content`],
+    queryFn: async () => {
+      console.log("Fetching document content for:", documentId);
+      const response = await fetch(`/api/documents/${documentId}/content`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error fetching document:", errorText);
+        throw new Error(errorText || `Failed to fetch document: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log("Received document data:", data);
+      return data;
+    },
     enabled: !!documentId,
     retry: 1,
-    onError: (err: any) => {
-      console.error("Error fetching document:", err);
-      toast({
-        title: "Error",
-        description: err.message || "Failed to load document content",
-        variant: "destructive",
-      });
-    }
   });
 
   // Update local state when document data changes
   useEffect(() => {
     if (document) {
-      console.log("Document data received:", document);
+      console.log("Setting document content:", document);
       setEditedContent(document.content || '');
       setVersion(document.version || '1.0');
     }
@@ -53,12 +58,12 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   // Save document changes
   const saveMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async () => {
       console.log("Saving document:", documentId);
-      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/content`, {
+      const response = await fetch(`/api/documents/${documentId}/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, version }),
+        body: JSON.stringify({ content: editedContent, version }),
         credentials: 'include',
       });
       if (!response.ok) {
@@ -68,7 +73,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/${encodeURIComponent(documentId)}/content`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}/content`] });
       toast({
         title: "Document saved",
         description: "Your changes have been saved successfully",
@@ -81,13 +86,13 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
         description: "Failed to save document changes",
         variant: "destructive",
       });
-    }
+    },
   });
 
   if (isLoading) {
     return (
       <Card className="flex items-center justify-center p-4 h-[600px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </Card>
     );
   }
@@ -96,8 +101,8 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     return (
       <Card className="flex items-center justify-center p-4 h-[600px] text-destructive">
         <div className="text-center">
-          <FontAwesomeIcon icon="exclamation-circle" className="h-8 w-8 mb-2" />
-          <p>Failed to load document: {(error as Error).message || 'Unknown error'}</p>
+          <AlertCircle className="h-8 w-8 mb-2" />
+          <p>Failed to load document: {error instanceof Error ? error.message : 'Unknown error'}</p>
         </div>
       </Card>
     );
@@ -121,10 +126,10 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
                   />
                 </div>
                 <Button 
-                  onClick={() => saveMutation.mutate(editedContent)}
+                  onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending}
                 >
-                  <FontAwesomeIcon icon="save" className="mr-2 h-4 w-4" />
+                  <Save className="mr-2 h-4 w-4" />
                   Save
                 </Button>
               </>
@@ -139,9 +144,10 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       </div>
       <ScrollArea className="h-[500px] w-full rounded-md border">
         {isEditing ? (
-          <RichTextEditor
-            content={editedContent}
-            onChange={setEditedContent}
+          <textarea
+            className="w-full h-full p-4 focus:outline-none resize-none"
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
           />
         ) : (
           <div 

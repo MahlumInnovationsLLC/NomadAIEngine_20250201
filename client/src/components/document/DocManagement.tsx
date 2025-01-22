@@ -6,7 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { 
+  Upload, 
+  FileText, 
+  Eye, 
+  Pen
+} from "lucide-react";
 
 export function DocManagement() {
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
@@ -62,17 +67,27 @@ export function DocManagement() {
   const handlePathChange = (path: string) => {
     setCurrentPath(path);
     setSelectedDocument(null);
+    setIsEditing(false);
+  };
+
+  const handleDocumentSelect = (path: string) => {
+    console.log("Selected document:", path);
+    setSelectedDocument(path);
+    setIsEditing(false);
   };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
       <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Documents</h2>
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            <h2 className="text-lg font-semibold">Documents</h2>
+          </div>
           <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
-                <FontAwesomeIcon icon="upload" className="h-4 w-4 mr-2" />
+                <Upload className="h-4 w-4 mr-2" />
                 Upload Files
               </Button>
             </DialogTrigger>
@@ -87,30 +102,34 @@ export function DocManagement() {
                   type="file"
                   multiple
                   onChange={handleFileUpload}
-                  className="w-full"
+                  className="w-full border rounded p-2"
                 />
               </div>
             </DialogContent>
           </Dialog>
         </div>
         <FileExplorer 
-          onSelectDocument={setSelectedDocument} 
+          onSelectDocument={handleDocumentSelect}
           onPathChange={handlePathChange}
         />
       </div>
 
       {selectedDocument && (
         <div>
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium truncate">
+              {selectedDocument.split('/').pop()}
+            </h3>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsEditing(!isEditing)}
             >
-              <FontAwesomeIcon 
-                icon={isEditing ? "eye" : "pen"} 
-                className="h-4 w-4 mr-2" 
-              />
+              {isEditing ? (
+                <Eye className="h-4 w-4 mr-2" />
+              ) : (
+                <Pen className="h-4 w-4 mr-2" />
+              )}
               {isEditing ? "View Mode" : "Edit Mode"}
             </Button>
           </div>
