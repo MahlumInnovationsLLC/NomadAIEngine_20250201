@@ -65,6 +65,7 @@ import {
   faPaperPlane,
   faChartLine,
   faMapPin,
+  faGlobePointer,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -193,7 +194,8 @@ const iconMap: Record<string, IconDefinition> = {
   'paper-plane': faPaperPlane,
   'chart-line': faChartLine,
   'map-pin': faMapPin,
-  'plus': faPlus
+  'plus': faPlus,
+  'globe-pointer': faGlobePointer
 };
 
 export function FontAwesomeIcon({ 
