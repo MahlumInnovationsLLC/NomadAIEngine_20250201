@@ -21,122 +21,193 @@ import { setupWebSocketServer } from "./services/websocket";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
-import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import type { Request, Response } from "express";
+import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import adminRouter from "./routes/admin";
 
-// Initialize Cosmos DB container for equipment
-let equipmentContainer: Container;
-let equipmentTypeContainer: Container;
-
-async function initializeContainers() {
-  const { database } = await import("./services/azure/cosmos_service");
-  equipmentContainer = database.container('equipment');
-  equipmentTypeContainer = database.container('equipment-types');
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    username: string;
+  };
 }
 
-// Equipment Type Operations
-async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
-  try {
-    const querySpec = {
-      query: "SELECT * FROM c WHERE c.manufacturer = @manufacturer AND c.model = @model",
-      parameters: [
-        { name: "@manufacturer", value: manufacturer },
-        { name: "@model", value: model }
-      ]
+interface PerplexityResponse {
+  choices: Array<{
+    message: {
+      role: string;
+      content: string;
     };
+  }>;
+  citations?: string[];
+}
 
-    const { resources } = await equipmentTypeContainer.items.query(querySpec).fetchAll();
-    return resources[0] || null;
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+  mode?: 'chat' | 'web-search';
+  citations?: string[];
+}
+
+// Helper function to track AI Engine usage
+async function trackAIEngineUsage(userId: string, feature: string, durationMinutes: number, metadata?: Record<string, any>) {
+  try {
+    await db
+      .insert(aiEngineActivity)
+      .values({
+        userId,
+        sessionId: uuidv4(),
+        feature: feature as any, // Type assertion needed due to enum constraint
+        startTime: new Date(),
+        durationMinutes,
+        metadata: metadata ? metadata : undefined
+      });
   } catch (error) {
-    console.error("Error fetching equipment type:", error);
-    return null;
+    console.warn("Failed to track AI usage:", error);
+    // Don't throw the error - we want the main functionality to continue
   }
 }
 
-async function createEquipmentType(data: Partial<EquipmentType>): Promise<EquipmentType> {
-  const newType: EquipmentType = {
-    id: uuidv4(),
-    manufacturer: data.manufacturer || '',
-    model: data.model || '',
-    type: data.type || ''
-  };
-
-  const { resource } = await equipmentTypeContainer.items.create(newType);
-  return resource;
-}
-
-// Equipment Operations
-async function getAllEquipment(): Promise<Equipment[]> {
-  try {
-    const querySpec = {
-      query: "SELECT * FROM c"
-    };
-
-    const { resources } = await equipmentContainer.items.query(querySpec).fetchAll();
-    return resources;
-  } catch (error) {
-    console.error("Error fetching all equipment:", error);
-    return [];
+// Perplexity API integration
+async function searchWithPerplexity(content: string): Promise<PerplexityResponse> {
+  if (!process.env.PERPLEXITY_API_KEY) {
+    throw new Error("Perplexity API key not found in environment variables");
   }
-}
 
-async function createEquipment(data: Partial<Equipment>): Promise<Equipment> {
-  const newEquipment: Equipment = {
-    id: uuidv4(),
-    name: data.name || '',
-    type: data.type || '',
-    manufacturer: data.manufacturer || '',
-    model: data.model || '',
-    serialNumber: data.serialNumber || '',
-    yearManufactured: data.yearManufactured || new Date().getFullYear(),
-    lastMaintenanceDate: data.lastMaintenanceDate,
-    nextMaintenanceDate: data.nextMaintenanceDate,
-    status: data.status || 'active'
-  };
-
-  const { resource } = await equipmentContainer.items.create(newEquipment);
-  return resource;
-}
-
-async function updateEquipment(id: string, updates: Partial<Equipment>): Promise<Equipment | null> {
   try {
-    const { resource: existingItem } = await equipmentContainer.item(id, id).read();
-    const updatedItem = { ...existingItem, ...updates };
-    const { resource } = await equipmentContainer.item(id, id).replace(updatedItem);
-    return resource;
+    console.log("Making request to Perplexity API...");
+    const response = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-sonar-small-128k-online",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful assistant that provides factual answers based on web search results. Be precise and concise."
+          },
+          {
+            role: "user",
+            content
+          }
+        ],
+        temperature: 0.2,
+        top_p: 0.9,
+        stream: false
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Perplexity API error response:", errorText);
+      throw new Error(`Perplexity API responded with status ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("Perplexity API response:", JSON.stringify(data, null, 2));
+
+    return {
+      choices: data.choices || [],
+      citations: data.citations || []
+    };
   } catch (error) {
-    console.error("Error updating equipment:", error);
-    return null;
+    console.error("Error calling Perplexity API:", error);
+    throw new Error(`Failed to get web search results: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
 export function registerRoutes(app: Express): Server {
   // Initialize Cosmos DB containers
-  initializeContainers().catch(console.error);
-
   const httpServer = createServer(app);
   const wsServer = setupWebSocketServer(httpServer);
-
-  // Add uploads directory for serving generated files
-  app.use('/uploads', express.static('uploads'));
 
   // Register API routes with proper prefixes
   app.use('/api/support', supportRouter);
   app.use('/api/admin', adminRouter);
 
+  // Messages endpoint
+  app.post("/api/messages", async (req, res) => {
+    try {
+      console.log("Received message request:", req.body);
+      const { content, mode = 'chat' } = req.body;
 
-  // Add user authentication middleware and user status tracking
-  app.use((req: AuthenticatedRequest, res, next) => {
-    // TODO: Replace with actual user authentication
-    req.user = { id: '1', username: 'test_user' };
-    const userId = req.headers['x-user-id'];
-    if (userId && typeof userId === 'string') {
-      // Notify WebSocket server about user activity
-      wsServer.broadcast([userId], { type: 'USER_ACTIVE' });
+      if (!content) {
+        console.log("Missing content in request");
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      // Generate user message
+      const userMessage: Message = {
+        id: uuidv4(),
+        role: 'user',
+        content,
+        createdAt: new Date().toISOString(),
+        mode
+      };
+
+      let aiResponse: string | undefined;
+      let citations: string[] | undefined;
+
+      if (mode === 'web-search') {
+        try {
+          console.log("Getting Perplexity response for content:", content);
+          const perplexityResponse = await searchWithPerplexity(content);
+          console.log("Perplexity response received:", perplexityResponse);
+
+          if (perplexityResponse.choices && perplexityResponse.choices.length > 0) {
+            aiResponse = perplexityResponse.choices[0]?.message?.content;
+            citations = perplexityResponse.citations;
+          } else {
+            throw new Error("No response content received from Perplexity");
+          }
+
+          // Track AI usage for web search (assuming it takes about 1 minute per search)
+          await trackAIEngineUsage(req.user?.id || 'anonymous', 'web_search', 1, { messageLength: content.length });
+        } catch (error) {
+          console.error("Error getting Perplexity response:", error);
+          throw error;
+        }
+      } else {
+        // Use existing Azure OpenAI for chat
+        try {
+          console.log("Getting AI response for content:", content);
+          aiResponse = await analyzeDocument(content);
+
+          // Track AI usage for chat
+          await trackAIEngineUsage(req.user?.id || 'anonymous', 'chat', 0.5, { messageLength: content.length });
+        } catch (error) {
+          console.error("Error getting AI response:", error);
+          throw new Error(`Failed to get chat response: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      // Create AI message
+      const aiMessage: Message = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: aiResponse || "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
+        createdAt: new Date().toISOString(),
+        mode,
+        citations
+      };
+
+      console.log("Generated AI message:", aiMessage);
+      res.json([userMessage, aiMessage]);
+    } catch (error) {
+      console.error("Error processing message:", error);
+      res.status(500).json({ 
+        error: "Failed to process message",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
-    next();
   });
+
 
   // Update online users endpoint
   app.get("/api/users/online-status", (req, res) => {
@@ -233,74 +304,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Messages endpoint
-  app.post("/api/messages", async (req, res) => {
-    try {
-      console.log("Received message request:", req.body);
-      const { content, mode = 'chat' } = req.body;
-
-      if (!content) {
-        console.log("Missing content in request");
-        return res.status(400).json({ error: "Content is required" });
-      }
-
-      // Generate user message
-      const userMessage: Message = {
-        id: uuidv4(),
-        role: 'user',
-        content,
-        createdAt: new Date().toISOString(),
-        mode
-      };
-
-      let aiResponse: string | undefined;
-      let citations: string[] | undefined;
-
-      if (mode === 'web-search') {
-        // Use Perplexity for web search
-        try {
-          console.log("Getting Perplexity response for content:", content);
-          const perplexityResponse = await searchWithPerplexity(content);
-          aiResponse = perplexityResponse.choices[0]?.message?.content;
-          citations = perplexityResponse.citations;
-
-          // Track AI usage for web search (assuming it takes about 1 minute per search)
-          await trackAIEngineUsage(req.user!.id, 'web_search', 1, { messageLength: content.length });
-        } catch (error) {
-          console.error("Error getting Perplexity response:", error);
-          throw new Error("Failed to get web search results");
-        }
-      } else {
-        // Use existing Azure OpenAI for chat
-        try {
-          console.log("Getting AI response for content:", content);
-          aiResponse = await analyzeDocument(content);
-
-          // Track AI usage for chat (assuming it takes about 0.5 minutes per message)
-          await trackAIEngineUsage(req.user!.id, 'chat', 0.5, { messageLength: content.length });
-        } catch (error) {
-          console.error("Error getting AI response:", error);
-          throw new Error("Failed to get chat response");
-        }
-      }
-
-      // Create AI message
-      const aiMessage: Message = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: aiResponse || "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
-        createdAt: new Date().toISOString(),
-        mode,
-        citations
-      };
-
-      console.log("Generated AI message:", aiMessage);
-      res.json([userMessage, aiMessage]);
-    } catch (error: any) {
-      console.error("Error processing message:", error);
-      res.status(500).json({ error: "Failed to process message", details: error.message });
-    }
-  });
 
   // Check Azure OpenAI connection status
   app.get("/api/azure/status", async (req, res) => {
@@ -955,6 +958,12 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Initialize Cosmos DB containers
+  initializeContainers().catch(console.error);
+  // Add uploads directory for serving generated files
+  app.use('/uploads', express.static('uploads'));
+
+
   return httpServer;
 }
 
@@ -979,23 +988,6 @@ interface EquipmentType {
   type: string;
 }
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-  };
-}
-
-export async function getUserTrainingLevel(userId: string) {
-  const trainings = await db
-    .select()
-    .from(userTraining)
-    .where(eq(userTraining.userId, userId));
-
-  // Calculate training level based on completed modules
-  const completedModules = trainings.filter(t => t.status === 'completed').length;
-  return Math.floor(completedModules / 3) + 1; // Level up every 3 completed modules
-}
 
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
@@ -1017,84 +1009,110 @@ const upload = multer({
   }
 });
 
-// Helper function to track AI Engine usage
-async function trackAIEngineUsage(userId: string, feature: string, durationMinutes: number, metadata?: Record<string, any>) {
-  await db
-    .insert(aiEngineActivity)
-    .values({
-      userId,
-      sessionId: uuidv4(),
-      feature,
-      startTime: new Date(),
-      durationMinutes,
-      metadata: metadata ? JSON.stringify(metadata) : undefined
-    });
+// Add user authentication middleware and user status tracking
+app.use((req: AuthenticatedRequest, res, next) => {
+  // TODO: Replace with actual user authentication
+  req.user = { id: '1', username: 'test_user' };
+  const userId = req.headers['x-user-id'];
+  if (userId && typeof userId === 'string') {
+    // Notify WebSocket server about user activity
+    wsServer.broadcast([userId], { type: 'USER_ACTIVE' });
+  }
+  next();
+});
+
+async function initializeContainers() {
+  const { database } = await import("./services/azure/cosmos_service");
+  equipmentContainer = database.container('equipment');
+  equipmentTypeContainer = database.container('equipment-types');
 }
 
-// Add new types at the end of the file
-interface PerplexityOptions {
-  model: string;
-  messages: {
-    role: string;
-    content: string;
-  }[];
-  temperature: number;
-  max_tokens?: number;
-  top_p?: number;
-  stream?: boolean;
-}
-
-interface PerplexityResponse {
-  choices: {
-    message: {
-      content: string;
+// Equipment Type Operations
+async function getEquipmentType(manufacturer: string, model: string): Promise<EquipmentType | null> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.manufacturer = @manufacturer AND c.model = @model",
+      parameters: [
+        { name: "@manufacturer", value: manufacturer },
+        { name: "@model", value: model }
+      ]
     };
-  }[];
-  citations: string[];
-}
 
-async function searchWithPerplexity(content: string): Promise<PerplexityResponse> {
-  if (!process.env.PERPLEXITY_API_KEY) {
-    throw new Error("Perplexity API key not found");
+    const { resources } = await equipmentTypeContainer.items.query(querySpec).fetchAll();
+    return resources[0] || null;
+  } catch (error) {
+    console.error("Error fetching equipment type:", error);
+    return null;
   }
+}
 
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "llama-3.1-sonar-small-128k-online",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful assistant that provides factual answers based on web search results. Be precise and concise."
-        },
-        {
-          role: "user",
-          content
-        }
-      ],
-      temperature: 0.2,
-      top_p: 0.9,
-      stream: false
-    } as PerplexityOptions)
-  });
+async function createEquipmentType(data: Partial<EquipmentType>): Promise<EquipmentType> {
+  const newType: EquipmentType = {
+    id: uuidv4(),
+    manufacturer: data.manufacturer || '',
+    model: data.model || '',
+    type: data.type || ''
+  };
 
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.statusText}`);
+  const { resource } = await equipmentTypeContainer.items.create(newType);
+  return resource;
+}
+
+// Equipment Operations
+async function getAllEquipment(): Promise<Equipment[]> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c"
+    };
+
+    const { resources } = await equipmentContainer.items.query(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Error fetching all equipment:", error);
+    return [];
   }
-
-  return response.json();
 }
 
+async function createEquipment(data: Partial<Equipment>): Promise<Equipment> {
+  const newEquipment: Equipment = {
+    id: uuidv4(),
+    name: data.name || '',
+    type: data.type || '',
+    manufacturer: data.manufacturer || '',
+    model: data.model || '',
+    serialNumber: data.serialNumber || '',
+    yearManufactured: data.yearManufactured || new Date().getFullYear(),
+    lastMaintenanceDate: data.lastMaintenanceDate,
+    nextMaintenanceDate: data.nextMaintenanceDate,
+    status: data.status || 'active'
+  };
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  createdAt: string;
-  mode: 'chat' | 'web-search';
-  citations?: string[];
+  const { resource } = await equipmentContainer.items.create(newEquipment);
+  return resource;
 }
+
+async function updateEquipment(id: string, updates: Partial<Equipment>): Promise<Equipment | null> {
+  try {
+    const { resource: existingItem } = await equipmentContainer.item(id, id).read();
+    const updatedItem = { ...existingItem, ...updates };
+    const { resource } = await equipmentContainer.item(id, id).replace(updatedItem);
+    return resource;
+  } catch (error) {
+    console.error("Error updating equipment:", error);
+    return null;
+  }
+}
+
+export async function getUserTrainingLevel(userId: string) {
+  const trainings = await db
+    .select()
+    .from(userTraining)
+    .where(eq(userTraining.userId, userId));
+
+  // Calculate training level based on completed modules
+  const completedModules = trainings.filter(t => t.status === 'completed').length;
+  return Math.floor(completedModules / 3) + 1; // Level up every 3 completed modules
+}
+
+let equipmentContainer: Container;
+let equipmentTypeContainer: Container;
