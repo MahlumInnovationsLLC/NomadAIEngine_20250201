@@ -26,7 +26,6 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch document content
   const { data: document, isLoading, error } = useQuery<DocumentData>({
     queryKey: [`/api/documents/${documentId}/content`],
     queryFn: async () => {
@@ -49,10 +48,8 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       }
     },
     enabled: !!documentId,
-    retry: 1,
   });
 
-  // Update local state when document data changes
   useEffect(() => {
     if (document) {
       console.log("Setting document content:", document);
@@ -61,7 +58,6 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     }
   }, [document]);
 
-  // Save document changes
   const saveMutation = useMutation({
     mutationFn: async () => {
       console.log("Saving document:", documentId);
@@ -96,7 +92,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   if (isLoading) {
     return (
-      <Card className="flex items-center justify-center p-4 h-[600px]">
+      <Card className="flex items-center justify-center p-4 h-full">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </Card>
     );
@@ -104,7 +100,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   if (error) {
     return (
-      <Card className="flex items-center justify-center p-4 h-[600px] text-destructive">
+      <Card className="flex items-center justify-center p-4 h-full text-destructive">
         <div className="text-center">
           <AlertCircle className="h-8 w-8 mb-2 mx-auto" />
           <p>Failed to load document: {error instanceof Error ? error.message : 'Unknown error'}</p>
@@ -114,8 +110,8 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   }
 
   return (
-    <Card className="relative h-[600px]">
-      <div className="p-4 border-b bg-muted/50">
+    <Card className="flex flex-col h-full">
+      <div className="p-4 border-b">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {isEditing && (
@@ -143,22 +139,22 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
         </div>
         {document && (
           <div className="mt-2 text-sm text-muted-foreground">
-            Version: {document.version} | Status: {document.status} | Last modified: {new Date(document.lastModified).toLocaleString()}
+            Version: {document.version} | Status: {document.status} | 
+            Last modified: {new Date(document.lastModified).toLocaleString()}
           </div>
         )}
       </div>
-      <ScrollArea className="h-[500px] w-full rounded-md border">
+      <ScrollArea className="flex-grow p-4">
         {isEditing ? (
           <textarea
-            className="w-full h-full p-4 focus:outline-none resize-none"
+            className="w-full h-full min-h-[400px] p-4 border rounded resize-none focus:outline-none"
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
           />
         ) : (
-          <div 
-            className="p-4 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: document?.content || '' }}
-          />
+          <div className="prose prose-sm max-w-none">
+            {document?.content || ''}
+          </div>
         )}
       </ScrollArea>
     </Card>

@@ -675,9 +675,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
         console.log("Fetching document content for:", documentPath);
 
-        const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
-
         try {
+          const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
           const downloadResponse = await blockBlobClient.download();
           const properties = await blockBlobClient.getProperties();
 
@@ -688,13 +687,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(404).json({ error: "No content available" });
           }
 
+          // Read the stream into a buffer
           const chunks: Buffer[] = [];
           for await (const chunk of downloadResponse.readableStreamBody) {
             chunks.push(Buffer.from(chunk));
           }
           const content = Buffer.concat(chunks).toString('utf-8');
 
-          console.log("Successfully retrieved document content");
+          console.log("Successfully retrieved document content:", content);
 
           res.json({
             content,
@@ -704,6 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } catch (error: any) {
           if (error.statusCode === 404) {
+            console.error("Document not found:", documentPath);
             return res.status(404).json({ error: "Document not found" });
           }
           throw error;
@@ -934,13 +935,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json(permission);
       } catch (error) {
-        console.errorerror("Error adding document permission:", error);
+        console.error("Error adding document permission:", error);
         res.status(500).json({ error: "Failed to add permission" });
       }
     });
 
-    app.patch("/api/documents/:documentId/permissions/:permissionId", async (req, res) => {
-      try {
+    app.patch("/api/documents/:documentId/permissions/:permissionId", async (req, res) => {      try {
         const permissionId = parseInt(req.params.permissionId);
         const updates = req.body;
 
