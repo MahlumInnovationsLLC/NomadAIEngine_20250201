@@ -672,8 +672,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Document content endpoints
     app.get("/api/documents/:path*/content", async (req, res) => {
       try {
-        const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
-        console.log("Fetching document content for:", documentPath);
+        const documentPath = req.params["path*"];
+        console.log("Fetching document content for path:", documentPath);
 
         try {
           const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
@@ -694,7 +694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           const content = Buffer.concat(chunks).toString('utf-8');
 
-          console.log("Successfully retrieved document content:", content);
+          console.log("Successfully retrieved document content:", content.substring(0, 100) + "...");
 
           res.json({
             content,
@@ -936,7 +936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(permission);
       } catch (error) {
         console.error("Error adding document permission:", error);
-        res.status(500).json({ error: "Failed to add permission" });
+res.status(500).json({ error: "Failed to add permission" });
       }
     });
 
@@ -1427,8 +1427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Document content endpoint - updating to handle paths correctly
     app.get("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
       try {
-        const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
-        console.log("Fetching document content for:", documentPath);
+        const documentPath = req.params["path*"];
+        console.log("Fetching document content for path:", documentPath);
 
         const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
 

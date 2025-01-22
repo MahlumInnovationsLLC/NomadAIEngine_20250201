@@ -75,7 +75,7 @@ export function DocManagement() {
     <div className="h-screen max-h-screen overflow-hidden p-4">
       <div className="grid grid-cols-2 gap-6 h-full">
         {/* Left Column - File Explorer */}
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full max-h-full overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
@@ -83,7 +83,7 @@ export function DocManagement() {
             </div>
             <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
               <DialogTrigger asChild>
-                <Button variant="default" size="sm">
+                <Button variant="default" size="sm" className="px-4">
                   <Upload className="h-4 w-4 mr-2" />
                   Upload Files
                 </Button>
@@ -105,7 +105,7 @@ export function DocManagement() {
               </DialogContent>
             </Dialog>
           </div>
-          <div className="flex-grow overflow-hidden">
+          <div className="flex-1 overflow-hidden">
             <FileExplorer 
               onSelectDocument={handleDocumentSelect}
               onPathChange={handlePathChange}
@@ -114,7 +114,7 @@ export function DocManagement() {
         </div>
 
         {/* Right Column - Document Viewer */}
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full max-h-full overflow-hidden">
           {selectedDocument ? (
             <>
               <div className="flex justify-between items-center mb-4">
@@ -131,7 +131,7 @@ export function DocManagement() {
                   </Button>
                 </div>
               </div>
-              <div className="flex-grow overflow-hidden">
+              <div className="flex-1 overflow-hidden">
                 <DocumentViewer
                   documentId={selectedDocument}
                   isEditing={isEditing}

@@ -52,9 +52,9 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   useEffect(() => {
     if (document) {
-      console.log("Setting document content:", document);
-      setEditedContent(document.content || '');
-      setVersion(document.version || '1.0');
+      console.log("Setting document content:", document.content);
+      setEditedContent(document.content);
+      setVersion(document.version);
     }
   }, [document]);
 
@@ -109,6 +109,14 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     );
   }
 
+  if (!document) {
+    return (
+      <Card className="flex items-center justify-center p-4 h-full text-muted-foreground">
+        <p>No document content available</p>
+      </Card>
+    );
+  }
+
   return (
     <Card className="flex flex-col h-full">
       <div className="p-4 border-b">
@@ -137,12 +145,10 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
             )}
           </div>
         </div>
-        {document && (
-          <div className="mt-2 text-sm text-muted-foreground">
-            Version: {document.version} | Status: {document.status} | 
-            Last modified: {new Date(document.lastModified).toLocaleString()}
-          </div>
-        )}
+        <div className="mt-2 text-sm text-muted-foreground">
+          Version: {document.version} | Status: {document.status} | 
+          Last modified: {new Date(document.lastModified).toLocaleString()}
+        </div>
       </div>
       <ScrollArea className="flex-grow p-4">
         {isEditing ? (
@@ -152,8 +158,8 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
             onChange={(e) => setEditedContent(e.target.value)}
           />
         ) : (
-          <div className="prose prose-sm max-w-none">
-            {document?.content || ''}
+          <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+            {document.content}
           </div>
         )}
       </ScrollArea>
