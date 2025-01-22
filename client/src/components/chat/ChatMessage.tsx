@@ -17,8 +17,8 @@ interface ChatMessageProps {
 export default function ChatMessage({ role, content, files, citations }: ChatMessageProps) {
   const { downloadReport } = useReportDownload();
 
-  const handleDownload = async () => {
-    await downloadReport(content);
+  const handleDownload = async (format: 'docx' | 'pdf') => {
+    await downloadReport(content, format);
   };
 
   // Check if the content appears to be a report (contains headers or sections)
@@ -52,9 +52,21 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
 
         {isReport && role === 'assistant' && (
           <div className="mt-4 flex gap-2">
-            <Button onClick={handleDownload} variant="secondary" className="gap-2">
+            <Button 
+              onClick={() => handleDownload('docx')} 
+              variant="secondary" 
+              className="gap-2 text-foreground hover:text-foreground"
+            >
               <FontAwesomeIcon icon="download" className="h-4 w-4" />
-              Download as Word Document
+              Download Word Document
+            </Button>
+            <Button 
+              onClick={() => handleDownload('pdf')} 
+              variant="secondary" 
+              className="gap-2 text-foreground hover:text-foreground"
+            >
+              <FontAwesomeIcon icon="download" className="h-4 w-4" />
+              Download PDF
             </Button>
           </div>
         )}

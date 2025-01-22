@@ -1,5 +1,6 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
 import { useToast } from "@/hooks/use-toast";
+import { jsPDF } from "jspdf";
 
 interface GenerateReportProps {
   title: string;
@@ -11,18 +12,47 @@ interface GenerateReportProps {
   };
 }
 
-export async function generateReport({ title, content, metadata }: GenerateReportProps): Promise<Blob> {
-  const sections = content.split('\n\n');
-  
+// Function to format the content for better structure
+function formatReportContent(content: string): { title: string, sections: string[] } {
+  const lines = content.split('\n');
+  let title = "AI Generated Report";
+  const sections: string[] = [];
+  let currentSection = "";
+
+  lines.forEach((line) => {
+    if (line.startsWith('# ')) {
+      title = line.replace('# ', '');
+    } else if (line.startsWith('## ')) {
+      if (currentSection) {
+        sections.push(currentSection.trim());
+      }
+      currentSection = line + '\n';
+    } else {
+      currentSection += line + '\n';
+    }
+  });
+
+  if (currentSection) {
+    sections.push(currentSection.trim());
+  }
+
+  return { title, sections };
+}
+
+export async function generateWordReport({ title, content, metadata }: GenerateReportProps): Promise<Blob> {
+  const { title: extractedTitle, sections } = formatReportContent(content);
+
   const doc = new Document({
     sections: [{
       properties: {},
       children: [
         new Paragraph({
-          text: title,
+          text: extractedTitle,
           heading: HeadingLevel.HEADING_1,
+          alignment: AlignmentType.CENTER,
           spacing: {
-            after: 200,
+            after: 300,
+            before: 300,
           },
         }),
         ...(metadata ? [
@@ -33,15 +63,30 @@ export async function generateReport({ title, content, metadata }: GenerateRepor
                 size: 20,
               }),
             ],
-            spacing: { after: 200 },
+            spacing: { after: 300 },
+            alignment: AlignmentType.RIGHT,
           }),
         ] : []),
-        ...sections.map(section => 
-          new Paragraph({
+        ...sections.map(section => {
+          if (section.startsWith('## ')) {
+            const [heading, ...content] = section.split('\n');
+            return [
+              new Paragraph({
+                text: heading.replace('## ', ''),
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 200, after: 120 },
+              }),
+              new Paragraph({
+                text: content.join('\n'),
+                spacing: { after: 120 },
+              }),
+            ];
+          }
+          return new Paragraph({
             text: section,
             spacing: { after: 120 },
-          })
-        ),
+          });
+        }).flat(),
       ],
     }],
   });
@@ -49,41 +94,106 @@ export async function generateReport({ title, content, metadata }: GenerateRepor
   return Packer.toBlob(doc);
 }
 
+export async function generatePDFReport({ title, content, metadata }: GenerateReportProps): Promise<Blob> {
+  const { title: extractedTitle, sections } = formatReportContent(content);
+  const pdf = new jsPDF();
+
+  // Add title
+  pdf.setFontSize(24);
+  pdf.text(extractedTitle, pdf.internal.pageSize.width / 2, 20, { align: 'center' });
+
+  // Add metadata
+  if (metadata) {
+    pdf.setFontSize(10);
+    pdf.text(
+      `Generated on: ${metadata.createdAt?.toLocaleString() || new Date().toLocaleString()}`,
+      pdf.internal.pageSize.width - 15,
+      30,
+      { align: 'right' }
+    );
+  }
+
+  // Add content
+  pdf.setFontSize(12);
+  let yPosition = 40;
+
+  sections.forEach((section) => {
+    if (section.startsWith('## ')) {
+      const [heading, ...content] = section.split('\n');
+
+      // Add section heading
+      pdf.setFont(undefined, 'bold');
+      yPosition += 10;
+      pdf.text(heading.replace('## ', ''), 15, yPosition);
+      pdf.setFont(undefined, 'normal');
+
+      // Add section content
+      yPosition += 10;
+      const contentText = content.join('\n');
+      const splitText = pdf.splitTextToSize(contentText, pdf.internal.pageSize.width - 30);
+
+      splitText.forEach((line: string) => {
+        if (yPosition > pdf.internal.pageSize.height - 20) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+        pdf.text(line, 15, yPosition);
+        yPosition += 7;
+      });
+    } else {
+      const splitText = pdf.splitTextToSize(section, pdf.internal.pageSize.width - 30);
+      splitText.forEach((line: string) => {
+        if (yPosition > pdf.internal.pageSize.height - 20) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+        pdf.text(line, 15, yPosition);
+        yPosition += 7;
+      });
+    }
+  });
+
+  return pdf.output('blob');
+}
+
 export function useReportDownload() {
   const { toast } = useToast();
 
-  const downloadReport = async (response: string, title: string = "AI Generated Report") => {
+  const downloadReport = async (response: string, format: 'docx' | 'pdf' = 'docx') => {
     try {
-      const blob = await generateReport({
-        title,
-        content: response,
-        metadata: {
-          createdAt: new Date(),
-        },
-      });
+      const formattedContent = formatReportContent(response);
+      const blob = format === 'docx' 
+        ? await generateWordReport({
+            title: formattedContent.title,
+            content: response,
+            metadata: {
+              createdAt: new Date(),
+            },
+          })
+        : await generatePDFReport({
+            title: formattedContent.title,
+            content: response,
+            metadata: {
+              createdAt: new Date(),
+            },
+          });
 
-      // Upload to Azure Blob Storage
-      const formData = new FormData();
-      formData.append('file', blob, `${title.toLowerCase().replace(/\s+/g, '-')}.docx`);
-      formData.append('title', title);
-
-      const uploadResponse = await fetch('/api/reports/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload report');
-      }
-
-      const { downloadUrl } = await uploadResponse.json();
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${formattedContent.title.toLowerCase().replace(/\s+/g, '-')}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
       toast({
         title: "Report Generated",
-        description: "Your report has been generated and is ready for download.",
+        description: `Your report has been generated as a ${format.toUpperCase()} file.`,
       });
 
-      return downloadUrl;
+      return url;
     } catch (error) {
       console.error('Error generating report:', error);
       toast({
