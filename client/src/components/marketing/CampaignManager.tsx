@@ -16,12 +16,11 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { AnalyticsDashboard } from "./analytics/AnalyticsDashboard";
-import { CustomerSegmentation } from "./analytics/CustomerSegmentation";
 import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
-import { ChannelOrchestrator } from "./orchestration/ChannelOrchestrator";
 import { ContentRecommendations } from "./recommendations/ContentRecommendations";
 import { ReportBuilder } from "./reporting/ReportBuilder";
+import { AnalyticsDashboard } from "./analytics/AnalyticsDashboard";
+import { CustomerSegmentation } from "./analytics/CustomerSegmentation";
 
 // Enhanced schema with audience targeting
 const campaignFormSchema = z.object({
@@ -69,7 +68,6 @@ const emailProviders = [
   { id: "hubspot", name: "HubSpot", icon: "envelope-circle-check" as IconName, prefix: "fal" as IconPrefix },
 ];
 
-// Suggested segments based on analytics
 const suggestedSegments = [
   { id: "high-value", name: "High-Value Customers", score: 0.95 },
   { id: "churning", name: "At Risk of Churning", score: 0.82 },
@@ -120,16 +118,28 @@ export function CampaignManager() {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="create" className="w-full">
+      <Tabs defaultValue="overview" className="w-full">
         <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="create">Create Campaign</TabsTrigger>
           <TabsTrigger value="calendar">Content Calendar</TabsTrigger>
           <TabsTrigger value="automation">Automation</TabsTrigger>
-          <TabsTrigger value="analytics">Performance</TabsTrigger>
-          <TabsTrigger value="segments">Audience</TabsTrigger>
-          <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
-          <TabsTrigger value="reports">Custom Reports</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="audience">Audience</TabsTrigger>
+          <TabsTrigger value="ai-recommendations">AI Recommendations</TabsTrigger>
+          <TabsTrigger value="custom-reports">Custom Reports</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview">
+          <Card>
+            <CardHeader>
+              <CardTitle>Campaign Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Placeholder for overview content */}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="create">
           <Card>
@@ -433,21 +443,59 @@ export function CampaignManager() {
         </TabsContent>
 
         <TabsContent value="automation">
-          <ChannelOrchestrator />
+          <Card>
+            <CardHeader>
+              <CardTitle>Campaign Automation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Card className="cursor-pointer hover:border-primary transition-colors">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Email Sequences</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">Create automated email sequences</p>
+                    <Button variant="outline">Configure</Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="cursor-pointer hover:border-primary transition-colors">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Social Media Posts</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">Schedule and automate social media posts</p>
+                    <Button variant="outline">Configure</Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="cursor-pointer hover:border-primary transition-colors">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Trigger Rules</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">Set up behavior-based triggers</p>
+                    <Button variant="outline">Configure</Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-4">
+        <TabsContent value="performance" className="space-y-4">
           <AnalyticsDashboard />
         </TabsContent>
 
-        <TabsContent value="segments" className="space-y-4">
+        <TabsContent value="audience" className="space-y-4">
           <CustomerSegmentation />
         </TabsContent>
-        <TabsContent value="recommendations" className="space-y-4">
+
+        <TabsContent value="ai-recommendations">
           <ContentRecommendations />
         </TabsContent>
 
-        <TabsContent value="reports" className="space-y-4">
+        <TabsContent value="custom-reports">
           <ReportBuilder />
         </TabsContent>
       </Tabs>

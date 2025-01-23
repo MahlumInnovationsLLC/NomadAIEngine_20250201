@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { CampaignManager } from "./CampaignManager";
 import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
+import { CampaignMetrics } from "./analytics/CampaignMetrics";
 
 const campaignData = [
   { month: "Jan", engagement: 400, conversions: 240, roi: 180 },
@@ -126,26 +127,51 @@ export function MarketingDashboard() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Analytics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground">
-                Detailed analytics interface will be implemented here
-              </div>
-            </CardContent>
-          </Card>
+          <CampaignMetrics />
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Integration Hub</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <FontAwesomeIcon
+                  icon={['fal' as IconPrefix, 'plug' as IconName]}
+                  className="h-4 w-4"
+                />
+                Available Integrations
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm text-muted-foreground">
-                Integration management interface will be implemented here
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Card className="cursor-pointer hover:border-primary transition-colors">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Email Marketing</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">Connect with popular email marketing platforms</p>
+                    <Button variant="outline">Configure</Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="cursor-pointer hover:border-primary transition-colors">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Social Media</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">Integrate with social media platforms</p>
+                    <Button variant="outline">Configure</Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="cursor-pointer hover:border-primary transition-colors">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Analytics Tools</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">Connect with analytics and tracking tools</p>
+                    <Button variant="outline">Configure</Button>
+                  </CardContent>
+                </Card>
               </div>
             </CardContent>
           </Card>
