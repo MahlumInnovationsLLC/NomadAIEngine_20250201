@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Save, AlertCircle, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Save, AlertCircle, Loader2, UserCheck } from "lucide-react";
 
 interface DocumentViewerProps {
   documentId: string;
@@ -18,7 +19,19 @@ interface DocumentData {
   version: string;
   status: 'draft' | 'in_review' | 'approved' | 'released';
   lastModified: string;
+  assignedReviewer?: {
+    id: string;
+    name: string;
+  };
+  reviewComment?: string;
 }
+
+const statusColors = {
+  draft: "bg-gray-500",
+  in_review: "bg-blue-500",
+  approved: "bg-green-500",
+  released: "bg-purple-500",
+};
 
 export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const [version, setVersion] = useState<string>("");
@@ -64,7 +77,11 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       const response = await fetch(`/api/documents/${documentId}/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editedContent, version }),
+        body: JSON.stringify({ 
+          content: editedContent, 
+          version,
+          status: document?.status || 'draft'
+        }),
         credentials: 'include',
       });
       if (!response.ok) {
@@ -120,35 +137,51 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   return (
     <Card className="flex flex-col h-full">
       <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            {isEditing && (
-              <>
-                <div>
-                  <Label htmlFor="version">Version</Label>
-                  <Input
-                    id="version"
-                    value={version}
-                    onChange={(e) => setVersion(e.target.value)}
-                    placeholder="e.g., 1.0.0"
-                    className="max-w-[150px]"
-                  />
-                </div>
-                <Button 
-                  onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Save
-                </Button>
-              </>
+            <Badge className={statusColors[document.status]}>
+              {document.status.replace('_', ' ').toUpperCase()}
+            </Badge>
+            {document.assignedReviewer && (
+              <div className="flex items-center gap-2">
+                <UserCheck className="h-4 w-4" />
+                <span className="text-sm text-muted-foreground">
+                  Reviewer: {document.assignedReviewer.name}
+                </span>
+              </div>
             )}
           </div>
+          {isEditing && (
+            <div className="flex items-center gap-2">
+              <div>
+                <Label htmlFor="version">Version</Label>
+                <Input
+                  id="version"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  placeholder="e.g., 1.0.0"
+                  className="max-w-[150px]"
+                />
+              </div>
+              <Button 
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save
+              </Button>
+            </div>
+          )}
         </div>
-        <div className="mt-2 text-sm text-muted-foreground">
-          Version: {document.version} | Status: {document.status} | 
-          Last modified: {new Date(document.lastModified).toLocaleString()}
+        <div className="text-sm text-muted-foreground">
+          Version: {document.version} | Last modified: {new Date(document.lastModified).toLocaleString()}
         </div>
+        {document.reviewComment && (
+          <div className="mt-2 p-2 bg-muted rounded-md">
+            <p className="text-sm font-medium">Review Comment:</p>
+            <p className="text-sm text-muted-foreground">{document.reviewComment}</p>
+          </div>
+        )}
       </div>
       <ScrollArea className="flex-grow p-4">
         {isEditing ? (
