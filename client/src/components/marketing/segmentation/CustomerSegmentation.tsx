@@ -113,144 +113,146 @@ export function CustomerSegmentation() {
       return modifier * (Number(a[sortBy]) - Number(b[sortBy]));
     });
 
-  function SegmentCard({ segment }: { segment: CustomerSegment }) {
-    const impact = segment.criteria?.reduce((acc, c) => acc + (c.impact || 0), 0) || 0;
-    const avgImpact = impact / (segment.criteria?.length || 1);
+function SegmentCard({ segment }: { segment: CustomerSegment }) {
+  const impact = segment.criteria?.reduce((acc, c) => acc + (c.impact || 0), 0) || 0;
+  const avgImpact = impact / (segment.criteria?.length || 1);
 
-    return (
-      <Card className="relative hover:shadow-lg transition-shadow">
-        {segment.aiGenerated && (
-          <div className="absolute top-2 right-2">
-            <div className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
-              AI Generated
+  return (
+    <Card className="relative hover:shadow-lg transition-shadow">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 pt-6">
+        <div className="flex items-center gap-2">
+          <FontAwesomeIcon
+            icon={segment.aiGenerated ? faMagicWandSparkles : faFilter}
+            className={cn(
+              "h-4 w-4",
+              segment.aiGenerated ? "text-purple-500" : "text-blue-500"
+            )}
+          />
+          <CardTitle className="text-sm font-medium">{segment.name}</CardTitle>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <FontAwesomeIcon icon={faUsers} className="h-4 w-4" />
+          {segment.totalCustomers.toLocaleString()}
+        </div>
+      </CardHeader>
+
+      {segment.aiGenerated && (
+        <div className="absolute top-2 right-2">
+          <div className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
+            AI Generated
+          </div>
+        </div>
+      )}
+
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">{segment.description}</p>
+
+        {/* Growth and Engagement Predictions */}
+        {segment.expectedGrowth !== undefined && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2 bg-green-50 p-2 rounded-lg">
+              <FontAwesomeIcon 
+                icon={faArrowTrendUp} 
+                className={cn(
+                  "h-4 w-4",
+                  segment.expectedGrowth > 0 ? "text-green-500" : "text-red-500"
+                )} 
+              />
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Expected Growth</span>
+                <span className="text-sm font-medium">
+                  {segment.expectedGrowth > 0 ? "+" : ""}
+                  {segment.expectedGrowth}%
+                </span>
+              </div>
+            </div>
+            {segment.predictedEngagement !== undefined && (
+              <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
+                <FontAwesomeIcon icon={faPercentage} className="h-4 w-4 text-blue-500" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Engagement</span>
+                  <span className="text-sm font-medium">{segment.predictedEngagement}%</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span>AI Confidence Score</span>
+            <span className="font-medium">
+              {(segment.confidenceScore * 100).toFixed(1)}%
+            </span>
+          </div>
+          <Progress 
+            value={segment.confidenceScore * 100} 
+            className={cn(
+              segment.confidenceScore >= 0.8 ? "bg-green-100" : 
+              segment.confidenceScore >= 0.6 ? "bg-yellow-100" : "bg-red-100"
+            )}
+          />
+        </div>
+
+        {/* Segment Criteria */}
+        {segment.criteria && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Segment Criteria:</Label>
+            <div className="space-y-2">
+              {segment.criteria.map((criterion, index) => (
+                <div 
+                  key={index} 
+                  className="text-sm bg-gray-50 p-2 rounded-lg flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <FontAwesomeIcon 
+                      icon={criterion.type === 'demographic' ? faUsers : faChartPie} 
+                      className="h-3 w-3 text-muted-foreground" 
+                    />
+                    {criterion.type} {criterion.condition} {criterion.value}
+                  </span>
+                  {criterion.confidence && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                        {(criterion.confidence * 100).toFixed(0)}% confidence
+                      </span>
+                      {criterion.impact && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                          {(criterion.impact * 100).toFixed(0)}% impact
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div className="flex items-center gap-2">
-            <FontAwesomeIcon
-              icon={segment.aiGenerated ? faMagicWandSparkles : faFilter}
-              className={cn(
-                "h-4 w-4",
-                segment.aiGenerated ? "text-purple-500" : "text-blue-500"
-              )}
-            />
-            <CardTitle className="text-sm font-medium">{segment.name}</CardTitle>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <FontAwesomeIcon icon={faUsers} className="h-4 w-4" />
-            {segment.totalCustomers.toLocaleString()}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">{segment.description}</p>
 
-          {/* Growth and Engagement Predictions */}
-          {segment.expectedGrowth !== undefined && (
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="flex items-center gap-2 bg-green-50 p-2 rounded-lg">
-                <FontAwesomeIcon 
-                  icon={faArrowTrendUp} 
-                  className={cn(
-                    "h-4 w-4",
-                    segment.expectedGrowth > 0 ? "text-green-500" : "text-red-500"
-                  )} 
-                />
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Expected Growth</span>
-                  <span className="text-sm font-medium">
-                    {segment.expectedGrowth > 0 ? "+" : ""}
-                    {segment.expectedGrowth}%
-                  </span>
-                </div>
-              </div>
-              {segment.predictedEngagement !== undefined && (
-                <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
-                  <FontAwesomeIcon icon={faPercentage} className="h-4 w-4 text-blue-500" />
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">Engagement</span>
-                    <span className="text-sm font-medium">{segment.predictedEngagement}%</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>AI Confidence Score</span>
-              <span className="font-medium">
-                {(segment.confidenceScore * 100).toFixed(1)}%
-              </span>
-            </div>
-            <Progress 
-              value={segment.confidenceScore * 100} 
-              className={cn(
-                segment.confidenceScore >= 0.8 ? "bg-green-100" : 
-                segment.confidenceScore >= 0.6 ? "bg-yellow-100" : "bg-red-100"
-              )}
-            />
-          </div>
-
-          {/* Segment Criteria with Confidence Levels */}
-          {segment.criteria && (
-            <div className="mt-4 space-y-2">
-              <Label className="text-sm font-medium">Segment Criteria:</Label>
-              <div className="space-y-2">
-                {segment.criteria.map((criterion, index) => (
-                  <div 
-                    key={index} 
-                    className="text-sm bg-gray-50 p-2 rounded-lg flex items-center justify-between"
-                  >
-                    <span className="flex items-center gap-2">
-                      <FontAwesomeIcon 
-                        icon={criterion.type === 'demographic' ? faUsers : faChartPie} 
-                        className="h-3 w-3 text-muted-foreground" 
-                      />
-                      {criterion.type} {criterion.condition} {criterion.value}
-                    </span>
-                    {criterion.confidence && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          {(criterion.confidence * 100).toFixed(0)}% confidence
-                        </span>
-                        {criterion.impact && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                            {(criterion.impact * 100).toFixed(0)}% impact
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-2 mt-4">
-            {segment.insights && segment.insights.length > 0 && (
-              <Button
-                variant="ghost"
-                className="flex-1 gap-2 hover:bg-purple-50"
-                onClick={() => setShowInsights(segment.id)}
-              >
-                <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4 text-yellow-500" />
-                View AI Insights
-              </Button>
-            )}
+        <div className="flex gap-2 pt-2">
+          {segment.insights && segment.insights.length > 0 && (
             <Button
               variant="ghost"
-              className="flex-1 gap-2 hover:bg-blue-50"
-              onClick={() => setSelectedSegment({ id: segment.id, name: segment.name })}
+              className="flex-1 gap-2 hover:bg-purple-50"
+              onClick={() => setShowInsights(segment.id)}
             >
-              <FontAwesomeIcon icon={faUserGroup} className="h-4 w-4 text-blue-500" />
-              View Members
+              <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4 text-yellow-500" />
+              View AI Insights
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+          )}
+          <Button
+            variant="ghost"
+            className="flex-1 gap-2 hover:bg-blue-50"
+            onClick={() => setSelectedSegment({ id: segment.id, name: segment.name })}
+          >
+            <FontAwesomeIcon icon={faUserGroup} className="h-4 w-4 text-blue-500" />
+            View Members
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
   return (
     <div className="space-y-4">

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTimes, faUser, faCalendar, faCrown, faClock, faChartLine } from "@fortawesome/free-solid-svg-icons";
+import { faUser, faCalendar, faCrown, faClock, faChartLine } from "@fortawesome/free-solid-svg-icons";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -42,18 +42,8 @@ export function MemberListDialog({ open, onClose, segmentId, segmentName }: Memb
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
-        <DialogHeader className="relative border-b pb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-2"
-            onClick={onClose}
-          >
-            <FontAwesomeIcon icon={faTimes} className="h-4 w-4" />
-          </Button>
-          <DialogTitle className="pr-8">
-            Members in Segment: {segmentName}
-          </DialogTitle>
+        <DialogHeader className="border-b pb-4">
+          <DialogTitle className="text-xl">Members in Segment: {segmentName}</DialogTitle>
           {pagination && (
             <p className="text-sm text-muted-foreground">
               Showing {members.length} of {pagination.total} members
@@ -81,7 +71,7 @@ export function MemberListDialog({ open, onClose, segmentId, segmentName }: Memb
                         <h3 className="font-medium">{member.name}</h3>
                         <span className="text-sm text-muted-foreground">{member.email}</span>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div className="flex items-center gap-2">
                           <FontAwesomeIcon icon={faCalendar} className="h-3 w-3 text-gray-400" />
