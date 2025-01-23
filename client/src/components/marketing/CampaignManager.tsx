@@ -21,6 +21,11 @@ import { ContentRecommendations } from "./recommendations/ContentRecommendations
 import { ReportBuilder } from "./reporting/ReportBuilder";
 import { AnalyticsDashboard } from "./analytics/AnalyticsDashboard";
 import { CustomerSegmentation } from "./analytics/CustomerSegmentation";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useQuery } from "@tanstack/react-query";
+import { Label } from "@/components/ui/label";
+
 
 // Enhanced schema with audience targeting
 const campaignFormSchema = z.object({
@@ -74,6 +79,15 @@ const suggestedSegments = [
   { id: "new-users", name: "New Users (Last 30 Days)", score: 0.78 },
   { id: "inactive", name: "Inactive Users", score: 0.75 },
 ];
+
+const campaignData = [
+  { month: 'Jan', engagement: 4000, conversions: 1000, roi: 25 },
+  { month: 'Feb', engagement: 4500, conversions: 1200, roi: 28 },
+  { month: 'Mar', engagement: 5000, conversions: 1500, roi: 30 },
+  { month: 'Apr', engagement: 5500, conversions: 1800, roi: 33 },
+  { month: 'May', engagement: 6000, conversions: 2000, roi: 35 },
+];
+
 
 export function CampaignManager() {
   const [date, setDate] = useState<Date>();
@@ -136,7 +150,107 @@ export function CampaignManager() {
               <CardTitle>Campaign Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Placeholder for overview content */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Active Campaigns
+                    </CardTitle>
+                    <FontAwesomeIcon
+                      icon={['fal' as IconPrefix, 'bullhorn' as IconName]}
+                      className="h-4 w-4 text-muted-foreground"
+                    />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">12</div>
+                    <p className="text-xs text-muted-foreground">
+                      +2 from last month
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Email Open Rate
+                    </CardTitle>
+                    <FontAwesomeIcon
+                      icon={['fal' as IconPrefix, 'envelope-open' as IconName]}
+                      className="h-4 w-4 text-muted-foreground"
+                    />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">24.5%</div>
+                    <p className="text-xs text-muted-foreground">
+                      +2.1% from last week
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Click-through Rate
+                    </CardTitle>
+                    <FontAwesomeIcon
+                      icon={['fal' as IconPrefix, 'mouse-pointer' as IconName]}
+                      className="h-4 w-4 text-muted-foreground"
+                    />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">3.2%</div>
+                    <p className="text-xs text-muted-foreground">
+                      +0.3% from last month
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Conversion Rate
+                    </CardTitle>
+                    <FontAwesomeIcon
+                      icon={['fal' as IconPrefix, 'chart-line' as IconName]}
+                      className="h-4 w-4 text-muted-foreground"
+                    />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">2.4%</div>
+                    <p className="text-xs text-muted-foreground">
+                      +0.2% from last month
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="mt-4">
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={campaignData}>
+                    <XAxis dataKey="month" stroke="#888888" />
+                    <YAxis stroke="#888888" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar
+                      dataKey="engagement"
+                      name="Engagement"
+                      fill="currentColor"
+                      radius={[4, 4, 0, 0]}
+                      className="fill-primary"
+                    />
+                    <Bar
+                      dataKey="conversions"
+                      name="Conversions"
+                      fill="currentColor"
+                      radius={[4, 4, 0, 0]}
+                      className="fill-primary/50"
+                    />
+                    <Bar
+                      dataKey="roi"
+                      name="ROI %"
+                      fill="currentColor"
+                      radius={[4, 4, 0, 0]}
+                      className="fill-primary/20"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -445,39 +559,337 @@ export function CampaignManager() {
         <TabsContent value="automation">
           <Card>
             <CardHeader>
-              <CardTitle>Campaign Automation</CardTitle>
+              <CardTitle>Multi-Channel Campaign Automation</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="cursor-pointer hover:border-primary transition-colors">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Email Sequences</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">Create automated email sequences</p>
-                    <Button variant="outline">Configure</Button>
-                  </CardContent>
-                </Card>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Active Automations</h3>
+                  <div className="grid gap-4">
+                    <Collapsible>
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <FontAwesomeIcon
+                            icon={['fal' as IconPrefix, 'envelope' as IconName]}
+                            className="h-6 w-6 text-primary"
+                          />
+                          <div>
+                            <h4 className="font-medium">Welcome Series</h4>
+                            <p className="text-sm text-muted-foreground">5-step email sequence</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <FontAwesomeIcon
+                                icon={['fal' as IconPrefix, 'cog' as IconName]}
+                                className="h-4 w-4"
+                              />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <Switch defaultChecked />
+                        </div>
+                      </div>
+                      <CollapsibleContent className="p-4 space-y-4 border-x border-b rounded-b-lg -mt-[1px]">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Email Provider</Label>
+                            <Select defaultValue="sendgrid">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select provider" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="sendgrid">SendGrid</SelectItem>
+                                <SelectItem value="mailchimp">Mailchimp</SelectItem>
+                                <SelectItem value="hubspot">HubSpot</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Trigger Delay</Label>
+                            <Select defaultValue="immediate">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select delay" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="immediate">Immediate</SelectItem>
+                                <SelectItem value="1hour">1 Hour</SelectItem>
+                                <SelectItem value="1day">1 Day</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Email Templates</Label>
+                          <div className="grid gap-2">
+                            {[1, 2, 3, 4, 5].map((step) => (
+                              <div key={step} className="flex items-center gap-4 p-2 border rounded">
+                                <span className="font-medium">Step {step}</span>
+                                <Select defaultValue="template1">
+                                  <SelectTrigger className="w-[200px]">
+                                    <SelectValue placeholder="Select template" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="template1">Welcome Email</SelectItem>
+                                    <SelectItem value="template2">Product Introduction</SelectItem>
+                                    <SelectItem value="template3">Case Studies</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  type="number"
+                                  placeholder="Delay (hours)"
+                                  className="w-[100px]"
+                                  defaultValue={24}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
 
-                <Card className="cursor-pointer hover:border-primary transition-colors">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Social Media Posts</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">Schedule and automate social media posts</p>
-                    <Button variant="outline">Configure</Button>
-                  </CardContent>
-                </Card>
+                    <Collapsible>
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <FontAwesomeIcon
+                            icon={['fal' as IconPrefix, 'share-nodes' as IconName]}
+                            className="h-6 w-6 text-primary"
+                          />
+                          <div>
+                            <h4 className="font-medium">Social Media Posts</h4>
+                            <p className="text-sm text-muted-foreground">Daily schedule</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <FontAwesomeIcon
+                                icon={['fal' as IconPrefix, 'cog' as IconName]}
+                                className="h-4 w-4"
+                              />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <Switch defaultChecked />
+                        </div>
+                      </div>
+                      <CollapsibleContent className="p-4 space-y-4 border-x border-b rounded-b-lg -mt-[1px]">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Platforms</Label>
+                            <div className="space-y-2">
+                              {socialPlatforms.map(platform => (
+                                <div key={platform.id} className="flex items-center space-x-2">
+                                  <Switch
+                                    id={platform.id}
+                                    checked={selectedPlatforms.includes(platform.id)}
+                                    onCheckedChange={() => handlePlatformToggle(platform.id)}
+                                  />
+                                  <Label htmlFor={platform.id} className="flex items-center gap-2">
+                                    <FontAwesomeIcon
+                                      icon={[platform.prefix, platform.icon]}
+                                      className="h-4 w-4"
+                                    />
+                                    {platform.name}
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Posting Schedule</Label>
+                            <Select defaultValue="daily">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select frequency" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="daily">Daily</SelectItem>
+                                <SelectItem value="weekly">Weekly</SelectItem>
+                                <SelectItem value="custom">Custom Schedule</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Content Settings</Label>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Switch id="ai-content" />
+                              <Label htmlFor="ai-content">Use AI for content generation</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch id="approval-required" />
+                              <Label htmlFor="approval-required">Require approval before posting</Label>
+                            </div>
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                </div>
 
-                <Card className="cursor-pointer hover:border-primary transition-colors">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Trigger Rules</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">Set up behavior-based triggers</p>
-                    <Button variant="outline">Configure</Button>
-                  </CardContent>
-                </Card>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Trigger Rules</h3>
+                  <div className="grid gap-4">
+                    <Collapsible>
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <FontAwesomeIcon
+                            icon={['fal' as IconPrefix, 'cart-shopping' as IconName]}
+                            className="h-6 w-6 text-primary"
+                          />
+                          <div>
+                            <h4 className="font-medium">Abandoned Cart Recovery</h4>
+                            <p className="text-sm text-muted-foreground">24-hour delay</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <FontAwesomeIcon
+                                icon={['fal' as IconPrefix, 'cog' as IconName]}
+                                className="h-4 w-4"
+                              />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <Switch defaultChecked />
+                        </div>
+                      </div>
+                      <CollapsibleContent className="p-4 space-y-4 border-x border-b rounded-b-lg -mt-[1px]">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Trigger Conditions</Label>
+                            <Select defaultValue="cart_abandoned">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select trigger" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="cart_abandoned">Cart Abandoned</SelectItem>
+                                <SelectItem value="checkout_started">Checkout Started</SelectItem>
+                                <SelectItem value="payment_failed">Payment Failed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Wait Duration</Label>
+                            <div className="flex gap-2">
+                              <Input type="number" defaultValue={24} className="w-20" />
+                              <Select defaultValue="hours">
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Unit" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="minutes">Minutes</SelectItem>
+                                  <SelectItem value="hours">Hours</SelectItem>
+                                  <SelectItem value="days">Days</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Recovery Actions</Label>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Switch id="send-email" defaultChecked />
+                              <Label htmlFor="send-email">Send recovery email</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch id="offer-discount" />
+                              <Label htmlFor="offer-discount">Include discount code</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch id="notify-sales" />
+                              <Label htmlFor="notify-sales">Notify sales team</Label>
+                            </div>
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Collapsible>
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <FontAwesomeIcon
+                            icon={['fal' as IconPrefix, 'birthday-cake' as IconName]}
+                            className="h-6 w-6 text-primary"
+                          />
+                          <div>
+                            <h4 className="font-medium">Birthday Rewards</h4>
+                            <p className="text-sm text-muted-foreground">Annual trigger</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <FontAwesomeIcon
+                                icon={['fal' as IconPrefix, 'cog' as IconName]}
+                                className="h-4 w-4"
+                              />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <Switch defaultChecked />
+                        </div>
+                      </div>
+                      <CollapsibleContent className="p-4 space-y-4 border-x border-b rounded-b-lg -mt-[1px]">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Reward Type</Label>
+                            <Select defaultValue="discount">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select reward" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="discount">Discount Code</SelectItem>
+                                <SelectItem value="points">Loyalty Points</SelectItem>
+                                <SelectItem value="gift">Free Gift</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Delivery Timing</Label>
+                            <Select defaultValue="on_birthday">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select timing" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="on_birthday">On Birthday</SelectItem>
+                                <SelectItem value="week_before">Week Before</SelectItem>
+                                <SelectItem value="month_before">Month Before</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Communication Channels</Label>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Switch id="birthday-email" defaultChecked />
+                              <Label htmlFor="birthday-email">Email</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch id="birthday-sms" />
+                              <Label htmlFor="birthday-sms">SMS</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch id="birthday-notification" />
+                              <Label htmlFor="birthday-notification">In-app Notification</Label>
+                            </div>
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <Button>
+                    <FontAwesomeIcon
+                      icon={['fal' as IconPrefix, 'plus' as IconName]}
+                      className="mr-2 h-4 w-4"
+                    />
+                    Create New Automation
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
