@@ -20,6 +20,8 @@ import { AnalyticsDashboard } from "./analytics/AnalyticsDashboard";
 import { CustomerSegmentation } from "./analytics/CustomerSegmentation";
 import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
 import { ChannelOrchestrator } from "./orchestration/ChannelOrchestrator";
+import { ContentRecommendations } from "./recommendations/ContentRecommendations";
+import { ReportBuilder } from "./reporting/ReportBuilder";
 
 // Enhanced schema with audience targeting
 const campaignFormSchema = z.object({
@@ -125,6 +127,8 @@ export function CampaignManager() {
           <TabsTrigger value="automation">Automation</TabsTrigger>
           <TabsTrigger value="analytics">Performance</TabsTrigger>
           <TabsTrigger value="segments">Audience</TabsTrigger>
+          <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
+          <TabsTrigger value="reports">Custom Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="create">
@@ -438,6 +442,13 @@ export function CampaignManager() {
 
         <TabsContent value="segments" className="space-y-4">
           <CustomerSegmentation />
+        </TabsContent>
+        <TabsContent value="recommendations" className="space-y-4">
+          <ContentRecommendations />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4">
+          <ReportBuilder />
         </TabsContent>
       </Tabs>
     </div>
