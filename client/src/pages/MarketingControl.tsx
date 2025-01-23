@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function MarketingControl() {
   return (
-    <div className="container mx-auto">
+    <div className="container mx-auto pt-16">
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
         <div className="px-4">
           <h1 className="text-3xl font-bold mb-1">Marketing Control</h1>
