@@ -3,8 +3,8 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } fro
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { CampaignManager } from "./CampaignManager";
+import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
 
 const campaignData = [
   { month: "Jan", engagement: 400, conversions: 240, roi: 180 },
@@ -22,7 +22,10 @@ export function MarketingDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
-            <FontAwesomeIcon icon={["fal", "bullhorn"] as IconProp} className="h-4 w-4 text-muted-foreground" />
+            <FontAwesomeIcon 
+              icon={['fal' as IconPrefix, 'bullhorn' as IconName]} 
+              className="h-4 w-4 text-muted-foreground" 
+            />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">12</div>
@@ -32,7 +35,10 @@ export function MarketingDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Email Engagement</CardTitle>
-            <FontAwesomeIcon icon={["fal", "envelope"] as IconProp} className="h-4 w-4 text-muted-foreground" />
+            <FontAwesomeIcon 
+              icon={['fal' as IconPrefix, 'envelope' as IconName]} 
+              className="h-4 w-4 text-muted-foreground" 
+            />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">24.5%</div>
@@ -42,7 +48,10 @@ export function MarketingDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-            <FontAwesomeIcon icon={["fal", "chart-line"] as IconProp} className="h-4 w-4 text-muted-foreground" />
+            <FontAwesomeIcon 
+              icon={['fal' as IconPrefix, 'chart-line' as IconName]} 
+              className="h-4 w-4 text-muted-foreground" 
+            />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">3.2%</div>
@@ -52,7 +61,10 @@ export function MarketingDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Marketing ROI</CardTitle>
-            <FontAwesomeIcon icon={["fal", "dollar-sign"] as IconProp} className="h-4 w-4 text-muted-foreground" />
+            <FontAwesomeIcon 
+              icon={['fal' as IconPrefix, 'dollar-sign' as IconName]} 
+              className="h-4 w-4 text-muted-foreground" 
+            />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">246%</div>

@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { AnalyticsDashboard } from "./analytics/AnalyticsDashboard";
+import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
 
 const campaignFormSchema = z.object({
   name: z.string().min(2, "Campaign name must be at least 2 characters"),
@@ -35,16 +36,16 @@ const campaignFormSchema = z.object({
 type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 
 const socialPlatforms = [
-  { id: "facebook", name: "Facebook", icon: "facebook" },
-  { id: "instagram", name: "Instagram", icon: "instagram" },
-  { id: "twitter", name: "Twitter", icon: "twitter" },
-  { id: "linkedin", name: "LinkedIn", icon: "linkedin" },
+  { id: "facebook", name: "Facebook", icon: "facebook" as IconName, prefix: "fab" as IconPrefix },
+  { id: "instagram", name: "Instagram", icon: "instagram" as IconName, prefix: "fab" as IconPrefix },
+  { id: "twitter", name: "Twitter", icon: "twitter" as IconName, prefix: "fab" as IconPrefix },
+  { id: "linkedin", name: "LinkedIn", icon: "linkedin" as IconName, prefix: "fab" as IconPrefix },
 ];
 
 const emailProviders = [
-  { id: "sendgrid", name: "SendGrid", icon: "envelope" },
-  { id: "mailchimp", name: "Mailchimp", icon: "envelope-open" },
-  { id: "hubspot", name: "HubSpot", icon: "envelope-circle-check" },
+  { id: "sendgrid", name: "SendGrid", icon: "envelope" as IconName, prefix: "fal" as IconPrefix },
+  { id: "mailchimp", name: "Mailchimp", icon: "envelope-open" as IconName, prefix: "fal" as IconPrefix },
+  { id: "hubspot", name: "HubSpot", icon: "envelope-circle-check" as IconName, prefix: "fal" as IconPrefix },
 ];
 
 export function CampaignManager() {
@@ -66,8 +67,8 @@ export function CampaignManager() {
   }
 
   const handlePlatformToggle = (platformId: string) => {
-    setSelectedPlatforms(prev => 
-      prev.includes(platformId) 
+    setSelectedPlatforms(prev =>
+      prev.includes(platformId)
         ? prev.filter(id => id !== platformId)
         : [...prev, platformId]
     );
@@ -120,19 +121,19 @@ export function CampaignManager() {
                           <SelectContent>
                             <SelectItem value="email">
                               <div className="flex items-center gap-2">
-                                <FontAwesomeIcon icon={["fal", "envelope"] as IconProp} />
+                                <FontAwesomeIcon icon={['fal' as IconPrefix, 'envelope' as IconName]} />
                                 Email Campaign
                               </div>
                             </SelectItem>
                             <SelectItem value="social">
                               <div className="flex items-center gap-2">
-                                <FontAwesomeIcon icon={["fal", "share-nodes"] as IconProp} />
+                                <FontAwesomeIcon icon={['fal' as IconPrefix, 'share-nodes' as IconName]} />
                                 Social Media
                               </div>
                             </SelectItem>
                             <SelectItem value="multi-channel">
                               <div className="flex items-center gap-2">
-                                <FontAwesomeIcon icon={["fal", "layer-group"] as IconProp} />
+                                <FontAwesomeIcon icon={['fal' as IconPrefix, 'layer-group' as IconName]} />
                                 Multi-channel
                               </div>
                             </SelectItem>
@@ -154,9 +155,9 @@ export function CampaignManager() {
                               onCheckedChange={() => handlePlatformToggle(platform.id)}
                             />
                             <span className="flex items-center gap-2">
-                              <FontAwesomeIcon 
-                                icon={["fab", platform.icon] as IconProp} 
-                                className="h-4 w-4" 
+                              <FontAwesomeIcon
+                                icon={[platform.prefix, platform.icon]}
+                                className="h-4 w-4"
                               />
                               {platform.name}
                             </span>
@@ -183,9 +184,9 @@ export function CampaignManager() {
                               {emailProviders.map(provider => (
                                 <SelectItem key={provider.id} value={provider.id}>
                                   <div className="flex items-center gap-2">
-                                    <FontAwesomeIcon 
-                                      icon={["fal", provider.icon] as IconProp} 
-                                      className="h-4 w-4" 
+                                    <FontAwesomeIcon
+                                      icon={[provider.prefix, provider.icon]}
+                                      className="h-4 w-4"
                                     />
                                     {provider.name}
                                   </div>
@@ -220,7 +221,10 @@ export function CampaignManager() {
                                 ) : (
                                   <span>Pick a date</span>
                                 )}
-                                <FontAwesomeIcon icon={["fal", "calendar"] as IconProp} className="ml-auto h-4 w-4 opacity-50" />
+                                <FontAwesomeIcon 
+                                  icon={['fal' as IconPrefix, 'calendar' as IconName]} 
+                                  className="ml-auto h-4 w-4 opacity-50" 
+                                />
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
@@ -315,7 +319,10 @@ export function CampaignManager() {
 
                   <div className="flex justify-end">
                     <Button type="submit">
-                      <FontAwesomeIcon icon={["fal", "paper-plane"] as IconProp} className="mr-2 h-4 w-4" />
+                      <FontAwesomeIcon 
+                        icon={['fal' as IconPrefix, 'paper-plane' as IconName]} 
+                        className="mr-2 h-4 w-4" 
+                      />
                       Create Campaign
                     </Button>
                   </div>
@@ -354,17 +361,8 @@ export function CampaignManager() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="analytics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Campaign Performance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground">
-                Track and analyze your campaign metrics
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="analytics" className="space-y-4">
+          <AnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>

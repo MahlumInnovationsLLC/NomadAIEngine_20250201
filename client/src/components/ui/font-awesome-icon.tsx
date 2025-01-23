@@ -1,14 +1,16 @@
 import { HTMLAttributes } from 'react';
 import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
-import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import { IconDefinition, IconName, IconPrefix } from '@fortawesome/fontawesome-svg-core';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
   faGithub,
   faTwitter,
   faLinkedin,
   faDiscord,
+  faSlack,
   faWindows,
-  faSlack
+  faFacebook,
+  faInstagram
 } from '@fortawesome/free-brands-svg-icons';
 import {
   faCheck,
@@ -75,7 +77,16 @@ import {
   faBluetooth,
   faWifi,
   faCircleNotch,
-  faDownload
+  faDownload,
+  faLayerGroup,
+  faShareNodes,
+  faEnvelope,
+  faEnvelopeOpen,
+  faEnvelopeCircleCheck,
+  faBullhorn,
+  faDollarSign,
+  faCoins,
+  faBullseye
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -87,6 +98,8 @@ library.add(
   faDiscord,
   faSlack,
   faWindows,
+  faFacebook,
+  faInstagram,
 
   // Pro Light icons
   faCheck,
@@ -153,11 +166,20 @@ library.add(
   faBluetooth,
   faWifi,
   faCircleNotch,
-  faDownload
+  faDownload,
+  faLayerGroup,
+  faShareNodes,
+  faEnvelope,
+  faEnvelopeOpen,
+  faEnvelopeCircleCheck,
+  faBullhorn,
+  faDollarSign,
+  faCoins,
+  faBullseye
 );
 
-interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
-  icon: string;
+export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
+  icon: [IconPrefix, IconName] | string;
   size?: 'xs' | 'sm' | 'lg' | '2x' | '3x' | '4x' | '5x';
 }
 
@@ -169,6 +191,8 @@ const iconMap: Record<string, IconDefinition> = {
   'discord': faDiscord,
   'slack': faSlack,
   'windows': faWindows,
+  'facebook': faFacebook,
+  'instagram': faInstagram,
 
   // Pro Light icons
   'check': faCheck,
@@ -235,7 +259,16 @@ const iconMap: Record<string, IconDefinition> = {
   'bluetooth': faBluetooth,
   'wifi': faWifi,
   'circle-notch': faCircleNotch,
-  'download': faDownload
+  'download': faDownload,
+  'layer-group': faLayerGroup,
+  'share-nodes': faShareNodes,
+  'envelope': faEnvelope,
+  'envelope-open': faEnvelopeOpen,
+  'envelope-circle-check': faEnvelopeCircleCheck,
+  'bullhorn': faBullhorn,
+  'dollar-sign': faDollarSign,
+  'coins': faCoins,
+  'bullseye': faBullseye
 };
 
 export function FontAwesomeIcon({ 
@@ -244,8 +277,38 @@ export function FontAwesomeIcon({
   className,
   ...props 
 }: FontAwesomeIconProps) {
-  const faIcon = iconMap[icon];
+  if (Array.isArray(icon)) {
+    const [prefix, name] = icon;
+    if (prefix === 'fab') {
+      // Handle brand icons
+      const iconName = `fa${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+      const brandIcon = iconMap[name];
+      if (!brandIcon) {
+        console.warn(`Brand icon "${name}" not found`);
+        return null;
+      }
+      return (
+        <FAIcon 
+          icon={brandIcon}
+          className={className}
+          size={size}
+          {...props}
+        />
+      );
+    }
+    // Handle pro light icons with array notation
+    return (
+      <FAIcon 
+        icon={[prefix, name]}
+        className={className}
+        size={size}
+        {...props}
+      />
+    );
+  }
 
+  // Handle string-based icon names
+  const faIcon = iconMap[icon];
   if (!faIcon) {
     console.warn(`Icon "${icon}" not found in icon map`);
     return null;
