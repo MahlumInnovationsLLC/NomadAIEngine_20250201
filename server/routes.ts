@@ -20,7 +20,7 @@ import {
   documents,
   documentCollaborators,
   integrationConfigs,
-  marketingEvents // Added import
+  marketingEvents
 } from "@db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
@@ -31,8 +31,8 @@ import type { Request, Response } from "express";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
-import { WebSocket } from "ws"; // Added import
-import { drizzle } from "drizzle-orm/neon-serverless"; // Added import
+import { WebSocket } from "ws";
+import { drizzle } from "drizzle-orm/neon-serverless";
 
 
 // Types
@@ -904,11 +904,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error uploading files:", error);
         res.status(500).json({ error: "Failed to upload files" });
-      }      }
+      }
     });
 
     // Add workflow endpoint
-    app.post("/api/documents/workflow", async (req, res) => {
+    app.post("/api/documents/workflow", async (req, res)=> {
       try {
         const { documentId, type, assigneeId } = req.body;
 
@@ -1916,7 +1916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(401).json({ error: "Authentication required" });
         }
 
-        // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+        // Simulate Outlook sync for now (will bereplaced with actual Microsoft Graph API integration)
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         const sampleOutlookEvent = {
@@ -1932,6 +1932,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ 
           message: "Calendar synced with Outlook",
           syncedEvents: [sampleOutlookEvent]
+        });
+      } catch (error) {
+        console.error("Error syncing with Outlook:", error);
+        res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+      }
+    });
+
+    // Calendar API routes
+    app.get("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+      try {
+        const events = await db
+          .select()
+          .from(marketingEvents);
+
+        res.json(events);
+      } catch (error) {
+        console.error("Error fetching marketing events:", error);
+        res.status(500).json({ error: "Failed to fetch marketing events" });
+      }
+    });
+
+    app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+      try {
+        const eventData = {
+          ...req.body,
+          createdBy: req.user?.id || 'anonymous',
+          status: 'scheduled',
+        };
+
+        const [event] = await db
+          .insert(marketingEvents)
+          .values(eventData)
+          .returning();
+
+        res.json(event);
+      } catch (error) {
+        console.error("Error creating marketing event:", error);
+        res.status(500).json({ error: "Failed to create marketing event" });
+      }
+    });
+
+    app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+      try {
+        // For now, return a mock success response
+        // TODO: Implement actual Outlook calendar sync using Microsoft Graph API
+        res.json({
+          success: true,
+          message: "Calendar sync initiated"
         });
       } catch (error) {
         console.error("Error syncing with Outlook:", error);
