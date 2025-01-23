@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { format, isAfter, isBefore, startOfDay } from "date-fns";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
   faTimes,
@@ -18,7 +18,9 @@ import {
   faHashtag,
   faCalendarCheck,
   faLocationDot,
+  faSyncAlt,
 } from "@fortawesome/free-solid-svg-icons";
+import { faMicrosoft } from "@fortawesome/free-brands-svg-icons";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +30,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 const eventSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -55,10 +58,37 @@ interface MarketingEvent {
 }
 
 export function MarketingCalendar() {
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
   const [showEventDialog, setShowEventDialog] = useState(false);
   const { toast } = useToast();
+  const socket = useWebSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('calendar_event_created', (event: MarketingEvent) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/marketing/calendar/events'] });
+      toast({
+        title: "New Event Created",
+        description: `${event.title} has been added to the calendar.`,
+      });
+    });
+
+    socket.on('calendar_event_updated', (event: MarketingEvent) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/marketing/calendar/events'] });
+      toast({
+        title: "Event Updated",
+        description: `${event.title} has been updated.`,
+      });
+    });
+
+    return () => {
+      socket.off('calendar_event_created');
+      socket.off('calendar_event_updated');
+    };
+  }, [socket, queryClient, toast]);
 
   const form = useForm<z.infer<typeof eventSchema>>({
     resolver: zodResolver(eventSchema),
@@ -70,19 +100,29 @@ export function MarketingCalendar() {
     },
   });
 
-  // Reset form when selected date changes
   useEffect(() => {
     if (selectedDate) {
       form.setValue('startDate', selectedDate);
     }
   }, [selectedDate, form]);
 
-  // Fetch marketing events
-  const { data: events = [], isLoading, refetch } = useQuery<MarketingEvent[]>({
-    queryKey: ['/api/marketing/calendar/events'],
+  const startOfMonth = new Date(selectedDate?.getFullYear() || new Date().getFullYear(), 
+                               selectedDate?.getMonth() || new Date().getMonth(), 1);
+  const endOfMonth = new Date(selectedDate?.getFullYear() || new Date().getFullYear(), 
+                             (selectedDate?.getMonth() || new Date().getMonth()) + 1, 0);
+
+  const { data: events = [], isLoading } = useQuery<MarketingEvent[]>({
+    queryKey: ['/api/marketing/calendar/events', startOfMonth.toISOString(), endOfMonth.toISOString()],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/marketing/calendar/events?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) throw new Error('Failed to fetch events');
+      return response.json();
+    },
   });
 
-  // Create event mutation
   const createEvent = useMutation({
     mutationFn: async (data: z.infer<typeof eventSchema>) => {
       const response = await fetch('/api/marketing/calendar/events', {
@@ -102,7 +142,7 @@ export function MarketingCalendar() {
         description: "Successfully created new marketing event.",
       });
       setShowEventDialog(false);
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['/api/marketing/calendar/events'] });
       form.reset();
     },
     onError: (error) => {
@@ -114,7 +154,6 @@ export function MarketingCalendar() {
     },
   });
 
-  // Sync with Outlook mutation
   const syncWithOutlook = useMutation({
     mutationFn: async () => {
       setSyncStatus('syncing');
@@ -125,13 +164,13 @@ export function MarketingCalendar() {
       if (!response.ok) throw new Error('Failed to sync with Outlook');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setSyncStatus('synced');
       toast({
         title: "Calendar Synced",
-        description: "Successfully synchronized with Outlook calendar.",
+        description: `Successfully synchronized ${data.syncedEvents.length} events with Outlook calendar.`,
       });
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['/api/marketing/calendar/events'] });
     },
     onError: (error) => {
       setSyncStatus('error');
@@ -143,15 +182,31 @@ export function MarketingCalendar() {
     },
   });
 
-  // Get events for a specific date
   const getEventsForDate = (date: Date) => {
+    const dayStart = startOfDay(date);
     return events.filter(event => {
       const eventDate = new Date(event.startDate);
-      return eventDate.toDateString() === date.toDateString();
+      return startOfDay(eventDate).getTime() === dayStart.getTime();
     });
   };
 
-  // Type-specific icon mapping
+  const organizeEvents = (events: MarketingEvent[]) => {
+    const now = new Date();
+    return {
+      past: events.filter(e => isBefore(new Date(e.startDate), now)),
+      current: events.filter(e => {
+        const start = new Date(e.startDate);
+        const end = e.endDate ? new Date(e.endDate) : start;
+        return !isBefore(end, now) && !isAfter(start, now);
+      }),
+      upcoming: events.filter(e => isAfter(new Date(e.startDate), now)),
+    };
+  };
+
+  const onSubmit = (data: z.infer<typeof eventSchema>) => {
+    createEvent.mutate(data);
+  };
+
   const getEventTypeIcon = (type: MarketingEvent['type']) => {
     switch (type) {
       case 'campaign':
@@ -167,44 +222,34 @@ export function MarketingCalendar() {
     }
   };
 
-  // Handle event form submission
-  const onSubmit = (data: z.infer<typeof eventSchema>) => {
-    createEvent.mutate(data);
+  const getEventTypeColor = (type: MarketingEvent['type']) => {
+    switch (type) {
+      case 'campaign':
+        return 'text-blue-500';
+      case 'social_media':
+        return 'text-green-500';
+      case 'email_blast':
+        return 'text-purple-500';
+      case 'meeting':
+        return 'text-yellow-500';
+      case 'deadline':
+        return 'text-red-500';
+      default:
+        return 'text-gray-500';
+    }
   };
 
-  // Custom day content renderer with enhanced visuals
-  const DayContent = ({ date }: { date: Date }) => {
-    const dayEvents = getEventsForDate(date);
-    const hasEvents = dayEvents.length > 0;
-
-    return (
-      <div className="relative w-full h-full">
-        <div className={`w-full h-full flex items-center justify-center ${hasEvents ? 'font-bold' : ''}`}>
-          {date.getDate()}
-        </div>
-        {hasEvents && (
-          <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1">
-            {dayEvents.slice(0, 3).map((event, index) => (
-              <div
-                key={index}
-                className={`w-1.5 h-1.5 rounded-full ${
-                  event.type === 'campaign' ? 'bg-blue-500' :
-                  event.type === 'social_media' ? 'bg-green-500' :
-                  event.type === 'email_blast' ? 'bg-purple-500' :
-                  event.type === 'meeting' ? 'bg-yellow-500' :
-                  event.type === 'deadline' ? 'bg-red-500' :
-                  'bg-gray-500'
-                }`}
-                title={event.title}
-              />
-            ))}
-            {dayEvents.length > 3 && (
-              <span className="text-xs text-muted-foreground">+{dayEvents.length - 3}</span>
-            )}
-          </div>
-        )}
-      </div>
-    );
+  const getEventStatusVariant = (status: MarketingEvent['status']): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'completed':
+        return 'default';
+      case 'in_progress':
+        return 'secondary';
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
   };
 
   return (
@@ -228,7 +273,7 @@ export function MarketingCalendar() {
             className="gap-2"
           >
             <FontAwesomeIcon
-              icon={syncStatus === 'syncing' ? faSpinner : ['fab', 'microsoft']}
+              icon={syncStatus === 'syncing' ? faSpinner : faMicrosoft}
               className={`h-4 w-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`}
             />
             {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Outlook'}
@@ -244,7 +289,43 @@ export function MarketingCalendar() {
             onSelect={setSelectedDate}
             className="rounded-md border"
             components={{
-              DayContent,
+              DayContent: ({ date }) => {
+                const dayEvents = getEventsForDate(date);
+                const hasEvents = dayEvents.length > 0;
+                const isToday = startOfDay(date).getTime() === startOfDay(new Date()).getTime();
+
+                return (
+                  <div className="relative w-full h-full">
+                    <div className={`w-full h-full flex items-center justify-center 
+                      ${hasEvents ? 'font-bold' : ''} 
+                      ${isToday ? 'bg-primary/10 rounded-full' : ''}`}
+                    >
+                      {date.getDate()}
+                    </div>
+                    {hasEvents && (
+                      <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1">
+                        {dayEvents.slice(0, 3).map((event, index) => (
+                          <div
+                            key={index}
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              event.type === 'campaign' ? 'bg-blue-500' :
+                              event.type === 'social_media' ? 'bg-green-500' :
+                              event.type === 'email_blast' ? 'bg-purple-500' :
+                              event.type === 'meeting' ? 'bg-yellow-500' :
+                              event.type === 'deadline' ? 'bg-red-500' :
+                              'bg-gray-500'
+                            }`}
+                            title={event.title}
+                          />
+                        ))}
+                        {dayEvents.length > 3 && (
+                          <span className="text-xs text-muted-foreground">+{dayEvents.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              },
             }}
           />
 
@@ -256,62 +337,62 @@ export function MarketingCalendar() {
             </CardHeader>
             <CardContent>
               {selectedDate && (
-                <div className="space-y-4">
-                  {getEventsForDate(selectedDate).map((event) => (
-                    <div
-                      key={event.id}
-                      className="p-3 rounded-lg border hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <FontAwesomeIcon 
-                            icon={getEventTypeIcon(event.type)}
-                            className={`h-4 w-4 mt-1 ${
-                              event.type === 'campaign' ? 'text-blue-500' :
-                              event.type === 'social_media' ? 'text-green-500' :
-                              event.type === 'email_blast' ? 'text-purple-500' :
-                              event.type === 'meeting' ? 'text-yellow-500' :
-                              'text-gray-500'
-                            }`}
-                          />
-                          <div>
-                            <h4 className="font-medium">{event.title}</h4>
-                            {event.description && (
-                              <p className="text-sm text-muted-foreground">
-                                {event.description}
-                              </p>
-                            )}
-                          </div>
+                <div className="space-y-6">
+                  {Object.entries(organizeEvents(getEventsForDate(selectedDate))).map(([period, periodEvents]) => (
+                    periodEvents.length > 0 && (
+                      <div key={period} className="space-y-2">
+                        <h3 className="text-sm font-medium capitalize">
+                          {period} Events
+                        </h3>
+                        <div className="space-y-2">
+                          {periodEvents.map((event) => (
+                            <div
+                              key={event.id}
+                              className="p-3 rounded-lg border hover:shadow-md transition-shadow"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <FontAwesomeIcon 
+                                    icon={getEventTypeIcon(event.type)}
+                                    className={`h-4 w-4 mt-1 ${getEventTypeColor(event.type)}`}
+                                  />
+                                  <div>
+                                    <h4 className="font-medium">{event.title}</h4>
+                                    {event.description && (
+                                      <p className="text-sm text-muted-foreground">
+                                        {event.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <Badge
+                                  variant={getEventStatusVariant(event.status)}
+                                >
+                                  {event.status}
+                                </Badge>
+                              </div>
+                              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                <Badge variant="outline" className="text-xs">
+                                  {event.type.replace('_', ' ')}
+                                </Badge>
+                                {event.location && (
+                                  <span className="flex items-center gap-1">
+                                    <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
+                                    {event.location}
+                                  </span>
+                                )}
+                                {event.outlookEventId && (
+                                  <span className="flex items-center gap-1">
+                                    <FontAwesomeIcon icon={faMicrosoft} className="h-3 w-3" />
+                                    Synced
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <Badge
-                          variant={
-                            event.status === 'completed' ? 'default' :
-                            event.status === 'in_progress' ? 'secondary' :
-                            event.status === 'cancelled' ? 'destructive' :
-                            'outline'
-                          }
-                        >
-                          {event.status}
-                        </Badge>
                       </div>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-xs">
-                          {event.type.replace('_', ' ')}
-                        </Badge>
-                        {event.location && (
-                          <span className="flex items-center gap-1">
-                            <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
-                            {event.location}
-                          </span>
-                        )}
-                        {event.outlookEventId && (
-                          <span className="flex items-center gap-1">
-                            <FontAwesomeIcon icon={['fab', 'microsoft']} className="h-3 w-3" />
-                            Synced
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    )
                   ))}
                   {getEventsForDate(selectedDate).length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
@@ -325,7 +406,6 @@ export function MarketingCalendar() {
         </div>
       </CardContent>
 
-      {/* Event creation dialog */}
       <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>

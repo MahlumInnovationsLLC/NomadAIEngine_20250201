@@ -906,7 +906,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Add workflow endpoint
+    //    // Add workflow endpoint
     app.post("/api/documents/workflow", async (req, res) => {
       try {
         const { documentId, type, assigneeId } = req.body;
@@ -1874,7 +1874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
       try {
-        const { title, description, startDate, endDate, type, status } = req.body;
+        const { title, description, startDate, endDate, type, status, location } = req.body;
 
         // Validate required fields
         if (!title || !startDate || !type) {
@@ -1891,7 +1891,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             endDate: endDate ? new Date(endDate) : null,
             type,
             status: status || 'scheduled',
-            createdBy: req.user?.id || 'system'
+            createdBy: req.user?.id || 'system',
+            location
           })
           .returning();
 
@@ -1928,7 +1929,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
           outlookEventId: "123456"
         };
 
-        res.json({ 
+        res.json({
+          message: "Calendar synced with Outlook",
+          syncedEvents: [sampleOutlookEvent]
+        });
+      } catch (error) {
+        console.error("Error syncing with Outlook:", error);
+        res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+      }
+    });
+
+    // Add calendar event endpoints
+    app.get("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+      try {
+        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+        // Get events from database
+        const events = await db.query.marketingEvents.findMany({
+          where: and(
+            startDate ? gte(marketingEvents.startDate, startDate) : undefined,
+            endDate ? lte(marketingEvents.endDate, endDate) : undefined
+          ),
+          orderBy: [marketingEvents.startDate]
+        });
+
+        res.json(events);
+      } catch (error) {
+        console.error("Error fetching calendar events:", error);
+        res.status(500).json({ error: "Failed to fetch calendar events" });
+      }
+    });
+
+    app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+      try {
+        const { title, description, startDate, endDate, type, status, location } = req.body;
+
+        // Validate required fields
+        if (!title || !startDate || !type) {
+          return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        // Create new event
+        const [event] = await db
+          .insert(marketingEvents)
+          .values({
+            title,
+            description,
+            startDate: new Date(startDate),
+            endDate: endDate ? new Date(endDate) : null,
+            type,
+            status: status || 'scheduled',
+            createdBy: req.user?.id || 'system',
+            location
+          })
+          .returning();
+
+        // Broadcast event to connected clients
+        wsServer.broadcastToRoom('calendar', {
+          type: 'calendar_event_created',
+          data: event
+        });
+
+        res.json(event);
+      } catch (error) {
+        console.error("Error creating calendar event:", error);
+        res.status(500).json({ error: "Failed to create calendar event" });
+      }
+    });
+
+    app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+      try {
+        if (!req.user) {
+          return res.status(401).json({ error: "Authentication required" });
+        }
+
+        // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const sampleOutlookEvent = {
+          id: "outlook-1",
+          title: "Marketing Team Meeting",
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 3600000),
+          type: "meeting",
+          status: "scheduled",
+          outlookEventId: "123456"
+        };
+
+        res.json({
           message: "Calendar synced with Outlook",
           syncedEvents: [sampleOutlookEvent]
         });
