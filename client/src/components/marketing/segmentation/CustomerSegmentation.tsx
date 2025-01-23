@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUsers, faMagicWandSparkles, faFilter, faChartPie, faSort, faSearch, faLightbulb, faArrowTrendUp } from "@fortawesome/free-solid-svg-icons";
+import { faUsers, faMagicWandSparkles, faFilter, faChartPie, faSort, faSearch, faLightbulb, faArrowTrendUp, faTimes, faPercentage, faUserGroup } from "@fortawesome/free-solid-svg-icons";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { CreateSegmentDialog } from "./CreateSegmentDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { MemberListDialog } from "./MemberListDialog";
 
 interface CustomerSegment {
   id: number;
@@ -54,6 +55,7 @@ export function CustomerSegmentation() {
     maxSegments: 5,
     focusAreas: ["behavior", "value", "engagement"],
   });
+  const [selectedSegment, setSelectedSegment] = useState<{id: number, name: string} | null>(null);
 
   // Fetch customer segments
   const { data: segments = [], isLoading, refetch } = useQuery({
@@ -112,8 +114,18 @@ export function CustomerSegmentation() {
     });
 
   function SegmentCard({ segment }: { segment: CustomerSegment }) {
+    const impact = segment.criteria?.reduce((acc, c) => acc + (c.impact || 0), 0) || 0;
+    const avgImpact = impact / (segment.criteria?.length || 1);
+
     return (
-      <Card>
+      <Card className="relative hover:shadow-lg transition-shadow">
+        {segment.aiGenerated && (
+          <div className="absolute top-2 right-2">
+            <div className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
+              AI Generated
+            </div>
+          </div>
+        )}
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
@@ -135,18 +147,30 @@ export function CustomerSegmentation() {
 
           {/* Growth and Engagement Predictions */}
           {segment.expectedGrowth !== undefined && (
-            <div className="flex gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faArrowTrendUp} className="h-4 w-4 text-green-500" />
-                <span className="text-sm">
-                  {segment.expectedGrowth > 0 ? "+" : ""}
-                  {segment.expectedGrowth}% Growth
-                </span>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="flex items-center gap-2 bg-green-50 p-2 rounded-lg">
+                <FontAwesomeIcon 
+                  icon={faArrowTrendUp} 
+                  className={cn(
+                    "h-4 w-4",
+                    segment.expectedGrowth > 0 ? "text-green-500" : "text-red-500"
+                  )} 
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Expected Growth</span>
+                  <span className="text-sm font-medium">
+                    {segment.expectedGrowth > 0 ? "+" : ""}
+                    {segment.expectedGrowth}%
+                  </span>
+                </div>
               </div>
               {segment.predictedEngagement !== undefined && (
-                <div className="flex items-center gap-2">
-                  <FontAwesomeIcon icon={faChartPie} className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm">{segment.predictedEngagement}% Engagement</span>
+                <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
+                  <FontAwesomeIcon icon={faPercentage} className="h-4 w-4 text-blue-500" />
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Engagement</span>
+                    <span className="text-sm font-medium">{segment.predictedEngagement}%</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -159,23 +183,43 @@ export function CustomerSegmentation() {
                 {(segment.confidenceScore * 100).toFixed(1)}%
               </span>
             </div>
-            <Progress value={segment.confidenceScore * 100} />
+            <Progress 
+              value={segment.confidenceScore * 100} 
+              className={cn(
+                segment.confidenceScore >= 0.8 ? "bg-green-100" : 
+                segment.confidenceScore >= 0.6 ? "bg-yellow-100" : "bg-red-100"
+              )}
+            />
           </div>
 
           {/* Segment Criteria with Confidence Levels */}
           {segment.criteria && (
             <div className="mt-4 space-y-2">
               <Label className="text-sm font-medium">Segment Criteria:</Label>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {segment.criteria.map((criterion, index) => (
-                  <div key={index} className="text-sm text-muted-foreground flex items-center justify-between">
-                    <span>
+                  <div 
+                    key={index} 
+                    className="text-sm bg-gray-50 p-2 rounded-lg flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FontAwesomeIcon 
+                        icon={criterion.type === 'demographic' ? faUsers : faChartPie} 
+                        className="h-3 w-3 text-muted-foreground" 
+                      />
                       {criterion.type} {criterion.condition} {criterion.value}
                     </span>
                     {criterion.confidence && (
-                      <span className="text-xs">
-                        {(criterion.confidence * 100).toFixed(0)}% confidence
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                          {(criterion.confidence * 100).toFixed(0)}% confidence
+                        </span>
+                        {criterion.impact && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                            {(criterion.impact * 100).toFixed(0)}% impact
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -183,17 +227,26 @@ export function CustomerSegmentation() {
             </div>
           )}
 
-          {/* AI Insights Button */}
-          {segment.insights && segment.insights.length > 0 && (
+          <div className="flex gap-2 mt-4">
+            {segment.insights && segment.insights.length > 0 && (
+              <Button
+                variant="ghost"
+                className="flex-1 gap-2 hover:bg-purple-50"
+                onClick={() => setShowInsights(segment.id)}
+              >
+                <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4 text-yellow-500" />
+                View AI Insights
+              </Button>
+            )}
             <Button
               variant="ghost"
-              className="w-full mt-4 gap-2"
-              onClick={() => setShowInsights(segment.id)}
+              className="flex-1 gap-2 hover:bg-blue-50"
+              onClick={() => setSelectedSegment({ id: segment.id, name: segment.name })}
             >
-              <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4" />
-              View AI Insights
+              <FontAwesomeIcon icon={faUserGroup} className="h-4 w-4 text-blue-500" />
+              View Members
             </Button>
-          )}
+          </div>
         </CardContent>
       </Card>
     );
@@ -374,20 +427,66 @@ export function CustomerSegmentation() {
 
       {/* AI Insights Dialog */}
       <AlertDialog open={showInsights !== null} onOpenChange={() => setShowInsights(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>AI-Generated Insights</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-4">
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-2 top-2"
+              onClick={() => setShowInsights(null)}
+            >
+              <FontAwesomeIcon icon={faTimes} className="h-4 w-4" />
+            </Button>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FontAwesomeIcon icon={faLightbulb} className="h-5 w-5 text-yellow-500" />
+              AI-Generated Insights
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4 mt-4">
               {segments.find((s: CustomerSegment) => s.id === showInsights)?.insights?.map((insight, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4 text-yellow-500 mt-1" />
-                  <p>{insight}</p>
+                <div 
+                  key={index} 
+                  className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <FontAwesomeIcon 
+                    icon={faLightbulb} 
+                    className="h-4 w-4 text-yellow-500 mt-1 shrink-0" 
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-700">{insight}</p>
+                    {segments.find((s: CustomerSegment) => s.id === showInsights)?.suggestedActions?.[index] && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Suggested Action: {segments.find((s: CustomerSegment) => s.id === showInsights)?.suggestedActions?.[index]}
+                      </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 gap-2 hover:bg-blue-50"
+                      onClick={() => {
+                        const segment = segments.find((s: CustomerSegment) => s.id === showInsights);
+                        if (segment) {
+                          setSelectedSegment({ id: segment.id, name: segment.name });
+                        }
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faUserGroup} className="h-3 w-3 text-blue-500" />
+                      View Affected Members
+                    </Button>
+                  </div>
                 </div>
               ))}
             </AlertDialogDescription>
           </AlertDialogHeader>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Member List Dialog */}
+      <MemberListDialog
+        open={selectedSegment !== null}
+        onClose={() => setSelectedSegment(null)}
+        segmentId={selectedSegment?.id ?? null}
+        segmentName={selectedSegment?.name ?? ""}
+      />
     </div>
   );
 }

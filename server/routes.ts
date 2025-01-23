@@ -550,6 +550,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ error: "Failed to fetch segments" });
       }
     });
+    
+    app.get("/api/marketing/segments/:segmentId/members", async (req: AuthenticatedRequest, res) => {
+      try {
+        const { segmentId } = req.params;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+
+        // For demo purposes, generate sample member data
+        const totalMembers = Math.floor(Math.random() * 1000) + 100;
+        const members = Array.from({ length: Math.min(limit, totalMembers) }, (_, i) => ({
+          id: `${segmentId}-${((page - 1) * limit) + i + 1}`,
+          name: `Member ${((page - 1) * limit) + i + 1}`,
+          email: `member${((page - 1) * limit) + i + 1}@example.com`,
+          joinDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          membershipType: ['Basic', 'Premium', 'Elite'][Math.floor(Math.random() * 3)],
+          lastVisit: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+          visitsThisMonth: Math.floor(Math.random() * 20),
+          metrics: {
+            attendanceRate: Math.round(Math.random() * 100),
+            engagementScore: Math.round(Math.random() * 100),
+            lifetimeValue: Math.round(Math.random() * 1000),
+          }
+        }));
+
+        res.json({
+          members,
+          pagination: {
+            total: totalMembers,
+            page,
+            limit,
+            pages: Math.ceil(totalMembers / limit)
+          }
+        });
+      } catch (error) {
+        console.error("Error fetching segment members:", error);
+        res.status(500).json({ error: "Failed to fetch segment members" });
+      }
+    });
 
     // Add generate detailed report endpoint
     app.post("/api/generate-report", async (req, res) => {
@@ -935,7 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(documentApprovals)
           .where(eq(documentApprovals.documentId, documentId))
           .orderBy(documentApprovals.createdAt, 'desc')
-                    .limit(1);
+          .limit(1);
 
         res.json({
           status: latestApproval?.status || 'draft',
