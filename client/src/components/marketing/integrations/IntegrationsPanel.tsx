@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const emailPlatforms = [
   { id: "mailchimp", name: "Mailchimp", icon: "envelope" },
@@ -38,8 +39,6 @@ interface IntegrationConfig {
   syncFrequency: string;
   webhookUrl?: string;
   customFields: Record<string, boolean>;
-  connectionStatus?: 'connected' | 'disconnected' | 'error';
-  lastSync?: string;
 }
 
 interface ConnectionStatus {
@@ -52,8 +51,9 @@ interface IntegrationConfigs {
   [key: string]: IntegrationConfig;
 }
 
-function ConnectionStatusIndicator({ status, onRefresh }: { 
+function ConnectionStatusIndicator({ status, isRefreshing, onRefresh }: { 
   status: ConnectionStatus; 
+  isRefreshing: boolean;
   onRefresh: () => void;
 }) {
   const statusColors = {
@@ -74,12 +74,21 @@ function ConnectionStatusIndicator({ status, onRefresh }: {
         icon={['fal' as IconPrefix, statusIcons[status.status] as IconName]}
         className={`h-4 w-4 ${statusColors[status.status]}`}
       />
-      <span className="text-sm">{status.message || status.status}</span>
+      <span className={cn(
+        "text-sm transition-opacity duration-1000",
+        isRefreshing && "animate-pulse opacity-50"
+      )}>
+        {isRefreshing ? "Checking connection..." : status.message || status.status}
+      </span>
       <Button
         variant="ghost"
         size="sm"
         onClick={onRefresh}
-        className="ml-2"
+        disabled={isRefreshing}
+        className={cn(
+          "ml-2 p-0 h-8 w-8",
+          isRefreshing && "animate-spin"
+        )}
       >
         <FontAwesomeIcon
           icon={['fal' as IconPrefix, 'arrows-rotate' as IconName]}
@@ -93,29 +102,43 @@ function ConnectionStatusIndicator({ status, onRefresh }: {
 export function IntegrationsPanel() {
   const { toast } = useToast();
   const [integrationConfigs, setIntegrationConfigs] = useState<IntegrationConfigs>({});
+  const [refreshingIntegrations, setRefreshingIntegrations] = useState<Set<string>>(new Set());
 
   // Fetch saved configurations
-  const { data: savedConfigs } = useQuery({
-    queryKey: ['/api/integrations/configs'],
-    onSuccess: (data) => {
-      setIntegrationConfigs(data);
-    }
+  const { data: savedConfigs, isLoading: isLoadingConfigs } = useQuery({
+    queryKey: ['/api/integrations/configs'] as const
   });
+
+  // Update local state when saved configs are loaded
+  React.useEffect(() => {
+    if (savedConfigs) {
+      setIntegrationConfigs(savedConfigs);
+    }
+  }, [savedConfigs]);
 
   // Fetch integration statuses
   const { data: connectionStatuses, refetch: refreshStatuses } = useQuery({
-    queryKey: ['/api/integrations/status'],
+    queryKey: ['/api/integrations/status'] as const,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Mutation for refreshing individual integration status
   const refreshIntegration = useMutation({
     mutationFn: async (integrationId: string) => {
-      const response = await fetch(`/api/integrations/${integrationId}/refresh`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to refresh integration status');
-      return response.json();
+      setRefreshingIntegrations(prev => new Set([...prev, integrationId]));
+      try {
+        const response = await fetch(`/api/integrations/${integrationId}/refresh`, {
+          method: 'POST',
+        });
+        if (!response.ok) throw new Error('Failed to refresh integration status');
+        return response.json();
+      } finally {
+        setRefreshingIntegrations(prev => {
+          const next = new Set(prev);
+          next.delete(integrationId);
+          return next;
+        });
+      }
     },
     onSuccess: () => {
       refreshStatuses();
@@ -153,7 +176,6 @@ export function IntegrationsPanel() {
     enabled: false,
     syncFrequency: "daily",
     customFields: {},
-    connectionStatus: 'disconnected',
   });
 
   const handleConfigChange = (platformId: string, field: keyof IntegrationConfig, value: any) => {
@@ -169,8 +191,16 @@ export function IntegrationsPanel() {
   const handleSaveConfig = (platformId: string) => {
     const config = integrationConfigs[platformId];
     if (!config) return;
-
     saveConfig.mutate({ id: platformId, config });
+  };
+
+  const handleRefreshAll = async () => {
+    const allPlatforms = [...emailPlatforms, ...socialPlatforms, ...analyticsPlatforms];
+    for (const platform of allPlatforms) {
+      if (integrationConfigs[platform.id]?.enabled) {
+        await refreshIntegration.mutateAsync(platform.id);
+      }
+    }
   };
 
   const renderPlatformCard = (platform: { id: string; name: string; icon: string }, type: string) => {
@@ -180,6 +210,7 @@ export function IntegrationsPanel() {
       lastChecked: new Date().toISOString(),
       message: config.apiKey ? 'Checking connection...' : 'Not configured'
     };
+    const isRefreshing = refreshingIntegrations.has(platform.id);
 
     return (
       <Card key={platform.id} className="overflow-hidden">
@@ -200,10 +231,12 @@ export function IntegrationsPanel() {
             </div>
             <ConnectionStatusIndicator
               status={connectionStatus}
+              isRefreshing={isRefreshing}
               onRefresh={() => refreshIntegration.mutate(platform.id)}
             />
           </div>
         </CardHeader>
+
         {config.enabled && (
           <CardContent className="space-y-4 pt-4">
             <div className="space-y-2">
@@ -316,12 +349,13 @@ export function IntegrationsPanel() {
         <h2 className="text-lg font-semibold">Email Marketing</h2>
         <Button 
           variant="outline"
-          onClick={() => refreshStatuses()}
+          onClick={handleRefreshAll}
+          disabled={refreshIntegration.isPending}
           className="gap-2"
         >
           <FontAwesomeIcon
             icon={['fal' as IconPrefix, 'arrows-rotate' as IconName]}
-            className="h-4 w-4"
+            className={cn("h-4 w-4", refreshIntegration.isPending && "animate-spin")}
           />
           Refresh All
         </Button>
