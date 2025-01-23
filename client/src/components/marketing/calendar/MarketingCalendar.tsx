@@ -18,9 +18,6 @@ import {
   faHashtag,
   faCalendarCheck,
   faLocationDot,
-  faCog,
-  faExclamationTriangle,
-  faCheckCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -32,13 +29,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// Update the Outlook settings schema
-const outlookSettingsSchema = z.object({
-  outlookClientId: z.string().min(1, "Outlook Client ID is required"),
-  outlookClientSecret: z.string().min(1, "Outlook Client Secret is required"),
-  outlookRedirectUri: z.string().url("Must be a valid URL"),
-});
-
 const eventSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
@@ -48,7 +38,6 @@ const eventSchema = z.object({
   endDate: z.date().optional(),
   type: z.enum(['campaign', 'meeting', 'deadline', 'event', 'social_media', 'email_blast']),
   location: z.string().optional(),
-  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
 });
 
 interface MarketingEvent {
@@ -59,7 +48,6 @@ interface MarketingEvent {
   endDate?: string;
   type: 'campaign' | 'meeting' | 'deadline' | 'event' | 'social_media' | 'email_blast';
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
   location?: string;
   outlookEventId?: string;
   outlookCalendarId?: string;
@@ -70,7 +58,6 @@ export function MarketingCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
   const [showEventDialog, setShowEventDialog] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof eventSchema>>({
@@ -80,24 +67,22 @@ export function MarketingCalendar() {
       description: "",
       startDate: selectedDate || new Date(),
       type: 'event',
-      priority: 'medium',
     },
   });
 
-  const settingsForm = useForm<z.infer<typeof outlookSettingsSchema>>({
-    resolver: zodResolver(outlookSettingsSchema),
-  });
-
+  // Reset form when selected date changes
   useEffect(() => {
     if (selectedDate) {
       form.setValue('startDate', selectedDate);
     }
   }, [selectedDate, form]);
 
+  // Fetch marketing events
   const { data: events = [], isLoading, refetch } = useQuery<MarketingEvent[]>({
     queryKey: ['/api/marketing/calendar/events'],
   });
 
+  // Create event mutation
   const createEvent = useMutation({
     mutationFn: async (data: z.infer<typeof eventSchema>) => {
       const response = await fetch('/api/marketing/calendar/events', {
@@ -129,35 +114,7 @@ export function MarketingCalendar() {
     },
   });
 
-  const saveOutlookSettings = useMutation({
-    mutationFn: async (data: z.infer<typeof outlookSettingsSchema>) => {
-      const response = await fetch('/api/marketing/calendar/outlook-settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to save Outlook settings');
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Settings Saved",
-        description: "Successfully saved Outlook calendar settings.",
-      });
-      setShowSettingsDialog(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
+  // Sync with Outlook mutation
   const syncWithOutlook = useMutation({
     mutationFn: async () => {
       setSyncStatus('syncing');
@@ -186,6 +143,7 @@ export function MarketingCalendar() {
     },
   });
 
+  // Get events for a specific date
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
       const eventDate = new Date(event.startDate);
@@ -193,6 +151,7 @@ export function MarketingCalendar() {
     });
   };
 
+  // Type-specific icon mapping
   const getEventTypeIcon = (type: MarketingEvent['type']) => {
     switch (type) {
       case 'campaign':
@@ -208,27 +167,9 @@ export function MarketingCalendar() {
     }
   };
 
-  const getPriorityColor = (priority: MarketingEvent['priority']) => {
-    switch (priority) {
-      case 'urgent':
-        return 'bg-red-500';
-      case 'high':
-        return 'bg-orange-500';
-      case 'medium':
-        return 'bg-yellow-500';
-      case 'low':
-        return 'bg-green-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
+  // Handle event form submission
   const onSubmit = (data: z.infer<typeof eventSchema>) => {
     createEvent.mutate(data);
-  };
-
-  const onSettingsSubmit = (data: z.infer<typeof outlookSettingsSchema>) => {
-    saveOutlookSettings.mutate(data);
   };
 
   // Custom day content renderer with enhanced visuals
@@ -237,19 +178,29 @@ export function MarketingCalendar() {
     const hasEvents = dayEvents.length > 0;
 
     return (
-      <div className="relative w-full h-full min-h-[120px] p-2">
-        <div className={`w-full flex items-center justify-center text-lg hover:bg-accent hover:text-accent-foreground rounded-full w-9 h-9 mx-auto ${hasEvents ? 'font-bold' : ''}`}>
+      <div className="relative w-full h-full">
+        <div className={`w-full h-full flex items-center justify-center ${hasEvents ? 'font-bold' : ''}`}>
           {date.getDate()}
         </div>
         {hasEvents && (
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1.5 justify-center">
-            {dayEvents.map((event, index) => (
+          <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1">
+            {dayEvents.slice(0, 3).map((event, index) => (
               <div
                 key={index}
-                className={`w-3 h-3 rounded-full ${getPriorityColor(event.priority)}`}
-                title={`${event.title} (${event.priority} priority)`}
+                className={`w-1.5 h-1.5 rounded-full ${
+                  event.type === 'campaign' ? 'bg-blue-500' :
+                  event.type === 'social_media' ? 'bg-green-500' :
+                  event.type === 'email_blast' ? 'bg-purple-500' :
+                  event.type === 'meeting' ? 'bg-yellow-500' :
+                  event.type === 'deadline' ? 'bg-red-500' :
+                  'bg-gray-500'
+                }`}
+                title={event.title}
               />
             ))}
+            {dayEvents.length > 3 && (
+              <span className="text-xs text-muted-foreground">+{dayEvents.length - 3}</span>
+            )}
           </div>
         )}
       </div>
@@ -258,7 +209,7 @@ export function MarketingCalendar() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xl font-bold">Marketing Calendar</CardTitle>
         <div className="flex items-center gap-2">
           <Button
@@ -270,15 +221,6 @@ export function MarketingCalendar() {
             Add Event
           </Button>
           <Button
-            onClick={() => setShowSettingsDialog(true)}
-            size="sm"
-            variant="outline"
-            className="gap-2"
-          >
-            <FontAwesomeIcon icon={faCog} className="h-4 w-4" />
-            Settings
-          </Button>
-          <Button
             onClick={() => syncWithOutlook.mutate()}
             disabled={syncStatus === 'syncing'}
             size="sm"
@@ -286,12 +228,7 @@ export function MarketingCalendar() {
             className="gap-2"
           >
             <FontAwesomeIcon
-              icon={
-                syncStatus === 'syncing' ? faSpinner :
-                  syncStatus === 'error' ? faExclamationTriangle :
-                    syncStatus === 'synced' ? faCheckCircle :
-                      ['fab', 'microsoft']
-              }
+              icon={syncStatus === 'syncing' ? faSpinner : ['fab', 'microsoft']}
               className={`h-4 w-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`}
             />
             {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Outlook'}
@@ -300,12 +237,12 @@ export function MarketingCalendar() {
       </CardHeader>
 
       <CardContent>
-        <div className="grid lg:grid-cols-[4fr,1fr] gap-6">
+        <div className="grid lg:grid-cols-[1fr,300px] gap-4">
           <Calendar
             mode="single"
             selected={selectedDate}
             onSelect={setSelectedDate}
-            className="rounded-md border p-6 text-base"
+            className="rounded-md border"
             components={{
               DayContent,
             }}
@@ -327,15 +264,15 @@ export function MarketingCalendar() {
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
-                          <FontAwesomeIcon
+                          <FontAwesomeIcon 
                             icon={getEventTypeIcon(event.type)}
                             className={`h-4 w-4 mt-1 ${
                               event.type === 'campaign' ? 'text-blue-500' :
-                                event.type === 'social_media' ? 'text-green-500' :
-                                  event.type === 'email_blast' ? 'text-purple-500' :
-                                    event.type === 'meeting' ? 'text-yellow-500' :
-                                      'text-gray-500'
-                              }`}
+                              event.type === 'social_media' ? 'text-green-500' :
+                              event.type === 'email_blast' ? 'text-purple-500' :
+                              event.type === 'meeting' ? 'text-yellow-500' :
+                              'text-gray-500'
+                            }`}
                           />
                           <div>
                             <h4 className="font-medium">{event.title}</h4>
@@ -346,29 +283,16 @@ export function MarketingCalendar() {
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <Badge
-                            variant={
-                              event.status === 'completed' ? 'default' :
-                                event.status === 'in_progress' ? 'secondary' :
-                                  event.status === 'cancelled' ? 'destructive' :
-                                    'outline'
-                            }
-                          >
-                            {event.status}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className={`${
-                              event.priority === 'urgent' ? 'border-red-500 text-red-500' :
-                                event.priority === 'high' ? 'border-orange-500 text-orange-500' :
-                                  event.priority === 'medium' ? 'border-yellow-500 text-yellow-500' :
-                                    'border-green-500 text-green-500'
-                              }`}
-                          >
-                            {event.priority}
-                          </Badge>
-                        </div>
+                        <Badge
+                          variant={
+                            event.status === 'completed' ? 'default' :
+                            event.status === 'in_progress' ? 'secondary' :
+                            event.status === 'cancelled' ? 'destructive' :
+                            'outline'
+                          }
+                        >
+                          {event.status}
+                        </Badge>
                       </div>
                       <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                         <Badge variant="outline" className="text-xs">
@@ -401,6 +325,7 @@ export function MarketingCalendar() {
         </div>
       </CardContent>
 
+      {/* Event creation dialog */}
       <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -502,32 +427,6 @@ export function MarketingCalendar() {
               </div>
               <FormField
                 control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priority</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select priority" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="location"
                 render={({ field }) => (
                   <FormItem>
@@ -548,67 +447,6 @@ export function MarketingCalendar() {
                   Cancel
                 </Button>
                 <Button type="submit">Create Event</Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Microsoft Outlook Calendar Settings</DialogTitle>
-          </DialogHeader>
-          <Form {...settingsForm}>
-            <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="space-y-4">
-              <FormField
-                control={settingsForm.control}
-                name="outlookClientId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Outlook Client ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter Outlook Client ID" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={settingsForm.control}
-                name="outlookClientSecret"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Outlook Client Secret</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="Enter Outlook Client Secret" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={settingsForm.control}
-                name="outlookRedirectUri"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Redirect URI</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter Outlook OAuth Redirect URI" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowSettingsDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">Save Settings</Button>
               </div>
             </form>
           </Form>
