@@ -20,7 +20,7 @@ import {
   documents,
   documentCollaborators,
   integrationConfigs,
-  marketingEvents // Added import
+  marketingEvents
 } from "@db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
@@ -31,9 +31,8 @@ import type { Request, Response } from "express";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
-import { WebSocket } from "ws"; // Added import
-import { drizzle } from "drizzle-orm/neon-serverless"; // Added import
-
+import { WebSocket } from "ws";
+import { drizzle } from "drizzle-orm/neon-serverless";
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -904,7 +903,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error uploading files:", error);
         res.status(500).json({ error: "Failed to upload files" });
-      }      }
+      }
     });
 
     // Add workflow endpoint
