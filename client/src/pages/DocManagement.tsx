@@ -1,18 +1,10 @@
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocumentViewer } from "@/components/document/DocumentViewer";
-
-function LoadingSpinner() {
-  return (
-    <div className="flex items-center justify-center p-4">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
-}
 
 interface DocumentStatus {
   status: 'draft' | 'in_review' | 'approved' | 'rejected';
@@ -39,7 +31,7 @@ export default function DocManagement() {
   };
 
   const handleDocumentSelect = (path: string) => {
-    console.log("Document selected:", path);
+    console.log("Document selected in DocManagement:", path);
     setSelectedDoc(path);
     setIsEditing(false);
   };
@@ -68,6 +60,11 @@ export default function DocManagement() {
               <div className="flex items-center">
                 <FontAwesomeIcon icon="file-lines" className="h-5 w-5 mr-2" />
                 Document Viewer
+                {selectedDoc && (
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    ({selectedDoc.split('/').pop()})
+                  </span>
+                )}
               </div>
               {selectedDoc && (
                 <div className="flex gap-2">
@@ -76,7 +73,7 @@ export default function DocManagement() {
                     size="sm"
                     onClick={() => setIsEditing(!isEditing)}
                   >
-                    <FontAwesomeIcon icon="edit" className="h-4 w-4 mr-2" />
+                    <FontAwesomeIcon icon={isEditing ? "eye" : "edit"} className="h-4 w-4 mr-2" />
                     {isEditing ? "View" : "Edit"}
                   </Button>
                 </div>

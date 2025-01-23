@@ -107,8 +107,9 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
     if (item.type === 'folder') {
       navigateToFolder(item.path);
     } else if (onSelectDocument) {
-      console.log("Selected document:", item.path);
-      onSelectDocument(item.path);
+      const fullPath = currentPath ? `${currentPath}${item.name}` : item.name;
+      console.log("Selected document with full path:", fullPath);
+      onSelectDocument(fullPath);
     }
   };
 
@@ -119,7 +120,6 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
 
   return (
     <div className="h-full flex flex-col">
-      {/* Toolbar */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <Button variant="outline" onClick={navigateUp} disabled={!currentPath}>
@@ -165,7 +165,6 @@ export function FileExplorer({ onSelectDocument, onPathChange }: FileExplorerPro
         </div>
       </div>
 
-      {/* File List */}
       <div className="flex-1 overflow-y-auto border rounded-md">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">

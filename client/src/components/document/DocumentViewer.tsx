@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -41,11 +40,11 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   // Fetch document content
   const { data: document, isLoading, error } = useQuery<DocumentData>({
-    queryKey: [`/api/documents/content/${documentId}`],
+    queryKey: [`/api/documents/content/${encodeURIComponent(documentId)}`],
     queryFn: async () => {
       console.log("Fetching document content for:", documentId);
       try {
-        const response = await fetch(`/api/documents/content/${documentId}`, {
+        const response = await fetch(`/api/documents/content/${encodeURIComponent(documentId)}`, {
           credentials: 'include',
         });
 
@@ -69,6 +68,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   // Update local state when document changes
   useEffect(() => {
     if (document) {
+      console.log("Setting document content:", document);
       setEditedContent(document.content);
       setVersion(document.version);
     }
@@ -78,7 +78,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       console.log("Saving document:", documentId);
-      const response = await fetch(`/api/documents/content/${documentId}`, {
+      const response = await fetch(`/api/documents/content/${encodeURIComponent(documentId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -96,7 +96,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/content/${documentId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/content/${encodeURIComponent(documentId)}`] });
       toast({
         title: "Document saved",
         description: "Your changes have been saved successfully",
@@ -191,12 +191,12 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       <ScrollArea className="flex-grow p-4">
         {isEditing ? (
           <textarea
-            className="w-full h-full min-h-[400px] p-4 border rounded resize-none focus:outline-none"
+            className="w-full h-full min-h-[400px] p-4 border rounded resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
           />
         ) : (
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-sm max-w-none whitespace-pre-wrap">
             {document.content}
           </div>
         )}
