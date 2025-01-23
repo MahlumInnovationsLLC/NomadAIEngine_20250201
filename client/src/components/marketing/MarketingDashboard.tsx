@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { IconProp } from "@fortawesome/fontawesome-svg-core";
+import { CampaignManager } from "./CampaignManager";
 
 const campaignData = [
   { month: "Jan", engagement: 400, conversions: 240, roi: 180 },
@@ -109,20 +110,7 @@ export function MarketingDashboard() {
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Active Campaigns</CardTitle>
-              <Button variant="outline">
-                <FontAwesomeIcon icon={["fal", "plus"] as IconProp} className="mr-2 h-4 w-4" />
-                New Campaign
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground">
-                Campaign management interface will be implemented here
-              </div>
-            </CardContent>
-          </Card>
+          <CampaignManager />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
