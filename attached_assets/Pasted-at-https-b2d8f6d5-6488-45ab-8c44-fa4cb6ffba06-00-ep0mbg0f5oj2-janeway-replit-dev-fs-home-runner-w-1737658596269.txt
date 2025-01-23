@@ -1,0 +1,62 @@
+at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-collapsible.js?v=3ed014f3:326:7
+    at div
+    at div
+    at div
+    at div
+    at _c9 (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/card.tsx:106:12)
+    at div
+    at _c (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:251:13
+    at Presence (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:481:11)
+    at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:731:13
+    at _c5 (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/tabs.tsx:68:12)
+    at div
+    at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:251:13
+    at Provider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LSQNWB54.js?v=a7937259:38:15)
+    at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:609:7
+    at div
+    at CampaignManager (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/marketing/CampaignManager.tsx:98:27)
+    at div
+    at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:251:13
+    at Presence (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:481:11)
+    at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:731:13
+    at _c5 (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/tabs.tsx:68:12)
+    at div
+    at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:251:13
+    at Provider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LSQNWB54.js?v=a7937259:38:15)
+    at https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=a7937259:609:7
+    at div
+    at MarketingDashboard
+    at div
+    at MarketingControl
+    at div
+    at MotionComponent (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=a7937259:943:40)
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AnimateTransition (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/AnimateTransition.tsx:48:3)
+    at OnboardingProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/onboarding/OnboardingProvider.tsx:21:38)
+    at AuthenticatedTemplate (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@azure_msal-react.js?v=a7937259:210:34)
+    at Suspense
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at ProtectedRoute (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/App.tsx:106:38)
+    at component
+    at Route (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=a7937259:323:16)
+    at Switch (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=a7937259:379:17)
+    at Suspense
+    at PresenceChild (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=a7937259:121:24)
+    at AnimatePresence (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=a7937259:210:26)
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AnimatePresenceWrapper (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/AnimateTransition.tsx:84:3)
+    at div
+    at main
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at div
+    at App
+    at _ (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=a7937259:44:25)
+    at J (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=a7937259:42:18)
+    at ThemeProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/theme-provider.tsx:21:33)
+    at QueryClientProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=a7937259:2829:3)
+    at MsalProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@azure_msal-react.js?v=a7937259:127:25)
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AppWrapper
+    at QueryClientProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=a7937259:2829:3)

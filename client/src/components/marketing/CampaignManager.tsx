@@ -26,7 +26,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useQuery } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 
-
 // Enhanced schema with audience targeting
 const campaignFormSchema = z.object({
   name: z.string().min(2, "Campaign name must be at least 2 characters"),
@@ -88,12 +87,24 @@ const campaignData = [
   { month: 'May', engagement: 6000, conversions: 2000, roi: 35 },
 ];
 
-
 export function CampaignManager() {
   const [date, setDate] = useState<Date>();
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
   const [showSegmentSuggestions, setShowSegmentSuggestions] = useState(false);
+
+  // Add state for managing collapsible sections
+  const [openSections, setOpenSections] = useState<{
+    welcomeEmail: boolean;
+    socialMedia: boolean;
+    cartRecovery: boolean;
+    birthdayRewards: boolean;
+  }>({
+    welcomeEmail: false,
+    socialMedia: false,
+    cartRecovery: false,
+    birthdayRewards: false,
+  });
 
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignFormSchema),
@@ -566,7 +577,13 @@ export function CampaignManager() {
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Active Automations</h3>
                   <div className="grid gap-4">
-                    <Collapsible>
+                    {/* Welcome Email Automation */}
+                    <Collapsible
+                      open={openSections.welcomeEmail}
+                      onOpenChange={(isOpen) =>
+                        setOpenSections((prev) => ({ ...prev, welcomeEmail: isOpen }))
+                      }
+                    >
                       <div className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-4">
                           <FontAwesomeIcon
@@ -587,10 +604,11 @@ export function CampaignManager() {
                               />
                             </Button>
                           </CollapsibleTrigger>
-                          <Switch defaultChecked />
+                          <Switch />
                         </div>
                       </div>
                       <CollapsibleContent className="p-4 space-y-4 border-x border-b rounded-b-lg -mt-[1px]">
+                        {/* Welcome Email Settings */}
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="space-y-2">
                             <Label>Email Provider</Label>
@@ -648,7 +666,13 @@ export function CampaignManager() {
                       </CollapsibleContent>
                     </Collapsible>
 
-                    <Collapsible>
+                    {/* Social Media Automation */}
+                    <Collapsible
+                      open={openSections.socialMedia}
+                      onOpenChange={(isOpen) =>
+                        setOpenSections((prev) => ({ ...prev, socialMedia: isOpen }))
+                      }
+                    >
                       <div className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-4">
                           <FontAwesomeIcon
@@ -669,10 +693,11 @@ export function CampaignManager() {
                               />
                             </Button>
                           </CollapsibleTrigger>
-                          <Switch defaultChecked />
+                          <Switch />
                         </div>
                       </div>
                       <CollapsibleContent className="p-4 space-y-4 border-x border-b rounded-b-lg -mt-[1px]">
+                        {/* Social Media Settings */}
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="space-y-2">
                             <Label>Platforms</Label>
@@ -724,13 +749,13 @@ export function CampaignManager() {
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Trigger Rules</h3>
-                  <div className="grid gap-4">
-                    <Collapsible>
+                    {/* Cart Recovery Trigger */}
+                    <Collapsible
+                      open={openSections.cartRecovery}
+                      onOpenChange={(isOpen) =>
+                        setOpenSections((prev) => ({ ...prev, cartRecovery: isOpen }))
+                      }
+                    >
                       <div className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-4">
                           <FontAwesomeIcon
@@ -751,10 +776,11 @@ export function CampaignManager() {
                               />
                             </Button>
                           </CollapsibleTrigger>
-                          <Switch defaultChecked />
+                          <Switch />
                         </div>
                       </div>
                       <CollapsibleContent className="p-4 space-y-4 border-x border-b rounded-b-lg -mt-[1px]">
+                        {/* Cart Recovery Settings */}
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="space-y-2">
                             <Label>Trigger Conditions</Label>
@@ -806,7 +832,13 @@ export function CampaignManager() {
                       </CollapsibleContent>
                     </Collapsible>
 
-                    <Collapsible>
+                    {/* Birthday Rewards Trigger */}
+                    <Collapsible
+                      open={openSections.birthdayRewards}
+                      onOpenChange={(isOpen) =>
+                        setOpenSections((prev) => ({ ...prev, birthdayRewards: isOpen }))
+                      }
+                    >
                       <div className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-4">
                           <FontAwesomeIcon
@@ -827,10 +859,11 @@ export function CampaignManager() {
                               />
                             </Button>
                           </CollapsibleTrigger>
-                          <Switch defaultChecked />
+                          <Switch />
                         </div>
                       </div>
                       <CollapsibleContent className="p-4 space-y-4 border-x border-b rounded-b-lg -mt-[1px]">
+                        {/* Birthday Rewards Settings */}
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="space-y-2">
                             <Label>Reward Type</Label>
