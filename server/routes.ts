@@ -18,7 +18,8 @@ import {
   notifications,
   userNotifications,
   documents,
-  documentCollaborators
+  documentCollaborators,
+  integrationConfigs,
 } from "@db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
@@ -670,13 +671,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Document content endpoints
-    app.get("/api/documents/:path*/content", async (req, res) => {
+    app.get("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
       try {
         const documentPath = req.params["path*"];
         console.log("Fetching document content for path:", documentPath);
 
+        const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
+
         try {
-          const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
           const downloadResponse = await blockBlobClient.download();
           const properties = await blockBlobClient.getProperties();
 
@@ -694,8 +696,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           const content = Buffer.concat(chunks).toString('utf-8');
 
-          console.log("Successfully retrieved document content:", content.substring(0, 100) + "...");
+          console.log("Successfully retrieved document content, size:", content.length);
+          console.log("Document metadata:", properties.metadata);
 
+          // Send back the document data
           res.json({
             content,
             version: properties.metadata?.version || '1.0',
@@ -703,8 +707,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastModified: properties.lastModified?.toISOString() || new Date().toISOString(),
           });
         } catch (error: any) {
+          console.error("Error downloading document:", error);
           if (error.statusCode === 404) {
-            console.error("Document not found:", documentPath);
             return res.status(404).json({ error: "Document not found" });
           }
           throw error;
@@ -936,7 +940,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(permission);
       } catch (error) {
         console.error("Error adding document permission:", error);
-res.status(500).json({ error: "Failed to add permission" });
+        res.status(500).json({ error: "Failed toadd permission" });
       }
     });
 
@@ -1506,6 +1510,196 @@ res.status(500).json({ error: "Failed to add permission" });
       } catch (error) {
         console.error("Error updating document content:", error);
         res.status(500).json({ error: "Failed to update document content" });
+      }
+    });
+
+    // Add integration status endpoints
+    app.get("/api/integrations/status", async (req, res) => {
+      try {
+        // Get all configs for the current user
+        const configs = await db
+          .select()
+          .from(integrationConfigs)
+          .where(eq(integrationConfigs.userId, req.user?.id || 'anonymous'));
+
+        // Initialize status object
+        const statuses: Record<string, any> = {};
+
+        // Check each integration's status based on its configuration
+        for (const config of configs) {
+          const hasCredentials = Boolean(config.apiKey);
+
+          if (!config.enabled) {
+            statuses[config.integrationId] = {
+              status: 'disconnected',
+              lastChecked: new Date().toISOString(),
+              message: 'Integration disabled'
+            };
+            continue;
+          }
+
+          if (!hasCredentials) {
+            statuses[config.integrationId] = {
+              status: 'disconnected',
+              lastChecked: new Date().toISOString(),
+              message: 'API key required'
+            };
+            continue;
+          }
+
+          // Mock connection check - replace with actual API checks in production
+          const isConnected = hasCredentials && Math.random() > 0.2; // 80% success rate for demo
+
+          statuses[config.integrationId] = {
+            status: isConnected ? 'connected' : 'error',
+            lastChecked: new Date().toISOString(),
+            message: isConnected
+              ? 'Connected and syncing'
+              : 'Authentication failed. Please check your credentials.'
+          };
+        }
+
+        // Add default disconnected status for unconfigured integrations
+        const allPlatforms = [
+          'mailchimp', 'sendgrid', 'hubspot', 'klaviyo',
+          'facebook', 'instagram', 'twitter', 'linkedin',
+          'google-analytics', 'mixpanel', 'segment', 'amplitude'
+        ];
+
+        for (const platform of allPlatforms) {
+          if (!statuses[platform]) {
+            statuses[platform] = {
+              status: 'disconnected',
+              lastChecked: new Date().toISOString(),
+              message: 'Not configured'
+            };
+          }
+        }
+
+        res.json(statuses);
+      } catch (error) {
+        console.error("Error fetching integration statuses:", error);
+        res.status(500).json({ error: "Failed to fetch integration statuses" });
+      }
+    });
+
+    // Add integration config endpoints
+    app.get("/api/integrations/configs", async (req, res) => {
+      try {
+        const configs = await db
+          .select()
+          .from(integrationConfigs)
+          .where(eq(integrationConfigs.userId, req.user?.id || 'anonymous'));
+
+        // Convert array of configs to object keyed by integration ID
+        const configsMap = configs.reduce((acc, config) => ({
+          ...acc,
+          [config.integrationId]: {
+            apiKey: config.apiKey,
+            enabled: config.enabled,
+            syncFrequency: config.syncFrequency,
+            webhookUrl: config.webhookUrl,
+            customFields: config.customFields,
+          }
+        }), {});
+
+        res.json(configsMap);
+      } catch (error) {
+        console.error("Error fetching integration configs:", error);
+        res.status(500).json({ error: "Failed to fetch integration configurations" });
+      }
+    });
+
+    app.put("/api/integrations/:id/config", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const config = req.body;
+
+        // Update or insert config
+        const [updatedConfig] = await db
+          .insert(integrationConfigs)
+          .values({
+            userId: req.user?.id || 'anonymous',
+            integrationId: id,
+            apiKey: config.apiKey,
+            enabled: config.enabled,
+            syncFrequency: config.syncFrequency,
+            webhookUrl: config.webhookUrl,
+            customFields: config.customFields,
+          })
+          .onConflictDoUpdate({
+            target: [integrationConfigs.userId, integrationConfigs.integrationId],
+            set: {
+              apiKey: config.apiKey,
+              enabled: config.enabled,
+              syncFrequency: config.syncFrequency,
+              webhookUrl: config.webhookUrl,
+              customFields: config.customFields,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+
+        res.json(updatedConfig);
+      } catch (error) {
+        console.error("Error saving integration config:", error);
+        res.status(500).json({ error: "Failed to save integration configuration" });
+      }
+    });
+
+    // Update the refresh endpoint to check actual connection
+    app.post("/api/integrations/:id/refresh", async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        // Get the integration config
+        const [config] = await db
+          .select()
+          .from(integrationConfigs)
+          .where(
+            and(
+              eq(integrationConfigs.userId, req.user?.id || 'anonymous'),
+              eq(integrationConfigs.integrationId, id)
+            )
+          );
+
+        let status;
+        if (!config?.enabled) {
+          status = {
+            status: 'disconnected',
+            lastChecked: new Date().toISOString(),
+            message: 'Integration disabled'
+          };
+        } else if (!config?.apiKey) {
+          status = {
+            status: 'disconnected',
+            lastChecked: new Date().toISOString(),
+            message: 'API key required'
+          };
+        } else {
+          // Mock connection check - replace with actual API checks
+          const isConnected = Math.random() > 0.2; // 80% success rate for demo
+          status = {
+            status: isConnected ? 'connected' : 'error',
+            lastChecked: new Date().toISOString(),
+            message: isConnected
+              ? 'Connected and syncing'
+              : 'Authentication failed. Please check your credentials.'
+          };
+        }
+
+        // Track the refresh attempt
+        await trackAIEngineUsage(
+          req.user?.id || 'anonymous',
+          'web_search',
+          0.1,
+          { integration: id, action: 'refresh' }
+        );
+
+        res.json(status);
+      } catch (error) {
+        console.error("Error refreshing integration status:", error);
+        res.status(500).json({ error: "Failed to refresh integration status" });
       }
     });
 

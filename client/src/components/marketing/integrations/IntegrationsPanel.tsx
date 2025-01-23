@@ -8,12 +8,14 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const emailPlatforms = [
   { id: "mailchimp", name: "Mailchimp", icon: "envelope" },
   { id: "sendgrid", name: "SendGrid", icon: "paper-plane" },
-  { id: "hubspot", name: "HubSpot", icon: "h" },
-  { id: "klaviyo", name: "Klaviyo", icon: "k" },
+  { id: "hubspot", name: "HubSpot", icon: "square-h" },
+  { id: "klaviyo", name: "Klaviyo", icon: "k-square" },
 ];
 
 const socialPlatforms = [
@@ -25,26 +27,133 @@ const socialPlatforms = [
 
 const analyticsPlatforms = [
   { id: "google-analytics", name: "Google Analytics", icon: "chart-line" },
-  { id: "mixpanel", name: "Mixpanel", icon: "chart-mixed" },
-  { id: "segment", name: "Segment", icon: "chart-network" },
-  { id: "amplitude", name: "Amplitude", icon: "wave-square" },
+  { id: "mixpanel", name: "Mixpanel", icon: "chart-bar" },
+  { id: "segment", name: "Segment", icon: "sitemap" },
+  { id: "amplitude", name: "Amplitude", icon: "chart-simple" },
 ];
 
-type IntegrationConfig = {
+interface IntegrationConfig {
   apiKey?: string;
   enabled: boolean;
   syncFrequency: string;
   webhookUrl?: string;
   customFields: Record<string, boolean>;
-};
+  connectionStatus?: 'connected' | 'disconnected' | 'error';
+  lastSync?: string;
+}
+
+interface ConnectionStatus {
+  status: 'connected' | 'disconnected' | 'error';
+  lastChecked: string;
+  message?: string;
+}
+
+interface IntegrationConfigs {
+  [key: string]: IntegrationConfig;
+}
+
+function ConnectionStatusIndicator({ status, onRefresh }: { 
+  status: ConnectionStatus; 
+  onRefresh: () => void;
+}) {
+  const statusColors = {
+    connected: 'text-green-500',
+    disconnected: 'text-gray-500',
+    error: 'text-red-500'
+  };
+
+  const statusIcons = {
+    connected: 'check-circle',
+    disconnected: 'times-circle',
+    error: 'exclamation-triangle'
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <FontAwesomeIcon
+        icon={['fal' as IconPrefix, statusIcons[status.status] as IconName]}
+        className={`h-4 w-4 ${statusColors[status.status]}`}
+      />
+      <span className="text-sm">{status.message || status.status}</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onRefresh}
+        className="ml-2"
+      >
+        <FontAwesomeIcon
+          icon={['fal' as IconPrefix, 'arrows-rotate' as IconName]}
+          className="h-4 w-4"
+        />
+      </Button>
+    </div>
+  );
+}
 
 export function IntegrationsPanel() {
-  const [integrationConfigs, setIntegrationConfigs] = useState<Record<string, IntegrationConfig>>({});
+  const { toast } = useToast();
+  const [integrationConfigs, setIntegrationConfigs] = useState<IntegrationConfigs>({});
+
+  // Fetch saved configurations
+  const { data: savedConfigs } = useQuery({
+    queryKey: ['/api/integrations/configs'],
+    onSuccess: (data) => {
+      setIntegrationConfigs(data);
+    }
+  });
+
+  // Fetch integration statuses
+  const { data: connectionStatuses, refetch: refreshStatuses } = useQuery({
+    queryKey: ['/api/integrations/status'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Mutation for refreshing individual integration status
+  const refreshIntegration = useMutation({
+    mutationFn: async (integrationId: string) => {
+      const response = await fetch(`/api/integrations/${integrationId}/refresh`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to refresh integration status');
+      return response.json();
+    },
+    onSuccess: () => {
+      refreshStatuses();
+    },
+  });
+
+  // Mutation for saving integration configuration
+  const saveConfig = useMutation({
+    mutationFn: async ({ id, config }: { id: string; config: IntegrationConfig }) => {
+      const response = await fetch(`/api/integrations/${id}/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (!response.ok) throw new Error('Failed to save configuration');
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      toast({
+        title: "Configuration Saved",
+        description: `Successfully saved configuration for ${variables.id}`,
+      });
+      refreshIntegration.mutate(variables.id);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error Saving Configuration",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const getDefaultConfig = (): IntegrationConfig => ({
     enabled: false,
     syncFrequency: "daily",
     customFields: {},
+    connectionStatus: 'disconnected',
   });
 
   const handleConfigChange = (platformId: string, field: keyof IntegrationConfig, value: any) => {
@@ -57,23 +166,41 @@ export function IntegrationsPanel() {
     }));
   };
 
+  const handleSaveConfig = (platformId: string) => {
+    const config = integrationConfigs[platformId];
+    if (!config) return;
+
+    saveConfig.mutate({ id: platformId, config });
+  };
+
   const renderPlatformCard = (platform: { id: string; name: string; icon: string }, type: string) => {
     const config = integrationConfigs[platform.id] || getDefaultConfig();
+    const connectionStatus = (connectionStatuses as Record<string, ConnectionStatus> | undefined)?.[platform.id] || {
+      status: 'disconnected' as const,
+      lastChecked: new Date().toISOString(),
+      message: config.apiKey ? 'Checking connection...' : 'Not configured'
+    };
 
     return (
       <Card key={platform.id} className="overflow-hidden">
         <CardHeader className="border-b bg-muted/40">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={[type === 'email' ? 'fal' : 'fab' as IconPrefix, platform.icon as IconName]}
-                className="h-5 w-5"
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon
+                  icon={[type === 'email' ? 'fal' : 'fab' as IconPrefix, platform.icon as IconName]}
+                  className="h-5 w-5"
+                />
+                <CardTitle className="text-lg">{platform.name}</CardTitle>
+              </div>
+              <Switch
+                checked={config.enabled}
+                onCheckedChange={(checked) => handleConfigChange(platform.id, 'enabled', checked)}
               />
-              <CardTitle className="text-lg">{platform.name}</CardTitle>
             </div>
-            <Switch
-              checked={config.enabled}
-              onCheckedChange={(checked) => handleConfigChange(platform.id, 'enabled', checked)}
+            <ConnectionStatusIndicator
+              status={connectionStatus}
+              onRefresh={() => refreshIntegration.mutate(platform.id)}
             />
           </div>
         </CardHeader>
@@ -164,11 +291,19 @@ export function IntegrationsPanel() {
 
             <Alert>
               <AlertDescription>
-                {config.enabled
-                  ? `Connected to ${platform.name}. Data will sync ${config.syncFrequency}.`
-                  : `Configure ${platform.name} integration settings above.`}
+                {connectionStatus.status === 'connected' 
+                  ? `Connected to ${platform.name}. Last synced: ${new Date(connectionStatus.lastChecked).toLocaleString()}`
+                  : connectionStatus.message || `Configure ${platform.name} integration settings above.`}
               </AlertDescription>
             </Alert>
+
+            <Button 
+              className="w-full"
+              onClick={() => handleSaveConfig(platform.id)}
+              disabled={saveConfig.isPending}
+            >
+              {saveConfig.isPending ? 'Saving...' : 'Save Configuration'}
+            </Button>
           </CardContent>
         )}
       </Card>
@@ -177,11 +312,22 @@ export function IntegrationsPanel() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold mb-4">Email Marketing</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {emailPlatforms.map((platform) => renderPlatformCard(platform, 'email'))}
-        </div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">Email Marketing</h2>
+        <Button 
+          variant="outline"
+          onClick={() => refreshStatuses()}
+          className="gap-2"
+        >
+          <FontAwesomeIcon
+            icon={['fal' as IconPrefix, 'arrows-rotate' as IconName]}
+            className="h-4 w-4"
+          />
+          Refresh All
+        </Button>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {emailPlatforms.map((platform) => renderPlatformCard(platform, 'email'))}
       </div>
 
       <div>

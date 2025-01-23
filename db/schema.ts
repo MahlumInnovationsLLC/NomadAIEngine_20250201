@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, integer, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -304,6 +304,22 @@ export const aiEngineActivity = pgTable("ai_engine_activity", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Add integration configs table
+export const integrationConfigs = pgTable("integration_configs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  integrationId: text("integration_id").notNull(),
+  apiKey: text("api_key"),
+  enabled: boolean("enabled").default(false).notNull(),
+  syncFrequency: text("sync_frequency").default("daily").notNull(),
+  webhookUrl: text("webhook_url"),
+  customFields: jsonb("custom_fields").default({}).notNull(),
+  lastSyncedAt: timestamp("last_synced_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -456,6 +472,11 @@ export const ticketHistoryRelations = relations(ticketHistory, ({ one }) => ({
   }),
 }));
 
+// Add to relations section
+export const integrationConfigsRelations = relations(integrationConfigs, ({ }) => ({
+  // Future relations can be added here if needed
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -538,6 +559,10 @@ export const selectTicketCommentSchema = createSelectSchema(ticketComments);
 export const insertTicketHistorySchema = createInsertSchema(ticketHistory);
 export const selectTicketHistorySchema = createSelectSchema(ticketHistory);
 
+// Add to schemas section
+export const insertIntegrationConfigSchema = createInsertSchema(integrationConfigs);
+export const selectIntegrationConfigSchema = createSelectSchema(integrationConfigs);
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -574,3 +599,9 @@ export type AiEngineActivity = typeof aiEngineActivity.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;
 export type TicketComment = typeof ticketComments.$inferSelect;
 export type TicketHistory = typeof ticketHistory.$inferSelect;
+
+// Add to types section
+export type IntegrationConfig = typeof integrationConfigs.$inferSelect;
+export type NewIntegrationConfig = typeof integrationConfigs.$inferInsert;
+
+import { integer, decimal } from "drizzle-orm/pg-core";
