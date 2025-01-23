@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,8 @@ import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
+import { DragDropContext, Draggable, Droppable, DropResult } from "react-beautiful-dnd";
+import { ReportSettings, type ReportMetadata } from "./ReportSettings";
 
 type WidgetType = "line-chart" | "bar-chart" | "pie-chart" | "metric" | "table";
 
@@ -31,6 +32,16 @@ const availableMetrics = [
 export function ReportBuilder() {
   const [widgets, setWidgets] = useState<ReportWidget[]>([]);
   const [showAIRecommendations, setShowAIRecommendations] = useState(true);
+  const [reportMetadata, setReportMetadata] = useState<ReportMetadata>({
+    title: "",
+    author: "",
+    date: new Date().toISOString().split('T')[0],
+    department: "",
+    theme: "modern",
+    format: "pdf",
+    showLogo: true,
+    showExecutiveSummary: true
+  });
 
   const handleAddWidget = (type: WidgetType) => {
     const newWidget: ReportWidget = {
@@ -44,7 +55,7 @@ export function ReportBuilder() {
     setWidgets([...widgets, newWidget]);
   };
 
-  const handleDragEnd = (result: any) => {
+  const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
     const items = Array.from(widgets);
@@ -75,6 +86,11 @@ export function ReportBuilder() {
           </Button>
         </div>
       </div>
+
+      <ReportSettings
+        metadata={reportMetadata}
+        onMetadataChange={setReportMetadata}
+      />
 
       <Alert>
         <AlertDescription className="flex items-center justify-between">
@@ -132,135 +148,150 @@ export function ReportBuilder() {
           </CardContent>
         </Card>
 
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="widgets">
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="space-y-4"
-              >
-                {widgets.map((widget, index) => (
-                  <Draggable key={widget.id} draggableId={widget.id} index={index}>
-                    {(provided) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                      >
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <Input
-                              value={widget.title}
-                              onChange={(e) => {
-                                const newWidgets = [...widgets];
-                                newWidgets[index].title = e.target.value;
-                                setWidgets(newWidgets);
-                              }}
-                              className="w-[200px]"
-                            />
-                            <div className="flex gap-2">
-                              <Select
-                                value={widget.size}
-                                onValueChange={(value) => {
+        {widgets.length > 0 ? (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="widgets">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="space-y-4"
+                >
+                  {widgets.map((widget, index) => (
+                    <Draggable key={widget.id} draggableId={widget.id} index={index}>
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className="rounded-lg border bg-card text-card-foreground shadow-sm"
+                        >
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                              <Input
+                                value={widget.title}
+                                onChange={(e) => {
                                   const newWidgets = [...widgets];
-                                  newWidgets[index].size = value as "small" | "medium" | "large";
+                                  newWidgets[index].title = e.target.value;
                                   setWidgets(newWidgets);
                                 }}
-                              >
-                                <SelectTrigger className="w-[120px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="small">Small</SelectItem>
-                                  <SelectItem value="medium">Medium</SelectItem>
-                                  <SelectItem value="large">Large</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setWidgets(widgets.filter((w) => w.id !== widget.id));
-                                }}
-                              >
-                                <FontAwesomeIcon
-                                  icon={['fal' as IconPrefix, 'xmark' as IconName]}
-                                  className="h-4 w-4"
-                                />
-                              </Button>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="grid gap-4">
-                              <div className="flex items-center gap-4">
+                                className="w-[200px]"
+                              />
+                              <div className="flex gap-2">
                                 <Select
-                                  value={widget.metric}
+                                  value={widget.size}
                                   onValueChange={(value) => {
                                     const newWidgets = [...widgets];
-                                    newWidgets[index].metric = value;
+                                    newWidgets[index].size = value as "small" | "medium" | "large";
                                     setWidgets(newWidgets);
                                   }}
                                 >
-                                  <SelectTrigger className="w-[200px]">
+                                  <SelectTrigger className="w-[120px]">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {availableMetrics.map((metric) => (
-                                      <SelectItem key={metric.id} value={metric.id}>
-                                        <div className="flex items-center gap-2">
-                                          <FontAwesomeIcon
-                                            icon={['fal' as IconPrefix, metric.icon as IconName]}
-                                            className="h-4 w-4"
-                                          />
-                                          {metric.name}
-                                        </div>
-                                      </SelectItem>
-                                    ))}
+                                    <SelectItem value="small">Small</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="large">Large</SelectItem>
                                   </SelectContent>
                                 </Select>
-                                <Select
-                                  value={widget.timeRange}
-                                  onValueChange={(value) => {
-                                    const newWidgets = [...widgets];
-                                    newWidgets[index].timeRange = value;
-                                    setWidgets(newWidgets);
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setWidgets(widgets.filter((w) => w.id !== widget.id));
                                   }}
                                 >
-                                  <SelectTrigger className="w-[150px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="24h">Last 24 Hours</SelectItem>
-                                    <SelectItem value="7d">Last 7 Days</SelectItem>
-                                    <SelectItem value="30d">Last 30 Days</SelectItem>
-                                    <SelectItem value="90d">Last Quarter</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  <FontAwesomeIcon
+                                    icon={['fal' as IconPrefix, 'xmark' as IconName]}
+                                    className="h-4 w-4"
+                                  />
+                                </Button>
                               </div>
-                              {showAIRecommendations && (
-                                <Alert>
-                                  <AlertDescription className="text-sm">
-                                    <FontAwesomeIcon
-                                      icon={['fal' as IconPrefix, 'lightbulb' as IconName]}
-                                      className="mr-2 h-4 w-4 text-yellow-500"
-                                    />
-                                    Recommended: Compare this metric with last period's performance
-                                  </AlertDescription>
-                                </Alert>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
+                            </CardHeader>
+                            <CardContent>
+                              <div className="grid gap-4">
+                                <div className="flex items-center gap-4">
+                                  <Select
+                                    value={widget.metric}
+                                    onValueChange={(value) => {
+                                      const newWidgets = [...widgets];
+                                      newWidgets[index].metric = value;
+                                      setWidgets(newWidgets);
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-[200px]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {availableMetrics.map((metric) => (
+                                        <SelectItem key={metric.id} value={metric.id}>
+                                          <div className="flex items-center gap-2">
+                                            <FontAwesomeIcon
+                                              icon={['fal' as IconPrefix, metric.icon as IconName]}
+                                              className="h-4 w-4"
+                                            />
+                                            {metric.name}
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={widget.timeRange}
+                                    onValueChange={(value) => {
+                                      const newWidgets = [...widgets];
+                                      newWidgets[index].timeRange = value;
+                                      setWidgets(newWidgets);
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-[150px]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="24h">Last 24 Hours</SelectItem>
+                                      <SelectItem value="7d">Last 7 Days</SelectItem>
+                                      <SelectItem value="30d">Last 30 Days</SelectItem>
+                                      <SelectItem value="90d">Last Quarter</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {showAIRecommendations && (
+                                  <Alert>
+                                    <AlertDescription className="text-sm">
+                                      <FontAwesomeIcon
+                                        icon={['fal' as IconPrefix, 'lightbulb' as IconName]}
+                                        className="mr-2 h-4 w-4 text-yellow-500"
+                                      />
+                                      Recommended: Compare this metric with last period's performance
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        ) : (
+          <Card className="border-dashed">
+            <CardContent className="py-8">
+              <div className="text-center text-muted-foreground">
+                <FontAwesomeIcon
+                  icon={['fal' as IconPrefix, 'chart-mixed' as IconName]}
+                  className="h-8 w-8 mb-4"
+                />
+                <p>No widgets added yet. Add widgets to build your report.</p>
               </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
