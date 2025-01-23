@@ -835,8 +835,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
 
         try {
-          // Download the blob content
           const downloadResponse = await blockBlobClient.download();
+          const properties = await blockBlobClient.getProperties();
+
+          console.log("Document properties:", properties);
 
           if (!downloadResponse.readableStreamBody) {
             console.error("No content available for document:", documentPath);
@@ -851,9 +853,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const content = Buffer.concat(chunks).toString('utf-8');
 
           console.log("Successfully retrieved document content, size:", content.length);
+          console.log("Document metadata:", properties.metadata);
 
-          // Send back just the content
-          res.json({ content });
+          // Send back the document data
+          res.json({
+            content,
+            version: properties.metadata?.version || '1.0',
+            status: properties.metadata?.status || 'draft',
+            lastModified: properties.lastModified?.toISOString() || new Date().toISOString(),
+          });
         } catch (error: any) {
           console.error("Error downloading document:", error);
           if (error.statusCode === 404) {
@@ -905,9 +913,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { documentId, type, assigneeId } = req.body;
 
         if (!documentId || !type || !assigneeId) {
-          return res.status(400).json({ error: "Missing required fields" });        }
+          return res.status(400).json({ error: "Missing required fields" });
+        }
 
-        //        // Create workflow entry
+        // Create workflow entry
         const [workflow] = await db
           .insert(documentWorkflows)
           .values({
@@ -1913,7 +1922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const sampleOutlookEvent = {
           id: "outlook-1",
-          title: "Marketing TeamMeeting",
+          title: "Marketing Team Meeting",
           startDate: new Date(),
           endDate: new Date(Date.now() + 3600000),
           type: "meeting",
