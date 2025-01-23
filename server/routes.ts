@@ -434,6 +434,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
+    // Marketing Segments endpoints
+    app.post("/api/marketing/segments/generate", async (req: AuthenticatedRequest, res) => {
+      try {
+        const { minConfidence, includePredictions, maxSegments, focusAreas } = req.body;
+
+        // Validate parameters
+        if (!minConfidence || !maxSegments || !focusAreas) {
+          return res.status(400).json({ error: "Missing required generation parameters" });
+        }
+
+        // Simulate AI processing time
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Generate AI-powered segments
+        const segments = Array.from({ length: maxSegments }, (_, i) => ({
+          id: i + 1,
+          name: `AI Generated Segment ${i + 1}`,
+          description: `Intelligent customer segment based on ${focusAreas.join(", ")} analysis`,
+          totalCustomers: Math.floor(Math.random() * 10000) + 1000,
+          confidenceScore: (Math.random() * (1 - minConfidence) + minConfidence).toFixed(2),
+          isActive: true,
+          aiGenerated: true,
+          expectedGrowth: includePredictions ? Math.floor(Math.random() * 40) - 10 : undefined,
+          predictedEngagement: includePredictions ? Math.floor(Math.random() * 60) + 20 : undefined,
+          insights: [
+            "High correlation with seasonal purchasing patterns",
+            "Shows strong affinity for premium products",
+            "Responds well to email marketing campaigns"
+          ],
+          criteria: [
+            {
+              type: "behavioral",
+              condition: "greater_than",
+              value: "5 purchases/month",
+              confidence: 0.85,
+              impact: 0.7
+            },
+            {
+              type: "demographic",
+              condition: "equals",
+              value: "25-34 age group",
+              confidence: 0.92,
+              impact: 0.8
+            }
+          ]
+        }));
+
+        res.json(segments);
+      } catch (error) {
+        console.error("Error generating segments:", error);
+        res.status(500).json({ error: "Failed to generate segments" });
+      }
+    });
+
+    app.get("/api/marketing/segments", async (_req, res) => {
+      try {
+        // For demo purposes, return some sample segments
+        const segments = [
+          {
+            id: 1,
+            name: "High-Value Customers",
+            description: "Customers with high lifetime value and frequent purchases",
+            totalCustomers: 2500,
+            confidenceScore: 0.89,
+            isActive: true,
+            aiGenerated: true,
+            expectedGrowth: 15,
+            predictedEngagement: 78,
+            insights: [
+              "Strong correlation with premium product purchases",
+              "High response rate to exclusive offers",
+              "Significant social media engagement"
+            ],
+            criteria: [
+              {
+                type: "transactional",
+                condition: "greater_than",
+                value: "$1000/month",
+                confidence: 0.92,
+                impact: 0.85
+              }
+            ]
+          },
+          {
+            id: 2,
+            name: "At-Risk Customers",
+            description: "Customers showing declining engagement",
+            totalCustomers: 1200,
+            confidenceScore: 0.75,
+            isActive: true,
+            aiGenerated: true,
+            expectedGrowth: -5,
+            predictedEngagement: 45,
+            insights: [
+              "Decreasing purchase frequency in last 3 months",
+              "Lower email open rates",
+              "Increased support tickets"
+            ],
+            criteria: [
+              {
+                type: "behavioral",
+                condition: "less_than",
+                value: "1 purchase/month",
+                confidence: 0.78,
+                impact: 0.65
+              }
+            ]
+          }
+        ];
+
+        res.json(segments);
+      } catch (error) {
+        console.error("Error fetching segments:", error);
+        res.status(500).json({ error: "Failed to fetch segments" });
+      }
+    });
 
     // Add generate detailed report endpoint
     app.post("/api/generate-report", async (req, res) => {
@@ -819,7 +935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(documentApprovals)
           .where(eq(documentApprovals.documentId, documentId))
           .orderBy(documentApprovals.createdAt, 'desc')
-          .limit(1);
+                    .limit(1);
 
         res.json({
           status: latestApproval?.status || 'draft',

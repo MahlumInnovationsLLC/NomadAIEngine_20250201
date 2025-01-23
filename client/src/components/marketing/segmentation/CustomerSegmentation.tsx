@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUsers, faMagicWandSparkles, faFilter, faChartPie, faSort, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { faUsers, faMagicWandSparkles, faFilter, faChartPie, faSort, faSearch, faLightbulb, faArrowTrendUp } from "@fortawesome/free-solid-svg-icons";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { CreateSegmentDialog } from "./CreateSegmentDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface CustomerSegment {
   id: number;
@@ -20,19 +21,39 @@ interface CustomerSegment {
   confidenceScore: number;
   isActive: boolean;
   aiGenerated: boolean;
+  expectedGrowth?: number;
+  predictedEngagement?: number;
+  suggestedActions?: string[];
+  insights?: string[];
   criteria?: {
     type: string;
     condition: string;
     value: string;
+    confidence?: number;
+    impact?: number;
   }[];
+}
+
+interface GenerateOptions {
+  minConfidence: number;
+  includePredictions: boolean;
+  maxSegments: number;
+  focusAreas: string[];
 }
 
 export function CustomerSegmentation() {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState<"totalCustomers" | "confidenceScore" | "name">("totalCustomers");
+  const [sortBy, setSortBy] = useState<"totalCustomers" | "confidenceScore" | "name" | "expectedGrowth">("totalCustomers");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [showInsights, setShowInsights] = useState<number | null>(null);
+  const [generateOptions, setGenerateOptions] = useState<GenerateOptions>({
+    minConfidence: 0.7,
+    includePredictions: true,
+    maxSegments: 5,
+    focusAreas: ["behavior", "value", "engagement"],
+  });
 
   // Fetch customer segments
   const { data: segments = [], isLoading, refetch } = useQuery({
@@ -41,11 +62,15 @@ export function CustomerSegmentation() {
 
   // Generate AI segments mutation
   const generateSegments = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (options: GenerateOptions) => {
       setIsGenerating(true);
       try {
         const response = await fetch('/api/marketing/segments/generate', {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(options),
         });
         if (!response.ok) throw new Error('Failed to generate segments');
         return response.json();
@@ -56,7 +81,7 @@ export function CustomerSegmentation() {
     onSuccess: () => {
       toast({
         title: "Segments Generated",
-        description: "AI has successfully generated new customer segments.",
+        description: "AI has successfully generated new customer segments with insights and predictions.",
       });
       refetch();
     },
@@ -79,6 +104,9 @@ export function CustomerSegmentation() {
       const modifier = sortOrder === "asc" ? 1 : -1;
       if (sortBy === "name") {
         return modifier * a.name.localeCompare(b.name);
+      }
+      if (sortBy === "expectedGrowth") {
+        return modifier * ((a.expectedGrowth || 0) - (b.expectedGrowth || 0));
       }
       return modifier * (Number(a[sortBy]) - Number(b[sortBy]));
     });
@@ -104,6 +132,26 @@ export function CustomerSegmentation() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">{segment.description}</p>
+
+          {/* Growth and Engagement Predictions */}
+          {segment.expectedGrowth !== undefined && (
+            <div className="flex gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon icon={faArrowTrendUp} className="h-4 w-4 text-green-500" />
+                <span className="text-sm">
+                  {segment.expectedGrowth > 0 ? "+" : ""}
+                  {segment.expectedGrowth}% Growth
+                </span>
+              </div>
+              {segment.predictedEngagement !== undefined && (
+                <div className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faChartPie} className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm">{segment.predictedEngagement}% Engagement</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span>AI Confidence Score</span>
@@ -113,17 +161,38 @@ export function CustomerSegmentation() {
             </div>
             <Progress value={segment.confidenceScore * 100} />
           </div>
+
+          {/* Segment Criteria with Confidence Levels */}
           {segment.criteria && (
             <div className="mt-4 space-y-2">
               <Label className="text-sm font-medium">Segment Criteria:</Label>
               <div className="space-y-1">
                 {segment.criteria.map((criterion, index) => (
-                  <div key={index} className="text-sm text-muted-foreground">
-                    {criterion.type} {criterion.condition} {criterion.value}
+                  <div key={index} className="text-sm text-muted-foreground flex items-center justify-between">
+                    <span>
+                      {criterion.type} {criterion.condition} {criterion.value}
+                    </span>
+                    {criterion.confidence && (
+                      <span className="text-xs">
+                        {(criterion.confidence * 100).toFixed(0)}% confidence
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
+          )}
+
+          {/* AI Insights Button */}
+          {segment.insights && segment.insights.length > 0 && (
+            <Button
+              variant="ghost"
+              className="w-full mt-4 gap-2"
+              onClick={() => setShowInsights(segment.id)}
+            >
+              <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4" />
+              View AI Insights
+            </Button>
           )}
         </CardContent>
       </Card>
@@ -142,7 +211,7 @@ export function CustomerSegmentation() {
         <div className="flex gap-2">
           <CreateSegmentDialog />
           <Button
-            onClick={() => generateSegments.mutate()}
+            onClick={() => generateSegments.mutate(generateOptions)}
             disabled={isGenerating}
             className="gap-2"
           >
@@ -154,6 +223,93 @@ export function CustomerSegmentation() {
           </Button>
         </div>
       </div>
+
+      {/* Generation Options */}
+      <Card className="p-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-2">
+            <Label>Minimum Confidence</Label>
+            <Select 
+              value={generateOptions.minConfidence.toString()} 
+              onValueChange={(value) => setGenerateOptions(prev => ({
+                ...prev,
+                minConfidence: parseFloat(value)
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0.6">60%</SelectItem>
+                <SelectItem value="0.7">70%</SelectItem>
+                <SelectItem value="0.8">80%</SelectItem>
+                <SelectItem value="0.9">90%</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Maximum Segments</Label>
+            <Select
+              value={generateOptions.maxSegments.toString()}
+              onValueChange={(value) => setGenerateOptions(prev => ({
+                ...prev,
+                maxSegments: parseInt(value)
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">3 Segments</SelectItem>
+                <SelectItem value="5">5 Segments</SelectItem>
+                <SelectItem value="7">7 Segments</SelectItem>
+                <SelectItem value="10">10 Segments</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Include Predictions</Label>
+            <Select
+              value={generateOptions.includePredictions ? "yes" : "no"}
+              onValueChange={(value) => setGenerateOptions(prev => ({
+                ...prev,
+                includePredictions: value === "yes"
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">Yes</SelectItem>
+                <SelectItem value="no">No</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Focus Areas</Label>
+            <Select
+              value={generateOptions.focusAreas[0]}
+              onValueChange={(value) => setGenerateOptions(prev => ({
+                ...prev,
+                focusAreas: [value, ...prev.focusAreas.slice(1)]
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="behavior">Customer Behavior</SelectItem>
+                <SelectItem value="value">Customer Value</SelectItem>
+                <SelectItem value="engagement">Engagement Level</SelectItem>
+                <SelectItem value="lifecycle">Customer Lifecycle</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Card>
 
       <div className="flex gap-4 items-center">
         <div className="flex-1">
@@ -178,6 +334,7 @@ export function CustomerSegmentation() {
             <SelectContent>
               <SelectItem value="totalCustomers">Customer Count</SelectItem>
               <SelectItem value="confidenceScore">Confidence Score</SelectItem>
+              <SelectItem value="expectedGrowth">Expected Growth</SelectItem>
               <SelectItem value="name">Name</SelectItem>
             </SelectContent>
           </Select>
@@ -214,6 +371,23 @@ export function CustomerSegmentation() {
           ))}
         </div>
       )}
+
+      {/* AI Insights Dialog */}
+      <AlertDialog open={showInsights !== null} onOpenChange={() => setShowInsights(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>AI-Generated Insights</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              {segments.find((s: CustomerSegment) => s.id === showInsights)?.insights?.map((insight, index) => (
+                <div key={index} className="flex items-start gap-2">
+                  <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4 text-yellow-500 mt-1" />
+                  <p>{insight}</p>
+                </div>
+              ))}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
