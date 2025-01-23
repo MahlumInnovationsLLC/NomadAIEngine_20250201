@@ -8,6 +8,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateModuleDialog } from "@/components/training/CreateModuleDialog";
+import { LearningModules } from "@/components/training/LearningModules";
+import { Achievements } from "@/components/training/Achievements";
+import { SkillAssessment } from "@/components/training/SkillAssessment";
 
 interface TrainingModule {
   id: number;
@@ -93,27 +96,28 @@ export default function TrainingModule() {
                   <CardContent>
                     <ScrollArea className="h-[200px]">
                       <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <FontAwesomeIcon icon="circle-check" className="h-4 w-4 text-green-500" />
-                          <div>
-                            <p className="font-medium">Completed Lesson: Introduction to Document Types</p>
-                            <p className="text-sm text-muted-foreground">1/13/2025</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <FontAwesomeIcon icon="award" className="h-4 w-4 text-yellow-500" />
-                          <div>
-                            <p className="font-medium">Passed Quiz: Document Classification</p>
-                            <p className="text-sm text-muted-foreground">1/12/2025</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <FontAwesomeIcon icon="circle-plus" className="h-4 w-4 text-blue-500" />
-                          <div>
-                            <p className="font-medium">Started Lesson: Advanced Search Techniques</p>
-                            <p className="text-sm text-muted-foreground">1/11/2025</p>
-                          </div>
-                        </div>
+                        {userTraining?.recentActivities ? (
+                          userTraining.recentActivities.map((activity, index) => (
+                            <div key={index} className="flex items-center gap-3">
+                              <FontAwesomeIcon 
+                                icon={
+                                  activity.type === 'completion' ? 'circle-check' :
+                                  activity.type === 'quiz' ? 'award' : 'circle-plus'
+                                }
+                                className={`h-4 w-4 ${
+                                  activity.type === 'completion' ? 'text-green-500' :
+                                  activity.type === 'quiz' ? 'text-yellow-500' : 'text-blue-500'
+                                }`}
+                              />
+                              <div>
+                                <p className="font-medium">{activity.title}</p>
+                                <p className="text-sm text-muted-foreground">{activity.date}</p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-muted-foreground text-center py-4">No recent activity</p>
+                        )}
                       </div>
                     </ScrollArea>
                   </CardContent>
@@ -150,7 +154,7 @@ export default function TrainingModule() {
                               module.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
                               'bg-gray-100 text-gray-700'
                             }`}>
-                              {module.status}
+                              {module.status.replace('_', ' ')}
                             </span>
                           </div>
                           <Progress value={module.progress} className="h-1 mb-2" />
@@ -173,42 +177,15 @@ export default function TrainingModule() {
             </TabsContent>
 
             <TabsContent value="learning">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Learning Modules</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-muted-foreground">
-                    Learning modules content coming soon...
-                  </div>
-                </CardContent>
-              </Card>
+              <LearningModules />
             </TabsContent>
 
             <TabsContent value="achievements">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Achievements</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-muted-foreground">
-                    Achievements content coming soon...
-                  </div>
-                </CardContent>
-              </Card>
+              <Achievements />
             </TabsContent>
 
             <TabsContent value="assessment">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Skill Assessment</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-muted-foreground">
-                    Skill assessment content coming soon...
-                  </div>
-                </CardContent>
-              </Card>
+              <SkillAssessment />
             </TabsContent>
           </Tabs>
         </div>

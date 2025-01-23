@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
-
 interface Skill {
   id: number;
   name: string;
@@ -119,7 +118,7 @@ export function SkillAssessment() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FontAwesomeIcon icon="brain" className="h-5 w-5" />
+            <FontAwesomeIcon icon="fa-brain" className="h-5 w-5" />
             Skill Gap Assessment
           </CardTitle>
         </CardHeader>
@@ -127,11 +126,11 @@ export function SkillAssessment() {
           <Tabs defaultValue="gaps" className="space-y-4">
             <TabsList>
               <TabsTrigger value="gaps">
-                <FontAwesomeIcon icon="chart-gap" className="h-4 w-4 mr-2" />
+                <FontAwesomeIcon icon="fa-chart-bar" className="h-4 w-4 mr-2" />
                 Skill Gaps
               </TabsTrigger>
               <TabsTrigger value="recommendations">
-                <FontAwesomeIcon icon="lightbulb" className="h-4 w-4 mr-2" />
+                <FontAwesomeIcon icon="fa-lightbulb" className="h-4 w-4 mr-2" />
                 Recommendations
               </TabsTrigger>
             </TabsList>
