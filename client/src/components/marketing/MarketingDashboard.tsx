@@ -1,22 +1,27 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { IconProp } from "@fortawesome/fontawesome-svg-core";
 
-const demoData = [
-  { month: "Jan", engagement: 400, conversions: 240 },
-  { month: "Feb", engagement: 300, conversions: 139 },
-  { month: "Mar", engagement: 200, conversions: 980 },
-  { month: "Apr", engagement: 278, conversions: 390 },
-  { month: "May", engagement: 189, conversions: 480 },
+const campaignData = [
+  { month: "Jan", engagement: 400, conversions: 240, roi: 180 },
+  { month: "Feb", engagement: 300, conversions: 139, roi: 120 },
+  { month: "Mar", engagement: 200, conversions: 980, roi: 200 },
+  { month: "Apr", engagement: 278, conversions: 390, roi: 250 },
+  { month: "May", engagement: 189, conversions: 480, roi: 190 },
 ];
 
 export function MarketingDashboard() {
   return (
     <div className="p-6 space-y-6">
+      {/* KPI Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
+            <FontAwesomeIcon icon={["fal", "bullhorn"] as IconProp} className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">12</div>
@@ -25,7 +30,8 @@ export function MarketingDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Email Open Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Email Engagement</CardTitle>
+            <FontAwesomeIcon icon={["fal", "envelope"] as IconProp} className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">24.5%</div>
@@ -34,7 +40,8 @@ export function MarketingDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lead Conversion</CardTitle>
+            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+            <FontAwesomeIcon icon={["fal", "chart-line"] as IconProp} className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">3.2%</div>
@@ -43,7 +50,8 @@ export function MarketingDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ROI</CardTitle>
+            <CardTitle className="text-sm font-medium">Marketing ROI</CardTitle>
+            <FontAwesomeIcon icon={["fal", "dollar-sign"] as IconProp} className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">246%</div>
@@ -52,36 +60,93 @@ export function MarketingDashboard() {
         </Card>
       </div>
 
+      {/* Main Dashboard Content */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
         </TabsList>
+
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Performance Overview</CardTitle>
+              <CardTitle>Campaign Performance</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
               <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={demoData}>
+                <BarChart data={campaignData}>
                   <XAxis dataKey="month" stroke="#888888" />
                   <YAxis stroke="#888888" />
-                  <Bar
-                    dataKey="engagement"
-                    fill="currentColor"
-                    radius={[4, 4, 0, 0]}
+                  <Tooltip />
+                  <Legend />
+                  <Bar 
+                    dataKey="engagement" 
+                    name="Engagement"
+                    fill="currentColor" 
+                    radius={[4, 4, 0, 0]} 
                     className="fill-primary"
                   />
-                  <Bar
-                    dataKey="conversions"
-                    fill="currentColor"
-                    radius={[4, 4, 0, 0]}
-                    className="fill-primary/50"
+                  <Bar 
+                    dataKey="conversions" 
+                    name="Conversions"
+                    fill="currentColor" 
+                    radius={[4, 4, 0, 0]} 
+                    className="fill-primary/50" 
+                  />
+                  <Bar 
+                    dataKey="roi" 
+                    name="ROI %"
+                    fill="currentColor" 
+                    radius={[4, 4, 0, 0]} 
+                    className="fill-primary/20" 
                   />
                 </BarChart>
               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="campaigns" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Active Campaigns</CardTitle>
+              <Button variant="outline">
+                <FontAwesomeIcon icon={["fal", "plus"] as IconProp} className="mr-2 h-4 w-4" />
+                New Campaign
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                Campaign management interface will be implemented here
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Customer Analytics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                Detailed analytics interface will be implemented here
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Integration Hub</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                Integration management interface will be implemented here
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
