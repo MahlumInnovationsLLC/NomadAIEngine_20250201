@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Bookmark } from "lucide-react";
 
 interface LectureContent {
   id: string;
@@ -25,11 +26,19 @@ interface LectureViewerProps {
   moduleId: string;
   sections: Section[];
   onComplete: (sectionId: string) => void;
+  onBookmark: (sectionId: string) => void;
   onNext?: () => void;
   onPrevious?: () => void;
 }
 
-export function LectureViewer({ moduleId, sections, onComplete, onNext, onPrevious }: LectureViewerProps) {
+export function LectureViewer({ 
+  moduleId, 
+  sections, 
+  onComplete, 
+  onBookmark,
+  onNext, 
+  onPrevious 
+}: LectureViewerProps) {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
 
@@ -79,6 +88,14 @@ export function LectureViewer({ moduleId, sections, onComplete, onNext, onPrevio
             </Badge>
             <CardTitle>{currentSection.title}</CardTitle>
           </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onBookmark(currentSection.id)}
+            title="Bookmark this section"
+          >
+            <Bookmark className="h-4 w-4" />
+          </Button>
         </div>
       </CardHeader>
       <CardContent>

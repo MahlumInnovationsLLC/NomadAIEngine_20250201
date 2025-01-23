@@ -389,6 +389,32 @@ export const marketingEventAttendees = pgTable("marketing_event_attendees", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Add new tables for module notes and bookmarks
+export const moduleNotes = pgTable("module_notes", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  moduleId: integer("module_id").references(() => trainingModules.id),
+  sectionId: text("section_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const moduleBookmarks = pgTable("module_bookmarks", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  moduleId: integer("module_id").references(() => trainingModules.id),
+  sectionId: text("section_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const modulePrerequisites = pgTable("module_prerequisites", {
+  id: serial("id").primaryKey(),
+  moduleId: integer("module_id").references(() => trainingModules.id),
+  prerequisiteId: integer("prerequisite_id").references(() => trainingModules.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -456,6 +482,9 @@ export const userRolesRelations = relations(userRoles, ({ one }) => ({
 
 export const trainingModulesRelations = relations(trainingModules, ({ many }) => ({
   userTraining: many(userTraining),
+  notes: many(moduleNotes),
+  bookmarks: many(moduleBookmarks),
+  prerequisites: many(modulePrerequisites),
 }));
 
 export const userTrainingRelations = relations(userTraining, ({ one }) => ({
@@ -578,6 +607,32 @@ export const marketingEventAttendeesRelations = relations(marketingEventAttendee
   }),
 }));
 
+// Add relations for the new tables
+export const moduleNotesRelations = relations(moduleNotes, ({ one }) => ({
+  module: one(trainingModules, {
+    fields: [moduleNotes.moduleId],
+    references: [trainingModules.id],
+  }),
+}));
+
+export const moduleBookmarksRelations = relations(moduleBookmarks, ({ one }) => ({
+  module: one(trainingModules, {
+    fields: [moduleBookmarks.moduleId],
+    references: [trainingModules.id],
+  }),
+}));
+
+export const modulePrerequisitesRelations = relations(modulePrerequisites, ({ one }) => ({
+  module: one(trainingModules, {
+    fields: [modulePrerequisites.moduleId],
+    references: [trainingModules.id],
+  }),
+  prerequisite: one(trainingModules, {
+    fields: [modulePrerequisites.prerequisiteId],
+    references: [trainingModules.id],
+  }),
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -681,6 +736,16 @@ export const selectMarketingEventSchema = createSelectSchema(marketingEvents);
 export const insertMarketingEventAttendeeSchema = createInsertSchema(marketingEventAttendees);
 export const selectMarketingEventAttendeeSchema = createSelectSchema(marketingEventAttendees);
 
+// Add schemas for new tables
+export const insertModuleNoteSchema = createInsertSchema(moduleNotes);
+export const selectModuleNoteSchema = createSelectSchema(moduleNotes);
+
+export const insertModuleBookmarkSchema = createInsertSchema(moduleBookmarks);
+export const selectModuleBookmarkSchema = createSelectSchema(moduleBookmarks);
+
+export const insertModulePrerequisiteSchema = createInsertSchema(modulePrerequisites);
+export const selectModulePrerequisiteSchema = createSelectSchema(modulePrerequisites);
+
 
 // Types
 export type Document = typeof documents.$inferSelect;
@@ -733,5 +798,10 @@ export type MarketingEvent = typeof marketingEvents.$inferSelect;
 export type NewMarketingEvent = typeof marketingEvents.$inferInsert;
 export type MarketingEventAttendee = typeof marketingEventAttendees.$inferSelect;
 export type NewMarketingEventAttendee = typeof marketingEventAttendees.$inferInsert;
+
+// Add types for new tables
+export type ModuleNote = typeof moduleNotes.$inferSelect;
+export type ModuleBookmark = typeof moduleBookmarks.$inferSelect;
+export type ModulePrerequisite = typeof modulePrerequisites.$inferSelect;
 
 import { integer } from "drizzle-orm/pg-core";
