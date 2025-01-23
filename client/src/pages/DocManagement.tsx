@@ -3,10 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-
-// Lazy load components
-const FileExplorer = lazy(() => import("@/components/document/FileExplorer"));
-const DocumentViewer = lazy(() => import("@/components/document/DocumentViewer"));
+import { FileExplorer } from "@/components/document/FileExplorer";
+import { DocumentViewer } from "@/components/document/DocumentViewer";
 
 function LoadingSpinner() {
   return (
@@ -26,80 +24,76 @@ interface DocumentStatus {
 export default function DocManagement() {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [currentPath, setCurrentPath] = useState("");
 
-  const { data: documentStatus } = useQuery({
+  const { data: documentStatus } = useQuery<DocumentStatus>({
     queryKey: ['/api/documents/workflow', selectedDoc],
     enabled: !!selectedDoc,
   });
 
+  const handlePathChange = (path: string) => {
+    console.log("Path changed:", path);
+    setCurrentPath(path);
+    setSelectedDoc(null);
+    setIsEditing(false);
+  };
+
+  const handleDocumentSelect = (path: string) => {
+    console.log("Document selected:", path);
+    setSelectedDoc(path);
+    setIsEditing(false);
+  };
+
   return (
-    <div className="grid grid-cols-[30%_70%] gap-6">
-      <Card className="h-[calc(100vh-24rem)] overflow-hidden">
-        <CardHeader>
-          <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4">
+      <div className="grid grid-cols-[30%_70%] gap-6">
+        <Card className="h-[calc(100vh-8rem)]">
+          <CardHeader>
             <CardTitle className="flex items-center">
               <FontAwesomeIcon icon="file-lines" className="h-5 w-5 mr-2" />
-              DocExplore
+              DocExplorer
             </CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon">
-                <FontAwesomeIcon icon="folder-plus" className="h-4 w-4" />
-              </Button>
-              <Button size="icon">
-                <FontAwesomeIcon icon="upload" className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Suspense fallback={<LoadingSpinner />}>
-            <FileExplorer onSelectDocument={setSelectedDoc} />
-          </Suspense>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <FileExplorer 
+              onSelectDocument={handleDocumentSelect}
+              onPathChange={handlePathChange}
+            />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center">
-              <FontAwesomeIcon icon="file-lines" className="h-5 w-5 mr-2" />
-              Document Viewer
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setIsEditing(!isEditing)}
-                disabled={!selectedDoc}
-              >
-                <FontAwesomeIcon icon="edit" className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                disabled={!selectedDoc}
-              >
-                <FontAwesomeIcon icon="download" className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {selectedDoc ? (
-            <Suspense fallback={<LoadingSpinner />}>
+        <Card className="h-[calc(100vh-8rem)]">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center">
+                <FontAwesomeIcon icon="file-lines" className="h-5 w-5 mr-2" />
+                Document Viewer
+              </div>
+              {selectedDoc && (
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsEditing(!isEditing)}
+                  >
+                    <FontAwesomeIcon icon="edit" className="h-4 w-4 mr-2" />
+                    {isEditing ? "View" : "Edit"}
+                  </Button>
+                </div>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-[calc(100vh-12rem)]">
+            {selectedDoc ? (
               <DocumentViewer documentId={selectedDoc} isEditing={isEditing} />
-            </Suspense>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">
-                Select a document from DocExplore to view or edit.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <p>Select a document from DocExplorer to view or edit</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

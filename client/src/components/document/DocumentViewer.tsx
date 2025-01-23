@@ -39,19 +39,22 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch document content
   const { data: document, isLoading, error } = useQuery<DocumentData>({
-    queryKey: [`/api/documents/${documentId}/content`],
+    queryKey: [`/api/documents/content/${documentId}`],
     queryFn: async () => {
       console.log("Fetching document content for:", documentId);
       try {
-        const response = await fetch(`/api/documents/${documentId}/content`, {
+        const response = await fetch(`/api/documents/content/${documentId}`, {
           credentials: 'include',
         });
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error("Error fetching document:", errorText);
           throw new Error(errorText || `Failed to fetch document: ${response.status}`);
         }
+
         const data = await response.json();
         console.log("Received document data:", data);
         return data;
@@ -63,35 +66,37 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     enabled: !!documentId,
   });
 
+  // Update local state when document changes
   useEffect(() => {
     if (document) {
-      console.log("Setting document content:", document.content);
       setEditedContent(document.content);
       setVersion(document.version);
     }
   }, [document]);
 
+  // Save document changes
   const saveMutation = useMutation({
     mutationFn: async () => {
       console.log("Saving document:", documentId);
-      const response = await fetch(`/api/documents/${documentId}/content`, {
+      const response = await fetch(`/api/documents/content/${documentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          content: editedContent, 
+        body: JSON.stringify({
+          content: editedContent,
           version,
           status: document?.status || 'draft'
         }),
         credentials: 'include',
       });
+
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error);
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to save document');
       }
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/${documentId}/content`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/content/${documentId}`] });
       toast({
         title: "Document saved",
         description: "Your changes have been saved successfully",
@@ -109,33 +114,33 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
   if (isLoading) {
     return (
-      <Card className="flex items-center justify-center p-4 h-full">
+      <div className="flex items-center justify-center h-full p-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </Card>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="flex items-center justify-center p-4 h-full text-destructive">
-        <div className="text-center">
+      <div className="flex items-center justify-center h-full p-4">
+        <div className="text-center text-destructive">
           <AlertCircle className="h-8 w-8 mb-2 mx-auto" />
-          <p>Failed to load document: {error instanceof Error ? error.message : 'Unknown error'}</p>
+          <p>Error loading document: {error instanceof Error ? error.message : 'Unknown error'}</p>
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (!document) {
     return (
-      <Card className="flex items-center justify-center p-4 h-full text-muted-foreground">
-        <p>No document content available</p>
-      </Card>
+      <div className="flex items-center justify-center h-full p-4 text-muted-foreground">
+        <p>Select a document to view its contents</p>
+      </div>
     );
   }
 
   return (
-    <Card className="flex flex-col h-full">
+    <div className="h-full flex flex-col">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
@@ -163,7 +168,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
                   className="max-w-[150px]"
                 />
               </div>
-              <Button 
+              <Button
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending}
               >
@@ -174,7 +179,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
           )}
         </div>
         <div className="text-sm text-muted-foreground">
-          Version: {document.version} | Last modified: {new Date(document.lastModified).toLocaleString()}
+          Last modified: {new Date(document.lastModified).toLocaleString()}
         </div>
         {document.reviewComment && (
           <div className="mt-2 p-2 bg-muted rounded-md">
@@ -191,12 +196,12 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
             onChange={(e) => setEditedContent(e.target.value)}
           />
         ) : (
-          <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+          <div className="prose prose-sm max-w-none">
             {document.content}
           </div>
         )}
       </ScrollArea>
-    </Card>
+    </div>
   );
 }
 

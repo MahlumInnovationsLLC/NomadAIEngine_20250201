@@ -827,7 +827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Document content endpoints
-    app.get("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
+    app.get("/api/documents/content/:path*", async (req: AuthenticatedRequest, res) => {
       try {
         const documentPath = req.params["path*"];
         console.log("Fetching document content for path:", documentPath);
@@ -873,6 +873,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error fetching document content:", error);
         res.status(500).json({ error: "Failed to fetch document content" });
       }
+    });
+
+    // Add document content update endpoint
+    app.put("/api/documents/content/:path*", async (req: AuthenticatedRequest, res) => {
+      try {
+        const documentPath = req.params["path*"];
+        const { content, version, status } = req.body;
+
+        console.log("Updating document content:", {
+          path: documentPath,
+          version,
+          status,
+          contentLength: content?.length
+        });
+
+        if (!content) {
+          return res.status(400).json({ error: "Content is required" });
+        }
+
+        const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
+
+        // Update the blob content and metadata
+        await blockBlobClient.upload(content, content.length, {
+          metadata: {
+            version: version || '1.0',
+            status: status || 'draft',
+            lastModified: new Date().toISOString()
+          }
+        });
+
+        console.log("Successfully updated document:", documentPath);
+
+        res.json({
+          message: "Document updated successfully",
+          path: documentPath,
+          version,
+          status
+        });
+      } catch (error) {
+        console.error("Error updating document content:", error);
+        res.status(500).json({ error: "Failed to update document content" });      }
     });
 
     // Document upload endpoint
@@ -1624,10 +1665,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Update document content endpoint
-    app.put("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
+    app.put("/api/documents/content/:path*", async (req: AuthenticatedRequest, res) => {
       try {
         const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
-        const { content, version } = req.body;
+        const { content, version, status } = req.body;
 
         if (!content) {
           return res.status(400).json({ error: "Content is required" });
@@ -1640,7 +1681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add metadata
         const metadata = {
           version: version || '1.0',
-          status: 'draft',
+          status: status || 'draft',
           lastModified: new Date().toISOString()
         };
 
@@ -2038,7 +2079,7 @@ import { WebSocketServer } from 'ws';
 
 // Update WebSocket setup
 export function setupWebSocketServer(httpServer: Server, app: Express): WebSocketServer {
-  const wss = new WebSocketServer({ 
+  const wss = new WebSocketServer({
     server: httpServer,
     path: '/socket.io'
   });

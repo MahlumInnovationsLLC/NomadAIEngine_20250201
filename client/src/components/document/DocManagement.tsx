@@ -38,12 +38,15 @@ export function DocManagement() {
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
+      console.log("Uploading files...");
       const response = await fetch('/api/documents/upload', {
         method: 'POST',
         body: formData,
         credentials: 'include',
       });
       if (!response.ok) {
+        const error = await response.text();
+        console.error("Upload error:", error);
         throw new Error('Upload failed');
       }
       return response.json();
@@ -56,7 +59,8 @@ export function DocManagement() {
         description: "Files have been uploaded successfully",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Upload error:", error);
       toast({
         title: "Upload failed",
         description: "Failed to upload files",
@@ -67,6 +71,7 @@ export function DocManagement() {
 
   const assignReviewerMutation = useMutation({
     mutationFn: async ({ documentId, reviewerId }: { documentId: string, reviewerId: string }) => {
+      console.log("Assigning reviewer...", { documentId, reviewerId });
       const response = await fetch('/api/documents/assign-reviewer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,6 +79,8 @@ export function DocManagement() {
         credentials: 'include',
       });
       if (!response.ok) {
+        const error = await response.text();
+        console.error("Assign reviewer error:", error);
         throw new Error('Failed to assign reviewer');
       }
       return response.json();
@@ -86,7 +93,8 @@ export function DocManagement() {
         description: "Document has been assigned for review",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Assign reviewer error:", error);
       toast({
         title: "Assignment failed",
         description: "Failed to assign reviewer",
@@ -106,10 +114,12 @@ export function DocManagement() {
       formData.append('files', files[i]);
     }
 
+    console.log("Uploading files to path:", currentPath);
     uploadMutation.mutate(formData);
   };
 
   const handlePathChange = (path: string) => {
+    console.log("Path changed to:", path);
     setCurrentPath(path);
     setSelectedDocument(null);
     setIsEditing(false);
@@ -123,6 +133,7 @@ export function DocManagement() {
 
   const handleAssignReviewer = (reviewerId: string) => {
     if (selectedDocument) {
+      console.log("Assigning reviewer:", { reviewerId, document: selectedDocument });
       assignReviewerMutation.mutate({ documentId: selectedDocument, reviewerId });
     }
   };
