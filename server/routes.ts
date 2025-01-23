@@ -20,7 +20,8 @@ import {
   documents,
   documentCollaborators,
   integrationConfigs,
-  marketingEvents
+  marketingEvents,
+  modulePrerequisites
 } from "@db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { WebSocketServer, WebSocket } from "ws";
@@ -32,6 +33,7 @@ import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_serv
 import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
 import { drizzle } from "drizzle-orm/neon-serverless";
+
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -1914,8 +1916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
       try {
         if (!req.user) {
-          return res.status(401).json({ error: "Authentication required" });
-        }
+          return res.status(401).json({ error: "Authentication required" });        }
 
         // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -2025,6 +2026,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error syncing with Outlook:", error);
         res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+      }
+    });
+    // Training module endpoints
+    app.get("/api/training/modules", async (req: AuthenticatedRequest, res) => {
+      try {
+        const modules = await db
+          .select()
+          .from(trainingModules)
+          .orderBy(trainingModules.order);
+
+        // For each module, get the completion stats
+        const modulesWithStats = await Promise.all(
+          modules.map(async (module) => {
+            const userProgress = await db
+              .select()
+              .from(userTraining)
+              .where(eq(userTraining.moduleId, module.id));
+
+            const totalSections = module.totalSections || 0;
+            const completedSections = userProgress.length > 0 ? userProgress[0].completedSections : 0;
+            const progress = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
+
+            return {
+              id: module.id,
+              title: module.title,
+              description: module.description,
+              status: userProgress.length > 0 ? userProgress[0].status : 'not_started',
+              progress,
+              totalSections,
+              completedSections
+            };
+          })
+        );
+
+        res.json(modulesWithStats);
+      } catch (error) {
+        console.error("Error fetching training modules:", error);
+        res.status(500).json({ error: "Failed to fetch training modules" });
+      }
+    });
+
+    app.post("/api/training/modules", async (req: AuthenticatedRequest, res) => {
+      try {
+        const { title, description, content, prerequisites } = req.body;
+
+        // Insert the module
+        const [module] = await db
+          .insert(trainingModules)
+          .values({
+            title,
+            description,
+            content: content || {},
+            totalSections: (content?.sections || []).length,
+            createdBy: req.user?.id || 'system',
+            order: 1, // Default order, implement proper ordering later
+          })
+          .returning();
+
+        // Add prerequisites if any
+        if (prerequisites && prerequisites.length > 0) {
+          await db.insert(modulePrerequisites).values(
+            prerequisites.map(prerequisiteId => ({
+              moduleId: module.id,
+              prerequisiteId
+            }))
+          );
+        }
+
+        res.json(module);
+      } catch (error) {
+        console.error("Error creating training module:", error);
+        res.status(500).json({ error: "Failed to create training module" });
+      }
+    });
+
+    // Insert some sample training modules for demonstration
+    app.post("/api/training/modules/sample", async (_req, res) => {
+      try {
+        const sampleModules = [
+          {
+            title: "Getting Started with AI Engine",
+            description: "Learn the basics of using the AI Engine platform and its core features",
+            content: {
+              sections: [
+                {
+                  id: "intro",
+                  title: "Introduction to AI Engine",
+                  content: [
+                    {
+                      id: "welcome",
+                      title: "Welcome to AI Engine",
+                      content: "Let's explore the powerful features of our AI Engine platform...",
+                      type: "text",
+                      order: 1
+                    }
+                  ],
+                  order: 1
+                }
+              ]
+            },
+            totalSections: 1,
+            order: 1
+          },
+          {
+            title: "Advanced Document Management",
+            description: "Master document control, versioning, and collaboration features",
+            content: {
+              sections: [
+                {
+                  id: "doc-basics",
+                  title: "Document Basics",
+                  content: [
+                    {
+                      id: "overview",
+                      title: "Document Management Overview",
+                      content: "Understanding the document lifecycle in AI Engine...",
+                      type: "text",
+                      order: 1
+                    }
+                  ],
+                  order: 1
+                }
+              ]
+            },
+            totalSections: 1,
+            order: 2
+          }
+        ];
+
+        await db.insert(trainingModules).values(sampleModules);
+
+        res.json({ message: "Sample training modules created successfully" });
+      } catch (error) {
+        console.error("Error creating sample training modules:", error);
+        res.status(500).json({ error: "Failed to create sample training modules" });
       }
     });
 
