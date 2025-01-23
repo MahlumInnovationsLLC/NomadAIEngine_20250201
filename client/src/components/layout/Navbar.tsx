@@ -34,13 +34,11 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      // Show loading toast
       toast({
         title: "Signing out",
         description: "Please wait...",
       });
 
-      // Get all accounts
       const accounts = instance.getAllAccounts();
 
       if (accounts.length === 0) {
@@ -48,11 +46,9 @@ export default function Navbar() {
         return;
       }
 
-      // Clear session storage
       sessionStorage.clear();
       localStorage.clear();
 
-      // Sign out from all accounts
       await Promise.all(
         accounts.map(account => 
           instance.logoutPopup({
@@ -70,7 +66,6 @@ export default function Navbar() {
         title: "Error",
         description: "Failed to sign out. Please try again.",
       });
-      // Fallback: redirect to login page
       window.location.href = "/login";
     }
   };
@@ -111,6 +106,13 @@ export default function Navbar() {
               <Link href="/club-control">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                   Club Control
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <Link href="/marketing-control">
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  Marketing Control
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
