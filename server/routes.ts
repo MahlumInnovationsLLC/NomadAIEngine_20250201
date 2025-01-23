@@ -827,9 +827,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Document content endpoints
-    app.get("/api/documents/content/:path*", async (req: AuthenticatedRequest, res) => {
+    app.get("/api/documents/content/:path(*)", async (req: AuthenticatedRequest, res) => {
       try {
-        const documentPath = req.params["path*"];
+        const documentPath = req.params.path;
         console.log("Fetching document content for path:", documentPath);
 
         const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
@@ -875,49 +875,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Add document content update endpoint
-    app.put("/api/documents/content/:path*", async (req: AuthenticatedRequest, res) => {
-      try {
-        const documentPath = req.params["path*"];
-        const { content, version, status } = req.body;
-
-        console.log("Updating document content:", {
-          path: documentPath,
-          version,
-          status,
-          contentLength: content?.length
-        });
-
-        if (!content) {
-          return res.status(400).json({ error: "Content is required" });
-        }
-
-        const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
-
-        // Update the blob content and metadata
-        await blockBlobClient.upload(content, content.length, {
-          metadata: {
-            version: version || '1.0',
-            status: status || 'draft',
-            lastModified: new Date().toISOString()
-          }
-        });
-
-        console.log("Successfully updated document:", documentPath);
-
-        res.json({
-          message: "Document updated successfully",
-          path: documentPath,
-          version,
-          status
-        });
-      } catch (error) {
-        console.error("Error updating document content:", error);
-        res.status(500).json({ error: "Failed to update document content" });      }
-    });
-
     // Document upload endpoint
-    app.post("/api/documents/upload", upload.array('files'), async (req, res) => {
+    app.post("/api/documents/upload", upload.array('files'), async (req: AuthenticatedRequest, res) => {
       try {
         const path = req.body.path || "";
         const files = req.files as Express.Multer.File[];
@@ -941,8 +900,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({ message: "Files uploaded successfully", files: uploadedFiles });
       } catch (error) {
-                console.error("Error uploading files:", error);
-        res.status(500).json({ error: "Failed to upload files" });
+        console.error("Error uploading files:", error);
+        res.status(500).json({
+          error: "File upload failed."
+        });
       }
     });
 

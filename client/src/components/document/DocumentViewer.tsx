@@ -18,11 +18,6 @@ interface DocumentData {
   version: string;
   status: 'draft' | 'in_review' | 'approved' | 'released';
   lastModified: string;
-  assignedReviewer?: {
-    id: string;
-    name: string;
-  };
-  reviewComment?: string;
 }
 
 const statusColors = {
@@ -33,24 +28,37 @@ const statusColors = {
 };
 
 export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
-  const [version, setVersion] = useState<string>("");
   const [editedContent, setEditedContent] = useState<string>("");
+  const [version, setVersion] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  console.log("DocumentViewer rendered with documentId:", documentId);
+
   // Fetch document content
   const { data: document, isLoading, error } = useQuery<DocumentData>({
-    queryKey: [`/api/documents/content/${encodeURIComponent(documentId)}`],
+    queryKey: ['/api/documents/content', documentId],
     queryFn: async () => {
-      console.log("Fetching document content for:", documentId);
+      console.log("Starting document fetch for:", documentId);
       try {
-        const response = await fetch(`/api/documents/content/${encodeURIComponent(documentId)}`, {
+        const url = `/api/documents/content/${encodeURIComponent(documentId)}`;
+        console.log("Fetching from URL:", url);
+
+        const response = await fetch(url, {
           credentials: 'include',
         });
 
+        console.log("Response status:", response.status);
+        console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("Error fetching document:", errorText);
+          console.error("Error fetching document:", {
+            status: response.status,
+            statusText: response.statusText,
+            errorText,
+            url
+          });
           throw new Error(errorText || `Failed to fetch document: ${response.status}`);
         }
 
@@ -74,7 +82,6 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     }
   }, [document]);
 
-  // Save document changes
   const saveMutation = useMutation({
     mutationFn: async () => {
       console.log("Saving document:", documentId);
@@ -91,12 +98,17 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error("Error saving document:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorText
+        });
         throw new Error(errorText || 'Failed to save document');
       }
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/documents/content/${encodeURIComponent(documentId)}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/documents/content', documentId] });
       toast({
         title: "Document saved",
         description: "Your changes have been saved successfully",
@@ -134,7 +146,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   if (!document) {
     return (
       <div className="flex items-center justify-center h-full p-4 text-muted-foreground">
-        <p>Select a document to view its contents</p>
+        <p>No document content available</p>
       </div>
     );
   }
@@ -147,14 +159,6 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
             <Badge className={statusColors[document.status]}>
               {document.status.replace('_', ' ').toUpperCase()}
             </Badge>
-            {document.assignedReviewer && (
-              <div className="flex items-center gap-2">
-                <UserCheck className="h-4 w-4" />
-                <span className="text-sm text-muted-foreground">
-                  Reviewer: {document.assignedReviewer.name}
-                </span>
-              </div>
-            )}
           </div>
           {isEditing && (
             <div className="flex items-center gap-2">
@@ -181,12 +185,6 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
         <div className="text-sm text-muted-foreground">
           Last modified: {new Date(document.lastModified).toLocaleString()}
         </div>
-        {document.reviewComment && (
-          <div className="mt-2 p-2 bg-muted rounded-md">
-            <p className="text-sm font-medium">Review Comment:</p>
-            <p className="text-sm text-muted-foreground">{document.reviewComment}</p>
-          </div>
-        )}
       </div>
       <ScrollArea className="flex-grow p-4">
         {isEditing ? (
@@ -197,7 +195,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
           />
         ) : (
           <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-            {document.content}
+            {document.content || 'No content available'}
           </div>
         )}
       </ScrollArea>
