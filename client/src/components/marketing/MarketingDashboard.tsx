@@ -2,11 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { CampaignManager } from "./CampaignManager";
-import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
+import { IconName } from "@fortawesome/fontawesome-svg-core";
 import { CampaignMetrics } from "./analytics/CampaignMetrics";
 import { IntegrationsPanel } from "./integrations/IntegrationsPanel";
+import { CustomerSegmentation } from "./segmentation/CustomerSegmentation";
+import { faUsers, faChartLine, faBullhorn, faEnvelope, faDollarSign } from "@fortawesome/free-solid-svg-icons";
 
 const campaignData = [
   { month: "Jan", engagement: 400, conversions: 240, roi: 180 },
@@ -25,7 +27,7 @@ export function MarketingDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
             <FontAwesomeIcon 
-              icon={['fal' as IconPrefix, 'bullhorn' as IconName]} 
+              icon={faBullhorn}
               className="h-4 w-4 text-muted-foreground" 
             />
           </CardHeader>
@@ -38,7 +40,7 @@ export function MarketingDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Email Engagement</CardTitle>
             <FontAwesomeIcon 
-              icon={['fal' as IconPrefix, 'envelope' as IconName]} 
+              icon={faEnvelope}
               className="h-4 w-4 text-muted-foreground" 
             />
           </CardHeader>
@@ -51,7 +53,7 @@ export function MarketingDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
             <FontAwesomeIcon 
-              icon={['fal' as IconPrefix, 'chart-line' as IconName]} 
+              icon={faChartLine}
               className="h-4 w-4 text-muted-foreground" 
             />
           </CardHeader>
@@ -64,7 +66,7 @@ export function MarketingDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Marketing ROI</CardTitle>
             <FontAwesomeIcon 
-              icon={['fal' as IconPrefix, 'dollar-sign' as IconName]} 
+              icon={faDollarSign}
               className="h-4 w-4 text-muted-foreground" 
             />
           </CardHeader>
@@ -80,6 +82,7 @@ export function MarketingDashboard() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+          <TabsTrigger value="segments">Segments</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
         </TabsList>
@@ -125,6 +128,10 @@ export function MarketingDashboard() {
 
         <TabsContent value="campaigns" className="space-y-4">
           <CampaignManager />
+        </TabsContent>
+
+        <TabsContent value="segments" className="space-y-4">
+          <CustomerSegmentation />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">

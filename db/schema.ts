@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, decimal, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -320,6 +320,41 @@ export const integrationConfigs = pgTable("integration_configs", {
 });
 
 
+// Add customer segmentation tables after the existing tables
+export const customerSegments = pgTable("customer_segments", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  criteria: jsonb("criteria").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  aiGenerated: boolean("ai_generated").default(false),
+  confidenceScore: decimal("confidence_score", { precision: 4, scale: 2 }),
+  totalCustomers: integer("total_customers").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  metadata: jsonb("metadata"),
+});
+
+export const customerSegmentMemberships = pgTable("customer_segment_memberships", {
+  id: serial("id").primaryKey(),
+  segmentId: integer("segment_id").references(() => customerSegments.id),
+  customerId: text("customer_id").notNull(),
+  score: decimal("score", { precision: 4, scale: 2 }),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+});
+
+export const segmentAnalytics = pgTable("segment_analytics", {
+  id: serial("id").primaryKey(),
+  segmentId: integer("segment_id").references(() => customerSegments.id),
+  metricType: text("metric_type", {
+    enum: ['engagement_rate', 'conversion_rate', 'revenue', 'churn_risk']
+  }).notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }),
+  period: text("period").notNull(),
+  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -477,6 +512,26 @@ export const integrationConfigsRelations = relations(integrationConfigs, ({ }) =
   // Future relations can be added here if needed
 }));
 
+// Add relations
+export const customerSegmentsRelations = relations(customerSegments, ({ many }) => ({
+  memberships: many(customerSegmentMemberships),
+  analytics: many(segmentAnalytics),
+}));
+
+export const customerSegmentMembershipsRelations = relations(customerSegmentMemberships, ({ one }) => ({
+  segment: one(customerSegments, {
+    fields: [customerSegmentMemberships.segmentId],
+    references: [customerSegments.id],
+  }),
+}));
+
+export const segmentAnalyticsRelations = relations(segmentAnalytics, ({ one }) => ({
+  segment: one(customerSegments, {
+    fields: [segmentAnalytics.segmentId],
+    references: [customerSegments.id],
+  }),
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -563,6 +618,16 @@ export const selectTicketHistorySchema = createSelectSchema(ticketHistory);
 export const insertIntegrationConfigSchema = createInsertSchema(integrationConfigs);
 export const selectIntegrationConfigSchema = createSelectSchema(integrationConfigs);
 
+// Add schemas
+export const insertCustomerSegmentSchema = createInsertSchema(customerSegments);
+export const selectCustomerSegmentSchema = createSelectSchema(customerSegments);
+
+export const insertCustomerSegmentMembershipSchema = createInsertSchema(customerSegmentMemberships);
+export const selectCustomerSegmentMembershipSchema = createSelectSchema(customerSegmentMemberships);
+
+export const insertSegmentAnalyticSchema = createInsertSchema(segmentAnalytics);
+export const selectSegmentAnalyticSchema = createSelectSchema(segmentAnalytics);
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -604,4 +669,9 @@ export type TicketHistory = typeof ticketHistory.$inferSelect;
 export type IntegrationConfig = typeof integrationConfigs.$inferSelect;
 export type NewIntegrationConfig = typeof integrationConfigs.$inferInsert;
 
-import { integer, decimal } from "drizzle-orm/pg-core";
+//Add types for new tables
+export type CustomerSegment = typeof customerSegments.$inferSelect;
+export type CustomerSegmentMembership = typeof customerSegmentMemberships.$inferSelect;
+export type SegmentAnalytic = typeof segmentAnalytics.$inferSelect;
+
+import { integer } from "drizzle-orm/pg-core";
