@@ -22,8 +22,8 @@ import {
   integrationConfigs,
   marketingEvents
 } from "@db/schema";
-import { eq, and, gte, lte } from "drizzle-orm";
-import { setupWebSocketServer } from "./services/websocket";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { WebSocketServer, WebSocket } from "ws";
 import { generateReport } from "./services/document-generator";
 import { listChats } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
@@ -31,7 +31,6 @@ import type { Request, Response } from "express";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
-import { WebSocket } from "ws";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
 // Types
@@ -286,7 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Initialize the HTTP server
     const httpServer = createServer(app);
-    const wsServer = setupWebSocketServer(httpServer);
+    const wsServer = setupWebSocketServer(httpServer, app); // Pass app to setupWebSocketServer
 
     // Add user authentication middleware
     app.use((req: AuthenticatedRequest, res, next) => {
@@ -901,13 +900,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({ message: "Files uploaded successfully", files: uploadedFiles });
       } catch (error) {
-        console.error("Error uploading files:", error);
+                console.error("Error uploading files:", error);
         res.status(500).json({ error: "Failed to upload files" });
       }
     });
 
     //    // Add workflow endpoint
-    app.post("/api/documents/workflow", async (req, res) => {
+    app.post("/api/api/documents/workflow", async (req, res) => {
       try {
         const { documentId, type, assigneeId } = req.body;
 
@@ -2032,4 +2031,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Error registering routes:", error);
     throw error;
   }
+}
+
+import { WebSocketServer } from 'ws';
+// ... existing imports remain unchanged ...
+
+// Update WebSocket setup
+export function setupWebSocketServer(httpServer: Server, app: Express): WebSocketServer {
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/socket.io'
+  });
+
+  const clients = new Map<string, WebSocket>();
+  const rooms = new Map<string, Set<WebSocket>>();
+
+  wss.on('connection', (ws: WebSocket) => {
+    console.log('New WebSocket connection');
+
+    ws.on('message', (message: string) => {
+      try {
+        const data = JSON.parse(message);
+
+        if (data.type === 'join_room') {
+          const roomName = data.room;
+          if (!rooms.has(roomName)) {
+            rooms.set(roomName, new Set());
+          }
+          rooms.get(roomName)?.add(ws);
+          console.log(`Client joined room: ${roomName}`);
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      // Remove client from all rooms
+      rooms.forEach(clients => clients.delete(ws));
+    });
+  });
+
+  // Add broadcast helper
+  wss.broadcastToRoom = (room: string, message: any) => {
+    const clients = rooms.get(room);
+    if (clients) {
+      const messageStr = JSON.stringify(message);
+      clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(messageStr);
+        }
+      });
+    }
+  };
+
+  // Add calendar events endpoints
+  app.get('/api/marketing/calendar/events', async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const events = await db.select().from(marketingEvents)
+        .where(
+          and(
+            gte(marketingEvents.startDate, new Date(startDate as string)),
+            lte(marketingEvents.endDate, new Date(endDate as string))
+          )
+        );
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching calendar events:', error);
+      res.status(500).json({ error: 'Failed to fetch calendar events' });
+    }
+  });
+
+  app.post('/api/marketing/calendar/events', async (req: AuthenticatedRequest, res) => {
+    try {
+      const eventData = {
+        ...req.body,
+        createdBy: req.user?.id || 'anonymous',
+        status: 'scheduled'
+      };
+
+      const [event] = await db.insert(marketingEvents)
+        .values(eventData)
+        .returning();
+
+      // Broadcast to all clients in the calendar room
+      wss.broadcastToRoom('calendar', {
+        type: 'calendar_event_created',
+        event
+      });
+
+      res.json(event);
+    } catch (error) {
+      console.error('Error creating calendar event:', error);
+      res.status(500).json({ error: 'Failed to create calendar event' });
+    }
+  });
+
+  app.post('/api/marketing/calendar/sync-outlook', async (req: AuthenticatedRequest, res) => {
+    try {
+      // For demo purposes, simulate syncing with Outlook
+      // In production, this would use Microsoft Graph API
+      const events = await db.select().from(marketingEvents)
+        .where(eq(marketingEvents.createdBy, req.user?.id || 'anonymous'));
+
+      // Simulate sync delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Update events with mock Outlook IDs
+      const syncedEvents = await Promise.all(events.map(async event => {
+        if (!event.outlookEventId) {
+          const [updated] = await db.update(marketingEvents)
+            .set({
+              outlookEventId: `outlook-${Math.random().toString(36).slice(2)}`,
+              outlookCalendarId: 'primary',
+              lastSyncedAt: new Date()
+            })
+            .where(eq(marketingEvents.id, event.id))
+            .returning();
+          return updated;
+        }
+        return event;
+      }));
+
+      res.json({ syncedEvents });
+    } catch (error) {
+      console.error('Error syncing with Outlook:', error);
+      res.status(500).json({ error: 'Failed to sync with Outlook' });
+    }
+  });
+
+  return wss;
 }
