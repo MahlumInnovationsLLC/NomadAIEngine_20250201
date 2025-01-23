@@ -17,17 +17,36 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { AnalyticsDashboard } from "./analytics/AnalyticsDashboard";
+import { CustomerSegmentation } from "./analytics/CustomerSegmentation";
 import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
+import { ChannelOrchestrator } from "./orchestration/ChannelOrchestrator";
 
+// Enhanced schema with audience targeting
 const campaignFormSchema = z.object({
   name: z.string().min(2, "Campaign name must be at least 2 characters"),
   description: z.string(),
   type: z.enum(["email", "social", "multi-channel"]),
   startDate: z.date(),
   endDate: z.date().optional(),
-  targetAudience: z.string(),
+  targetAudience: z.object({
+    segments: z.array(z.string()),
+    customRules: z.array(z.object({
+      field: z.string(),
+      operator: z.string(),
+      value: z.string()
+    })).optional(),
+    excludedSegments: z.array(z.string()).optional()
+  }),
   content: z.string(),
   testingStrategy: z.enum(["none", "ab", "multivariate"]).default("none"),
+  testConfig: z.object({
+    variables: z.array(z.object({
+      name: z.string(),
+      variants: z.array(z.string())
+    })).optional(),
+    targetMetric: z.string().optional(),
+    distribution: z.number().min(1).max(100).optional()
+  }).optional(),
   socialPlatforms: z.array(z.string()).optional(),
   emailProvider: z.string().optional(),
   frequency: z.enum(["once", "daily", "weekly", "monthly"]).default("once"),
@@ -48,9 +67,19 @@ const emailProviders = [
   { id: "hubspot", name: "HubSpot", icon: "envelope-circle-check" as IconName, prefix: "fal" as IconPrefix },
 ];
 
+// Suggested segments based on analytics
+const suggestedSegments = [
+  { id: "high-value", name: "High-Value Customers", score: 0.95 },
+  { id: "churning", name: "At Risk of Churning", score: 0.82 },
+  { id: "new-users", name: "New Users (Last 30 Days)", score: 0.78 },
+  { id: "inactive", name: "Inactive Users", score: 0.75 },
+];
+
 export function CampaignManager() {
   const [date, setDate] = useState<Date>();
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [selectedSegments, setSelectedSegments] = useState<string[]>([]);
+  const [showSegmentSuggestions, setShowSegmentSuggestions] = useState(false);
 
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignFormSchema),
@@ -58,6 +87,11 @@ export function CampaignManager() {
       type: "email",
       testingStrategy: "none",
       frequency: "once",
+      targetAudience: {
+        segments: [],
+        customRules: [],
+        excludedSegments: []
+      }
     },
   });
 
@@ -74,6 +108,14 @@ export function CampaignManager() {
     );
   };
 
+  const handleSegmentToggle = (segmentId: string) => {
+    setSelectedSegments(prev =>
+      prev.includes(segmentId)
+        ? prev.filter(id => id !== segmentId)
+        : [...prev, segmentId]
+    );
+  };
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="create" className="w-full">
@@ -82,6 +124,7 @@ export function CampaignManager() {
           <TabsTrigger value="calendar">Content Calendar</TabsTrigger>
           <TabsTrigger value="automation">Automation</TabsTrigger>
           <TabsTrigger value="analytics">Performance</TabsTrigger>
+          <TabsTrigger value="segments">Audience</TabsTrigger>
         </TabsList>
 
         <TabsContent value="create">
@@ -143,6 +186,43 @@ export function CampaignManager() {
                       </FormItem>
                     )}
                   />
+
+                  <div className="space-y-4">
+                    <FormLabel>Target Audience</FormLabel>
+                    <div className="grid gap-4">
+                      <Alert>
+                        <AlertDescription>
+                          <div className="flex items-center justify-between">
+                            <span>Use AI-powered audience suggestions?</span>
+                            <Switch
+                              checked={showSegmentSuggestions}
+                              onCheckedChange={setShowSegmentSuggestions}
+                            />
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+
+                      {showSegmentSuggestions && (
+                        <div className="grid gap-2">
+                          <p className="text-sm text-muted-foreground">Suggested Segments:</p>
+                          {suggestedSegments.map(segment => (
+                            <div key={segment.id} className="flex items-center justify-between p-2 border rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={selectedSegments.includes(segment.id)}
+                                  onCheckedChange={() => handleSegmentToggle(segment.id)}
+                                />
+                                <span>{segment.name}</span>
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                {Math.round(segment.score * 100)}% match
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                   {form.watch("type") !== "email" && (
                     <div className="space-y-4">
@@ -221,9 +301,9 @@ export function CampaignManager() {
                                 ) : (
                                   <span>Pick a date</span>
                                 )}
-                                <FontAwesomeIcon 
-                                  icon={['fal' as IconPrefix, 'calendar' as IconName]} 
-                                  className="ml-auto h-4 w-4 opacity-50" 
+                                <FontAwesomeIcon
+                                  icon={['fal' as IconPrefix, 'calendar' as IconName]}
+                                  className="ml-auto h-4 w-4 opacity-50"
                                 />
                               </Button>
                             </FormControl>
@@ -290,7 +370,7 @@ export function CampaignManager() {
                         {field.value !== "none" && (
                           <Alert>
                             <AlertDescription>
-                              A/B testing will automatically split your audience and track performance metrics for each variant.
+                              A/B testing will automatically split your selected audience segments and track performance metrics for each variant.
                             </AlertDescription>
                           </Alert>
                         )}
@@ -319,9 +399,9 @@ export function CampaignManager() {
 
                   <div className="flex justify-end">
                     <Button type="submit">
-                      <FontAwesomeIcon 
-                        icon={['fal' as IconPrefix, 'paper-plane' as IconName]} 
-                        className="mr-2 h-4 w-4" 
+                      <FontAwesomeIcon
+                        icon={['fal' as IconPrefix, 'paper-plane' as IconName]}
+                        className="mr-2 h-4 w-4"
                       />
                       Create Campaign
                     </Button>
@@ -349,20 +429,15 @@ export function CampaignManager() {
         </TabsContent>
 
         <TabsContent value="automation">
-          <Card>
-            <CardHeader>
-              <CardTitle>Campaign Automation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground">
-                Configure automated workflows for your campaigns
-              </div>
-            </CardContent>
-          </Card>
+          <ChannelOrchestrator />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
           <AnalyticsDashboard />
+        </TabsContent>
+
+        <TabsContent value="segments" className="space-y-4">
+          <CustomerSegmentation />
         </TabsContent>
       </Tabs>
     </div>

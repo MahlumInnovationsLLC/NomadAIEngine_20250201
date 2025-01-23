@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState } from "react";
 import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
+import { CustomerSegmentation } from "./CustomerSegmentation";
+import { PredictiveAnalytics } from "./PredictiveAnalytics";
 
 // Sample data - Replace with actual API data
 const performanceData = [
@@ -56,9 +58,9 @@ export function AnalyticsDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Reach</CardTitle>
-            <FontAwesomeIcon 
-              icon={['fal' as IconPrefix, 'users' as IconName]} 
-              className="h-4 w-4 text-muted-foreground" 
+            <FontAwesomeIcon
+              icon={['fal' as IconPrefix, 'users' as IconName]}
+              className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
           <CardContent>
@@ -70,9 +72,9 @@ export function AnalyticsDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Engagement Rate</CardTitle>
-            <FontAwesomeIcon 
-              icon={['fal' as IconPrefix, 'chart-line' as IconName]} 
-              className="h-4 w-4 text-muted-foreground" 
+            <FontAwesomeIcon
+              icon={['fal' as IconPrefix, 'chart-line' as IconName]}
+              className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
           <CardContent>
@@ -84,9 +86,9 @@ export function AnalyticsDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-            <FontAwesomeIcon 
-              icon={['fal' as IconPrefix, 'bullseye' as IconName]} 
-              className="h-4 w-4 text-muted-foreground" 
+            <FontAwesomeIcon
+              icon={['fal' as IconPrefix, 'bullseye' as IconName]}
+              className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
           <CardContent>
@@ -98,9 +100,9 @@ export function AnalyticsDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">ROI</CardTitle>
-            <FontAwesomeIcon 
-              icon={['fal' as IconPrefix, 'coins' as IconName]} 
-              className="h-4 w-4 text-muted-foreground" 
+            <FontAwesomeIcon
+              icon={['fal' as IconPrefix, 'coins' as IconName]}
+              className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
           <CardContent>
@@ -110,14 +112,15 @@ export function AnalyticsDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="performance" className="space-y-4">
+      <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="segments">Customer Segments</TabsTrigger>
-          <TabsTrigger value="channels">Channel Analysis</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="segmentation">Customer Segments</TabsTrigger>
+          <TabsTrigger value="predictive">Predictive Analytics</TabsTrigger>
+          <TabsTrigger value="campaigns">Campaign Analysis</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="performance">
+        <TabsContent value="overview">
           <Card>
             <CardHeader>
               <CardTitle>Campaign Performance Trends</CardTitle>
@@ -129,26 +132,26 @@ export function AnalyticsDashboard() {
                   <YAxis stroke="#888888" />
                   <Tooltip />
                   <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="engagement" 
+                  <Line
+                    type="monotone"
+                    dataKey="engagement"
                     name="Engagement"
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2} 
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="conversions" 
+                  <Line
+                    type="monotone"
+                    dataKey="conversions"
                     name="Conversions"
-                    stroke="hsl(var(--secondary))" 
-                    strokeWidth={2} 
+                    stroke="hsl(var(--secondary))"
+                    strokeWidth={2}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="roi" 
+                  <Line
+                    type="monotone"
+                    dataKey="roi"
                     name="ROI %"
-                    stroke="hsl(var(--accent))" 
-                    strokeWidth={2} 
+                    stroke="hsl(var(--accent))"
+                    strokeWidth={2}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -156,71 +159,43 @@ export function AnalyticsDashboard() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="segments">
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Segment Analysis</CardTitle>
-            </CardHeader>
-            <CardContent className="pl-2">
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={segmentData}>
-                  <XAxis dataKey="segment" stroke="#888888" />
-                  <YAxis stroke="#888888" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar 
-                    dataKey="count" 
-                    name="Customer Count"
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]} 
-                  />
-                  <Bar 
-                    dataKey="engagement" 
-                    name="Engagement %"
-                    fill="hsl(var(--secondary))" 
-                    radius={[4, 4, 0, 0]} 
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-
-              <Alert className="mt-4">
-                <AlertDescription>
-                  Segments are calculated based on customer behavior, engagement levels, and purchase history.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
+        <TabsContent value="segmentation">
+          <CustomerSegmentation />
         </TabsContent>
 
-        <TabsContent value="channels">
+        <TabsContent value="predictive">
+          <PredictiveAnalytics />
+        </TabsContent>
+
+        <TabsContent value="campaigns">
           <Card>
             <CardHeader>
-              <CardTitle>Channel Performance</CardTitle>
+              <CardTitle>Campaign Performance Analysis</CardTitle>
             </CardHeader>
-            <CardContent className="pl-2">
+            <CardContent>
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={channelData}>
                   <XAxis dataKey="channel" stroke="#888888" />
                   <YAxis stroke="#888888" />
                   <Tooltip />
                   <Legend />
-                  <Bar 
-                    dataKey="reach" 
+                  <Bar
+                    dataKey="reach"
                     name="Reach"
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]} 
+                    fill="hsl(var(--primary))"
+                    radius={[4, 4, 0, 0]}
                   />
-                  <Bar 
-                    dataKey="engagement" 
+                  <Bar
+                    dataKey="engagement"
                     name="Engagement %"
-                    fill="hsl(var(--secondary))" 
-                    radius={[4, 4, 0, 0]} 
+                    fill="hsl(var(--secondary))"
+                    radius={[4, 4, 0, 0]}
                   />
-                  <Bar 
-                    dataKey="conversion" 
+                  <Bar
+                    dataKey="conversion"
                     name="Conversion %"
-                    fill="hsl(var(--accent))" 
-                    radius={[4, 4, 0, 0]} 
+                    fill="hsl(var(--accent))"
+                    radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
               </ResponsiveContainer>
