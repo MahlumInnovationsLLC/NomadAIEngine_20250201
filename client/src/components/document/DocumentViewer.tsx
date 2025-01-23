@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Save, AlertCircle, Loader2, UserCheck } from "lucide-react";
+import { Save, AlertCircle, Loader2 } from "lucide-react";
 
 interface DocumentViewerProps {
   documentId: string;
@@ -33,58 +33,22 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  console.log("DocumentViewer rendered with documentId:", documentId);
-
   // Fetch document content
   const { data: document, isLoading, error } = useQuery<DocumentData>({
     queryKey: ['/api/documents/content', documentId],
-    queryFn: async () => {
-      console.log("Starting document fetch for:", documentId);
-      try {
-        const url = `/api/documents/content/${encodeURIComponent(documentId)}`;
-        console.log("Fetching from URL:", url);
-
-        const response = await fetch(url, {
-          credentials: 'include',
-        });
-
-        console.log("Response status:", response.status);
-        console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Error fetching document:", {
-            status: response.status,
-            statusText: response.statusText,
-            errorText,
-            url
-          });
-          throw new Error(errorText || `Failed to fetch document: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log("Received document data:", data);
-        return data;
-      } catch (error) {
-        console.error("Error in document fetch:", error);
-        throw error;
-      }
-    },
-    enabled: !!documentId,
+    enabled: !!documentId, // Only fetch when documentId is available
   });
 
   // Update local state when document changes
   useEffect(() => {
     if (document) {
-      console.log("Setting document content:", document);
-      setEditedContent(document.content);
-      setVersion(document.version);
+      setEditedContent(document.content || '');
+      setVersion(document.version || '');
     }
   }, [document]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      console.log("Saving document:", documentId);
       const response = await fetch(`/api/documents/content/${encodeURIComponent(documentId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -97,13 +61,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error saving document:", {
-          status: response.status,
-          statusText: response.statusText,
-          errorText
-        });
-        throw new Error(errorText || 'Failed to save document');
+        throw new Error(await response.text() || 'Failed to save document');
       }
       return response.json();
     },
@@ -115,15 +73,15 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
       });
     },
     onError: (error) => {
-      console.error("Save error:", error);
       toast({
         title: "Error",
-        description: "Failed to save document changes",
+        description: error instanceof Error ? error.message : "Failed to save document changes",
         variant: "destructive",
       });
     },
   });
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full p-4">
@@ -132,6 +90,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="flex items-center justify-center h-full p-4">
@@ -143,6 +102,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
     );
   }
 
+  // No document state
   if (!document) {
     return (
       <div className="flex items-center justify-center h-full p-4 text-muted-foreground">
@@ -195,7 +155,7 @@ export function DocumentViewer({ documentId, isEditing }: DocumentViewerProps) {
           />
         ) : (
           <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-            {document.content || 'No content available'}
+            {editedContent || document.content || 'No content available'}
           </div>
         )}
       </ScrollArea>
