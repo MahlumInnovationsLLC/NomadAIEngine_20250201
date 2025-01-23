@@ -4,33 +4,52 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { IconName } from "@fortawesome/fontawesome-svg-core";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  faCircleCheck,
+  faCircleXmark,
+  faTriangleExclamation,
+  faArrowsRotate,
+  faEnvelope,
+  faPaperPlane,
+  faSquareH,
+  faChartLine,
+  faChartBar,
+  faSitemap,
+  faChartSimple,
+} from "@fortawesome/free-solid-svg-icons";
+import {
+  faFacebook,
+  faInstagram,
+  faTwitter,
+  faLinkedin,
+} from "@fortawesome/free-brands-svg-icons";
 
 const emailPlatforms = [
-  { id: "mailchimp", name: "Mailchimp", icon: "envelope" },
-  { id: "sendgrid", name: "SendGrid", icon: "paper-plane" },
-  { id: "hubspot", name: "HubSpot", icon: "square-h" },
-  { id: "klaviyo", name: "Klaviyo", icon: "k-square" },
+  { id: "mailchimp", name: "Mailchimp", icon: faEnvelope },
+  { id: "sendgrid", name: "SendGrid", icon: faPaperPlane },
+  { id: "hubspot", name: "HubSpot", icon: faSquareH },
+  { id: "klaviyo", name: "Klaviyo", icon: faSquareH }, // Using faSquareH as fallback
 ];
 
 const socialPlatforms = [
-  { id: "facebook", name: "Facebook", icon: "facebook" },
-  { id: "instagram", name: "Instagram", icon: "instagram" },
-  { id: "twitter", name: "Twitter", icon: "twitter" },
-  { id: "linkedin", name: "LinkedIn", icon: "linkedin" },
+  { id: "facebook", name: "Facebook", icon: faFacebook },
+  { id: "instagram", name: "Instagram", icon: faInstagram },
+  { id: "twitter", name: "Twitter", icon: faTwitter },
+  { id: "linkedin", name: "LinkedIn", icon: faLinkedin },
 ];
 
 const analyticsPlatforms = [
-  { id: "google-analytics", name: "Google Analytics", icon: "chart-line" },
-  { id: "mixpanel", name: "Mixpanel", icon: "chart-bar" },
-  { id: "segment", name: "Segment", icon: "sitemap" },
-  { id: "amplitude", name: "Amplitude", icon: "chart-simple" },
+  { id: "google-analytics", name: "Google Analytics", icon: faChartLine },
+  { id: "mixpanel", name: "Mixpanel", icon: faChartBar },
+  { id: "segment", name: "Segment", icon: faSitemap },
+  { id: "amplitude", name: "Amplitude", icon: faChartSimple },
 ];
 
 interface IntegrationConfig {
@@ -51,8 +70,8 @@ interface IntegrationConfigs {
   [key: string]: IntegrationConfig;
 }
 
-function ConnectionStatusIndicator({ status, isRefreshing, onRefresh }: { 
-  status: ConnectionStatus; 
+function ConnectionStatusIndicator({ status, isRefreshing, onRefresh }: {
+  status: ConnectionStatus;
   isRefreshing: boolean;
   onRefresh: () => void;
 }) {
@@ -63,15 +82,15 @@ function ConnectionStatusIndicator({ status, isRefreshing, onRefresh }: {
   };
 
   const statusIcons = {
-    connected: 'check-circle',
-    disconnected: 'times-circle',
-    error: 'exclamation-triangle'
+    connected: faCircleCheck,
+    disconnected: faCircleXmark,
+    error: faTriangleExclamation
   };
 
   return (
     <div className="flex items-center gap-2">
       <FontAwesomeIcon
-        icon={['fal' as IconPrefix, statusIcons[status.status] as IconName]}
+        icon={statusIcons[status.status]}
         className={`h-4 w-4 ${statusColors[status.status]}`}
       />
       <span className={cn(
@@ -86,14 +105,15 @@ function ConnectionStatusIndicator({ status, isRefreshing, onRefresh }: {
         onClick={onRefresh}
         disabled={isRefreshing}
         className={cn(
-          "ml-2 p-0 h-8 w-8",
+          "ml-2 p-1 h-8 w-8 rounded-full hover:bg-muted",
           isRefreshing && "animate-spin"
         )}
       >
         <FontAwesomeIcon
-          icon={['fal' as IconPrefix, 'arrows-rotate' as IconName]}
-          className="h-4 w-4"
+          icon={faArrowsRotate}
+          className={cn("h-4 w-4", isRefreshing && "animate-spin")}
         />
+        <span className="sr-only">Refresh connection status</span>
       </Button>
     </div>
   );
@@ -189,7 +209,7 @@ export function IntegrationsPanel() {
   };
 
   const handleSaveConfig = (platformId: string) => {
-    const config = integrationConfigs[platformId];
+    const config = integrationConfigs[platform.id];
     if (!config) return;
     saveConfig.mutate({ id: platformId, config });
   };
@@ -203,7 +223,7 @@ export function IntegrationsPanel() {
     }
   };
 
-  const renderPlatformCard = (platform: { id: string; name: string; icon: string }, type: string) => {
+  const renderPlatformCard = (platform: { id: string; name: string; icon: any }, type: string) => {
     const config = integrationConfigs[platform.id] || getDefaultConfig();
     const connectionStatus = (connectionStatuses as Record<string, ConnectionStatus> | undefined)?.[platform.id] || {
       status: 'disconnected' as const,
@@ -219,7 +239,7 @@ export function IntegrationsPanel() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FontAwesomeIcon
-                  icon={[type === 'email' ? 'fal' : 'fab' as IconPrefix, platform.icon as IconName]}
+                  icon={platform.icon}
                   className="h-5 w-5"
                 />
                 <CardTitle className="text-lg">{platform.name}</CardTitle>
@@ -324,13 +344,13 @@ export function IntegrationsPanel() {
 
             <Alert>
               <AlertDescription>
-                {connectionStatus.status === 'connected' 
+                {connectionStatus.status === 'connected'
                   ? `Connected to ${platform.name}. Last synced: ${new Date(connectionStatus.lastChecked).toLocaleString()}`
                   : connectionStatus.message || `Configure ${platform.name} integration settings above.`}
               </AlertDescription>
             </Alert>
 
-            <Button 
+            <Button
               className="w-full"
               onClick={() => handleSaveConfig(platform.id)}
               disabled={saveConfig.isPending}
@@ -347,14 +367,14 @@ export function IntegrationsPanel() {
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Email Marketing</h2>
-        <Button 
+        <Button
           variant="outline"
           onClick={handleRefreshAll}
           disabled={refreshIntegration.isPending}
           className="gap-2"
         >
           <FontAwesomeIcon
-            icon={['fal' as IconPrefix, 'arrows-rotate' as IconName]}
+            icon={faArrowsRotate}
             className={cn("h-4 w-4", refreshIntegration.isPending && "animate-spin")}
           />
           Refresh All
