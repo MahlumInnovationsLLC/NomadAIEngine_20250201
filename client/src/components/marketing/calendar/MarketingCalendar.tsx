@@ -32,12 +32,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// Add Outlook settings schema
+// Update the Outlook settings schema
 const outlookSettingsSchema = z.object({
-  clientId: z.string().min(1, "Client ID is required"),
-  clientSecret: z.string().min(1, "Client Secret is required"),
-  tenantId: z.string().min(1, "Tenant ID is required"),
-  redirectUri: z.string().url("Must be a valid URL"),
+  outlookClientId: z.string().min(1, "Outlook Client ID is required"),
+  outlookClientSecret: z.string().min(1, "Outlook Client Secret is required"),
+  outlookRedirectUri: z.string().url("Must be a valid URL"),
 });
 
 const eventSchema = z.object({
@@ -89,19 +88,16 @@ export function MarketingCalendar() {
     resolver: zodResolver(outlookSettingsSchema),
   });
 
-  // Reset form when selected date changes
   useEffect(() => {
     if (selectedDate) {
       form.setValue('startDate', selectedDate);
     }
   }, [selectedDate, form]);
 
-  // Fetch marketing events
   const { data: events = [], isLoading, refetch } = useQuery<MarketingEvent[]>({
     queryKey: ['/api/marketing/calendar/events'],
   });
 
-  // Create event mutation
   const createEvent = useMutation({
     mutationFn: async (data: z.infer<typeof eventSchema>) => {
       const response = await fetch('/api/marketing/calendar/events', {
@@ -133,7 +129,6 @@ export function MarketingCalendar() {
     },
   });
 
-  // Save Outlook settings mutation
   const saveOutlookSettings = useMutation({
     mutationFn: async (data: z.infer<typeof outlookSettingsSchema>) => {
       const response = await fetch('/api/marketing/calendar/outlook-settings', {
@@ -163,7 +158,6 @@ export function MarketingCalendar() {
     },
   });
 
-  // Sync with Outlook mutation
   const syncWithOutlook = useMutation({
     mutationFn: async () => {
       setSyncStatus('syncing');
@@ -192,7 +186,6 @@ export function MarketingCalendar() {
     },
   });
 
-  // Get events for a specific date
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
       const eventDate = new Date(event.startDate);
@@ -200,7 +193,6 @@ export function MarketingCalendar() {
     });
   };
 
-  // Type-specific icon mapping
   const getEventTypeIcon = (type: MarketingEvent['type']) => {
     switch (type) {
       case 'campaign':
@@ -216,7 +208,6 @@ export function MarketingCalendar() {
     }
   };
 
-  // Priority-specific color mapping
   const getPriorityColor = (priority: MarketingEvent['priority']) => {
     switch (priority) {
       case 'urgent':
@@ -232,12 +223,10 @@ export function MarketingCalendar() {
     }
   };
 
-  // Handle event form submission
   const onSubmit = (data: z.infer<typeof eventSchema>) => {
     createEvent.mutate(data);
   };
 
-  // Handle settings form submission
   const onSettingsSubmit = (data: z.infer<typeof outlookSettingsSchema>) => {
     saveOutlookSettings.mutate(data);
   };
@@ -248,16 +237,16 @@ export function MarketingCalendar() {
     const hasEvents = dayEvents.length > 0;
 
     return (
-      <div className="relative w-full h-full min-h-[80px] p-1">
-        <div className={`w-full flex items-center justify-center ${hasEvents ? 'font-bold' : ''}`}>
+      <div className="relative w-full h-full min-h-[120px] p-2">
+        <div className={`w-full flex items-center justify-center text-lg hover:bg-accent hover:text-accent-foreground rounded-full w-9 h-9 mx-auto ${hasEvents ? 'font-bold' : ''}`}>
           {date.getDate()}
         </div>
         {hasEvents && (
-          <div className="absolute bottom-1 left-1 right-1 flex flex-wrap gap-1 justify-center">
+          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1.5 justify-center">
             {dayEvents.map((event, index) => (
               <div
                 key={index}
-                className={`w-2 h-2 rounded-full ${getPriorityColor(event.priority)}`}
+                className={`w-3 h-3 rounded-full ${getPriorityColor(event.priority)}`}
                 title={`${event.title} (${event.priority} priority)`}
               />
             ))}
@@ -269,7 +258,7 @@ export function MarketingCalendar() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-xl font-bold">Marketing Calendar</CardTitle>
         <div className="flex items-center gap-2">
           <Button
@@ -299,9 +288,9 @@ export function MarketingCalendar() {
             <FontAwesomeIcon
               icon={
                 syncStatus === 'syncing' ? faSpinner :
-                syncStatus === 'error' ? faExclamationTriangle :
-                syncStatus === 'synced' ? faCheckCircle :
-                ['fab', 'microsoft']
+                  syncStatus === 'error' ? faExclamationTriangle :
+                    syncStatus === 'synced' ? faCheckCircle :
+                      ['fab', 'microsoft']
               }
               className={`h-4 w-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`}
             />
@@ -311,12 +300,12 @@ export function MarketingCalendar() {
       </CardHeader>
 
       <CardContent>
-        <div className="grid lg:grid-cols-[3fr,1fr] gap-4">
+        <div className="grid lg:grid-cols-[4fr,1fr] gap-6">
           <Calendar
             mode="single"
             selected={selectedDate}
             onSelect={setSelectedDate}
-            className="rounded-md border p-4"
+            className="rounded-md border p-6 text-base"
             components={{
               DayContent,
             }}
@@ -338,15 +327,15 @@ export function MarketingCalendar() {
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
-                          <FontAwesomeIcon 
+                          <FontAwesomeIcon
                             icon={getEventTypeIcon(event.type)}
                             className={`h-4 w-4 mt-1 ${
                               event.type === 'campaign' ? 'text-blue-500' :
-                              event.type === 'social_media' ? 'text-green-500' :
-                              event.type === 'email_blast' ? 'text-purple-500' :
-                              event.type === 'meeting' ? 'text-yellow-500' :
-                              'text-gray-500'
-                            }`}
+                                event.type === 'social_media' ? 'text-green-500' :
+                                  event.type === 'email_blast' ? 'text-purple-500' :
+                                    event.type === 'meeting' ? 'text-yellow-500' :
+                                      'text-gray-500'
+                              }`}
                           />
                           <div>
                             <h4 className="font-medium">{event.title}</h4>
@@ -361,9 +350,9 @@ export function MarketingCalendar() {
                           <Badge
                             variant={
                               event.status === 'completed' ? 'default' :
-                              event.status === 'in_progress' ? 'secondary' :
-                              event.status === 'cancelled' ? 'destructive' :
-                              'outline'
+                                event.status === 'in_progress' ? 'secondary' :
+                                  event.status === 'cancelled' ? 'destructive' :
+                                    'outline'
                             }
                           >
                             {event.status}
@@ -372,10 +361,10 @@ export function MarketingCalendar() {
                             variant="outline"
                             className={`${
                               event.priority === 'urgent' ? 'border-red-500 text-red-500' :
-                              event.priority === 'high' ? 'border-orange-500 text-orange-500' :
-                              event.priority === 'medium' ? 'border-yellow-500 text-yellow-500' :
-                              'border-green-500 text-green-500'
-                            }`}
+                                event.priority === 'high' ? 'border-orange-500 text-orange-500' :
+                                  event.priority === 'medium' ? 'border-yellow-500 text-yellow-500' :
+                                    'border-green-500 text-green-500'
+                              }`}
                           >
                             {event.priority}
                           </Badge>
@@ -412,7 +401,6 @@ export function MarketingCalendar() {
         </div>
       </CardContent>
 
-      {/* Event creation dialog */}
       <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -566,22 +554,21 @@ export function MarketingCalendar() {
         </DialogContent>
       </Dialog>
 
-      {/* Outlook settings dialog */}
       <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Outlook Calendar Settings</DialogTitle>
+            <DialogTitle>Microsoft Outlook Calendar Settings</DialogTitle>
           </DialogHeader>
           <Form {...settingsForm}>
             <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="space-y-4">
               <FormField
                 control={settingsForm.control}
-                name="clientId"
+                name="outlookClientId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Azure Client ID</FormLabel>
+                    <FormLabel>Outlook Client ID</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter Azure Client ID" {...field} />
+                      <Input placeholder="Enter Outlook Client ID" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -589,12 +576,12 @@ export function MarketingCalendar() {
               />
               <FormField
                 control={settingsForm.control}
-                name="clientSecret"
+                name="outlookClientSecret"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Azure Client Secret</FormLabel>
+                    <FormLabel>Outlook Client Secret</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Enter Azure Client Secret" {...field} />
+                      <Input type="password" placeholder="Enter Outlook Client Secret" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -602,25 +589,12 @@ export function MarketingCalendar() {
               />
               <FormField
                 control={settingsForm.control}
-                name="tenantId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Azure Tenant ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter Azure Tenant ID" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={settingsForm.control}
-                name="redirectUri"
+                name="outlookRedirectUri"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Redirect URI</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter Redirect URI" {...field} />
+                      <Input placeholder="Enter Outlook OAuth Redirect URI" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
