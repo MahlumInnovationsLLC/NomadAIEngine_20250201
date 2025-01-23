@@ -355,6 +355,40 @@ export const segmentAnalytics = pgTable("segment_analytics", {
   recordedAt: timestamp("recorded_at").defaultNow().notNull(),
 });
 
+// Add after the customerSegments table and before relations section
+export const marketingEvents = pgTable("marketing_events", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  type: text("type", {
+    enum: ['campaign', 'meeting', 'deadline', 'event', 'social_media', 'email_blast']
+  }).notNull(),
+  status: text("status", {
+    enum: ['scheduled', 'in_progress', 'completed', 'cancelled']
+  }).notNull().default('scheduled'),
+  location: text("location"),
+  createdBy: text("created_by").notNull(),
+  outlookEventId: text("outlook_event_id"),
+  outlookCalendarId: text("outlook_calendar_id"),
+  lastSyncedAt: timestamp("last_synced_at"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const marketingEventAttendees = pgTable("marketing_event_attendees", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").references(() => marketingEvents.id),
+  userId: text("user_id").notNull(),
+  status: text("status", {
+    enum: ['pending', 'accepted', 'declined', 'tentative']
+  }).notNull().default('pending'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -532,6 +566,18 @@ export const segmentAnalyticsRelations = relations(segmentAnalytics, ({ one }) =
   }),
 }));
 
+// Add to relations section
+export const marketingEventsRelations = relations(marketingEvents, ({ many }) => ({
+  attendees: many(marketingEventAttendees),
+}));
+
+export const marketingEventAttendeesRelations = relations(marketingEventAttendees, ({ one }) => ({
+  event: one(marketingEvents, {
+    fields: [marketingEventAttendees.eventId],
+    references: [marketingEvents.id],
+  }),
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -628,6 +674,14 @@ export const selectCustomerSegmentMembershipSchema = createSelectSchema(customer
 export const insertSegmentAnalyticSchema = createInsertSchema(segmentAnalytics);
 export const selectSegmentAnalyticSchema = createSelectSchema(segmentAnalytics);
 
+// Add to schemas section
+export const insertMarketingEventSchema = createInsertSchema(marketingEvents);
+export const selectMarketingEventSchema = createSelectSchema(marketingEvents);
+
+export const insertMarketingEventAttendeeSchema = createInsertSchema(marketingEventAttendees);
+export const selectMarketingEventAttendeeSchema = createSelectSchema(marketingEventAttendees);
+
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -673,5 +727,11 @@ export type NewIntegrationConfig = typeof integrationConfigs.$inferInsert;
 export type CustomerSegment = typeof customerSegments.$inferSelect;
 export type CustomerSegmentMembership = typeof customerSegmentMemberships.$inferSelect;
 export type SegmentAnalytic = typeof segmentAnalytics.$inferSelect;
+
+//Add types for new tables
+export type MarketingEvent = typeof marketingEvents.$inferSelect;
+export type NewMarketingEvent = typeof marketingEvents.$inferInsert;
+export type MarketingEventAttendee = typeof marketingEventAttendees.$inferSelect;
+export type NewMarketingEventAttendee = typeof marketingEventAttendees.$inferInsert;
 
 import { integer } from "drizzle-orm/pg-core";

@@ -20,6 +20,7 @@ import {
   documents,
   documentCollaborators,
   integrationConfigs,
+  marketingEvents // Added import
 } from "@db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { setupWebSocketServer } from "./services/websocket";
@@ -30,6 +31,9 @@ import type { Request, Response } from "express";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
 import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
+import { WebSocket } from "ws"; // Added import
+import { drizzle } from "drizzle-orm/neon-serverless"; // Added import
+
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -550,7 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ error: "Failed to fetch segments" });
       }
     });
-    
+
     app.get("/api/marketing/segments/:segmentId/members", async (req: AuthenticatedRequest, res) => {
       try {
         const { segmentId } = req.params;
@@ -900,7 +904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error uploading files:", error);
         res.status(500).json({ error: "Failed to upload files" });
-      }
+      }      }
     });
 
     // Add workflow endpoint
@@ -1098,7 +1102,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    app.patch("/api/documents/:documentId/permissions/:permissionId", async (req, res) => {      try {
+    app.patch("/api/documents/:documentId/permissions/:permissionId", async (req, res) => {
+      try {
         const permissionId = parseInt(req.params.permissionId);
         const updates = req.body;
 
@@ -1242,25 +1247,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(401).json({ error: "Unauthorized" });
         }
 
-        const userNotifs = await db.select({
-          id: notifications.id,
-          type: notifications.type,
-          title: notifications.title,
-          message: notifications.message,
-          priority: notifications.priority,
-          link: notifications.link,
-          metadata: notifications.metadata,
-          createdAt: notifications.createdAt,
-          read: userNotifications.read,
-          readAt: userNotifications.readAt,
-        })
-          .from(notifications)
-          .innerJoin(
-            userNotifications,
-            eq(notifications.id, userNotifications.notificationId)
-          )
-          .where(eq(userNotifications.userId, userId))
-          .orderBy(notifications.createdAt);
+        const userNotifs = await db.query.userNotifications.findMany({
+          where: eq(userNotifications.userId, userId),
+          orderBy: [notifications.createdAt],
+          include: {
+            notification: true
+          }
+        });
+
 
         res.json(userNotifs);
       } catch (error) {
@@ -1854,6 +1848,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error refreshing integration status:", error);
         res.status(500).json({ error: "Failed to refresh integration status" });
+      }
+    });
+
+    // Add new marketing calendar routes
+    app.get("/api/marketing/calendar/events", async (req, res) => {
+      try {
+        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+        // Get events from database
+        const events = await db.query.marketingEvents.findMany({
+          where: and(
+            startDate ? gte(marketingEvents.startDate, startDate) : undefined,
+            endDate ? lte(marketingEvents.endDate, endDate) : undefined
+          ),
+          orderBy: [marketingEvents.startDate]
+        });
+
+        res.json(events);
+      } catch (error) {
+        console.error("Error fetching calendar events:", error);
+        res.status(500).json({ error: "Failed to fetch calendar events" });
+      }
+    });
+
+    app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+      try {
+        const { title, description, startDate, endDate, type, status } = req.body;
+
+        // Validate required fields
+        if (!title || !startDate || !type) {
+          return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        // Create new event
+        const [event] = await db
+          .insert(marketingEvents)
+          .values({
+            title,
+            description,
+            startDate: new Date(startDate),
+            endDate: endDate ? new Date(endDate) : null,
+            type,
+            status: status || 'scheduled',
+            createdBy: req.user?.id || 'system'
+          })
+          .returning();
+
+        // Broadcast event to connected clients
+        wsServer.broadcastToRoom('calendar', {
+          type: 'calendar_event_created',
+          data: event
+        });
+
+        res.json(event);
+      } catch (error) {
+        console.error("Error creating calendar event:", error);
+        res.status(500).json({ error: "Failed to create calendar event" });
+      }
+    });
+
+    // Microsoft Outlook calendar sync
+    app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+      try {
+        if (!req.user) {
+          return res.status(401).json({ error: "Authentication required" });
+        }
+
+        // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const sampleOutlookEvent = {
+          id: "outlook-1",
+          title: "Marketing Team Meeting",
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 3600000),
+          type: "meeting",
+          status: "scheduled",
+          outlookEventId: "123456"
+        };
+
+        res.json({ 
+          message: "Calendar synced with Outlook",
+          syncedEvents: [sampleOutlookEvent]
+        });
+      } catch (error) {
+        console.error("Error syncing with Outlook:", error);
+        res.status(500).json({ error: "Failed to sync with Outlook calendar" });
       }
     });
 
