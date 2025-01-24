@@ -25,7 +25,7 @@ export default function Home() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="p-6" data-tour="chat-section">
           <h2 className="text-2xl font-semibold mb-4">Start a Chat</h2>
           <p className="text-muted-foreground mb-6">
@@ -36,7 +36,7 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/chat')}
           >
-            <FontAwesomeIcon icon="message-plus" className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon="message" className="mr-2 h-5 w-5" />
             New Chat
           </Button>
         </Card>
@@ -49,7 +49,7 @@ export default function Home() {
           <Button 
             size="lg" 
             className="w-full"
-            onClick={() => navigate('/documents')}
+            onClick={() => navigate('/docmanage')}
           >
             <FontAwesomeIcon icon="file-lines" className="mr-2 h-5 w-5" />
             Manage Documents
@@ -83,6 +83,36 @@ export default function Home() {
           >
             <FontAwesomeIcon icon="dumbbell" className="mr-2 h-5 w-5" />
             Club Control
+          </Button>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">Marketing Control</h2>
+          <p className="text-muted-foreground mb-6">
+            Create and manage marketing campaigns, promotions, and member communications.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/marketing-control')}
+          >
+            <FontAwesomeIcon icon="bullhorn" className="mr-2 h-5 w-5" />
+            Marketing Control
+          </Button>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">Member Management</h2>
+          <p className="text-muted-foreground mb-6">
+            Handle member profiles, subscriptions, and engagement tracking.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/member-management')}
+          >
+            <FontAwesomeIcon icon="users" className="mr-2 h-5 w-5" />
+            Member Management
           </Button>
         </Card>
       </div>
