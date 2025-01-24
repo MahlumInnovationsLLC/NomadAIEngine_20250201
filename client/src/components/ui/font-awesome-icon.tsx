@@ -86,7 +86,8 @@ import {
   faBullhorn,
   faDollarSign,
   faCoins,
-  faBullseye
+  faBullseye,
+  faHome,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -175,7 +176,8 @@ library.add(
   faBullhorn,
   faDollarSign,
   faCoins,
-  faBullseye
+  faBullseye,
+  faHome
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -268,7 +270,8 @@ const iconMap: Record<string, IconDefinition> = {
   'bullhorn': faBullhorn,
   'dollar-sign': faDollarSign,
   'coins': faCoins,
-  'bullseye': faBullseye
+  'bullseye': faBullseye,
+  'home': faHome
 };
 
 export function FontAwesomeIcon({ 
