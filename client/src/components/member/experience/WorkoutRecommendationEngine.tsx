@@ -129,26 +129,17 @@ const fallbackWorkoutPlan: WorkoutPlan = {
 };
 
 export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdate }: WorkoutRecommendationEngineProps) {
+  // State declarations
   const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState("current");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [generationStep, setGenerationStep] = useState(0);
+
+  // Hooks
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Progress simulation effect when generating workout
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    if (generateAIWorkout.isPending && generationStep < 4) {
-      timeoutId = setTimeout(() => {
-        setGenerationStep(prev => prev + 1);
-      }, 1000);
-    } else if (!generateAIWorkout.isPending) {
-      setGenerationStep(0);
-    }
-    return () => clearTimeout(timeoutId);
-  }, [generateAIWorkout.isPending, generationStep]);
-
+  // Query and Mutation hooks
   const generateAIWorkout = useMutation({
     mutationFn: async () => {
       setGenerationStep(0); // Reset step counter
@@ -188,6 +179,19 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
       });
     }
   });
+
+  // Effects
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (generateAIWorkout.isPending && generationStep < 4) {
+      timeoutId = setTimeout(() => {
+        setGenerationStep(prev => prev + 1);
+      }, 1000);
+    } else if (!generateAIWorkout.isPending) {
+      setGenerationStep(0);
+    }
+    return () => clearTimeout(timeoutId);
+  }, [generateAIWorkout.isPending, generationStep]);
 
   const getProgressColor = (progress: number) => {
     if (progress >= 80) return "text-green-500";
