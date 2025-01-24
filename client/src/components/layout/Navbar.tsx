@@ -50,7 +50,7 @@ export default function Navbar() {
       localStorage.clear();
 
       await Promise.all(
-        accounts.map(account => 
+        accounts.map(account =>
           instance.logoutPopup({
             account,
             postLogoutRedirectUri: window.location.origin + "/login",
@@ -113,6 +113,13 @@ export default function Navbar() {
               <Link href="/marketing-control">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                   Marketing Control
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <Link href="/member-management">
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  Member Management
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
