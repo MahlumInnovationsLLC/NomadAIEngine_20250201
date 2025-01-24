@@ -34,7 +34,8 @@ import {
   Tooltip,
   ResponsiveContainer
 } from "recharts";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "@/components/ui/use-toast";
 
 interface Exercise {
   id: string;
@@ -130,45 +131,58 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
   const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState("current");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: workoutPlan, isLoading, error } = useQuery({
+  const { data: workoutPlan, isLoading: isLoadingPlan, error: planError } = useQuery({
     queryKey: ['/api/workout-plans', memberId],
     queryFn: async () => {
       const response = await fetch(`/api/workout-plans/${memberId}`);
-      if (!response.ok) throw new Error('Failed to fetch workout plan');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch workout plan: ${errorText}`);
+      }
       return response.json();
-    },
-    retry: 1
+    }
   });
 
   const generateAIWorkout = useMutation({
     mutationFn: async () => {
-      setIsGenerating(true);
       const response = await fetch(`/api/workout-plans/${memberId}/generate`, {
         method: 'POST'
       });
-      if (!response.ok) throw new Error('Failed to generate workout plan');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to generate workout plan: ${errorText}`);
+      }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/workout-plans'] });
-      setIsGenerating(false);
+    onMutate: () => {
+      toast({
+        title: "Generating Workout Plan",
+        description: "Please wait while we create your personalized workout plan...",
+        duration: 3000,
+      });
+    },
+    onSuccess: (newPlan) => {
+      queryClient.setQueryData(['/api/workout-plans', memberId], newPlan);
+      toast({
+        title: "Workout Plan Generated",
+        description: "Your new workout plan is ready!",
+        duration: 3000,
+      });
+      setSelectedPlan(newPlan);
+      setActiveTab("current");
     },
     onError: (error) => {
       console.error('Error generating workout:', error);
-      setIsGenerating(false);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate workout plan",
+        duration: 5000,
+      });
     }
   });
-
-  const activePlan = workoutPlan || fallbackWorkoutPlan;
-
-  useEffect(() => {
-    if (workoutPlan && !selectedPlan) {
-      setSelectedPlan(workoutPlan);
-    }
-  }, [workoutPlan]);
 
   const getProgressColor = (progress: number) => {
     if (progress >= 80) return "text-green-500";
@@ -298,10 +312,10 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
         </div>
         <Button
           onClick={() => generateAIWorkout.mutate()}
-          disabled={isGenerating}
+          disabled={generateAIWorkout.isPending}
           className="gap-2"
         >
-          {isGenerating ? (
+          {generateAIWorkout.isPending ? (
             <>
               <FontAwesomeIcon icon={faRotate} className="animate-spin" />
               Generating...
@@ -316,15 +330,19 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
       </div>
       {generateAIWorkout.isError && (
         <Alert variant="destructive" className="mt-4">
+          <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Failed to generate workout plan. Please try again.
+            {generateAIWorkout.error instanceof Error 
+              ? generateAIWorkout.error.message 
+              : "Failed to generate workout plan. Please try again."}
           </AlertDescription>
         </Alert>
       )}
     </div>
   );
 
-  if (isLoading) {
+  // Show loading state
+  if (isLoadingPlan) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -336,6 +354,9 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     );
   }
 
+  // Get the active plan - either the selected plan, fetched plan, or fallback
+  const activePlan = selectedPlan || workoutPlan || fallbackWorkoutPlan;
+
   return (
     <Card className="relative">
       <CardHeader>
@@ -344,7 +365,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
             <FontAwesomeIcon icon={faDumbbell} className="h-5 w-5 text-blue-500" />
             AI Workout Engine
           </CardTitle>
-          {isGenerating ? (
+          {generateAIWorkout.isPending ? (
             <Badge variant="secondary" className="animate-pulse gap-1">
               <FontAwesomeIcon icon={faBolt} />
               Generating Plan
@@ -355,7 +376,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
             </Badge>
           )}
         </div>
-        {error && (
+        {planError && (
           <Alert variant="destructive" className="mt-2">
             <AlertDescription>
               Failed to load workout plan. Please try again later.
