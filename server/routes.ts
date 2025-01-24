@@ -606,22 +606,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.post("/api/workout-logs", async (req, res) => {
       try {
         const { memberId, workoutPlanId } = req.body;
-        console.log(`Creating new workout log for member ${memberId}`);
+
+        if (!memberId || !workoutPlanId) {
+          return res.status(400).json({ 
+            error: "Missing required fields",
+            details: "Both memberId and workoutPlanId are required"
+          });
+        }
+
+        console.log(`Creating new workout log for member ${memberId} with plan ${workoutPlanId}`);
 
         const [workoutLog] = await db
           .insert(workoutLogs)
           .values({
-            memberId: parseInt(memberId),
-            workoutPlanId,
+            memberId: typeof memberId === 'string' ? parseInt(memberId) : memberId,
+            workoutPlanId: workoutPlanId.toString(),
             status: 'in_progress',
             startTime: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date()
           })
           .returning();
+
+        if (!workoutLog) {
+          throw new Error("Failed to create workout log record");
+        }
 
         res.json(workoutLog);
       } catch (error) {
         console.error("Error creating workout log:", error);
-        res.status(500).json({ error: "Failed to create workout log" });
+        res.status(500).json({ 
+          error: "Failed to create workout log",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     });
 
@@ -922,7 +939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ],
             criteria: [
               {
-                type: "transactional",
+                type:"transactional",
                 condition: "greater_than",
                 value: "$1000/month",
                 confidence: 0.92,
@@ -1881,7 +1898,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({ message: "Document approved successfully" });
       } catch (error) {
-        console.error("Error approving document:", error);
+        console.error("Error approving document:",error);
         res.status(500).json({ error: "Failed to approve document" });
       }
     });
