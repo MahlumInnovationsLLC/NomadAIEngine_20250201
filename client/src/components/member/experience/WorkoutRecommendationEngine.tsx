@@ -36,6 +36,7 @@ import {
 } from "recharts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { WorkoutGenerationLoader } from "./WorkoutGenerationLoader";
 
 interface Exercise {
   id: string;
@@ -131,23 +132,26 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
   const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState("current");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [generationStep, setGenerationStep] = useState(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: workoutPlan, isLoading: isLoadingPlan, error: planError } = useQuery({
-    queryKey: ['/api/workout-plans', memberId],
-    queryFn: async () => {
-      const response = await fetch(`/api/workout-plans/${memberId}`);
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch workout plan: ${errorText}`);
-      }
-      return response.json();
+  // Progress simulation effect when generating workout
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (generateAIWorkout.isPending && generationStep < 4) {
+      timeoutId = setTimeout(() => {
+        setGenerationStep(prev => prev + 1);
+      }, 1000);
+    } else if (!generateAIWorkout.isPending) {
+      setGenerationStep(0);
     }
-  });
+    return () => clearTimeout(timeoutId);
+  }, [generateAIWorkout.isPending, generationStep]);
 
   const generateAIWorkout = useMutation({
     mutationFn: async () => {
+      setGenerationStep(0); // Reset step counter
       const response = await fetch(`/api/workout-plans/${memberId}/generate`, {
         method: 'POST'
       });
@@ -227,6 +231,18 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     },
   });
 
+  const { data: workoutPlan, isLoading: isLoadingPlan, error: planError } = useQuery({
+    queryKey: ['/api/workout-plans', memberId],
+    queryFn: async () => {
+      const response = await fetch(`/api/workout-plans/${memberId}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch workout plan: ${errorText}`);
+      }
+      return response.json();
+    }
+  });
+
   const renderWearableDeviceSection = () => (
     <div className="mb-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -301,7 +317,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
 
   const renderGenerateWorkoutSection = () => (
     <div className="mb-6 p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div className="space-y-1">
           <h3 className="font-medium flex items-center gap-2">
             <FontAwesomeIcon icon={faBrain} className="text-purple-500" />
@@ -329,6 +345,11 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
           )}
         </Button>
       </div>
+
+      {generateAIWorkout.isPending && (
+        <WorkoutGenerationLoader currentStep={generationStep} />
+      )}
+
       {generateAIWorkout.isError && (
         <Alert variant="destructive" className="mt-4">
           <AlertTitle>Error</AlertTitle>
