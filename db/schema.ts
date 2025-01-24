@@ -415,6 +415,43 @@ export const modulePrerequisites = pgTable("module_prerequisites", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Add milestone-related tables after the existing tables
+export const fitnessMillestones = pgTable("fitness_milestones", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  type: text("type", {
+    enum: ['workout', 'nutrition', 'health', 'progress', 'consistency']
+  }).notNull(),
+  targetValue: decimal("target_value", { precision: 10, scale: 2 }).notNull(),
+  unit: text("unit").notNull(),
+  icon: text("icon"),
+  badgeImage: text("badge_image"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const userMilestones = pgTable("user_milestones", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  milestoneId: integer("milestone_id").references(() => fitnessMillestones.id),
+  currentValue: decimal("current_value", { precision: 10, scale: 2 }).notNull(),
+  isCompleted: boolean("is_completed").default(false).notNull(),
+  completedAt: timestamp("completed_at"),
+  progress: decimal("progress", { precision: 5, scale: 2 }).notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+});
+
+export const milestoneCelebrations = pgTable("milestone_celebrations", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  milestoneId: integer("milestone_id").references(() => fitnessMillestones.id),
+  celebratedAt: timestamp("celebrated_at").defaultNow().notNull(),
+  message: text("message").notNull(),
+  metadata: jsonb("metadata"),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -633,6 +670,26 @@ export const modulePrerequisitesRelations = relations(modulePrerequisites, ({ on
   }),
 }));
 
+// Add relations for milestone tables
+export const fitnessmilestonesRelations = relations(fitnessMillestones, ({ many }) => ({
+  userMilestones: many(userMilestones),
+  celebrations: many(milestoneCelebrations),
+}));
+
+export const userMilestonesRelations = relations(userMilestones, ({ one }) => ({
+  milestone: one(fitnessMillestones, {
+    fields: [userMilestones.milestoneId],
+    references: [fitnessMillestones.id],
+  }),
+}));
+
+export const milestoneCelebrationsRelations = relations(milestoneCelebrations, ({ one }) => ({
+  milestone: one(fitnessMillestones, {
+    fields: [milestoneCelebrations.milestoneId],
+    references: [fitnessMillestones.id],
+  }),
+}));
+
 
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
@@ -746,6 +803,14 @@ export const selectModuleBookmarkSchema = createSelectSchema(moduleBookmarks);
 export const insertModulePrerequisiteSchema = createInsertSchema(modulePrerequisites);
 export const selectModulePrerequisiteSchema = createSelectSchema(modulePrerequisites);
 
+// Add schemas for milestone tables
+export const insertFitnessMilestoneSchema = createInsertSchema(fitnessMillestones);
+export const selectFitnessMilestoneSchema = createSelectSchema(fitnessMillestones);
+
+export const insertUserMilestoneSchema = createInsertSchema(userMilestones);
+export const selectUserMilestoneSchema = createSelectSchema(userMilestones);
+
+export const insertMilestoneCelebrationSchema = createInsertSchema(milestoneCelebrations);export const selectMilestoneCelebrationSchema = createSelectSchema(milestoneCelebrations);
 
 // Types
 export type Document = typeof documents.$inferSelect;
@@ -803,5 +868,10 @@ export type NewMarketingEventAttendee = typeof marketingEventAttendees.$inferIns
 export type ModuleNote = typeof moduleNotes.$inferSelect;
 export type ModuleBookmark = typeof moduleBookmarks.$inferSelect;
 export type ModulePrerequisite = typeof modulePrerequisites.$inferSelect;
+
+// Add types for milestone tables
+export type FitnessMilestone = typeof fitnessMillestones.$inferSelect;
+export type UserMilestone = typeof userMilestones.$inferSelect;
+export type MilestoneCelebration = typeof milestoneCelebrations.$inferSelect;
 
 import { integer } from "drizzle-orm/pg-core";

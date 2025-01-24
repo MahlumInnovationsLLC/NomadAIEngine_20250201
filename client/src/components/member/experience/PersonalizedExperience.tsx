@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { HealthMetrics } from "./HealthMetrics";
 import { AICoach } from "./AICoach";
 import { NutritionPlanGenerator } from "./NutritionPlanGenerator";
+import { MilestoneTracker } from "./MilestoneTracker";
 
 interface WorkoutPlan {
   id: number;
@@ -122,6 +123,11 @@ export function PersonalizedExperience() {
         {/* Nutrition Plan Generator */}
         <div className="lg:col-span-1">
           <NutritionPlanGenerator />
+        </div>
+
+        {/* Milestone Tracker - Full Width */}
+        <div className="lg:col-span-3">
+          <MilestoneTracker />
         </div>
       </div>
     </div>
