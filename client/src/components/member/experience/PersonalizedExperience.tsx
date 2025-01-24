@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faDumbbell, faCarrot, faBrain, faChartLine, faPersonRunning } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
+import { HealthMetrics } from "./HealthMetrics";
 
 interface WorkoutPlan {
   id: number;
@@ -41,7 +42,7 @@ export function PersonalizedExperience() {
         <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight">Personalized Experience</h2>
           <p className="text-muted-foreground">
-            AI-powered workout plans and nutrition recommendations
+            AI-powered workout plans, nutrition recommendations, and health tracking
           </p>
         </div>
       </div>
@@ -104,6 +105,7 @@ export function PersonalizedExperience() {
         </Card>
 
         <div className="space-y-6">
+          <HealthMetrics />
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
