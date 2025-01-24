@@ -10,6 +10,7 @@ import { AICoach } from "./AICoach";
 import { NutritionPlanGenerator } from "./NutritionPlanGenerator";
 import { MilestoneTracker } from "./MilestoneTracker";
 import { WorkoutRecommendationEngine } from "./WorkoutRecommendationEngine";
+import { AchievementBadges } from "./AchievementBadges";
 
 export function PersonalizedExperience() {
   return (
@@ -60,6 +61,11 @@ export function PersonalizedExperience() {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* Achievement Badges */}
+        <div>
+          <AchievementBadges />
+        </div>
 
         {/* Milestone Tracker - Full Width */}
         <div>
