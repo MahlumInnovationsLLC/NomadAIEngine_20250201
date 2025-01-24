@@ -2,16 +2,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { 
-  faHeartPulse, 
-  faPersonWalking, 
-  faBed, 
+import {
+  faHeartPulse,
+  faPersonWalking,
+  faBed,
   faFireFlameCurved,
   faArrowTrendUp,
-  faCircleCheck
+  faCircleCheck,
+  faChartLine,
+  faBrain,
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface HealthMetric {
   id: number;
@@ -22,6 +27,23 @@ interface HealthMetric {
   goal?: number;
   trend?: 'up' | 'down' | 'stable';
 }
+
+interface HealthMetricHistory {
+  timestamp: string;
+  steps: number;
+  heartRate: number;
+  sleep: number;
+  calories: number;
+}
+
+// Mock historical data
+const mockHistoricalData: HealthMetricHistory[] = Array.from({ length: 7 }).map((_, i) => ({
+  timestamp: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
+  steps: 8000 + Math.random() * 4000,
+  heartRate: 65 + Math.random() * 15,
+  sleep: 6 + Math.random() * 3,
+  calories: 2000 + Math.random() * 1000,
+}));
 
 const mockHealthData: HealthMetric[] = [
   {
@@ -62,9 +84,15 @@ const mockHealthData: HealthMetric[] = [
 ];
 
 export function HealthMetrics() {
+  const [selectedMetric, setSelectedMetric] = useState<HealthMetric['type']>('steps');
+
   // In the future, this will fetch real data from the API
   const { data: healthMetrics = mockHealthData } = useQuery<HealthMetric[]>({
     queryKey: ['/api/health-metrics'],
+  });
+
+  const { data: historicalData = mockHistoricalData } = useQuery<HealthMetricHistory[]>({
+    queryKey: ['/api/health-metrics/history'],
   });
 
   const getMetricIcon = (type: HealthMetric['type']) => {
@@ -93,71 +121,202 @@ export function HealthMetrics() {
     }
   };
 
+  const getMetricColor = (type: HealthMetric['type']) => {
+    switch (type) {
+      case 'steps':
+        return "#3b82f6"; // blue
+      case 'heartRate':
+        return "#ef4444"; // red
+      case 'sleep':
+        return "#8b5cf6"; // purple
+      case 'calories':
+        return "#f59e0b"; // amber
+      default:
+        return "#6b7280"; // gray
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2">
-            <FontAwesomeIcon icon={faHeartPulse} className="h-5 w-5 text-red-500" />
-            Health Metrics
-          </CardTitle>
-          <Button variant="outline" size="sm">
-            Connect Device
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 md:grid-cols-2">
-          {healthMetrics.map((metric) => (
-            <div
-              key={metric.id}
-              className="p-4 border rounded-lg space-y-2"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
-                  <FontAwesomeIcon
-                    icon={getMetricIcon(metric.type)}
-                    className="h-4 w-4 text-muted-foreground"
-                  />
-                  <span className="font-medium capitalize">
-                    {metric.type.replace(/([A-Z])/g, ' $1').trim()}
-                  </span>
-                </div>
-                {metric.trend && (
-                  <FontAwesomeIcon
-                    icon={faArrowTrendUp}
-                    className={`h-4 w-4 ${getTrendColor(metric.trend)}`}
-                    style={{
-                      transform: metric.trend === 'down' ? 'rotate(180deg)' : 'none'
-                    }}
-                  />
-                )}
-              </div>
-
-              <div className="flex items-end gap-2">
-                <span className="text-2xl font-bold">{metric.value}</span>
-                <span className="text-sm text-muted-foreground">{metric.unit}</span>
-              </div>
-
-              {metric.goal && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span>Progress</span>
-                    <span>{Math.round((metric.value / metric.goal) * 100)}%</span>
-                  </div>
-                  <Progress value={(metric.value / metric.goal) * 100} />
-                </div>
-              )}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <FontAwesomeIcon icon={faHeartPulse} className="h-5 w-5 text-red-500" />
+              Health Metrics Dashboard
+            </CardTitle>
+            <div className="flex gap-2">
+              <Badge variant="outline" className="gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Syncing
+              </Badge>
+              <Button variant="outline" size="sm">
+                Connect Device
+              </Button>
             </div>
-          ))}
-        </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="trends">Trends</TabsTrigger>
+            </TabsList>
 
-        <div className="mt-4">
-          <Button className="w-full" variant="outline">
-            View Detailed Analytics
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+            <TabsContent value="overview" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                {healthMetrics.map((metric) => (
+                  <div
+                    key={metric.id}
+                    className="p-4 border rounded-lg space-y-2"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2">
+                        <FontAwesomeIcon
+                          icon={getMetricIcon(metric.type)}
+                          className="h-4 w-4 text-muted-foreground"
+                        />
+                        <span className="font-medium capitalize">
+                          {metric.type.replace(/([A-Z])/g, ' $1').trim()}
+                        </span>
+                      </div>
+                      {metric.trend && (
+                        <FontAwesomeIcon
+                          icon={faArrowTrendUp}
+                          className={`h-4 w-4 ${getTrendColor(metric.trend)}`}
+                          style={{
+                            transform: metric.trend === 'down' ? 'rotate(180deg)' : 'none'
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex items-end gap-2">
+                      <span className="text-2xl font-bold">{metric.value}</span>
+                      <span className="text-sm text-muted-foreground">{metric.unit}</span>
+                    </div>
+
+                    {metric.goal && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>{Math.round((metric.value / metric.goal) * 100)}%</span>
+                        </div>
+                        <Progress value={(metric.value / metric.goal) * 100} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="trends" className="space-y-4">
+              <div className="flex gap-2 mb-4">
+                {healthMetrics.map((metric) => (
+                  <Button
+                    key={metric.type}
+                    variant={selectedMetric === metric.type ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedMetric(metric.type)}
+                    className="gap-2"
+                  >
+                    <FontAwesomeIcon icon={getMetricIcon(metric.type)} className="h-4 w-4" />
+                    {metric.type.replace(/([A-Z])/g, ' $1').trim()}
+                  </Button>
+                ))}
+              </div>
+
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={historicalData}
+                        margin={{
+                          top: 5,
+                          right: 10,
+                          left: 10,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis
+                          dataKey="timestamp"
+                          stroke="currentColor"
+                          className="text-xs"
+                        />
+                        <YAxis stroke="currentColor" className="text-xs" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--popover))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "var(--radius)",
+                          }}
+                          labelStyle={{ color: "hsl(var(--popover-foreground))" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey={selectedMetric}
+                          stroke={getMetricColor(selectedMetric)}
+                          strokeWidth={2}
+                          dot={{ r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Insights</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2 p-2 bg-muted rounded-lg">
+                        <FontAwesomeIcon icon={faChartLine} className="h-4 w-4 mt-1 text-blue-500" />
+                        <p className="text-sm">
+                          Your {selectedMetric} has improved by 15% compared to last week
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2 p-2 bg-muted rounded-lg">
+                        <FontAwesomeIcon icon={faBrain} className="h-4 w-4 mt-1 text-purple-500" />
+                        <p className="text-sm">
+                          You're consistently meeting your daily goals
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Recommendations</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2 p-2 bg-muted rounded-lg">
+                        <FontAwesomeIcon icon={faCircleCheck} className="h-4 w-4 mt-1 text-green-500" />
+                        <p className="text-sm">
+                          Try to maintain consistent activity levels throughout the week
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2 p-2 bg-muted rounded-lg">
+                        <FontAwesomeIcon icon={faCircleCheck} className="h-4 w-4 mt-1 text-green-500" />
+                        <p className="text-sm">
+                          Consider increasing your daily goal to challenge yourself
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
