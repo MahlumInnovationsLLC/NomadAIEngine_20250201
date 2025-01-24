@@ -26,7 +26,7 @@ const ChatPage = lazy(() => import("@/pages/ChatPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
 const MarketingControl = lazy(() => import("@/pages/MarketingControl"));
-const MemberManagement = lazy(() => import("@/components/member/MemberDashboard"));
+const MemberManagement = lazy(() => import("@/components/member/MemberDashboard").then(module => ({ default: module.default })));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const DocManagePage = lazy(() => import("@/pages/DocManage"));
 const DocumentManagementPage = lazy(() => import("@/pages/DocumentManagement"));

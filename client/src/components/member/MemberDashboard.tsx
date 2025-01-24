@@ -5,7 +5,7 @@ import { MemberCRM } from "./crm/MemberCRM";
 import { PersonalizedExperience } from "./experience/PersonalizedExperience";
 import { faUsers, faChartLine, faBrain, faDumbbell, faEnvelope, faHeartPulse } from "@fortawesome/free-solid-svg-icons";
 
-export function MemberDashboard() {
+function MemberDashboard() {
   return (
     <div className="p-6 space-y-6">
       {/* KPI Overview Cards */}
@@ -110,3 +110,5 @@ export function MemberDashboard() {
     </div>
   );
 }
+
+export default MemberDashboard;
