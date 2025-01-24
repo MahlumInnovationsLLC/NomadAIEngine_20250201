@@ -146,7 +146,7 @@ export function MilestoneTracker() {
                     </div>
                   </div>
                   {milestone.isCompleted && (
-                    <Badge variant="success" className="ml-2">
+                    <Badge variant="outline" className="text-green-500 border-green-500">
                       Completed
                     </Badge>
                   )}
