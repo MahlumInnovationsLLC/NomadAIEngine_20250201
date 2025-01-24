@@ -321,45 +321,39 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
         {step === 3 && goal.type && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Choose Your Specific Goal</h3>
-            <RadioGroup
-              value={selectedSpecificGoal}
-              onValueChange={setSelectedSpecificGoal}
-              className="grid gap-4"
-            >
+            <div className="grid gap-4">
               {getAvailableGoals().map((specificGoal) => (
-                <div key={specificGoal.name}>
-                  <Label
-                    htmlFor={specificGoal.name}
-                    className={`block p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors ${
-                      selectedSpecificGoal === specificGoal.name ? 'bg-accent' : ''
-                    }`}
-                    onClick={() => {
-                      setSelectedSpecificGoal(specificGoal.name);
-                      setGoal({
-                        ...goal,
-                        specificGoal: specificGoal.name,
-                        description: specificGoal.description
-                      });
-                    }}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id={specificGoal.name}
-                        value={specificGoal.name}
-                        className="sr-only"
-                        checked={selectedSpecificGoal === specificGoal.name}
-                        onChange={() => {}} // Required for controlled component
-                      />
-                      <div className="w-full">
-                        <div className="font-medium">{specificGoal.name}</div>
-                        <p className="text-sm text-muted-foreground mt-1">{specificGoal.description}</p>
-                      </div>
+                <div
+                  key={specificGoal.name}
+                  onClick={() => {
+                    setSelectedSpecificGoal(specificGoal.name);
+                    setGoal({
+                      ...goal,
+                      specificGoal: specificGoal.name,
+                      description: specificGoal.description
+                    });
+                  }}
+                  className={`p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors ${
+                    selectedSpecificGoal === specificGoal.name ? 'bg-accent' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={selectedSpecificGoal === specificGoal.name}
+                      onChange={() => {}} // Required for controlled component
+                      className="h-4 w-4 text-primary border-primary"
+                    />
+                    <div>
+                      <div className="font-medium">{specificGoal.name}</div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {specificGoal.description}
+                      </p>
                     </div>
-                  </Label>
+                  </div>
                 </div>
               ))}
-            </RadioGroup>
+            </div>
           </div>
         )}
 
