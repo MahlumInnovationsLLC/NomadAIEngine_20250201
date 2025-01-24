@@ -7,7 +7,10 @@ import {
   faCarrot,
   faBrain,
   faArrowLeft,
-  faPlus
+  faPlus,
+  faTrophy,
+  faHeartPulse,
+  faFlag
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -237,10 +240,11 @@ export function PersonalizedExperience() {
             Back to Member Search
           </Button>
 
-          {/* Selected Member Card */}
-          <Card className="bg-accent/10">
+          {/* Member Card with Tabs */}
+          <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+              {/* Member Info Section */}
+              <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-xl font-semibold">
                     {selectedMember.firstName} {selectedMember.lastName}
@@ -259,7 +263,9 @@ export function PersonalizedExperience() {
                   </Badge>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4 mt-4">
+
+              {/* Member Stats Grid */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="text-sm">
                   <span className="text-muted-foreground">Member since:</span>
                   <br />
@@ -276,11 +282,58 @@ export function PersonalizedExperience() {
                   {selectedMember.totalVisits}
                 </div>
               </div>
+
+              {/* Tab Navigation */}
+              <Tabs defaultValue="goals" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="goals" className="gap-2">
+                    <FontAwesomeIcon icon={faTrophy} className="h-4 w-4" />
+                    Goal Center
+                  </TabsTrigger>
+                  <TabsTrigger value="health" className="gap-2">
+                    <FontAwesomeIcon icon={faHeartPulse} className="h-4 w-4" />
+                    Health Metrics
+                  </TabsTrigger>
+                  <TabsTrigger value="achievements" className="gap-2">
+                    <FontAwesomeIcon icon={faBrain} className="h-4 w-4" />
+                    Wellness Achievements
+                  </TabsTrigger>
+                  <TabsTrigger value="milestones" className="gap-2">
+                    <FontAwesomeIcon icon={faFlag} className="h-4 w-4" />
+                    Fitness Milestones
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="goals">
+                  <GoalCenter {...processGoals()} memberId={selectedMember.id} />
+                </TabsContent>
+
+                <TabsContent value="health">
+                  <HealthMetrics
+                    memberId={selectedMember.id}
+                    memberData={selectedMember.metrics.health}
+                    onDataUpdate={handleDataUpdate}
+                  />
+                </TabsContent>
+
+                <TabsContent value="achievements">
+                  <AchievementBadges
+                    memberId={selectedMember.id}
+                    achievements={selectedMember.metrics.achievements}
+                    onDataUpdate={handleDataUpdate}
+                  />
+                </TabsContent>
+
+                <TabsContent value="milestones">
+                  <MilestoneTracker
+                    memberId={selectedMember.id}
+                    milestones={selectedMember.metrics.milestones}
+                    onDataUpdate={handleDataUpdate}
+                  />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
-
-          {/* Goal Center */}
-          <GoalCenter {...processGoals()} />
 
           {/* Health Goal Wizard Dialog */}
           <Dialog open={showGoalWizard} onOpenChange={setShowGoalWizard}>
@@ -294,13 +347,7 @@ export function PersonalizedExperience() {
             </DialogContent>
           </Dialog>
 
-          {/* Rest of the components */}
-          <HealthMetrics
-            memberId={selectedMember.id}
-            memberData={selectedMember.metrics.health}
-            onDataUpdate={handleDataUpdate}
-          />
-
+          {/* AI Features Card */}
           <Card>
             <CardContent className="pt-6">
               <Tabs defaultValue="workout" className="space-y-4">
@@ -345,18 +392,6 @@ export function PersonalizedExperience() {
               </Tabs>
             </CardContent>
           </Card>
-
-          <AchievementBadges
-            memberId={selectedMember.id}
-            achievements={selectedMember.metrics.achievements}
-            onDataUpdate={handleDataUpdate}
-          />
-
-          <MilestoneTracker
-            memberId={selectedMember.id}
-            milestones={selectedMember.metrics.milestones}
-            onDataUpdate={handleDataUpdate}
-          />
         </div>
       )}
     </div>
