@@ -2,10 +2,10 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { 
-  faDumbbell, 
-  faCarrot, 
-  faBrain, 
+import {
+  faDumbbell,
+  faCarrot,
+  faBrain,
   faArrowLeft,
   faPlus
 } from "@fortawesome/free-solid-svg-icons";
@@ -21,6 +21,7 @@ import { WorkoutRecommendationEngine } from "./WorkoutRecommendationEngine";
 import { AchievementBadges } from "./AchievementBadges";
 import { MemberSearch } from "../MemberSearch";
 import { HealthGoalWizard } from "./HealthGoalWizard";
+import { GoalCenter } from "./GoalCenter";
 import { useToast } from "@/hooks/use-toast";
 
 // Define the Member interface based on our Azure Blob Storage schema
@@ -171,6 +172,40 @@ export function PersonalizedExperience() {
     setSelectedMember(null);
   };
 
+  // Process goals for GoalCenter
+  const processGoals = () => {
+    if (!selectedMember?.metrics?.health?.goals) return { currentGoals: [], pastGoals: [] };
+
+    const now = new Date();
+    const goals = selectedMember.metrics.health.goals.map(goal => ({
+      ...goal,
+      status: new Date(goal.endDate) < now
+        ? "completed"
+        : new Date(goal.startDate) > now
+          ? "upcoming"
+          : "in_progress",
+      progress: calculateProgress(goal)
+    }));
+
+    return {
+      currentGoals: goals.filter(g => g.status !== "completed"),
+      pastGoals: goals.filter(g => g.status === "completed")
+    };
+  };
+
+  const calculateProgress = (goal: any) => {
+    const now = new Date();
+    const start = new Date(goal.startDate);
+    const end = new Date(goal.endDate);
+
+    if (now < start) return 0;
+    if (now > end) return 100;
+
+    const totalDuration = end.getTime() - start.getTime();
+    const elapsed = now.getTime() - start.getTime();
+    return Math.round((elapsed / totalDuration) * 100);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -193,8 +228,8 @@ export function PersonalizedExperience() {
       ) : (
         <div className="space-y-6">
           {/* Back to Search Button */}
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={handleBackToSearch}
             className="mb-4"
           >
@@ -216,7 +251,7 @@ export function PersonalizedExperience() {
                   <Badge>{selectedMember.membershipType}</Badge>
                   <Badge variant={
                     selectedMember.membershipStatus === 'active' ? 'default' :
-                    selectedMember.membershipStatus === 'pending' ? 'warning' :
+                    selectedMember.membershipStatus === 'pending' ? 'secondary' :
                     selectedMember.membershipStatus === 'inactive' ? 'secondary' :
                     'destructive'
                   }>
@@ -244,6 +279,9 @@ export function PersonalizedExperience() {
             </CardContent>
           </Card>
 
+          {/* Goal Center */}
+          <GoalCenter {...processGoals()} />
+
           {/* Health Goal Wizard Dialog */}
           <Dialog open={showGoalWizard} onOpenChange={setShowGoalWizard}>
             <DialogContent className="max-w-2xl">
@@ -257,8 +295,8 @@ export function PersonalizedExperience() {
           </Dialog>
 
           {/* Rest of the components */}
-          <HealthMetrics 
-            memberId={selectedMember.id} 
+          <HealthMetrics
+            memberId={selectedMember.id}
             memberData={selectedMember.metrics.health}
             onDataUpdate={handleDataUpdate}
           />
@@ -282,7 +320,7 @@ export function PersonalizedExperience() {
                 </TabsList>
 
                 <TabsContent value="workout">
-                  <WorkoutRecommendationEngine 
+                  <WorkoutRecommendationEngine
                     memberId={selectedMember.id}
                     workoutData={selectedMember.metrics.workouts}
                     onDataUpdate={handleDataUpdate}
@@ -290,7 +328,7 @@ export function PersonalizedExperience() {
                 </TabsContent>
 
                 <TabsContent value="coach">
-                  <AICoach 
+                  <AICoach
                     memberId={selectedMember.id}
                     memberMetrics={selectedMember.metrics}
                     onDataUpdate={handleDataUpdate}
@@ -298,7 +336,7 @@ export function PersonalizedExperience() {
                 </TabsContent>
 
                 <TabsContent value="nutrition">
-                  <NutritionPlanGenerator 
+                  <NutritionPlanGenerator
                     memberId={selectedMember.id}
                     nutritionData={selectedMember.metrics.nutrition}
                     onDataUpdate={handleDataUpdate}
@@ -308,13 +346,13 @@ export function PersonalizedExperience() {
             </CardContent>
           </Card>
 
-          <AchievementBadges 
+          <AchievementBadges
             memberId={selectedMember.id}
             achievements={selectedMember.metrics.achievements}
             onDataUpdate={handleDataUpdate}
           />
 
-          <MilestoneTracker 
+          <MilestoneTracker
             memberId={selectedMember.id}
             milestones={selectedMember.metrics.milestones}
             onDataUpdate={handleDataUpdate}
