@@ -6,6 +6,7 @@ import { faDumbbell, faCarrot, faBrain, faChartLine, faPersonRunning } from "@fo
 import { Badge } from "@/components/ui/badge";
 import { HealthMetrics } from "./HealthMetrics";
 import { AICoach } from "./AICoach";
+import { NutritionPlanGenerator } from "./NutritionPlanGenerator";
 
 interface WorkoutPlan {
   id: number;
@@ -118,45 +119,9 @@ export function PersonalizedExperience() {
           <AICoach />
         </div>
 
-        {/* Nutrition Section */}
+        {/* Nutrition Plan Generator */}
         <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faCarrot} className="h-5 w-5 text-green-500" />
-                Nutrition Recommendations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="p-3 bg-muted rounded-lg">
-                  <h4 className="font-medium mb-2">Today's Macro Goals</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Protein</span>
-                      <span>180g</span>
-                    </div>
-                    <Progress value={65} className="bg-blue-100" />
-                    <div className="flex justify-between text-sm">
-                      <span>Carbs</span>
-                      <span>250g</span>
-                    </div>
-                    <Progress value={45} className="bg-green-100" />
-                    <div className="flex justify-between text-sm">
-                      <span>Fats</span>
-                      <span>65g</span>
-                    </div>
-                    <Progress value={80} className="bg-yellow-100" />
-                  </div>
-                </div>
-
-                <Button variant="outline" className="w-full gap-2">
-                  <FontAwesomeIcon icon={faBrain} className="h-4 w-4" />
-                  Get Meal Suggestions
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <NutritionPlanGenerator />
         </div>
       </div>
     </div>
