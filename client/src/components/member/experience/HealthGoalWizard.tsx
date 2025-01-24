@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faWeightScale,
@@ -16,7 +16,6 @@ import {
   faChevronRight,
   faChevronLeft
 } from "@fortawesome/free-solid-svg-icons";
-import { RadioGroup } from "@/components/ui/radio-group";
 
 interface HealthGoalWizardProps {
   memberId: string;
@@ -286,33 +285,25 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
               }}
               className="grid grid-cols-2 gap-4"
             >
-              <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent [&:has([data-state=checked])]:bg-accent">
-                <input type="radio" value="weight" className="sr-only" />
-                <div className="flex items-center space-x-2">
-                  <FontAwesomeIcon icon={faWeightScale} className="h-4 w-4" />
-                  <span>Weight Management</span>
-                </div>
+              <RadioGroupItem value="weight" />
+              <Label htmlFor="weight" className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent data-[state=checked]:bg-accent">
+                <FontAwesomeIcon icon={faWeightScale} className="h-4 w-4" />
+                <span>Weight Management</span>
               </Label>
-              <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent [&:has([data-state=checked])]:bg-accent">
-                <input type="radio" value="strength" className="sr-only" />
-                <div className="flex items-center space-x-2">
-                  <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4" />
-                  <span>Strength Training</span>
-                </div>
+              <RadioGroupItem value="strength" />
+              <Label htmlFor="strength" className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent data-[state=checked]:bg-accent">
+                <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4" />
+                <span>Strength Training</span>
               </Label>
-              <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent [&:has([data-state=checked])]:bg-accent">
-                <input type="radio" value="cardio" className="sr-only" />
-                <div className="flex items-center space-x-2">
-                  <FontAwesomeIcon icon={faHeart} className="h-4 w-4" />
-                  <span>Cardiovascular Health</span>
-                </div>
+              <RadioGroupItem value="cardio" />
+              <Label htmlFor="cardio" className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent data-[state=checked]:bg-accent">
+                <FontAwesomeIcon icon={faHeart} className="h-4 w-4" />
+                <span>Cardiovascular Health</span>
               </Label>
-              <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent [&:has([data-state=checked])]:bg-accent">
-                <input type="radio" value="nutrition" className="sr-only" />
-                <div className="flex items-center space-x-2">
-                  <FontAwesomeIcon icon={faCarrot} className="h-4 w-4" />
-                  <span>Nutrition</span>
-                </div>
+              <RadioGroupItem value="nutrition" />
+              <Label htmlFor="nutrition" className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent data-[state=checked]:bg-accent">
+                <FontAwesomeIcon icon={faCarrot} className="h-4 w-4" />
+                <span>Nutrition</span>
               </Label>
             </RadioGroup>
           </div>
@@ -321,39 +312,36 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
         {step === 3 && goal.type && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Choose Your Specific Goal</h3>
-            <div className="grid gap-4">
+            <RadioGroup
+              value={selectedSpecificGoal}
+              onValueChange={(value) => {
+                setSelectedSpecificGoal(value);
+                const selectedGoal = getAvailableGoals().find(g => g.name === value);
+                if (selectedGoal) {
+                  setGoal({
+                    ...goal,
+                    specificGoal: value,
+                    description: selectedGoal.description
+                  });
+                }
+              }}
+              className="space-y-4"
+            >
               {getAvailableGoals().map((specificGoal) => (
-                <div
-                  key={specificGoal.name}
-                  onClick={() => {
-                    setSelectedSpecificGoal(specificGoal.name);
-                    setGoal({
-                      ...goal,
-                      specificGoal: specificGoal.name,
-                      description: specificGoal.description
-                    });
-                  }}
-                  className={`p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors ${
-                    selectedSpecificGoal === specificGoal.name ? 'bg-accent' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      checked={selectedSpecificGoal === specificGoal.name}
-                      onChange={() => {}} // Required for controlled component
-                      className="h-4 w-4 text-primary border-primary"
-                    />
-                    <div>
-                      <div className="font-medium">{specificGoal.name}</div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {specificGoal.description}
-                      </p>
-                    </div>
-                  </div>
+                <div key={specificGoal.name} className="flex items-center space-x-2">
+                  <RadioGroupItem value={specificGoal.name} id={specificGoal.name} />
+                  <Label
+                    htmlFor={specificGoal.name}
+                    className="flex-1 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors data-[state=checked]:bg-accent"
+                  >
+                    <div className="font-medium">{specificGoal.name}</div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {specificGoal.description}
+                    </p>
+                  </Label>
                 </div>
               ))}
-            </div>
+            </RadioGroup>
           </div>
         )}
 
