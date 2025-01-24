@@ -89,6 +89,40 @@ interface WearableDeviceData {
   }>;
 }
 
+// Fallback workout plan for when API fails
+const fallbackWorkoutPlan: WorkoutPlan = {
+  id: "default",
+  name: "Default Strength Program",
+  type: "Strength Training",
+  difficulty: "intermediate",
+  duration: "45 minutes",
+  caloriesBurn: 350,
+  userProgress: 0,
+  exercises: [
+    {
+      id: "e1",
+      name: "Bodyweight Squats",
+      type: "strength",
+      difficulty: "beginner",
+      targetMuscles: ["quadriceps", "hamstrings", "glutes"],
+      sets: 3,
+      reps: 12,
+      restPeriod: "60 seconds",
+      formGuidance: [
+        "Stand with feet shoulder-width apart",
+        "Keep your back straight",
+        "Lower your body as if sitting back into a chair",
+        "Keep your knees aligned with your toes"
+      ],
+      commonMistakes: [
+        "Letting knees cave inward",
+        "Rounding the back",
+        "Not going deep enough"
+      ]
+    }
+  ]
+};
+
 export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdate }: WorkoutRecommendationEngineProps) {
   const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState("current");
@@ -103,19 +137,24 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
       if (!response.ok) throw new Error('Failed to fetch workout plan');
       return response.json();
     },
+    retry: 1
   });
 
-  // Fetch wearable device data
-  const { data: wearableData } = useQuery<WearableDeviceData>({
-    queryKey: ['/api/wearable-data', memberId],
-    queryFn: async () => {
-      const response = await fetch(`/api/wearable-data/${memberId}`);
-      if (!response.ok) throw new Error('Failed to fetch wearable data');
-      return response.json();
-    },
-  });
+  // Use fallback data if API fails
+  const activePlan = workoutPlan || fallbackWorkoutPlan;
 
-  // Sync wearable device data
+  useEffect(() => {
+    if (workoutPlan && !selectedPlan) {
+      setSelectedPlan(workoutPlan);
+    }
+  }, [workoutPlan]);
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 80) return "text-green-500";
+    if (progress >= 50) return "text-yellow-500";
+    return "text-red-500";
+  };
+
   const syncWearableData = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/wearable-data/${memberId}/sync`, {
@@ -130,7 +169,6 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     },
   });
 
-  // Connect wearable device
   const connectWearableDevice = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/wearable-data/${memberId}/connect`, {
@@ -144,43 +182,14 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     },
   });
 
-  useEffect(() => {
-    if (workoutPlan && !selectedPlan) {
-      setSelectedPlan(workoutPlan);
-    }
-  }, [workoutPlan]);
-
-  const getProgressColor = (progress: number) => {
-    if (progress >= 80) return "text-green-500";
-    if (progress >= 50) return "text-yellow-500";
-    return "text-red-500";
-  };
-
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <Alert variant="destructive">
-            <AlertDescription>
-              Failed to load workout plan. Please try again later.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isLoading || !workoutPlan) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center h-64">
-            <FontAwesomeIcon icon={faRotate} className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const { data: wearableData } = useQuery<WearableDeviceData>({
+    queryKey: ['/api/wearable-data', memberId],
+    queryFn: async () => {
+      const response = await fetch(`/api/wearable-data/${memberId}`);
+      if (!response.ok) throw new Error('Failed to fetch wearable data');
+      return response.json();
+    },
+  });
 
   const renderWearableDeviceSection = () => (
     <div className="mb-6 space-y-4">
@@ -257,6 +266,18 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     </div>
   );
 
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-center h-64">
+            <FontAwesomeIcon icon={faRotate} className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="relative">
       <CardHeader>
@@ -269,11 +290,16 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
             AI Optimizing
           </Badge>
         </div>
+        {error && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertDescription>
+              Using offline workout plan. Some features may be limited.
+            </AlertDescription>
+          </Alert>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Wearable Device Section */}
         {renderWearableDeviceSection()}
-
         <Tabs defaultValue={activeTab} className="space-y-4" onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="current">Current Plan</TabsTrigger>
@@ -285,16 +311,16 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="font-semibold text-lg">{workoutPlan.name}</h3>
+                  <h3 className="font-semibold text-lg">{activePlan.name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {workoutPlan.type} • {workoutPlan.duration} • {workoutPlan.caloriesBurn} kcal
+                    {activePlan.type} • {activePlan.duration} • {activePlan.caloriesBurn} kcal
                   </p>
                 </div>
-                <Badge variant="outline">{workoutPlan.difficulty}</Badge>
+                <Badge variant="outline">{activePlan.difficulty}</Badge>
               </div>
 
               <div className="space-y-4">
-                {workoutPlan.exercises.map((exercise) => (
+                {activePlan.exercises.map((exercise) => (
                   <div
                     key={exercise.id}
                     className="p-4 border rounded-lg space-y-3 cursor-pointer hover:bg-accent/5"
@@ -347,20 +373,20 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm">
                     <span>Completion</span>
-                    <span className={getProgressColor(workoutPlan.userProgress)}>
-                      {workoutPlan.userProgress}%
+                    <span className={getProgressColor(activePlan.userProgress)}>
+                      {activePlan.userProgress}%
                     </span>
                   </div>
-                  <Progress value={workoutPlan.userProgress} />
+                  <Progress value={activePlan.userProgress} />
                 </div>
               </div>
 
-              {workoutPlan.progressData && (
+              {activePlan.progressData && (
                 <div className="p-4 border rounded-lg space-y-3">
                   <h3 className="font-medium">Progress Tracking</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={workoutPlan.progressData}>
+                      <LineChart data={activePlan.progressData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
@@ -375,7 +401,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
 
               <div className="space-y-2">
                 <h4 className="font-medium">AI Insights</h4>
-                {workoutPlan.aiInsights?.map((insight, index) => (
+                {activePlan.aiInsights?.map((insight, index) => (
                   <div
                     key={index}
                     className="flex items-start gap-2 p-3 bg-muted rounded-lg"
