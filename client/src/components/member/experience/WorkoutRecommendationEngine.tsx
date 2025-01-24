@@ -20,6 +20,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  Smartphone,
+  RefreshCcw,
+  Link as LinkIcon,
+  UnlinkIcon,
+} from "lucide-react";
+import {
   LineChart,
   Line,
   XAxis,
@@ -210,20 +216,17 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     <div className="mb-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FontAwesomeIcon 
-            icon={faAppleAlt} 
-            className="h-5 w-5 text-gray-600"
-          />
+          <Smartphone className="h-5 w-5 text-gray-600" />
           <h3 className="font-medium">Wearable Device Integration</h3>
         </div>
         {wearableData?.connected ? (
           <Badge variant="outline" className="gap-1">
-            <FontAwesomeIcon icon={faLink} className="h-3 w-3" />
+            <LinkIcon className="h-3 w-3" />
             Connected
           </Badge>
         ) : (
           <Badge variant="outline" className="gap-1 text-muted-foreground">
-            <FontAwesomeIcon icon={faUnlink} className="h-3 w-3" />
+            <UnlinkIcon className="h-3 w-3" />
             Not Connected
           </Badge>
         )}
@@ -241,7 +244,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
             onClick={() => syncWearableData.mutate()}
             disabled={syncWearableData.isPending}
           >
-            <FontAwesomeIcon icon={faSync} className={`h-4 w-4 ${syncWearableData.isPending ? 'animate-spin' : ''}`} />
+            <RefreshCcw className={`h-4 w-4 ${syncWearableData.isPending ? 'animate-spin' : ''}`} />
             Sync Data
           </Button>
         </div>
@@ -253,7 +256,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
           onClick={() => connectWearableDevice.mutate()}
           disabled={connectWearableDevice.isPending}
         >
-          <FontAwesomeIcon icon={faLink} className="h-4 w-4" />
+          <LinkIcon className="h-4 w-4" />
           Connect Apple Health
         </Button>
       )}
