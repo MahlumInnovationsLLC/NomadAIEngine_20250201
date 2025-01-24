@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faDumbbell, faCarrot, faBrain, faChartLine, faPersonRunning, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import { faDumbbell, faCarrot, faBrain, faChartLine, faPersonRunning, faUserPlus, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
@@ -123,6 +123,11 @@ export function PersonalizedExperience() {
     }
   };
 
+  // Handle going back to search
+  const handleBackToSearch = () => {
+    setSelectedMember(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -132,22 +137,59 @@ export function PersonalizedExperience() {
         </p>
       </div>
 
-      {/* Member Search Section */}
-      <MemberSearch onSelect={setSelectedMember} />
-
-      {selectedMember ? (
+      {!selectedMember ? (
+        /* Member Search Section - Only shown when no member is selected */
+        <MemberSearch onSelect={setSelectedMember} />
+      ) : (
         <div className="space-y-6">
-          {/* Selected Member Header */}
+          {/* Back to Search Button */}
+          <Button 
+            variant="ghost" 
+            onClick={handleBackToSearch}
+            className="mb-4"
+          >
+            <FontAwesomeIcon icon={faArrowLeft} className="mr-2 h-4 w-4" />
+            Back to Member Search
+          </Button>
+
+          {/* Selected Member Card */}
           <Card className="bg-accent/10">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold">
                     {selectedMember.firstName} {selectedMember.lastName}
                   </h3>
                   <p className="text-sm text-muted-foreground">{selectedMember.email}</p>
                 </div>
-                <Badge>{selectedMember.membershipType}</Badge>
+                <div className="flex items-center gap-4">
+                  <Badge>{selectedMember.membershipType}</Badge>
+                  <Badge variant={
+                    selectedMember.membershipStatus === 'active' ? 'default' :
+                    selectedMember.membershipStatus === 'pending' ? 'warning' :
+                    selectedMember.membershipStatus === 'inactive' ? 'secondary' :
+                    'destructive'
+                  }>
+                    {selectedMember.membershipStatus}
+                  </Badge>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Member since:</span>
+                  <br />
+                  {new Date(selectedMember.joinDate).toLocaleDateString()}
+                </div>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Last visit:</span>
+                  <br />
+                  {new Date(selectedMember.lastVisit).toLocaleDateString()}
+                </div>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Total visits:</span>
+                  <br />
+                  {selectedMember.totalVisits}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -219,18 +261,6 @@ export function PersonalizedExperience() {
             onDataUpdate={handleDataUpdate}
           />
         </div>
-      ) : (
-        <Card className="bg-muted">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <FontAwesomeIcon icon={faUserPlus} className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold">No Member Selected</h3>
-              <p className="text-sm text-muted-foreground max-w-md mt-2">
-                Please select a member using the search above to view and manage their personalized experience data.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
