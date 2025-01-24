@@ -301,6 +301,15 @@ async function streamToString(readableStream: NodeJS.ReadableStream): Promise<st
     });
 }
 
+// Default member metrics for fallback
+const defaultMemberMetrics: MemberMetrics = {
+  height: 175, // cm
+  weight: 75, // kg
+  fitnessLevel: 'intermediate',
+  goals: ['strength', 'muscle gain'],
+  preferredWorkoutTypes: ['strength training', 'hiit'],
+  medicalConditions: []
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   try {
@@ -395,18 +404,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { memberId } = req.params;
         console.log(`Generating AI workout plan for member ${memberId}`);
 
-        // 1. Fetch member metrics from Azure Blob Storage
+        // 1. Try to fetch member metrics, use default if not found
+        let memberMetrics: MemberMetrics = defaultMemberMetrics;
         const memberDataPath = `members/${memberId}/metrics.json`;
         const blockBlobClient = containerClient.getBlockBlobClient(memberDataPath);
 
-        let memberMetrics: MemberMetrics;
         try {
           const downloadResponse = await blockBlobClient.download(0);
-          const metrics = await streamToString(downloadResponse.readableStreamBody);
+          const metrics = await streamToString(downloadResponse.readableStreamBody!);
           memberMetrics = JSON.parse(metrics);
+          console.log("Successfully loaded member metrics:", memberMetrics);
         } catch (error) {
-          console.error("Error fetching member metrics:", error);
-          throw new Error("Failed to fetch member metrics");
+          console.log("Using default member metrics due to error:", error);
+          // Initialize member metrics in blob storage for future use
+          await blockBlobClient.upload(
+            JSON.stringify(defaultMemberMetrics, null, 2),
+            Buffer.byteLength(JSON.stringify(defaultMemberMetrics))
+          );
         }
 
         // 2. Generate workout plan using Azure OpenAI
@@ -415,31 +429,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         - Fitness Level: ${memberMetrics.fitnessLevel}
         - Goals: ${memberMetrics.goals.join(', ')}
         - Preferred Workout Types: ${memberMetrics.preferredWorkoutTypes?.join(', ') || 'Any'}
-        ${memberMetrics.medicalConditions ? `- Medical Considerations: ${memberMetrics.medicalConditions.join(', ')}` : ''}
+        ${memberMetrics.medicalConditions?.length ? `- Medical Considerations: ${memberMetrics.medicalConditions.join(', ')}` : ''}
 
-        Generate a detailed workout plan that includes:
-        1. A mix of exercises targeting different muscle groups
-        2. Appropriate sets, reps, and rest periods
-        3. Form guidance and common mistakes to avoid
-        4. Progressive overload recommendations
-        5. Estimated calories burned
-
-        Format the response as a structured workout plan object.
+        Generate a detailed workout plan with the following structure:
+        {
+          "id": "generated-[unique-id]",
+          "name": "[Descriptive name based on goals]",
+          "type": "[Main workout type]",
+          "difficulty": "${memberMetrics.fitnessLevel}",
+          "duration": "[Duration in minutes]",
+          "caloriesBurn": [Estimated calories],
+          "userProgress": 0,
+          "exercises": [
+            {
+              "id": "e1",
+              "name": "[Exercise name]",
+              "type": "strength|cardio|flexibility",
+              "difficulty": "${memberMetrics.fitnessLevel}",
+              "targetMuscles": ["muscle1", "muscle2"],
+              "sets": [number],
+              "reps": [number],
+              "restPeriod": "[rest in seconds]",
+              "formGuidance": ["step1", "step2"],
+              "commonMistakes": ["mistake1", "mistake2"]
+            }
+          ],
+          "aiInsights": [
+            "[Insight 1 about progression]",
+            "[Insight 2 about form]",
+            "[Insight 3 about recovery]"
+          ]
+        }
         `;
 
+        console.log("Sending prompt to OpenAI:", prompt);
         const completion = await analyzeDocument(prompt);
-        const workoutPlan = JSON.parse(completion);
+        let workoutPlan;
+
+        try {
+          workoutPlan = JSON.parse(completion);
+          console.log("Successfully parsed workout plan:", workoutPlan);
+        } catch (error) {
+          console.error("Error parsing OpenAI response:", error);
+          throw new Error("Failed to generate valid workout plan format");
+        }
 
         // 3. Save the generated plan to Azure Blob Storage
         const planPath = `members/${memberId}/workout-plans/latest.json`;
         const planBlobClient = containerClient.getBlockBlobClient(planPath);
-        await planBlobClient.upload(JSON.stringify(workoutPlan, null, 2), Buffer.byteLength(JSON.stringify(workoutPlan)));
+        await planBlobClient.upload(
+          JSON.stringify(workoutPlan, null, 2),
+          Buffer.byteLength(JSON.stringify(workoutPlan))
+        );
 
         // 4. Return the generated plan
         res.json(workoutPlan);
       } catch (error) {
         console.error("Error generating workout plan:", error);
-        res.status(500).json({ error: "Failed to generate workout plan" });
+        res.status(500).json({ 
+          error: "Failed to generate workout plan",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     });
 
@@ -867,7 +917,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
 
-
     // Check Azure OpenAI connection status
     app.get("/api/azure/status", async (req, res) => {
       try {
@@ -875,7 +924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const status = await checkOpenAIConnection();
         res.json(status);
       } catch (error) {
-        console.error("Error checking Azure OpenAI status:", error);
+                console.error("Errorchecking Azure OpenAI status:", error);
         res.status(500).json({
           status: "error",
           message: "Failed to check Azure OpenAI status",
