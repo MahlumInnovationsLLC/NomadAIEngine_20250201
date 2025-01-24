@@ -75,15 +75,12 @@ export default function Navbar() {
       <div className="container flex h-12 items-center">
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center space-x-2 py-2">
-            <img 
-              src="/assets/gymailogo.png" 
-              alt="GYM AI Engine" 
-              className="h-8 w-auto object-contain"
-              onError={(e) => {
-                console.error('Error loading logo:', e);
-                e.currentTarget.style.display = 'none';
-              }}
+            <FontAwesomeIcon 
+              icon="home"
+              className="h-5 w-5 text-primary"
+              aria-label="Home"
             />
+            <span className="font-medium">GYM AI Engine</span>
           </Link>
         </div>
 
