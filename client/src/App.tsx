@@ -26,6 +26,7 @@ const ChatPage = lazy(() => import("@/pages/ChatPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
 const MarketingControl = lazy(() => import("@/pages/MarketingControl"));
+const MemberManagement = lazy(() => import("@/components/member/MemberDashboard"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const DocManagePage = lazy(() => import("@/pages/DocManage"));
 const DocumentManagementPage = lazy(() => import("@/pages/DocumentManagement"));
@@ -119,6 +120,7 @@ function App() {
                   <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
                   <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
                   <Route path="/marketing-control" component={() => <ProtectedRoute component={MarketingControl} />} />
+                  <Route path="/member-management" component={() => <ProtectedRoute component={MemberManagement} />} />
                   <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
                   <Route path="/admin/support/:id" component={() => (
                     <ProtectedRoute component={TicketDetailsPage} />
