@@ -82,6 +82,22 @@ interface EquipmentType {
   type: string;
 }
 
+interface MemberMetrics {
+  height: number;
+  weight: number;
+  bodyFat?: number;
+  goals: string[];
+  fitnessLevel: 'beginner' | 'intermediate' | 'advanced';
+  medicalConditions?: string[];
+  preferredWorkoutTypes?: string[];
+  workoutHistory?: {
+    date: string;
+    type: string;
+    duration: number;
+    intensity: string;
+  }[];
+}
+
 // Initialize Azure Blob Storage Client with SAS token
 const sasUrl = process.env.AZURE_STORAGE_SAS_URL || "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
 
@@ -271,6 +287,21 @@ async function updateEquipment(id: string, updates: Partial<Equipment>): Promise
   }
 }
 
+async function streamToString(readableStream: NodeJS.ReadableStream): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const chunks: Uint8Array[] = [];
+        readableStream.on('data', (data) => {
+            chunks.push(data);
+        });
+        readableStream.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            resolve(buffer.toString());
+        });
+        readableStream.on('error', reject);
+    });
+}
+
+
 export async function registerRoutes(app: Express): Promise<Server> {
   try {
     console.log("Creating Container Client with SAS token...");
@@ -356,6 +387,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error fetching workout plan:", error);
         res.status(500).json({ error: "Failed to fetch workout plan" });
+      }
+    });
+
+    app.post("/api/workout-plans/:memberId/generate", async (req, res) => {
+      try {
+        const { memberId } = req.params;
+        console.log(`Generating AI workout plan for member ${memberId}`);
+
+        // 1. Fetch member metrics from Azure Blob Storage
+        const memberDataPath = `members/${memberId}/metrics.json`;
+        const blockBlobClient = containerClient.getBlockBlobClient(memberDataPath);
+
+        let memberMetrics: MemberMetrics;
+        try {
+          const downloadResponse = await blockBlobClient.download(0);
+          const metrics = await streamToString(downloadResponse.readableStreamBody);
+          memberMetrics = JSON.parse(metrics);
+        } catch (error) {
+          console.error("Error fetching member metrics:", error);
+          throw new Error("Failed to fetch member metrics");
+        }
+
+        // 2. Generate workout plan using Azure OpenAI
+        const prompt = `
+        Create a personalized workout plan based on the following member profile:
+        - Fitness Level: ${memberMetrics.fitnessLevel}
+        - Goals: ${memberMetrics.goals.join(', ')}
+        - Preferred Workout Types: ${memberMetrics.preferredWorkoutTypes?.join(', ') || 'Any'}
+        ${memberMetrics.medicalConditions ? `- Medical Considerations: ${memberMetrics.medicalConditions.join(', ')}` : ''}
+
+        Generate a detailed workout plan that includes:
+        1. A mix of exercises targeting different muscle groups
+        2. Appropriate sets, reps, and rest periods
+        3. Form guidance and common mistakes to avoid
+        4. Progressive overload recommendations
+        5. Estimated calories burned
+
+        Format the response as a structured workout plan object.
+        `;
+
+        const completion = await analyzeDocument(prompt);
+        const workoutPlan = JSON.parse(completion);
+
+        // 3. Save the generated plan to Azure Blob Storage
+        const planPath = `members/${memberId}/workout-plans/latest.json`;
+        const planBlobClient = containerClient.getBlockBlobClient(planPath);
+        await planBlobClient.upload(JSON.stringify(workoutPlan, null, 2), Buffer.byteLength(JSON.stringify(workoutPlan)));
+
+        // 4. Return the generated plan
+        res.json(workoutPlan);
+      } catch (error) {
+        console.error("Error generating workout plan:", error);
+        res.status(500).json({ error: "Failed to generate workout plan" });
       }
     });
 
@@ -1919,7 +2003,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.put("/api/integrations/:id/config", async (req, res) => {
       try {
-        const { id } = reqparams;        const config = req.body;
+        const { id } = req.params;
+        const config = req.body;
 
         // Update or insert config
         const [updatedConfig] = await db

@@ -12,10 +12,8 @@ import {
   faCircleCheck,
   faWarning,
   faRotate,
-  faAppleAlt,
-  faSync,
-  faLink,
-  faUnlink,
+  faWandMagicSparkles,
+  faBolt,
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -89,7 +87,6 @@ interface WearableDeviceData {
   }>;
 }
 
-// Fallback workout plan for when API fails
 const fallbackWorkoutPlan: WorkoutPlan = {
   id: "default",
   name: "Default Strength Program",
@@ -127,9 +124,9 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
   const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState("current");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch personalized workout plan
   const { data: workoutPlan, isLoading, error } = useQuery({
     queryKey: ['/api/workout-plans', memberId],
     queryFn: async () => {
@@ -140,7 +137,25 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     retry: 1
   });
 
-  // Use fallback data if API fails
+  const generateAIWorkout = useMutation({
+    mutationFn: async () => {
+      setIsGenerating(true);
+      const response = await fetch(`/api/workout-plans/${memberId}/generate`, {
+        method: 'POST'
+      });
+      if (!response.ok) throw new Error('Failed to generate workout plan');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workout-plans'] });
+      setIsGenerating(false);
+    },
+    onError: (error) => {
+      console.error('Error generating workout:', error);
+      setIsGenerating(false);
+    }
+  });
+
   const activePlan = workoutPlan || fallbackWorkoutPlan;
 
   useEffect(() => {
@@ -266,6 +281,46 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     </div>
   );
 
+  const renderGenerateWorkoutSection = () => (
+    <div className="mb-6 p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h3 className="font-medium flex items-center gap-2">
+            <FontAwesomeIcon icon={faBrain} className="text-purple-500" />
+            AI Workout Generation
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Generate a personalized workout based on your goals and metrics
+          </p>
+        </div>
+        <Button
+          onClick={() => generateAIWorkout.mutate()}
+          disabled={isGenerating}
+          className="gap-2"
+        >
+          {isGenerating ? (
+            <>
+              <FontAwesomeIcon icon={faRotate} className="animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <FontAwesomeIcon icon={faWandMagicSparkles} />
+              Generate Workout
+            </>
+          )}
+        </Button>
+      </div>
+      {generateAIWorkout.isError && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertDescription>
+            Failed to generate workout plan. Please try again.
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+
   if (isLoading) {
     return (
       <Card>
@@ -286,19 +341,27 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
             <FontAwesomeIcon icon={faDumbbell} className="h-5 w-5 text-blue-500" />
             AI Workout Engine
           </CardTitle>
-          <Badge variant="secondary" className="animate-pulse">
-            AI Optimizing
-          </Badge>
+          {isGenerating ? (
+            <Badge variant="secondary" className="animate-pulse gap-1">
+              <FontAwesomeIcon icon={faBolt} />
+              Generating Plan
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="animate-pulse">
+              AI Optimizing
+            </Badge>
+          )}
         </div>
         {error && (
           <Alert variant="destructive" className="mt-2">
             <AlertDescription>
-              Using offline workout plan. Some features may be limited.
+              Failed to load workout plan. Please try again later.
             </AlertDescription>
           </Alert>
         )}
       </CardHeader>
       <CardContent className="space-y-6">
+        {renderGenerateWorkoutSection()}
         {renderWearableDeviceSection()}
         <Tabs defaultValue={activeTab} className="space-y-4" onValueChange={setActiveTab}>
           <TabsList>
