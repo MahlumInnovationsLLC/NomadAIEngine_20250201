@@ -75,7 +75,7 @@ export default function Navbar() {
       <div className="container flex h-12 items-center">
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center py-2">
-            <img src="/gymailogo.png" alt="GYM AI Engine" className="h-6 object-contain" />
+            <img src="/client/public/gymailogo.png" alt="GYM AI Engine" className="h-8 w-auto object-contain" />
           </Link>
         </div>
 
