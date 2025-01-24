@@ -33,6 +33,7 @@ import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { generateHealthReport } from "./services/health-report-generator";
+import { initializeMemberStorage, searchMembers } from "./services/memberStorage";
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -275,6 +276,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Creating Container Client with SAS token...");
     containerClient = new ContainerClient(sasUrl);
     console.log("Successfully created Container Client");
+
+    // Initialize Azure Blob Storage for member data
+    await initializeMemberStorage();
+    console.log("Member storage initialized successfully");
 
     // Configure multer for memory storage
     const upload = multer({
@@ -900,7 +905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const uploadedFiles = await Promise.all(uploadPromises);
         console.log("Successfully uploaded files:", uploadedFiles);
 
-        res.json({ message: "Files uploaded successfully", files: uploadedFiles });
+        res.json({ message: "Filesuploaded successfully", files: uploadedFiles });
       } catch (error) {
         console.error("Error uploading files:", error);
         res.status(500).json({
@@ -1907,14 +1912,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(event);
       } catch (error) {
         console.error("Error creating calendar event:", error);
-        res.status(500).json({ error: "Failed to create calendar event" });
+        res.status(500).json({ error: "Failed tocreate calendar event" });
       }
     });
 
-    // Microsoft Outlook calendar sync
     app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
       try {
-                if (!req.user) {
+        if (!req.user) {
           return res.status(401).json({ error: "Authentication required" });
         }
 
@@ -1938,6 +1942,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error syncing with Outlook:", error);
         res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+      }
+    });
+
+    // Add member search endpoint
+    app.get("/api/members", async (req, res) => {
+      try {
+        const searchTerm = req.query.search as string;
+        const filters = {
+          membershipType: req.query.membershipType as string,
+          status: req.query.status as string
+        };
+
+        const members = await searchMembers(searchTerm, filters);
+        res.json(members);
+      } catch (error) {
+        console.error("Error searching members:", error);
+        res.status(500).json({ error: "Failed to search members" });
       }
     });
 
