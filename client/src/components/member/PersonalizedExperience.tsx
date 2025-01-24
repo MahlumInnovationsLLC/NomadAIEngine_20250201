@@ -18,7 +18,13 @@ interface Member {
   id: number;
   firstName: string;
   lastName: string;
-  // ... other basic member fields
+  email: string;
+  membershipType: string;
+  membershipStatus: string;
+  joinDate: string;
+  lastVisit: string;
+  totalVisits: number;
+  aiInsightCount: number;
 }
 
 interface PersonalizedData {
