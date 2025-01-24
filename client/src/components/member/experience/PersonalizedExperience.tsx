@@ -1,12 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faDumbbell, faCarrot, faBrain, faChartLine, faPersonRunning, faUserPlus, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import { 
+  faDumbbell, 
+  faCarrot, 
+  faBrain, 
+  faArrowLeft,
+  faPlus
+} from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { HealthMetrics } from "./HealthMetrics";
 import { AICoach } from "./AICoach";
 import { NutritionPlanGenerator } from "./NutritionPlanGenerator";
@@ -14,6 +20,8 @@ import { MilestoneTracker } from "./MilestoneTracker";
 import { WorkoutRecommendationEngine } from "./WorkoutRecommendationEngine";
 import { AchievementBadges } from "./AchievementBadges";
 import { MemberSearch } from "../MemberSearch";
+import { HealthGoalWizard } from "./HealthGoalWizard";
+import { useToast } from "@/hooks/use-toast";
 
 // Define the Member interface based on our Azure Blob Storage schema
 interface Member {
@@ -47,6 +55,7 @@ interface Member {
         thighs: number[];
       };
       dates: string[];
+      goals: any[]; // Added goals array
     };
     workouts: Array<{
       type: string;
@@ -95,7 +104,9 @@ interface Member {
 
 export function PersonalizedExperience() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [showGoalWizard, setShowGoalWizard] = useState(false);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Save member data mutation
   const saveMemberData = useMutation({
@@ -110,6 +121,10 @@ export function PersonalizedExperience() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/members/${selectedMember?.id}`] });
+      toast({
+        title: "Success",
+        description: "Goal saved successfully",
+      });
     },
   });
 
@@ -120,6 +135,34 @@ export function PersonalizedExperience() {
       await saveMemberData.mutateAsync(updates);
     } catch (error) {
       console.error('Error saving member data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save changes",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle goal wizard save
+  const handleGoalSave = async (goal: any) => {
+    if (!selectedMember) return;
+
+    const updatedMember = {
+      ...selectedMember,
+      metrics: {
+        ...selectedMember.metrics,
+        health: {
+          ...selectedMember.metrics.health,
+          goals: [...(selectedMember.metrics.health.goals || []), goal],
+        },
+      },
+    };
+
+    try {
+      await handleDataUpdate(updatedMember);
+      setShowGoalWizard(false);
+    } catch (error) {
+      console.error('Error saving goal:', error);
     }
   };
 
@@ -130,15 +173,22 @@ export function PersonalizedExperience() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight">Personalized Experience</h2>
-        <p className="text-muted-foreground">
-          AI-powered workout plans, nutrition recommendations, and personalized coaching
-        </p>
+      <div className="flex justify-between items-center">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight">Personalized Experience</h2>
+          <p className="text-muted-foreground">
+            AI-powered workout plans, nutrition recommendations, and personalized coaching
+          </p>
+        </div>
+        {selectedMember && (
+          <Button onClick={() => setShowGoalWizard(true)} className="gap-2">
+            <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+            Set New Goal
+          </Button>
+        )}
       </div>
 
       {!selectedMember ? (
-        /* Member Search Section - Only shown when no member is selected */
         <MemberSearch onSelect={setSelectedMember} />
       ) : (
         <div className="space-y-6">
@@ -194,14 +244,25 @@ export function PersonalizedExperience() {
             </CardContent>
           </Card>
 
-          {/* Health Metrics - Full Width */}
+          {/* Health Goal Wizard Dialog */}
+          <Dialog open={showGoalWizard} onOpenChange={setShowGoalWizard}>
+            <DialogContent className="max-w-2xl">
+              <HealthGoalWizard
+                memberId={selectedMember.id}
+                currentHealth={selectedMember.metrics.health}
+                onSave={handleGoalSave}
+                onClose={() => setShowGoalWizard(false)}
+              />
+            </DialogContent>
+          </Dialog>
+
+          {/* Rest of the components */}
           <HealthMetrics 
             memberId={selectedMember.id} 
             memberData={selectedMember.metrics.health}
             onDataUpdate={handleDataUpdate}
           />
 
-          {/* AI Components in Tabs */}
           <Card>
             <CardContent className="pt-6">
               <Tabs defaultValue="workout" className="space-y-4">
@@ -247,14 +308,12 @@ export function PersonalizedExperience() {
             </CardContent>
           </Card>
 
-          {/* Achievement Badges */}
           <AchievementBadges 
             memberId={selectedMember.id}
             achievements={selectedMember.metrics.achievements}
             onDataUpdate={handleDataUpdate}
           />
 
-          {/* Milestone Tracker - Full Width */}
           <MilestoneTracker 
             memberId={selectedMember.id}
             milestones={selectedMember.metrics.milestones}
