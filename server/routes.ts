@@ -304,6 +304,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.use('/api/admin', adminRouter);
 
 
+    // Add these routes after setupWebSocketServer initialization and before registering other routes
+
+    // Workout Plans endpoints
+    app.get("/api/workout-plans/:memberId", async (req, res) => {
+      try {
+        const { memberId } = req.params;
+        console.log(`Fetching workout plan for member ${memberId}`);
+
+        // In a real implementation, fetch from database
+        // For now, return a sample workout plan
+        const workoutPlan = {
+          id: memberId,
+          name: "Personalized Strength Program",
+          type: "Strength Training",
+          difficulty: "intermediate",
+          duration: "45 minutes",
+          caloriesBurn: 350,
+          userProgress: 35,
+          exercises: [
+            {
+              id: "e1",
+              name: "Bodyweight Squats",
+              type: "strength",
+              difficulty: "beginner",
+              targetMuscles: ["quadriceps", "hamstrings", "glutes"],
+              sets: 3,
+              reps: 12,
+              restPeriod: "60 seconds",
+              formGuidance: [
+                "Stand with feet shoulder-width apart",
+                "Keep your back straight",
+                "Lower your body as if sitting back into a chair",
+                "Keep your knees aligned with your toes"
+              ],
+              commonMistakes: [
+                "Letting knees cave inward",
+                "Rounding the back",
+                "Not going deep enough"
+              ]
+            }
+          ],
+          aiInsights: [
+            "Form improving steadily on squats",
+            "Consider adding more weight to challenge yourself",
+            "Recovery metrics indicate readiness for increased intensity"
+          ]
+        };
+
+        res.json(workoutPlan);
+      } catch (error) {
+        console.error("Error fetching workout plan:", error);
+        res.status(500).json({ error: "Failed to fetch workout plan" });
+      }
+    });
+
+    // Wearable device endpoints
+    app.get("/api/wearable-data/:memberId", async (req, res) => {
+      try {
+        const { memberId } = req.params;
+        console.log(`Fetching wearable data for member ${memberId}`);
+
+        // In a real implementation, fetch from wearable device API
+        const wearableData = {
+          connected: false,
+          lastSync: null,
+          provider: null,
+          workouts: []
+        };
+
+        res.json(wearableData);
+      } catch (error) {
+        console.error("Error fetching wearable data:", error);
+        res.status(500).json({ error: "Failed to fetch wearable data" });
+      }
+    });
+
+    app.post("/api/wearable-data/:memberId/connect", async (req, res) => {
+      try {
+        const { memberId } = req.params;
+        console.log(`Initiating Apple Health connection for member ${memberId}`);
+
+        // This would typically initiate OAuth flow with Apple Health
+        // For now, simulate successful connection
+        const connectionData = {
+          connected: true,
+          provider: 'apple_health',
+          lastSync: new Date().toISOString(),
+          workouts: [
+            {
+              date: new Date().toISOString(),
+              type: "Strength Training",
+              duration: 45,
+              calories: 320,
+              heartRate: {
+                avg: 135,
+                max: 165
+              }
+            }
+          ]
+        };
+
+        res.json(connectionData);
+      } catch (error) {
+        console.error("Error connecting wearable device:", error);
+        res.status(500).json({ error: "Failed to connect wearable device" });
+      }
+    });
+
+    app.post("/api/wearable-data/:memberId/sync", async (req, res) => {
+      try {
+        const { memberId } = req.params;
+        console.log(`Syncing wearable data for member ${memberId}`);
+
+        // This would typically fetch latest data from Apple Health
+        // For now, return sample sync data
+        const syncData = {
+          connected: true,
+          provider: 'apple_health',
+          lastSync: new Date().toISOString(),
+          workouts: [
+            {
+              date: new Date().toISOString(),
+              type: "Strength Training",
+              duration: 45,
+              calories: 320,
+              heartRate: {
+                avg: 135,
+                max: 165
+              }
+            },
+            {
+              date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+              type: "Running",
+              duration: 30,
+              calories: 280,
+              heartRate: {
+                avg: 145,
+                max: 175
+              },
+              distance: 4.2
+            }
+          ]
+        };
+
+        res.json(syncData);
+      } catch (error) {
+        console.error("Error syncing wearable data:", error);
+        res.status(500).json({ error: "Failed to sync wearable data" });
+      }
+    });
+
+
     // Add uploads directory for serving generated files
     app.use('/uploads', express.static('uploads'));
 
@@ -1767,8 +1919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.put("/api/integrations/:id/config", async (req, res) => {
       try {
-        const { id } = req.params;
-        const config = req.body;
+        const { id } = reqparams;        const config = req.body;
 
         // Update or insert config
         const [updatedConfig] = await db
