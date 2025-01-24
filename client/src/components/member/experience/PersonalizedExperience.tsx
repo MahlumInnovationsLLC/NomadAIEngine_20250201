@@ -11,6 +11,7 @@ import { NutritionPlanGenerator } from "./NutritionPlanGenerator";
 import { MilestoneTracker } from "./MilestoneTracker";
 import { WorkoutRecommendationEngine } from "./WorkoutRecommendationEngine";
 import { AchievementBadges } from "./AchievementBadges";
+import { MemberSearch } from "../MemberSearch";
 
 export function PersonalizedExperience() {
   return (
@@ -21,6 +22,12 @@ export function PersonalizedExperience() {
           AI-powered workout plans, nutrition recommendations, and personalized coaching
         </p>
       </div>
+
+      {/* Member Search Section */}
+      <MemberSearch onSelect={(member) => {
+        console.log("Selected member:", member);
+        // Handle member selection here
+      }} />
 
       <div className="space-y-6">
         {/* Health Metrics - Full Width */}
