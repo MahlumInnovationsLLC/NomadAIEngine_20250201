@@ -9,10 +9,23 @@ import {
   faBrain,
   faFire,
   faHeartPulse,
+  faCircleCheck,
+  faWarning,
+  faRotate,
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
 
 interface Exercise {
   id: string;
@@ -26,6 +39,8 @@ interface Exercise {
   restPeriod: string;
   equipment?: string[];
   aiRecommendation?: string;
+  formGuidance?: string[];
+  commonMistakes?: string[];
 }
 
 interface WorkoutPlan {
@@ -38,67 +53,58 @@ interface WorkoutPlan {
   exercises: Exercise[];
   userProgress: number;
   aiInsights?: string[];
+  progressData?: {
+    date: string;
+    weight?: number;
+    reps?: number;
+    duration?: number;
+  }[];
 }
 
-// Mock data for demonstration
-const mockWorkoutPlans: WorkoutPlan[] = [
-  {
-    id: "1",
-    name: "Strength Building Program",
-    type: "Strength Training",
-    difficulty: "intermediate",
-    duration: "45 minutes",
-    caloriesBurn: 350,
-    userProgress: 65,
-    exercises: [
-      {
-        id: "e1",
-        name: "Barbell Squats",
-        type: "strength",
-        difficulty: "intermediate",
-        targetMuscles: ["quadriceps", "hamstrings", "glutes"],
-        sets: 4,
-        reps: 8,
-        restPeriod: "90 seconds",
-        equipment: ["barbell", "squat rack"],
-        aiRecommendation: "Focus on depth and form to maximize muscle engagement"
-      },
-      {
-        id: "e2",
-        name: "Bench Press",
-        type: "strength",
-        difficulty: "intermediate",
-        targetMuscles: ["chest", "shoulders", "triceps"],
-        sets: 3,
-        reps: 10,
-        restPeriod: "60 seconds",
-        equipment: ["bench", "barbell"],
-        aiRecommendation: "Maintain controlled movement for better chest activation"
-      },
-      {
-        id: "e3",
-        name: "Romanian Deadlifts",
-        type: "strength",
-        difficulty: "intermediate",
-        targetMuscles: ["hamstrings", "lower back", "glutes"],
-        sets: 4,
-        reps: 12,
-        restPeriod: "90 seconds",
-        equipment: ["barbell"],
-        aiRecommendation: "Keep slight bend in knees throughout movement"
-      }
-    ],
-    aiInsights: [
-      "Your form has improved 20% since last week",
-      "Consider increasing weight on squats based on recent performance",
-      "Recovery metrics suggest you're ready for higher intensity"
-    ]
-  }
-];
+interface WorkoutRecommendationEngineProps {
+  memberId: string;
+  workoutData: any[];
+  onDataUpdate: (updates: any) => Promise<void>;
+}
 
-export function WorkoutRecommendationEngine() {
-  const [selectedPlan] = useState<WorkoutPlan>(mockWorkoutPlans[0]);
+export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdate }: WorkoutRecommendationEngineProps) {
+  const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState("current");
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+
+  // Fetch personalized workout plan
+  const { data: workoutPlan, isLoading } = useQuery({
+    queryKey: ['/api/workout-plans', memberId],
+    queryFn: async () => {
+      const response = await fetch(`/api/workout-plans/${memberId}`);
+      if (!response.ok) throw new Error('Failed to fetch workout plan');
+      return response.json();
+    },
+  });
+
+  useEffect(() => {
+    if (workoutPlan) {
+      setSelectedPlan(workoutPlan);
+    }
+  }, [workoutPlan]);
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 80) return "text-green-500";
+    if (progress >= 50) return "text-yellow-500";
+    return "text-red-500";
+  };
+
+  if (isLoading || !selectedPlan) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-center h-64">
+            <FontAwesomeIcon icon={faRotate} className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="relative">
@@ -118,6 +124,7 @@ export function WorkoutRecommendationEngine() {
           <TabsList>
             <TabsTrigger value="current">Current Plan</TabsTrigger>
             <TabsTrigger value="progress">Progress</TabsTrigger>
+            <TabsTrigger value="form">Form Guide</TabsTrigger>
           </TabsList>
 
           <TabsContent value="current" className="space-y-4">
@@ -136,7 +143,8 @@ export function WorkoutRecommendationEngine() {
                 {selectedPlan.exercises.map((exercise) => (
                   <div
                     key={exercise.id}
-                    className="p-4 border rounded-lg space-y-3"
+                    className="p-4 border rounded-lg space-y-3 cursor-pointer hover:bg-accent/5"
+                    onClick={() => setSelectedExercise(exercise)}
                   >
                     <div className="flex justify-between items-start">
                       <div>
@@ -185,11 +193,31 @@ export function WorkoutRecommendationEngine() {
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm">
                     <span>Completion</span>
-                    <span>{selectedPlan.userProgress}%</span>
+                    <span className={getProgressColor(selectedPlan.userProgress)}>
+                      {selectedPlan.userProgress}%
+                    </span>
                   </div>
                   <Progress value={selectedPlan.userProgress} />
                 </div>
               </div>
+
+              {selectedPlan.progressData && (
+                <div className="p-4 border rounded-lg space-y-3">
+                  <h3 className="font-medium">Progress Tracking</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={selectedPlan.progressData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="weight" stroke="#3b82f6" name="Weight (lbs)" />
+                        <Line type="monotone" dataKey="reps" stroke="#10b981" name="Reps" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <h4 className="font-medium">AI Insights</h4>
@@ -206,37 +234,58 @@ export function WorkoutRecommendationEngine() {
                   </div>
                 ))}
               </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="p-4 border rounded-lg space-y-2">
-                  <div className="flex items-center gap-2">
-                    <FontAwesomeIcon
-                      icon={faHeartPulse}
-                      className="h-4 w-4 text-red-500"
-                    />
-                    <h4 className="font-medium">Intensity Level</h4>
-                  </div>
-                  <Progress value={75} className="bg-red-100" />
-                  <p className="text-sm text-muted-foreground">
-                    Optimal zone for your goals
-                  </p>
-                </div>
-
-                <div className="p-4 border rounded-lg space-y-2">
-                  <div className="flex items-center gap-2">
-                    <FontAwesomeIcon
-                      icon={faChartLine}
-                      className="h-4 w-4 text-green-500"
-                    />
-                    <h4 className="font-medium">Strength Gains</h4>
-                  </div>
-                  <Progress value={60} className="bg-green-100" />
-                  <p className="text-sm text-muted-foreground">
-                    15% increase this month
-                  </p>
-                </div>
-              </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="form" className="space-y-4">
+            {selectedExercise ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">{selectedExercise.name}</h3>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedExercise(null)}>
+                    Back to exercises
+                  </Button>
+                </div>
+
+                {selectedExercise.formGuidance && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Proper Form Guide</h4>
+                    <div className="space-y-2">
+                      {selectedExercise.formGuidance.map((step, index) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <FontAwesomeIcon
+                            icon={faCircleCheck}
+                            className="h-4 w-4 mt-1 text-green-500"
+                          />
+                          <p className="text-sm">{step}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedExercise.commonMistakes && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Common Mistakes to Avoid</h4>
+                    <div className="space-y-2">
+                      {selectedExercise.commonMistakes.map((mistake, index) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <FontAwesomeIcon
+                            icon={faWarning}
+                            className="h-4 w-4 mt-1 text-yellow-500"
+                          />
+                          <p className="text-sm">{mistake}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">
+                Select an exercise to view detailed form guidance
+              </p>
+            )}
           </TabsContent>
         </Tabs>
 
