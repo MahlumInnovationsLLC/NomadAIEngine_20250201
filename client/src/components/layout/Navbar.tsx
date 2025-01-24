@@ -74,8 +74,8 @@ export default function Navbar() {
     <header className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-12 items-center">
         <div className="mr-4 flex">
-          <Link href="/" className="flex items-center">
-            <img src="/client/public/gymailogo.png" alt="GYM AI Engine" className="h-8" />
+          <Link href="/" className="flex items-center py-2">
+            <img src="/gymailogo.png" alt="GYM AI Engine" className="h-6 object-contain" />
           </Link>
         </div>
 
