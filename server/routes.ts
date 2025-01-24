@@ -288,18 +288,28 @@ async function updateEquipment(id: string, updates: Partial<Equipment>): Promise
 }
 
 async function streamToString(readableStream: NodeJS.ReadableStream): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const chunks: Uint8Array[] = [];
-        readableStream.on('data', (data) => {
-            chunks.push(data);
-        });
-        readableStream.on('end', () => {
-            const buffer = Buffer.concat(chunks);
-            resolve(buffer.toString());
-        });
-        readableStream.on('error', reject);
+  return new Promise((resolve, reject) => {
+    const chunks: Uint8Array[] = [];
+    readableStream.on('data', (data) => {
+      chunks.push(data);
     });
+    readableStream.on('end', () => {
+      const buffer = Buffer.concat(chunks);
+      resolve(buffer.toString());
+    });
+    readableStream.on('error', reject);
+  });
 }
+
+// Add this helper function after streamToString
+function cleanJsonResponse(response: string): string {
+  // Remove markdown code blocks if present
+  let cleaned = response.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+  // Remove any leading/trailing whitespace
+  cleaned = cleaned.trim();
+  return cleaned;
+}
+
 
 // Default member metrics for fallback
 const defaultMemberMetrics: MemberMetrics = {
@@ -425,13 +435,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // 2. Generate workout plan using Azure OpenAI
         const prompt = `
-        Create a personalized workout plan based on the following member profile:
+        Return a JSON object (without markdown formatting) for a personalized workout plan based on the following member profile:
         - Fitness Level: ${memberMetrics.fitnessLevel}
         - Goals: ${memberMetrics.goals.join(', ')}
         - Preferred Workout Types: ${memberMetrics.preferredWorkoutTypes?.join(', ') || 'Any'}
         ${memberMetrics.medicalConditions?.length ? `- Medical Considerations: ${memberMetrics.medicalConditions.join(', ')}` : ''}
 
-        Generate a detailed workout plan with the following structure:
+        The response should exactly match this structure:
         {
           "id": "generated-[unique-id]",
           "name": "[Descriptive name based on goals]",
@@ -459,15 +469,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "[Insight 2 about form]",
             "[Insight 3 about recovery]"
           ]
-        }
-        `;
+        }`;
 
         console.log("Sending prompt to OpenAI:", prompt);
         const completion = await analyzeDocument(prompt);
-        let workoutPlan;
+        console.log("Raw OpenAI response:", completion);
 
+        let workoutPlan;
         try {
-          workoutPlan = JSON.parse(completion);
+          // Clean up the response before parsing
+          const cleanedResponse = cleanJsonResponse(completion);
+          console.log("Cleaned response:", cleanedResponse);
+          workoutPlan = JSON.parse(cleanedResponse);
           console.log("Successfully parsed workout plan:", workoutPlan);
         } catch (error) {
           console.error("Error parsing OpenAI response:", error);
@@ -907,8 +920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filename,
           downloadUrl: `/uploads/${filename}`
         });
-      } catch (error) {
-        console.error("Error generating report:", error);
+      } catch (error) {        console.error("Error generating report:", error);
         res.status(500).json({
           error: "Failed to generate report",
           details: error instanceof Error ? error.message : "Unknown error"
@@ -924,7 +936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const status = await checkOpenAIConnection();
         res.json(status);
       } catch (error) {
-                console.error("Errorchecking Azure OpenAI status:", error);
+        console.error("Errorchecking Azure OpenAI status:", error);
         res.status(500).json({
           status: "error",
           message: "Failed to check Azure OpenAI status",
@@ -2479,6 +2491,14 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
           client.send(messageStr);
         }
       });
+    }
+  };
+  wss.broadcastTrainingLevel = async (userId: string) => {
+    try {
+      const trainingLevel = await getUserTrainingLevel(userId);
+      wss.broadcastToRoom('training', { type: 'training_level_updated', trainingLevel });
+    } catch (error) {
+      console.error("Error broadcasting training level:", error);
     }
   };
 
