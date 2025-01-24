@@ -41,8 +41,8 @@ interface MemberSearchProps {
 
 export function MemberSearch({ onSelect }: MemberSearchProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [membershipFilter, setMembershipFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [membershipFilter, setMembershipFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: members = [], isLoading } = useQuery<Member[]>({
     queryKey: ['/api/members', searchTerm, membershipFilter, statusFilter],
@@ -53,8 +53,8 @@ export function MemberSearch({ onSelect }: MemberSearchProps) {
       `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.email.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesMembership = !membershipFilter || member.membershipType === membershipFilter;
-    const matchesStatus = !statusFilter || member.membershipStatus === statusFilter;
+    const matchesMembership = membershipFilter === "all" || member.membershipType === membershipFilter;
+    const matchesStatus = statusFilter === "all" || member.membershipStatus === statusFilter;
 
     return matchesSearch && matchesMembership && matchesStatus;
   });
@@ -85,23 +85,23 @@ export function MemberSearch({ onSelect }: MemberSearchProps) {
           />
         </div>
         <div className="flex gap-2">
-          <Select value={membershipFilter ?? ''} onValueChange={setMembershipFilter}>
+          <Select value={membershipFilter} onValueChange={setMembershipFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Membership Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="premium">Premium</SelectItem>
               <SelectItem value="standard">Standard</SelectItem>
               <SelectItem value="basic">Basic</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={statusFilter ?? ''} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
@@ -114,7 +114,6 @@ export function MemberSearch({ onSelect }: MemberSearchProps) {
       <ScrollArea className="h-[600px]">
         <div className="space-y-4">
           {isLoading ? (
-            // Loading skeleton
             Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-6">
