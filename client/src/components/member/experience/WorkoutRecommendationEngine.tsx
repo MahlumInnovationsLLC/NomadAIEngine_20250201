@@ -12,11 +12,15 @@ import {
   faCircleCheck,
   faWarning,
   faRotate,
+  faAppleAlt,
+  faSync,
+  faLink,
+  faUnlink,
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LineChart,
   Line,
@@ -26,6 +30,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from "recharts";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Exercise {
   id: string;
@@ -67,13 +72,31 @@ interface WorkoutRecommendationEngineProps {
   onDataUpdate: (updates: any) => Promise<void>;
 }
 
+interface WearableDeviceData {
+  connected: boolean;
+  lastSync: string | null;
+  provider: 'apple_health' | 'fitbit' | 'garmin' | null;
+  workouts: Array<{
+    date: string;
+    type: string;
+    duration: number;
+    calories: number;
+    heartRate: {
+      avg: number;
+      max: number;
+    };
+    distance?: number;
+  }>;
+}
+
 export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdate }: WorkoutRecommendationEngineProps) {
   const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState("current");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const queryClient = useQueryClient();
 
   // Fetch personalized workout plan
-  const { data: workoutPlan, isLoading } = useQuery({
+  const { data: workoutPlan, isLoading, error } = useQuery({
     queryKey: ['/api/workout-plans', memberId],
     queryFn: async () => {
       const response = await fetch(`/api/workout-plans/${memberId}`);
@@ -82,8 +105,47 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     },
   });
 
+  // Fetch wearable device data
+  const { data: wearableData } = useQuery<WearableDeviceData>({
+    queryKey: ['/api/wearable-data', memberId],
+    queryFn: async () => {
+      const response = await fetch(`/api/wearable-data/${memberId}`);
+      if (!response.ok) throw new Error('Failed to fetch wearable data');
+      return response.json();
+    },
+  });
+
+  // Sync wearable device data
+  const syncWearableData = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/wearable-data/${memberId}/sync`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to sync wearable data');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/wearable-data'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workout-plans'] });
+    },
+  });
+
+  // Connect wearable device
+  const connectWearableDevice = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/wearable-data/${memberId}/connect`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to connect wearable device');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/wearable-data'] });
+    },
+  });
+
   useEffect(() => {
-    if (workoutPlan) {
+    if (workoutPlan && !selectedPlan) {
       setSelectedPlan(workoutPlan);
     }
   }, [workoutPlan]);
@@ -94,7 +156,21 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     return "text-red-500";
   };
 
-  if (isLoading || !selectedPlan) {
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Failed to load workout plan. Please try again later.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading || !workoutPlan) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -105,6 +181,81 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
       </Card>
     );
   }
+
+  const renderWearableDeviceSection = () => (
+    <div className="mb-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FontAwesomeIcon 
+            icon={faAppleAlt} 
+            className="h-5 w-5 text-gray-600"
+          />
+          <h3 className="font-medium">Wearable Device Integration</h3>
+        </div>
+        {wearableData?.connected ? (
+          <Badge variant="outline" className="gap-1">
+            <FontAwesomeIcon icon={faLink} className="h-3 w-3" />
+            Connected
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="gap-1 text-muted-foreground">
+            <FontAwesomeIcon icon={faUnlink} className="h-3 w-3" />
+            Not Connected
+          </Badge>
+        )}
+      </div>
+
+      {wearableData?.connected ? (
+        <div className="space-y-2">
+          <div className="text-sm text-muted-foreground">
+            Last synced: {wearableData.lastSync ? new Date(wearableData.lastSync).toLocaleString() : 'Never'}
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full gap-2"
+            onClick={() => syncWearableData.mutate()}
+            disabled={syncWearableData.isPending}
+          >
+            <FontAwesomeIcon icon={faSync} className={`h-4 w-4 ${syncWearableData.isPending ? 'animate-spin' : ''}`} />
+            Sync Data
+          </Button>
+        </div>
+      ) : (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full gap-2"
+          onClick={() => connectWearableDevice.mutate()}
+          disabled={connectWearableDevice.isPending}
+        >
+          <FontAwesomeIcon icon={faLink} className="h-4 w-4" />
+          Connect Apple Health
+        </Button>
+      )}
+
+      {wearableData?.workouts && wearableData.workouts.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium">Recent Workouts from Device</h4>
+          <div className="space-y-2">
+            {wearableData.workouts.slice(0, 3).map((workout, idx) => (
+              <div key={idx} className="p-3 bg-muted rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span>{workout.type}</span>
+                  <span>{new Date(workout.date).toLocaleDateString()}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-2 text-xs text-muted-foreground">
+                  <div>Duration: {workout.duration}m</div>
+                  <div>Calories: {workout.calories}</div>
+                  <div>Avg HR: {workout.heartRate.avg}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <Card className="relative">
@@ -120,6 +271,9 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Wearable Device Section */}
+        {renderWearableDeviceSection()}
+
         <Tabs defaultValue={activeTab} className="space-y-4" onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="current">Current Plan</TabsTrigger>
@@ -131,16 +285,16 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="font-semibold text-lg">{selectedPlan.name}</h3>
+                  <h3 className="font-semibold text-lg">{workoutPlan.name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedPlan.type} • {selectedPlan.duration} • {selectedPlan.caloriesBurn} kcal
+                    {workoutPlan.type} • {workoutPlan.duration} • {workoutPlan.caloriesBurn} kcal
                   </p>
                 </div>
-                <Badge variant="outline">{selectedPlan.difficulty}</Badge>
+                <Badge variant="outline">{workoutPlan.difficulty}</Badge>
               </div>
 
               <div className="space-y-4">
-                {selectedPlan.exercises.map((exercise) => (
+                {workoutPlan.exercises.map((exercise) => (
                   <div
                     key={exercise.id}
                     className="p-4 border rounded-lg space-y-3 cursor-pointer hover:bg-accent/5"
@@ -193,20 +347,20 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm">
                     <span>Completion</span>
-                    <span className={getProgressColor(selectedPlan.userProgress)}>
-                      {selectedPlan.userProgress}%
+                    <span className={getProgressColor(workoutPlan.userProgress)}>
+                      {workoutPlan.userProgress}%
                     </span>
                   </div>
-                  <Progress value={selectedPlan.userProgress} />
+                  <Progress value={workoutPlan.userProgress} />
                 </div>
               </div>
 
-              {selectedPlan.progressData && (
+              {workoutPlan.progressData && (
                 <div className="p-4 border rounded-lg space-y-3">
                   <h3 className="font-medium">Progress Tracking</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={selectedPlan.progressData}>
+                      <LineChart data={workoutPlan.progressData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
@@ -221,7 +375,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
 
               <div className="space-y-2">
                 <h4 className="font-medium">AI Insights</h4>
-                {selectedPlan.aiInsights?.map((insight, index) => (
+                {workoutPlan.aiInsights?.map((insight, index) => (
                   <div
                     key={index}
                     className="flex items-start gap-2 p-3 bg-muted rounded-lg"
