@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -17,6 +16,7 @@ import {
   faChevronRight,
   faChevronLeft
 } from "@fortawesome/free-solid-svg-icons";
+import { RadioGroup } from "@/components/ui/radio-group";
 
 interface HealthGoalWizardProps {
   memberId: string;
@@ -77,7 +77,7 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card>
       <CardHeader>
         <CardTitle>Set Your Health Goals</CardTitle>
         <CardDescription>
@@ -122,39 +122,38 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">What type of goal would you like to set?</h3>
             <RadioGroup
-              value={goal.type}
+              defaultValue={goal.type}
               onValueChange={(value: GoalType) => setGoal({ ...goal, type: value })}
+              className="grid grid-cols-2 gap-4"
             >
-              <div className="grid grid-cols-2 gap-4">
-                <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent">
-                  <RadioGroupItem value="weight" id="weight" />
-                  <div className="flex items-center space-x-2">
-                    <FontAwesomeIcon icon={faWeightScale} className="h-4 w-4" />
-                    <span>Weight Management</span>
-                  </div>
-                </Label>
-                <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent">
-                  <RadioGroupItem value="strength" id="strength" />
-                  <div className="flex items-center space-x-2">
-                    <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4" />
-                    <span>Strength Training</span>
-                  </div>
-                </Label>
-                <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent">
-                  <RadioGroupItem value="cardio" id="cardio" />
-                  <div className="flex items-center space-x-2">
-                    <FontAwesomeIcon icon={faHeart} className="h-4 w-4" />
-                    <span>Cardiovascular Health</span>
-                  </div>
-                </Label>
-                <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent">
-                  <RadioGroupItem value="nutrition" id="nutrition" />
-                  <div className="flex items-center space-x-2">
-                    <FontAwesomeIcon icon={faCarrot} className="h-4 w-4" />
-                    <span>Nutrition</span>
-                  </div>
-                </Label>
-              </div>
+              <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent [&:has([data-state=checked])]:bg-accent">
+                <input type="radio" value="weight" className="sr-only" />
+                <div className="flex items-center space-x-2">
+                  <FontAwesomeIcon icon={faWeightScale} className="h-4 w-4" />
+                  <span>Weight Management</span>
+                </div>
+              </Label>
+              <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent [&:has([data-state=checked])]:bg-accent">
+                <input type="radio" value="strength" className="sr-only" />
+                <div className="flex items-center space-x-2">
+                  <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4" />
+                  <span>Strength Training</span>
+                </div>
+              </Label>
+              <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent [&:has([data-state=checked])]:bg-accent">
+                <input type="radio" value="cardio" className="sr-only" />
+                <div className="flex items-center space-x-2">
+                  <FontAwesomeIcon icon={faHeart} className="h-4 w-4" />
+                  <span>Cardiovascular Health</span>
+                </div>
+              </Label>
+              <Label className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent [&:has([data-state=checked])]:bg-accent">
+                <input type="radio" value="nutrition" className="sr-only" />
+                <div className="flex items-center space-x-2">
+                  <FontAwesomeIcon icon={faCarrot} className="h-4 w-4" />
+                  <span>Nutrition</span>
+                </div>
+              </Label>
             </RadioGroup>
           </div>
         )}
