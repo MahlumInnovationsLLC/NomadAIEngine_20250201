@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { 
-  faWeightScale, 
-  faDumbbell, 
-  faHeart, 
-  faCarrot, 
+import {
+  faWeightScale,
+  faDumbbell,
+  faHeart,
+  faCarrot,
   faBrain,
   faChevronRight,
   faChevronLeft
@@ -249,25 +249,25 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
             <div className="grid gap-4">
               <div>
                 <Label>Current Weight (lbs)</Label>
-                <Input 
-                  type="number" 
-                  value={currentHealth.weight[currentHealth.weight.length - 1] || ""} 
+                <Input
+                  type="number"
+                  value={currentHealth.weight[currentHealth.weight.length - 1] || ""}
                   disabled
                 />
               </div>
               <div>
                 <Label>Current Body Fat %</Label>
-                <Input 
-                  type="number" 
-                  value={currentHealth.bodyFat[currentHealth.bodyFat.length - 1] || ""} 
+                <Input
+                  type="number"
+                  value={currentHealth.bodyFat[currentHealth.bodyFat.length - 1] || ""}
                   disabled
                 />
               </div>
               <div>
                 <Label>Resting Heart Rate (bpm)</Label>
-                <Input 
-                  type="number" 
-                  value={currentHealth.heartRate[currentHealth.heartRate.length - 1] || ""} 
+                <Input
+                  type="number"
+                  value={currentHealth.heartRate[currentHealth.heartRate.length - 1] || ""}
                   disabled
                 />
               </div>
@@ -321,29 +321,45 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
         {step === 3 && goal.type && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Choose Your Specific Goal</h3>
-            <div className="grid gap-4">
+            <RadioGroup
+              value={selectedSpecificGoal}
+              onValueChange={setSelectedSpecificGoal}
+              className="grid gap-4"
+            >
               {getAvailableGoals().map((specificGoal) => (
-                <Label
-                  key={specificGoal.name}
-                  className={`p-4 border rounded-lg cursor-pointer hover:bg-accent ${
-                    selectedSpecificGoal === specificGoal.name ? 'bg-accent' : ''
-                  }`}
-                  onClick={() => {
-                    setSelectedSpecificGoal(specificGoal.name);
-                    setGoal({
-                      ...goal,
-                      specificGoal: specificGoal.name,
-                      description: specificGoal.description
-                    });
-                  }}
-                >
-                  <div className="space-y-2">
-                    <div className="font-medium">{specificGoal.name}</div>
-                    <p className="text-sm text-muted-foreground">{specificGoal.description}</p>
-                  </div>
-                </Label>
+                <div key={specificGoal.name}>
+                  <Label
+                    htmlFor={specificGoal.name}
+                    className={`block p-4 border rounded-lg cursor-pointer hover:bg-accent transition-colors ${
+                      selectedSpecificGoal === specificGoal.name ? 'bg-accent' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedSpecificGoal(specificGoal.name);
+                      setGoal({
+                        ...goal,
+                        specificGoal: specificGoal.name,
+                        description: specificGoal.description
+                      });
+                    }}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id={specificGoal.name}
+                        value={specificGoal.name}
+                        className="sr-only"
+                        checked={selectedSpecificGoal === specificGoal.name}
+                        onChange={() => {}} // Required for controlled component
+                      />
+                      <div className="w-full">
+                        <div className="font-medium">{specificGoal.name}</div>
+                        <p className="text-sm text-muted-foreground mt-1">{specificGoal.description}</p>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
               ))}
-            </div>
+            </RadioGroup>
           </div>
         )}
 
@@ -353,8 +369,8 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
             <div className="space-y-4">
               <div>
                 <Label>Current Value</Label>
-                <Input 
-                  type="number" 
+                <Input
+                  type="number"
                   value={goal.currentValue || ""}
                   onChange={(e) => setGoal({ ...goal, currentValue: parseFloat(e.target.value) })}
                   placeholder="Enter current value"
@@ -362,8 +378,8 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
               </div>
               <div>
                 <Label>Target Value</Label>
-                <Input 
-                  type="number" 
+                <Input
+                  type="number"
                   value={goal.target || ""}
                   onChange={(e) => setGoal({ ...goal, target: parseFloat(e.target.value) })}
                   placeholder="Enter target value"
@@ -371,7 +387,7 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
               </div>
               <div>
                 <Label>Timeline (weeks)</Label>
-                <Select 
+                <Select
                   value={goal.timeline?.toString()}
                   onValueChange={(value) => setGoal({ ...goal, timeline: parseInt(value) })}
                 >
