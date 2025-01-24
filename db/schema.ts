@@ -320,7 +320,67 @@ export const integrationConfigs = pgTable("integration_configs", {
 });
 
 
-// Add customer segmentation tables after the existing tables
+// Add new member-related tables
+export const members = pgTable("members", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phoneNumber: text("phone_number"),
+  joinDate: timestamp("join_date").defaultNow().notNull(),
+  membershipStatus: text("membership_status", {
+    enum: ['active', 'inactive', 'pending', 'cancelled']
+  }).notNull().default('active'),
+  membershipType: text("membership_type").notNull(),
+  lastVisit: timestamp("last_visit"),
+  totalVisits: integer("total_visits").default(0),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const memberHealthData = pgTable("member_health_data", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id),
+  metricType: text("metric_type", {
+    enum: ['steps', 'heart_rate', 'sleep', 'calories', 'weight', 'blood_pressure']
+  }).notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  unit: text("unit").notNull(),
+  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+  source: text("source").notNull(), // Device or platform that provided the data
+  confidence: decimal("confidence", { precision: 4, scale: 2 }),
+  metadata: jsonb("metadata"),
+});
+
+export const memberPreferences = pgTable("member_preferences", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id),
+  category: text("category", {
+    enum: ['workout', 'nutrition', 'communication', 'goals']
+  }).notNull(),
+  preferences: jsonb("preferences").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const memberAiInsights = pgTable("member_ai_insights", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id),
+  insightType: text("insight_type", {
+    enum: ['health_trend', 'behavior_pattern', 'recommendation', 'risk_assessment']
+  }).notNull(),
+  content: jsonb("content").notNull(),
+  confidence: decimal("confidence", { precision: 4, scale: 2 }).notNull(),
+  status: text("status", {
+    enum: ['active', 'archived', 'invalidated']
+  }).notNull().default('active'),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  validUntil: timestamp("valid_until"),
+  metadata: jsonb("metadata"),
+});
+
+// Add after the existing tables
 export const customerSegments = pgTable("customer_segments", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -691,6 +751,34 @@ export const milestoneCelebrationsRelations = relations(milestoneCelebrations, (
 }));
 
 
+// Add relations for the new tables
+export const membersRelations = relations(members, ({ many }) => ({
+  healthData: many(memberHealthData),
+  preferences: many(memberPreferences),
+  aiInsights: many(memberAiInsights),
+}));
+
+export const memberHealthDataRelations = relations(memberHealthData, ({ one }) => ({
+  member: one(members, {
+    fields: [memberHealthData.memberId],
+    references: [members.id],
+  }),
+}));
+
+export const memberPreferencesRelations = relations(memberPreferences, ({ one }) => ({
+  member: one(members, {
+    fields: [memberPreferences.memberId],
+    references: [members.id],
+  }),
+}));
+
+export const memberAiInsightsRelations = relations(memberAiInsights, ({ one }) => ({
+  member: one(members, {
+    fields: [memberAiInsights.memberId],
+    references: [members.id],
+  }),
+}));
+
 // Schemas
 export const insertDocumentSchema = createInsertSchema(documents);
 export const selectDocumentSchema = createSelectSchema(documents);
@@ -810,7 +898,21 @@ export const selectFitnessMilestoneSchema = createSelectSchema(fitnessMillestone
 export const insertUserMilestoneSchema = createInsertSchema(userMilestones);
 export const selectUserMilestoneSchema = createSelectSchema(userMilestones);
 
-export const insertMilestoneCelebrationSchema = createInsertSchema(milestoneCelebrations);export const selectMilestoneCelebrationSchema = createSelectSchema(milestoneCelebrations);
+export const insertMilestoneCelebrationSchema = createInsertSchema(milestoneCelebrations);
+export const selectMilestoneCelebrationSchema = createSelectSchema(milestoneCelebrations);
+
+// Add schemas for the new tables
+export const insertMemberSchema = createInsertSchema(members);
+export const selectMemberSchema = createSelectSchema(members);
+
+export const insertMemberHealthDataSchema = createInsertSchema(memberHealthData);
+export const selectMemberHealthDataSchema = createSelectSchema(memberHealthData);
+
+export const insertMemberPreferencesSchema = createInsertSchema(memberPreferences);
+export const selectMemberPreferencesSchema = createSelectSchema(memberPreferences);
+
+export const insertMemberAiInsightsSchema = createInsertSchema(memberAiInsights);
+export const selectMemberAiInsightsSchema = createSelectSchema(memberAiInsights);
 
 // Types
 export type Document = typeof documents.$inferSelect;
@@ -873,5 +975,11 @@ export type ModulePrerequisite = typeof modulePrerequisites.$inferSelect;
 export type FitnessMilestone = typeof fitnessMillestones.$inferSelect;
 export type UserMilestone = typeof userMilestones.$inferSelect;
 export type MilestoneCelebration = typeof milestoneCelebrations.$inferSelect;
+
+// Add types for the new tables
+export type Member = typeof members.$inferSelect;
+export type MemberHealthData = typeof memberHealthData.$inferSelect;
+export type MemberPreferences = typeof memberPreferences.$inferSelect;
+export type MemberAiInsights = typeof memberAiInsights.$inferSelect;
 
 import { integer } from "drizzle-orm/pg-core";
