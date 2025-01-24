@@ -36,6 +36,7 @@ import { sendApprovalRequestEmail } from './services/email';
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { generateHealthReport } from "./services/health-report-generator";
 import { initializeMemberStorage, searchMembers, updateMemberData } from "./services/memberStorage"; // Import updateMemberData
+import { createWorkoutLog, getWorkoutLog, updateWorkoutLog } from "./services/workout-storage";
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -616,22 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`Creating new workout log for member ${memberId} with plan ${workoutPlanId}`);
 
-        const [workoutLog] = await db
-          .insert(workoutLogs)
-          .values({
-            memberId: typeof memberId === 'string' ? parseInt(memberId) : memberId,
-            workoutPlanId: workoutPlanId.toString(),
-            status: 'in_progress',
-            startTime: new Date(),
-            createdAt: new Date(),
-            updatedAt: new Date()
-          })
-          .returning();
-
-        if (!workoutLog) {
-          throw new Error("Failed to create workout log record");
-        }
-
+        const workoutLog = await createWorkoutLog(memberId, workoutPlanId);
         res.json(workoutLog);
       } catch (error) {
         console.error("Error creating workout log:", error);
@@ -645,31 +631,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.post("/api/workout-logs/:logId/sets", async (req, res) => {
       try {
         const { logId } = req.params;
-        const { exerciseId, weight, reps, difficultyRating } = req.body;
+        const { exerciseId, weight, reps, difficultyRating, timeToComplete } = req.body;
         console.log(`Logging set for workout ${logId}, exercise ${exerciseId}`);
 
-        // Get the current set number for this exercise
-        const existingSets = await db
-          .select({ count: sql<number>`count(*)` })
-          .from(workoutSetLogs)
-          .where(eq(workoutSetLogs.workoutLogId, parseInt(logId)))
-          .where(eq(workoutSetLogs.exerciseId, exerciseId));
+        // Get the current workout log
+        const workoutLog = await getWorkoutLog(parseInt(req.body.memberId), logId);
 
-        const setNumber = (existingSets[0]?.count || 0) + 1;
+        if (!workoutLog) {
+          return res.status(404).json({ error: "Workout log not found" });
+        }
 
-        const [setLog] = await db
-          .insert(workoutSetLogs)
-          .values({
-            workoutLogId: parseInt(logId),
-            exerciseId,
-            setNumber,
-            weight: weight ? parseFloat(weight.toString()) : null,
-            reps,
-            difficultyRating,
-          })
-          .returning();
+        // Add the new set to the workout log
+        const newSet = {
+          exerciseId,
+          setNumber: (workoutLog.sets?.length || 0) + 1,
+          weight: weight ? parseFloat(weight.toString()) : undefined,
+          reps,
+          difficultyRating,
+          timeToComplete,
+        };
 
-        res.json(setLog);
+        workoutLog.sets = [...(workoutLog.sets || []), newSet];
+
+        // Update the workout log in blob storage
+        const updatedLog = await updateWorkoutLog(workoutLog);
+        res.json(updatedLog);
       } catch (error) {
         console.error("Error logging set:", error);
         res.status(500).json({ error: "Failed to log set" });
@@ -679,45 +665,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.patch("/api/workout-logs/:logId", async (req, res) => {
       try {
         const { logId } = req.params;
-        const { status } = req.body;
+        const { status, memberId } = req.body;
         console.log(`Updating workout log ${logId} status to ${status}`);
 
-        // Update the workout log
-        const [updatedLog] = await db
-          .update(workoutLogs)
-          .set({
-            status,
-            endTime: status === 'completed' ? new Date() : undefined,
-            updatedAt: new Date(),
-          })
-          .where(eq(workoutLogs.id, parseInt(logId)))
-          .returning();
+        const workoutLog = await getWorkoutLog(parseInt(memberId), logId);
 
-        if (!updatedLog) {
+        if (!workoutLog) {
           return res.status(404).json({ error: "Workout log not found" });
         }
 
-        // If completing the workout, calculate total calories burned
-        if (status === 'completed') {
-          const setLogs = await db
-            .select()
-            .from(workoutSetLogs)
-            .where(eq(workoutSetLogs.workoutLogId, parseInt(logId)));
+        // Update the status
+        workoutLog.status = status;
 
-          // A simple calorie calculation based on number of sets and reps
-          // In a real app, this would be more sophisticated
-          const estimatedCalories = setLogs.reduce((total, set) => {
-            return total + (set.reps * 5); // Very basic calculation
+        // If completing the workout, set the end time and calculate calories
+        if (status === 'completed') {
+          workoutLog.endTime = new Date();
+
+          // Calculate total calories burned (basic calculation)
+          const totalCalories = workoutLog.sets.reduce((total, set) => {
+            return total + (set.reps || 0) * 5; // Basic calculation
           }, 0);
 
-          await db
-            .update(workoutLogs)
-            .set({ totalCaloriesBurned: estimatedCalories })
-            .where(eq(workoutLogs.id, parseInt(logId)));
-
-          updatedLog.totalCaloriesBurned = estimatedCalories;
+          workoutLog.totalCaloriesBurned = totalCalories;
         }
 
+        // Update the workout log in blob storage
+        const updatedLog = await updateWorkoutLog(workoutLog);
         res.json(updatedLog);
       } catch (error) {
         console.error("Error updating workout log:", error);
@@ -1908,7 +1881,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const documentId = parseInt(req.params.documentId);
         const approvalId = parseInt(req.params.approvalId);
-        const userId =req.user?.id;
+        constuserId =req.user?.id;
         const { comments } = req.body;
 
         if (!documentId || !approvalId || !userId) {
