@@ -32,6 +32,7 @@ import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_serv
 import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
 import { drizzle } from "drizzle-orm/neon-serverless";
+import { generateHealthReport } from "./services/health-report-generator";
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -625,6 +626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
 
+
     // Check Azure OpenAI connection status
     app.get("/api/azure/status", async (req, res) => {
       try {
@@ -903,8 +905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error uploading files:", error);
         res.status(500).json({
           error: "File upload failed."
-        });
-      }
+        });      }
     });
 
     //    // Add workflow endpoint
@@ -1913,7 +1914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Microsoft Outlook calendar sync
     app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
       try {
-        if (!req.user) {
+                if (!req.user) {
           return res.status(401).json({ error: "Authentication required" });
         }
 
@@ -1937,6 +1938,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error syncing with Outlook:", error);
         res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+      }
+    });
+
+    // Add health report generation endpoint
+    app.post("/api/health-report", async (req: AuthenticatedRequest, res) => {
+      try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: "Authentication required" });
+        }
+
+        // Mock data for demonstration - replace with actual data fetching
+        const metrics = [
+          {
+            name: "Steps",
+            value: 8432,
+            unit: "steps",
+            date: new Date().toISOString()
+          },
+          {
+            name: "Heart Rate",
+            value: 72,
+            unit: "bpm",
+            date: new Date().toISOString()
+          },
+          {
+            name: "Sleep",
+            value: 7.5,
+            unit: "hours",
+            date: new Date().toISOString()
+          },
+          {
+            name: "Calories",
+            value: 2250,
+            unit: "kcal",
+            date: new Date().toISOString()
+          }
+        ];
+
+        const achievements = [
+          {
+            name: "Fitness Warrior",
+            description: "Complete 10 workouts in a month",
+            completedAt: "2025-01-20",
+            progress: 100
+          },
+          {
+            name: "Consistency King",
+            description: "Log in for 7 consecutive days",
+            progress: 85
+          },
+          {
+            name: "Health Champion",
+            description: "Maintain heart rate zones during workouts",
+            progress: 60
+          }
+        ];
+
+        const filename = await generateHealthReport(userId, metrics, achievements);
+
+        res.json({
+          success: true,
+          filename,
+          downloadUrl: `/uploads/${filename}`
+        });
+
+      } catch (error) {
+        console.error("Error generating health report:", error);
+        res.status(500).json({
+          error: "Failed to generate health report",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     });
 

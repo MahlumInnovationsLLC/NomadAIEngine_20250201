@@ -11,12 +11,15 @@ import {
   faCircleCheck,
   faChartLine,
   faBrain,
+  faFileLines,
+  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 interface HealthMetric {
   id: number;
@@ -36,7 +39,6 @@ interface HealthMetricHistory {
   calories: number;
 }
 
-// Mock historical data
 const mockHistoricalData: HealthMetricHistory[] = Array.from({ length: 7 }).map((_, i) => ({
   timestamp: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
   steps: 8000 + Math.random() * 4000,
@@ -85,14 +87,46 @@ const mockHealthData: HealthMetric[] = [
 
 export function HealthMetrics() {
   const [selectedMetric, setSelectedMetric] = useState<HealthMetric['type']>('steps');
+  const { toast } = useToast();
 
-  // In the future, this will fetch real data from the API
   const { data: healthMetrics = mockHealthData } = useQuery<HealthMetric[]>({
     queryKey: ['/api/health-metrics'],
   });
 
   const { data: historicalData = mockHistoricalData } = useQuery<HealthMetricHistory[]>({
     queryKey: ['/api/health-metrics/history'],
+  });
+
+  const generateReport = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/health-report', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate report: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Report Generated Successfully",
+        description: "Your health report is ready for download.",
+        duration: 5000,
+      });
+      window.open(data.downloadUrl, '_blank');
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Generate Report",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+        duration: 5000,
+      });
+    },
   });
 
   const getMetricIcon = (type: HealthMetric['type']) => {
@@ -150,6 +184,20 @@ export function HealthMetrics() {
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 Syncing
               </Badge>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => generateReport.mutate()}
+                disabled={generateReport.isPending}
+                className="gap-2"
+              >
+                {generateReport.isPending ? (
+                  <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FontAwesomeIcon icon={faFileLines} className="h-4 w-4" />
+                )}
+                Generate Report
+              </Button>
               <Button variant="outline" size="sm">
                 Connect Device
               </Button>
