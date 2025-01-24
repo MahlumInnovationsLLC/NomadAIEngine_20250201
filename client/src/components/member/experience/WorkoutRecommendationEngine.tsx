@@ -14,6 +14,7 @@ import {
   faRotate,
   faWandMagicSparkles,
   faBolt,
+  faGear,
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,6 +38,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { WorkoutGenerationLoader } from "./WorkoutGenerationLoader";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Exercise {
   id: string;
@@ -129,20 +131,17 @@ const fallbackWorkoutPlan: WorkoutPlan = {
 };
 
 export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdate }: WorkoutRecommendationEngineProps) {
-  // State declarations
   const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState("current");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [generationStep, setGenerationStep] = useState(0);
 
-  // Hooks
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Query and Mutation hooks
   const generateAIWorkout = useMutation({
     mutationFn: async () => {
-      setGenerationStep(0); // Reset step counter
+      setGenerationStep(0); 
       const response = await fetch(`/api/workout-plans/${memberId}/generate`, {
         method: 'POST'
       });
@@ -180,7 +179,6 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     }
   });
 
-  // Effects
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     if (generateAIWorkout.isPending && generationStep < 4) {
@@ -248,7 +246,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
   });
 
   const renderWearableDeviceSection = () => (
-    <div className="mb-6 space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Smartphone className="h-5 w-5 text-gray-600" />
@@ -367,7 +365,6 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     </div>
   );
 
-  // Show loading state
   if (isLoadingPlan) {
     return (
       <Card>
@@ -380,17 +377,26 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     );
   }
 
-  // Get the active plan - either the selected plan, fetched plan, or fallback
   const activePlan = selectedPlan || workoutPlan || fallbackWorkoutPlan;
 
   return (
     <Card className="relative">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <FontAwesomeIcon icon={faDumbbell} className="h-5 w-5 text-blue-500" />
-            AI Workout Engine
-          </CardTitle>
+            <CardTitle>AI Workout Engine</CardTitle>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <FontAwesomeIcon icon={faGear} className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4">
+                {renderWearableDeviceSection()}
+              </PopoverContent>
+            </Popover>
+          </div>
           {generateAIWorkout.isPending ? (
             <Badge variant="secondary" className="animate-pulse gap-1">
               <FontAwesomeIcon icon={faBolt} />
@@ -412,7 +418,6 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
       </CardHeader>
       <CardContent className="space-y-6">
         {renderGenerateWorkoutSection()}
-        {renderWearableDeviceSection()}
         <Tabs defaultValue={activeTab} className="space-y-4" onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="current">Current Plan</TabsTrigger>
