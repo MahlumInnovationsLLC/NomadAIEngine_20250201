@@ -33,7 +33,7 @@ import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { generateHealthReport } from "./services/health-report-generator";
-import { initializeMemberStorage, searchMembers } from "./services/memberStorage";
+import { initializeMemberStorage, searchMembers, updateMemberData } from "./services/memberStorage"; // Import updateMemberData
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -905,12 +905,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const uploadedFiles = await Promise.all(uploadPromises);
         console.log("Successfully uploaded files:", uploadedFiles);
 
-        res.json({ message: "Filesuploaded successfully", files: uploadedFiles });
+        res.json({ message: "Files uploaded successfully", files: uploadedFiles });
       } catch (error) {
         console.error("Error uploading files:", error);
         res.status(500).json({
           error: "File upload failed."
-        });      }
+        });
+      }
     });
 
     //    // Add workflow endpoint
@@ -1104,7 +1105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(permission);
       } catch (error) {
         console.error("Error adding document permission:", error);
-        res.status(500).json({ error: "Failed toadd permission" });
+        res.status(500).json({ error: "Failed to add permission" });
       }
     });
 
@@ -1910,9 +1911,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         res.json(event);
+
       } catch (error) {
         console.error("Error creating calendar event:", error);
-        res.status(500).json({ error: "Failed tocreate calendar event" });
+        res.status(500).json({ error: "Failed to create calendar event" });
       }
     });
 
@@ -1942,6 +1944,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error syncing with Outlook:", error);
         res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+      }
+    });
+
+    // Add member update endpoint
+    app.patch("/api/members/:memberId", async (req, res) => {
+      try {
+        const { memberId } = req.params;
+        const updates = req.body;
+
+        const updatedMember = await updateMemberData(memberId, updates);
+        res.json(updatedMember);
+      } catch (error) {
+        console.error("Error updating member:", error);
+        res.status(500).json({ error: "Failed to update member data" });
       }
     });
 
