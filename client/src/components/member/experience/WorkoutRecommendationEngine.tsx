@@ -15,6 +15,8 @@ import {
   faWandMagicSparkles,
   faBolt,
   faGear,
+  faPlus,
+  faSave,
 } from "@fortawesome/free-solid-svg-icons";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +41,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { WorkoutGenerationLoader } from "./WorkoutGenerationLoader";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
 interface Exercise {
   id: string;
@@ -48,12 +60,25 @@ interface Exercise {
   targetMuscles: string[];
   sets: number;
   reps: number;
-  duration?: string;
+  timePerSet: string;
   restPeriod: string;
   equipment?: string[];
-  aiRecommendation?: string;
-  formGuidance?: string[];
-  commonMistakes?: string[];
+  weightRange: {
+    beginner: string;
+    intermediate: string;
+    advanced: string;
+  };
+  formGuidance: string[];
+  commonMistakes: string[];
+  modifications: {
+    easier: string;
+    harder: string;
+  };
+  metricGoals: {
+    beginner: { reps: number[]; sets: number[] };
+    intermediate: { reps: number[]; sets: number[] };
+    advanced: { reps: number[]; sets: number[] };
+  };
 }
 
 interface WorkoutPlan {
@@ -63,14 +88,36 @@ interface WorkoutPlan {
   difficulty: "beginner" | "intermediate" | "advanced";
   duration: string;
   caloriesBurn: number;
+  intensity: "low" | "medium" | "high";
+  focusAreas: string[];
+  requiredEquipment: string[];
   exercises: Exercise[];
   userProgress: number;
-  aiInsights?: string[];
-  progressData?: {
-    date: string;
+  warmup: {
+    duration: string;
+    exercises: string[];
+  };
+  cooldown: {
+    duration: string;
+    exercises: string[];
+  };
+  progressionTips: string[];
+  aiInsights: string[];
+}
+
+interface WorkoutLog {
+  id: string;
+  exerciseId: string;
+  workoutPlanId: string;
+  memberId: string;
+  date: string;
+  completed: boolean;
+  sets: {
+    setNumber: number;
     weight?: number;
-    reps?: number;
-    duration?: number;
+    reps: number;
+    timeToComplete?: number;
+    notes?: string;
   }[];
 }
 
@@ -104,7 +151,14 @@ const fallbackWorkoutPlan: WorkoutPlan = {
   difficulty: "intermediate",
   duration: "45 minutes",
   caloriesBurn: 350,
+  intensity: "medium",
+  focusAreas: ["Legs", "Core"],
+  requiredEquipment: [],
   userProgress: 0,
+  warmup: { duration: "5 minutes", exercises: ["Light cardio", "Dynamic stretches"] },
+  cooldown: { duration: "5 minutes", exercises: ["Static stretches"] },
+  progressionTips: ["Increase weight or reps as you get stronger."],
+  aiInsights: [],
   exercises: [
     {
       id: "e1",
@@ -114,7 +168,9 @@ const fallbackWorkoutPlan: WorkoutPlan = {
       targetMuscles: ["quadriceps", "hamstrings", "glutes"],
       sets: 3,
       reps: 12,
+      timePerSet: "60 seconds",
       restPeriod: "60 seconds",
+      weightRange: { beginner: "Bodyweight", intermediate: "Bodyweight", advanced: "Bodyweight" },
       formGuidance: [
         "Stand with feet shoulder-width apart",
         "Keep your back straight",
@@ -125,7 +181,13 @@ const fallbackWorkoutPlan: WorkoutPlan = {
         "Letting knees cave inward",
         "Rounding the back",
         "Not going deep enough"
-      ]
+      ],
+      modifications: { easier: "Chair squats", harder: "Jump squats" },
+      metricGoals: {
+        beginner: { reps: [10, 10, 10], sets: [3, 3, 3] },
+        intermediate: { reps: [12, 12, 12], sets: [3, 3, 3] },
+        advanced: { reps: [15, 15, 15], sets: [3, 3, 3] }
+      }
     }
   ]
 };
@@ -135,9 +197,105 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
   const [activeTab, setActiveTab] = useState("current");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [generationStep, setGenerationStep] = useState(0);
+  const [activeWorkoutLog, setActiveWorkoutLog] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Add new mutations for workout logging
+  const startWorkout = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/workout-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memberId,
+          workoutPlanId: activePlan?.id, // Added ?. to handle null case
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to start workout');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setActiveWorkoutLog(data.id);
+      toast({
+        title: "Workout Started",
+        description: "Your workout session has been started. Let's crush it! 💪",
+      });
+    },
+    onError: (error) => {
+      console.error("Error starting workout:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to start workout",
+      });
+    }
+  });
+
+  const logSet = useMutation({
+    mutationFn: async ({ exerciseId, weight, reps, difficultyRating }: { 
+      exerciseId: string;
+      weight?: number;
+      reps: number;
+      difficultyRating: number;
+    }) => {
+      const response = await fetch(`/api/workout-logs/${activeWorkoutLog}/sets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exerciseId,
+          weight,
+          reps,
+          difficultyRating,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to log set');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workout-logs', activeWorkoutLog] });
+      toast({
+        title: "Set Logged",
+        description: "Great work! Your set has been recorded.",
+      });
+    },
+    onError: (error) => {
+      console.error("Error logging set:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to log set",
+      });
+    }
+  });
+
+  const completeWorkout = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/workout-logs/${activeWorkoutLog}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      });
+      if (!response.ok) throw new Error('Failed to complete workout');
+      return response.json();
+    },
+    onSuccess: () => {
+      setActiveWorkoutLog(null);
+      toast({
+        title: "Workout Completed",
+        description: "Congratulations on completing your workout! 🎉",
+      });
+    },
+    onError: (error) => {
+      console.error("Error completing workout:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete workout",
+      });
+    }
+  });
 
   const generateAIWorkout = useMutation({
     mutationFn: async () => {
@@ -209,6 +367,14 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
       queryClient.invalidateQueries({ queryKey: ['/api/wearable-data'] });
       queryClient.invalidateQueries({ queryKey: ['/api/workout-plans'] });
     },
+    onError: (error) => {
+      console.error("Error syncing wearable data:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to sync wearable data",
+      });
+    }
   });
 
   const connectWearableDevice = useMutation({
@@ -222,6 +388,14 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/wearable-data'] });
     },
+    onError: (error) => {
+      console.error("Error connecting wearable device:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to connect wearable device",
+      });
+    }
   });
 
   const { data: wearableData } = useQuery<WearableDeviceData>({
@@ -231,6 +405,14 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
       if (!response.ok) throw new Error('Failed to fetch wearable data');
       return response.json();
     },
+    onError: (error) => {
+      console.error("Error fetching wearable data:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch wearable data",
+      });
+    }
   });
 
   const { data: workoutPlan, isLoading: isLoadingPlan, error: planError } = useQuery({
@@ -242,6 +424,14 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
         throw new Error(`Failed to fetch workout plan: ${errorText}`);
       }
       return response.json();
+    },
+    onError: (error) => {
+      console.error("Error fetching workout plan:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch workout plan",
+      });
     }
   });
 
@@ -379,6 +569,130 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
 
   const activePlan = selectedPlan || workoutPlan || fallbackWorkoutPlan;
 
+  const renderExerciseCard = (exercise: Exercise) => (
+    <div
+      key={exercise.id}
+      className="p-4 border rounded-lg space-y-3 cursor-pointer hover:bg-accent/5"
+      onClick={() => setSelectedExercise(exercise)}
+    >
+      <div className="flex justify-between items-start">
+        <div>
+          <h4 className="font-medium">{exercise.name}</h4>
+          <p className="text-sm text-muted-foreground">
+            {exercise.targetMuscles.join(", ")}
+          </p>
+        </div>
+        <Badge variant="secondary">
+          {exercise.sets} × {exercise.reps}
+        </Badge>
+      </div>
+
+      {exercise.aiRecommendation && (
+        <div className="flex items-start gap-2 p-2 bg-muted rounded-lg">
+          <FontAwesomeIcon
+            icon={faBrain}
+            className="h-4 w-4 mt-1 text-purple-500"
+          />
+          <p className="text-sm">{exercise.aiRecommendation}</p>
+        </div>
+      )}
+
+      <div className="flex gap-2 text-sm text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <FontAwesomeIcon icon={faFire} className="h-3 w-3" />
+          Rest: {exercise.restPeriod}
+        </span>
+        {exercise.equipment && (
+          <span className="flex items-center gap-1">
+            <FontAwesomeIcon icon={faDumbbell} className="h-3 w-3" />
+            {exercise.equipment.join(", ")}
+          </span>
+        )}
+      </div>
+
+      {activeWorkoutLog && (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-2 gap-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+              Log Set
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Log Set for {exercise.name}</DialogTitle>
+            </DialogHeader>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                logSet.mutate({
+                  exerciseId: exercise.id,
+                  weight: formData.get('weight') ? Number(formData.get('weight')) : undefined,
+                  reps: Number(formData.get('reps')),
+                  difficultyRating: Number(formData.get('difficulty')),
+                });
+              }}
+              className="space-y-4"
+            >
+              {exercise.weightRange.beginner !== "Bodyweight" && (
+                <div className="space-y-2">
+                  <Label htmlFor="weight">Weight (lbs)</Label>
+                  <Input
+                    id="weight"
+                    name="weight"
+                    type="number"
+                    min="0"
+                    step="2.5"
+                    defaultValue={exercise.weightRange.beginner}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="reps">Reps</Label>
+                <Input
+                  id="reps"
+                  name="reps"
+                  type="number"
+                  min="1"
+                  defaultValue={exercise.reps}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Difficulty</Label>
+                <Slider
+                  name="difficulty"
+                  min={1}
+                  max={5}
+                  step={1}
+                  defaultValue={[3]}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Too Easy</span>
+                  <span>Perfect</span>
+                  <span>Too Hard</span>
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full gap-2">
+                <FontAwesomeIcon icon={faSave} className="h-4 w-4" />
+                Save Set
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+
   return (
     <Card className="relative">
       <CardHeader>
@@ -439,46 +753,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
 
               <div className="space-y-4">
                 {activePlan.exercises.map((exercise) => (
-                  <div
-                    key={exercise.id}
-                    className="p-4 border rounded-lg space-y-3 cursor-pointer hover:bg-accent/5"
-                    onClick={() => setSelectedExercise(exercise)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium">{exercise.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {exercise.targetMuscles.join(", ")}
-                        </p>
-                      </div>
-                      <Badge variant="secondary">
-                        {exercise.sets} × {exercise.reps}
-                      </Badge>
-                    </div>
-
-                    {exercise.aiRecommendation && (
-                      <div className="flex items-start gap-2 p-2 bg-muted rounded-lg">
-                        <FontAwesomeIcon
-                          icon={faBrain}
-                          className="h-4 w-4 mt-1 text-purple-500"
-                        />
-                        <p className="text-sm">{exercise.aiRecommendation}</p>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <FontAwesomeIcon icon={faFire} className="h-3 w-3" />
-                        Rest: {exercise.restPeriod}
-                      </span>
-                      {exercise.equipment && (
-                        <span className="flex items-center gap-1">
-                          <FontAwesomeIcon icon={faDumbbell} className="h-3 w-3" />
-                          {exercise.equipment.join(", ")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  renderExerciseCard(exercise)
                 ))}
               </div>
             </div>
@@ -588,10 +863,25 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
         </Tabs>
 
         <div className="flex justify-between gap-4">
-          <Button className="flex-1 gap-2">
-            <FontAwesomeIcon icon={faPersonRunning} className="h-4 w-4" />
-            Start Workout
-          </Button>
+          {!activeWorkoutLog ? (
+            <Button 
+              className="flex-1 gap-2"
+              onClick={() => startWorkout.mutate()}
+              disabled={startWorkout.isPending}
+            >
+              <FontAwesomeIcon icon={faPersonRunning} className="h-4 w-4" />
+              Start Workout
+            </Button>
+          ) : (
+            <Button 
+              className="flex-1 gap-2"
+              onClick={() => completeWorkout.mutate()}
+              disabled={completeWorkout.isPending}
+            >
+              <FontAwesomeIcon icon={faCircleCheck} className="h-4 w-4" />
+              Complete Workout
+            </Button>
+          )}
           <Button variant="outline" className="flex-1 gap-2">
             <FontAwesomeIcon icon={faBrain} className="h-4 w-4" />
             Adjust Plan

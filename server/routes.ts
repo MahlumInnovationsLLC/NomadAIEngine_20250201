@@ -20,7 +20,9 @@ import {
   documents,
   documentCollaborators,
   integrationConfigs,
-  marketingEvents
+  marketingEvents,
+  workoutLogs,
+  workoutSetLogs,
 } from "@db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { WebSocketServer, WebSocket } from "ws";
@@ -354,8 +356,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.use('/api/admin', adminRouter);
 
 
-    // Add these routes after setupWebSocketServer initialization and before registering other routes
-
     // Workout Plans endpoints
     app.get("/api/workout-plans/:memberId", async (req, res) => {
       try {
@@ -499,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(workoutPlan);
       } catch (error) {
         console.error("Error generating workout plan:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           error: "Failed to generate workout plan",
           details: error instanceof Error ? error.message : "Unknown error"
         });
@@ -599,6 +599,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error syncing wearable data:", error);
         res.status(500).json({ error: "Failed to sync wearable data" });
+      }
+    });
+
+    // Workout logging endpoints
+    app.post("/api/workout-logs", async (req, res) => {
+      try {
+        const { memberId, workoutPlanId } = req.body;
+        console.log(`Creating new workout log for member ${memberId}`);
+
+        const [workoutLog] = await db
+          .insert(workoutLogs)
+          .values({
+            memberId: parseInt(memberId),
+            workoutPlanId,
+            status: 'in_progress',
+            startTime: new Date(),
+          })
+          .returning();
+
+        res.json(workoutLog);
+      } catch (error) {
+        console.error("Error creating workout log:", error);
+        res.status(500).json({ error: "Failed to create workout log" });
+      }
+    });
+
+    app.post("/api/workout-logs/:logId/sets", async (req, res) => {
+      try {
+        const { logId } = req.params;
+        const { exerciseId, weight, reps, difficultyRating } = req.body;
+        console.log(`Logging set for workout ${logId}, exercise ${exerciseId}`);
+
+        // Get the current set number for this exercise
+        const existingSets = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(workoutSetLogs)
+          .where(eq(workoutSetLogs.workoutLogId, parseInt(logId)))
+          .where(eq(workoutSetLogs.exerciseId, exerciseId));
+
+        const setNumber = (existingSets[0]?.count || 0) + 1;
+
+        const [setLog] = await db
+          .insert(workoutSetLogs)
+          .values({
+            workoutLogId: parseInt(logId),
+            exerciseId,
+            setNumber,
+            weight: weight ? parseFloat(weight.toString()) : null,
+            reps,
+            difficultyRating,
+          })
+          .returning();
+
+        res.json(setLog);
+      } catch (error) {
+        console.error("Error logging set:", error);
+        res.status(500).json({ error: "Failed to log set" });
+      }
+    });
+
+    app.patch("/api/workout-logs/:logId", async (req, res) => {
+      try {
+        const { logId } = req.params;
+        const { status } = req.body;
+        console.log(`Updating workout log ${logId} status to ${status}`);
+
+        // Update the workout log
+        const [updatedLog] = await db
+          .update(workoutLogs)
+          .set({
+            status,
+            endTime: status === 'completed' ? new Date() : undefined,
+            updatedAt: new Date(),
+          })
+          .where(eq(workoutLogs.id, parseInt(logId)))
+          .returning();
+
+        if (!updatedLog) {
+          return res.status(404).json({ error: "Workout log not found" });
+        }
+
+        // If completing the workout, calculate total calories burned
+        if (status === 'completed') {
+          const setLogs = await db
+            .select()
+            .from(workoutSetLogs)
+            .where(eq(workoutSetLogs.workoutLogId, parseInt(logId)));
+
+          // A simple calorie calculation based on number of sets and reps
+          // In a real app, this would be more sophisticated
+          const estimatedCalories = setLogs.reduce((total, set) => {
+            return total + (set.reps * 5); // Very basic calculation
+          }, 0);
+
+          await db
+            .update(workoutLogs)
+            .set({ totalCaloriesBurned: estimatedCalories })
+            .where(eq(workoutLogs.id, parseInt(logId)));
+
+          updatedLog.totalCaloriesBurned = estimatedCalories;
+        }
+
+        res.json(updatedLog);
+      } catch (error) {
+        console.error("Error updating workout log:", error);
+        res.status(500).json({ error: "Failed to update workout log" });
       }
     });
 
@@ -920,7 +1026,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filename,
           downloadUrl: `/uploads/${filename}`
         });
-      } catch (error) {        console.error("Error generating report:", error);
+      } catch (error) {
+        console.error("Error generating report:", error);
         res.status(500).json({
           error: "Failed to generate report",
           details: error instanceof Error ? error.message : "Unknown error"
@@ -1784,7 +1891,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const documentId = parseInt(req.params.documentId);
         const approvalId = parseInt(req.params.approvalId);
-        const userId = req.user?.id;
+        const userId =req.user?.id;
         const { comments } = req.body;
 
         if (!documentId || !approvalId || !userId) {

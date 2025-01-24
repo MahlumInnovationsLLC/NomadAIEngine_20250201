@@ -512,6 +512,33 @@ export const milestoneCelebrations = pgTable("milestone_celebrations", {
   metadata: jsonb("metadata"),
 });
 
+// Add after the existing tables
+export const workoutLogs = pgTable("workout_logs", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id),
+  workoutPlanId: text("workout_plan_id").notNull(),
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  status: text("status", { enum: ['in_progress', 'completed', 'cancelled'] }).notNull().default('in_progress'),
+  notes: text("notes"),
+  totalCaloriesBurned: decimal("total_calories_burned", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const workoutSetLogs = pgTable("workout_set_logs", {
+  id: serial("id").primaryKey(),
+  workoutLogId: integer("workout_log_id").references(() => workoutLogs.id),
+  exerciseId: text("exercise_id").notNull(),
+  setNumber: integer("set_number").notNull(),
+  weight: decimal("weight", { precision: 10, scale: 2 }),
+  reps: integer("reps"),
+  timeToComplete: integer("time_to_complete"), // in seconds
+  difficultyRating: integer("difficulty_rating"), // 1-5 scale
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
@@ -751,120 +778,42 @@ export const milestoneCelebrationsRelations = relations(milestoneCelebrations, (
 }));
 
 
-// Add relations for the new tables
-export const membersRelations = relations(members, ({ many }) => ({
-  healthData: many(memberHealthData),
-  preferences: many(memberPreferences),
-  aiInsights: many(memberAiInsights),
-}));
-
-export const memberHealthDataRelations = relations(memberHealthData, ({ one }) => ({
+// Add relations
+export const workoutLogsRelations = relations(workoutLogs, ({ many, one }) => ({
+  sets: many(workoutSetLogs),
   member: one(members, {
-    fields: [memberHealthData.memberId],
+    fields: [workoutLogs.memberId],
     references: [members.id],
   }),
 }));
 
-export const memberPreferencesRelations = relations(memberPreferences, ({ one }) => ({
-  member: one(members, {
-    fields: [memberPreferences.memberId],
-    references: [members.id],
+export const workoutSetLogsRelations = relations(workoutSetLogs, ({ one }) => ({
+  workoutLog: one(workoutLogs, {
+    fields: [workoutSetLogs.workoutLogId],
+    references: [workoutLogs.id],
   }),
 }));
 
-export const memberAiInsightsRelations = relations(memberAiInsights, ({ one }) => ({
-  member: one(members, {
-    fields: [memberAiInsights.memberId],
-    references: [members.id],
-  }),
-}));
+// Add schemas for the new tables
+export const insertMemberSchema = createInsertSchema(members);
+export const selectMemberSchema = createSelectSchema(members);
 
-// Schemas
-export const insertDocumentSchema = createInsertSchema(documents);
-export const selectDocumentSchema = createSelectSchema(documents);
+export const insertMemberHealthDataSchema = createInsertSchema(memberHealthData);
+export const selectMemberHealthDataSchema = createSelectSchema(memberHealthData);
 
-export const insertDocumentVersionSchema = createInsertSchema(documentVersions);
-export const selectDocumentVersionSchema = createSelectSchema(documentVersions);
+export const insertMemberPreferencesSchema = createInsertSchema(memberPreferences);
+export const selectMemberPreferencesSchema = createSelectSchema(memberPreferences);
 
-export const insertDocumentApprovalSchema = createInsertSchema(documentApprovals);
-export const selectDocumentApprovalSchema = createSelectSchema(documentApprovals);
+export const insertMemberAiInsightsSchema = createInsertSchema(memberAiInsights);
+export const selectMemberAiInsightsSchema = createSelectSchema(memberAiInsights);
 
-export const insertDocumentCollaboratorSchema = createInsertSchema(documentCollaborators);
-export const selectDocumentCollaboratorSchema = createSelectSchema(documentCollaborators);
+export const insertWorkoutLogSchema = createInsertSchema(workoutLogs);
+export const selectWorkoutLogSchema = createSelectSchema(workoutLogs);
 
-export const insertChatSchema = createInsertSchema(chats);
-export const selectChatSchema = createSelectSchema(chats);
-
-export const insertMessageSchema = createInsertSchema(messages);
-export const selectMessageSchema = createSelectSchema(messages);
-
-export const insertDocumentWorkflowSchema = createInsertSchema(documentWorkflows);
-export const selectDocumentWorkflowSchema = createSelectSchema(documentWorkflows);
-
-export const insertEquipmentTypeSchema = createInsertSchema(equipmentTypes);
-export const selectEquipmentTypeSchema = createSelectSchema(equipmentTypes);
-
-export const insertEquipmentSchema = createInsertSchema(equipment);
-export const selectEquipmentSchema = createSelectSchema(equipment);
-
-export const insertFloorPlanSchema = createInsertSchema(floorPlans);
-export const selectFloorPlanSchema = createSelectSchema(floorPlans);
-
-//Add schemas for new tables
-export const insertRoleSchema = createInsertSchema(roles);
-export const selectRoleSchema = createSelectSchema(roles);
-
-export const insertUserRoleSchema = createInsertSchema(userRoles);
-export const selectUserRoleSchema = createSelectSchema(userRoles);
-
-export const insertTrainingModuleSchema = createInsertSchema(trainingModules);
-export const selectTrainingModuleSchema = createSelectSchema(trainingModules);
-
-export const insertUserTrainingSchema = createInsertSchema(userTraining);
-export const selectUserTrainingSchema = createSelectSchema(userTraining);
-
-export const insertDocumentPermissionSchema = createInsertSchema(documentPermissions);
-export const selectDocumentPermissionSchema = createSelectSchema(documentPermissions);
+export const insertWorkoutSetLogSchema = createInsertSchema(workoutSetLogs);
+export const selectWorkoutSetLogSchema = createSelectSchema(workoutSetLogs);
 
 // Add schemas for new tables
-export const insertSkillSchema = createInsertSchema(skills);
-export const selectSkillSchema = createSelectSchema(skills);
-
-export const insertSkillAssessmentSchema = createInsertSchema(skillAssessments);
-export const selectSkillAssessmentSchema = createSelectSchema(skillAssessments);
-
-export const insertRequiredSkillSchema = createInsertSchema(requiredSkills);
-export const selectRequiredSkillSchema = createSelectSchema(requiredSkills);
-
-export const insertUserSkillSchema = createInsertSchema(userSkills);
-export const selectUserSkillSchema = createSelectSchema(userSkills);
-
-// Add to schemas section
-export const insertNotificationSchema = createInsertSchema(notifications);
-export const selectNotificationSchema = createSelectSchema(notifications);
-
-export const insertUserNotificationSchema = createInsertSchema(userNotifications);
-export const selectUserNotificationSchema = createSelectSchema(userNotifications);
-
-// Add to schemas section
-export const insertAiEngineActivitySchema = createInsertSchema(aiEngineActivity);
-export const selectAiEngineActivitySchema = createSelectSchema(aiEngineActivity);
-
-// Add schemas
-export const insertSupportTicketSchema = createInsertSchema(supportTickets);
-export const selectSupportTicketSchema = createSelectSchema(supportTickets);
-
-export const insertTicketCommentSchema = createInsertSchema(ticketComments);
-export const selectTicketCommentSchema = createSelectSchema(ticketComments);
-
-export const insertTicketHistorySchema = createInsertSchema(ticketHistory);
-export const selectTicketHistorySchema = createSelectSchema(ticketHistory);
-
-// Add to schemas section
-export const insertIntegrationConfigSchema = createInsertSchema(integrationConfigs);
-export const selectIntegrationConfigSchema = createSelectSchema(integrationConfigs);
-
-// Add schemas
 export const insertCustomerSegmentSchema = createInsertSchema(customerSegments);
 export const selectCustomerSegmentSchema = createSelectSchema(customerSegments);
 
@@ -901,18 +850,6 @@ export const selectUserMilestoneSchema = createSelectSchema(userMilestones);
 export const insertMilestoneCelebrationSchema = createInsertSchema(milestoneCelebrations);
 export const selectMilestoneCelebrationSchema = createSelectSchema(milestoneCelebrations);
 
-// Add schemas for the new tables
-export const insertMemberSchema = createInsertSchema(members);
-export const selectMemberSchema = createSelectSchema(members);
-
-export const insertMemberHealthDataSchema = createInsertSchema(memberHealthData);
-export const selectMemberHealthDataSchema = createSelectSchema(memberHealthData);
-
-export const insertMemberPreferencesSchema = createInsertSchema(memberPreferences);
-export const selectMemberPreferencesSchema = createSelectSchema(memberPreferences);
-
-export const insertMemberAiInsightsSchema = createInsertSchema(memberAiInsights);
-export const selectMemberAiInsightsSchema = createSelectSchema(memberAiInsights);
 
 // Types
 export type Document = typeof documents.$inferSelect;
@@ -981,5 +918,10 @@ export type Member = typeof members.$inferSelect;
 export type MemberHealthData = typeof memberHealthData.$inferSelect;
 export type MemberPreferences = typeof memberPreferences.$inferSelect;
 export type MemberAiInsights = typeof memberAiInsights.$inferSelect;
+
+export type InsertWorkoutLog = typeof workoutLogs.$inferInsert;
+export type SelectWorkoutLog = typeof workoutLogs.$inferSelect;
+export type InsertWorkoutSetLog = typeof workoutSetLogs.$inferInsert;
+export type SelectWorkoutSetLog = typeof workoutSetLogs.$inferSelect;
 
 import { integer } from "drizzle-orm/pg-core";
