@@ -5,7 +5,6 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faWeightScale,
@@ -187,6 +186,43 @@ const predefinedGoals = {
   ]
 };
 
+const getTargetInputLabel = (goalType: GoalType, specificGoal: string) => {
+  switch (goalType) {
+    case 'weight':
+      return {
+        current: 'Current Weight (lbs)',
+        target: specificGoal === 'Muscle Mass Gain' ? 'Target Weight Gain (lbs)' : 'Target Weight Loss (lbs)',
+        suggestion: specificGoal === 'Muscle Mass Gain'
+          ? 'Recommended: 0.5-1 lb per week for lean muscle gain'
+          : 'Recommended: 1-2 lbs per week for healthy weight loss'
+      };
+    case 'strength':
+      return {
+        current: 'Current Max (lbs)',
+        target: 'Target Max (lbs)',
+        suggestion: 'Aim for 5-10% increase over your current maximum'
+      };
+    case 'cardio':
+      return {
+        current: 'Current Resting Heart Rate (bpm)',
+        target: 'Target Resting Heart Rate (bpm)',
+        suggestion: 'Ideal resting heart rate: 60-100 bpm, athletes: 40-60 bpm'
+      };
+    case 'nutrition':
+      return {
+        current: 'Current Daily Calories',
+        target: 'Target Daily Calories',
+        suggestion: 'Based on your activity level and goals'
+      };
+    default:
+      return {
+        current: 'Current Value',
+        target: 'Target Value',
+        suggestion: ''
+      };
+  }
+};
+
 export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: HealthGoalWizardProps) {
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState<Partial<Goal>>({});
@@ -232,6 +268,113 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
     return specific?.recommendations || [];
   };
 
+  const renderGoalTypeSelection = () => (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">What type of goal would you like to set?</h3>
+      <div className="grid grid-cols-2 gap-4">
+        {[
+          { type: 'weight', icon: faWeightScale, label: 'Weight Management' },
+          { type: 'strength', icon: faDumbbell, label: 'Strength Training' },
+          { type: 'cardio', icon: faHeart, label: 'Cardiovascular Health' },
+          { type: 'nutrition', icon: faCarrot, label: 'Nutrition' }
+        ].map(({ type, icon, label }) => (
+          <div
+            key={type}
+            onClick={() => {
+              setGoal({ ...goal, type: type as GoalType });
+              setSelectedSpecificGoal("");
+            }}
+            className={`p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors ${
+              goal.type === type ? 'bg-accent' : ''
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <FontAwesomeIcon icon={icon} className="h-4 w-4" />
+              <span>{label}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderSpecificGoalSelection = () => (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Choose Your Specific Goal</h3>
+      <div className="space-y-3">
+        {getAvailableGoals().map((specificGoal) => (
+          <div
+            key={specificGoal.name}
+            onClick={() => {
+              setSelectedSpecificGoal(specificGoal.name);
+              setGoal({
+                ...goal,
+                specificGoal: specificGoal.name,
+                description: specificGoal.description
+              });
+            }}
+            className={`p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors ${
+              selectedSpecificGoal === specificGoal.name ? 'bg-accent' : ''
+            }`}
+          >
+            <div className="font-medium">{specificGoal.name}</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {specificGoal.description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderTargetSetting = () => {
+    const labels = getTargetInputLabel(goal.type!, selectedSpecificGoal);
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Set Your Target</h3>
+        <div className="space-y-4">
+          <div>
+            <Label>{labels.current}</Label>
+            <Input
+              type="number"
+              value={goal.currentValue || ""}
+              onChange={(e) => setGoal({ ...goal, currentValue: parseFloat(e.target.value) })}
+              placeholder={`Enter your ${labels.current.toLowerCase()}`}
+            />
+          </div>
+          <div>
+            <Label>{labels.target}</Label>
+            <Input
+              type="number"
+              value={goal.target || ""}
+              onChange={(e) => setGoal({ ...goal, target: parseFloat(e.target.value) })}
+              placeholder={`Enter your ${labels.target.toLowerCase()}`}
+            />
+            <p className="text-sm text-muted-foreground mt-1">{labels.suggestion}</p>
+          </div>
+          <div>
+            <Label>Timeline (weeks)</Label>
+            <Select
+              value={goal.timeline?.toString()}
+              onValueChange={(value) => setGoal({ ...goal, timeline: parseInt(value) })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select timeline" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="4">4 weeks</SelectItem>
+                <SelectItem value="8">8 weeks</SelectItem>
+                <SelectItem value="12">12 weeks</SelectItem>
+                <SelectItem value="16">16 weeks</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -274,120 +417,9 @@ export function HealthGoalWizard({ memberId, currentHealth, onSave, onClose }: H
           </div>
         )}
 
-        {step === 2 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">What type of goal would you like to set?</h3>
-            <RadioGroup
-              defaultValue={goal.type}
-              onValueChange={(value: GoalType) => {
-                setGoal({ ...goal, type: value });
-                setSelectedSpecificGoal("");
-              }}
-              className="grid grid-cols-2 gap-4"
-            >
-              <RadioGroupItem value="weight" />
-              <Label htmlFor="weight" className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent data-[state=checked]:bg-accent">
-                <FontAwesomeIcon icon={faWeightScale} className="h-4 w-4" />
-                <span>Weight Management</span>
-              </Label>
-              <RadioGroupItem value="strength" />
-              <Label htmlFor="strength" className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent data-[state=checked]:bg-accent">
-                <FontAwesomeIcon icon={faDumbbell} className="h-4 w-4" />
-                <span>Strength Training</span>
-              </Label>
-              <RadioGroupItem value="cardio" />
-              <Label htmlFor="cardio" className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent data-[state=checked]:bg-accent">
-                <FontAwesomeIcon icon={faHeart} className="h-4 w-4" />
-                <span>Cardiovascular Health</span>
-              </Label>
-              <RadioGroupItem value="nutrition" />
-              <Label htmlFor="nutrition" className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent data-[state=checked]:bg-accent">
-                <FontAwesomeIcon icon={faCarrot} className="h-4 w-4" />
-                <span>Nutrition</span>
-              </Label>
-            </RadioGroup>
-          </div>
-        )}
-
-        {step === 3 && goal.type && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Choose Your Specific Goal</h3>
-            <RadioGroup
-              value={selectedSpecificGoal}
-              onValueChange={(value) => {
-                setSelectedSpecificGoal(value);
-                const selectedGoal = getAvailableGoals().find(g => g.name === value);
-                if (selectedGoal) {
-                  setGoal({
-                    ...goal,
-                    specificGoal: value,
-                    description: selectedGoal.description
-                  });
-                }
-              }}
-              className="space-y-4"
-            >
-              {getAvailableGoals().map((specificGoal) => (
-                <div key={specificGoal.name} className="flex items-center space-x-2">
-                  <RadioGroupItem value={specificGoal.name} id={specificGoal.name} />
-                  <Label
-                    htmlFor={specificGoal.name}
-                    className="flex-1 p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors data-[state=checked]:bg-accent"
-                  >
-                    <div className="font-medium">{specificGoal.name}</div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {specificGoal.description}
-                    </p>
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Set Your Target</h3>
-            <div className="space-y-4">
-              <div>
-                <Label>Current Value</Label>
-                <Input
-                  type="number"
-                  value={goal.currentValue || ""}
-                  onChange={(e) => setGoal({ ...goal, currentValue: parseFloat(e.target.value) })}
-                  placeholder="Enter current value"
-                />
-              </div>
-              <div>
-                <Label>Target Value</Label>
-                <Input
-                  type="number"
-                  value={goal.target || ""}
-                  onChange={(e) => setGoal({ ...goal, target: parseFloat(e.target.value) })}
-                  placeholder="Enter target value"
-                />
-              </div>
-              <div>
-                <Label>Timeline (weeks)</Label>
-                <Select
-                  value={goal.timeline?.toString()}
-                  onValueChange={(value) => setGoal({ ...goal, timeline: parseInt(value) })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select timeline" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="4">4 weeks</SelectItem>
-                    <SelectItem value="8">8 weeks</SelectItem>
-                    <SelectItem value="12">12 weeks</SelectItem>
-                    <SelectItem value="16">16 weeks</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {step === 2 && renderGoalTypeSelection()}
+        {step === 3 && goal.type && renderSpecificGoalSelection()}
+        {step === 4 && renderTargetSetting()}
         {step === 5 && (
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
