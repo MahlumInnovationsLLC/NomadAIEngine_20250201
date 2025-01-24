@@ -66,14 +66,7 @@ export function PersonalizedExperience() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold mb-2">Personalized Experience</h1>
-        <p className="text-muted-foreground mb-6">
-          AI-powered workout plans, nutrition recommendations, and personalized coaching
-        </p>
-
-        <MemberSearch onSelect={handleMemberSelect} />
-      </div>
+      <MemberSearch onSelect={handleMemberSelect} />
 
       {selectedMember && (
         <Card>
@@ -133,6 +126,7 @@ export function PersonalizedExperience() {
                       </div>
                     )}
                   </TabsContent>
+
                   <TabsContent value="preferences">
                     {personalizedData?.preferences && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -147,6 +141,7 @@ export function PersonalizedExperience() {
                       </div>
                     )}
                   </TabsContent>
+
                   <TabsContent value="insights">
                     {personalizedData?.aiInsights && (
                       <ScrollArea className="h-[400px]">
