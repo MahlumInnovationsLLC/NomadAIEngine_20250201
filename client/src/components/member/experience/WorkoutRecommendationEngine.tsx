@@ -202,24 +202,29 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Add new mutations for workout logging
   const startWorkout = useMutation({
     mutationFn: async () => {
       if (!activePlan?.id) {
         throw new Error('No active workout plan selected');
       }
+
+      console.log('Starting workout for member:', memberId, 'with plan:', activePlan.id);
+
       const response = await fetch(`/api/workout-logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          memberId: memberId,
+          memberId: parseInt(memberId), 
           workoutPlanId: activePlan.id,
         }),
       });
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('Start workout error response:', errorText);
         throw new Error(`Failed to start workout: ${errorText}`);
       }
+
       return response.json();
     },
     onSuccess: (data) => {

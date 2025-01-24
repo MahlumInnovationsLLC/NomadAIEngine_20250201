@@ -380,6 +380,33 @@ export const memberAiInsights = pgTable("member_ai_insights", {
   metadata: jsonb("metadata"),
 });
 
+// Add after the member-related tables and before relations section
+export const workoutLogs = pgTable("workout_logs", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id),
+  workoutPlanId: text("workout_plan_id").notNull(),
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  status: text("status", { enum: ['in_progress', 'completed', 'cancelled'] }).notNull().default('in_progress'),
+  notes: text("notes"),
+  totalCaloriesBurned: decimal("total_calories_burned", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const workoutSetLogs = pgTable("workout_set_logs", {
+  id: serial("id").primaryKey(),
+  workoutLogId: integer("workout_log_id").references(() => workoutLogs.id),
+  exerciseId: text("exercise_id").notNull(),
+  setNumber: integer("set_number").notNull(),
+  weight: decimal("weight", { precision: 10, scale: 2 }),
+  reps: integer("reps"),
+  timeToComplete: integer("time_to_complete"), // in seconds
+  difficultyRating: integer("difficulty_rating"), // 1-5 scale
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Add after the existing tables
 export const customerSegments = pgTable("customer_segments", {
   id: serial("id").primaryKey(),
@@ -475,7 +502,7 @@ export const modulePrerequisites = pgTable("module_prerequisites", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Add milestone-related tables after the existing tables
+// Add after the existing tables
 export const fitnessMillestones = pgTable("fitness_milestones", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -512,32 +539,6 @@ export const milestoneCelebrations = pgTable("milestone_celebrations", {
   metadata: jsonb("metadata"),
 });
 
-// Add after the existing tables
-export const workoutLogs = pgTable("workout_logs", {
-  id: serial("id").primaryKey(),
-  memberId: integer("member_id").references(() => members.id),
-  workoutPlanId: text("workout_plan_id").notNull(),
-  startTime: timestamp("start_time").defaultNow().notNull(),
-  endTime: timestamp("end_time"),
-  status: text("status", { enum: ['in_progress', 'completed', 'cancelled'] }).notNull().default('in_progress'),
-  notes: text("notes"),
-  totalCaloriesBurned: decimal("total_calories_burned", { precision: 10, scale: 2 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const workoutSetLogs = pgTable("workout_set_logs", {
-  id: serial("id").primaryKey(),
-  workoutLogId: integer("workout_log_id").references(() => workoutLogs.id),
-  exerciseId: text("exercise_id").notNull(),
-  setNumber: integer("set_number").notNull(),
-  weight: decimal("weight", { precision: 10, scale: 2 }),
-  reps: integer("reps"),
-  timeToComplete: integer("time_to_complete"), // in seconds
-  difficultyRating: integer("difficulty_rating"), // 1-5 scale
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
 
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
