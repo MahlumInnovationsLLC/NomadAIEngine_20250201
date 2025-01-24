@@ -12,43 +12,36 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
 
 interface Member {
-  id: number;
-  name: string;
+  id: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  status: "active" | "at-risk" | "churned";
-  lastActive: string;
   membershipType: string;
-  aiInsights: string[];
+  membershipStatus: 'active' | 'inactive' | 'pending' | 'cancelled';
+  joinDate: string;
+  lastVisit: string;
+  totalVisits: number;
+  aiInsightCount: number;
+  metrics: {
+    attendanceRate: number;
+    engagementScore: number;
+    lifetimeValue: number;
+  };
 }
-
-const mockMembers: Member[] = [
-  {
-    id: 1,
-    name: "John Doe",
-    email: "john@example.com",
-    status: "active",
-    lastActive: "2025-01-23",
-    membershipType: "Premium",
-    aiInsights: ["High engagement with group classes", "Potential for personal training upsell"],
-  },
-  {
-    id: 2,
-    name: "Jane Smith",
-    email: "jane@example.com",
-    status: "at-risk",
-    lastActive: "2025-01-10",
-    membershipType: "Basic",
-    aiInsights: ["Decreasing visit frequency", "Consider reaching out with special offer"],
-  },
-];
 
 export function MemberCRM() {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredMembers = mockMembers.filter(member => 
-    member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  // Fetch members from Azure Blob Storage
+  const { data: members = [], isLoading } = useQuery<Member[]>({
+    queryKey: ['/api/members'],
+  });
+
+  const filteredMembers = members.filter(member => 
+    `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -91,56 +84,90 @@ export function MemberCRM() {
       </div>
 
       <div className="grid gap-4">
-        {filteredMembers.map((member) => (
-          <Card key={member.id}>
+        {isLoading ? (
+          <Card>
             <CardContent className="pt-6">
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{member.name}</h3>
-                    <Badge 
-                      variant={
-                        member.status === "active" ? "default" :
-                        member.status === "at-risk" ? "destructive" :
-                        "secondary"
-                      }
-                    >
-                      {member.status}
-                    </Badge>
+              <div className="animate-pulse flex space-x-4">
+                <div className="flex-1 space-y-4 py-1">
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-muted rounded"></div>
+                    <div className="h-4 bg-muted rounded w-5/6"></div>
                   </div>
-                  <p className="text-sm text-muted-foreground">{member.email}</p>
-                  <p className="text-sm">
-                    {member.membershipType} • Last active: {member.lastActive}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="icon">
-                    <FontAwesomeIcon icon={faEnvelope} className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon">
-                    <FontAwesomeIcon icon={faBell} className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        ) : filteredMembers.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-4">
+                <p className="text-muted-foreground">No members found</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredMembers.map((member) => (
+            <Card key={member.id}>
+              <CardContent className="pt-6">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">
+                        {member.firstName} {member.lastName}
+                      </h3>
+                      <Badge 
+                        variant={
+                          member.membershipStatus === "active" ? "default" :
+                          member.membershipStatus === "pending" ? "secondary" :
+                          "destructive"
+                        }
+                      >
+                        {member.membershipStatus}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{member.email}</p>
+                    <p className="text-sm">
+                      {member.membershipType} • Last visit: {new Date(member.lastVisit).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="icon">
+                      <FontAwesomeIcon icon={faEnvelope} className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon">
+                      <FontAwesomeIcon icon={faBell} className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
 
-              {member.aiInsights.length > 0 && (
                 <div className="mt-4 pt-4 border-t">
                   <div className="flex items-center gap-2 text-sm font-medium mb-2">
                     <FontAwesomeIcon icon={faBrain} className="h-4 w-4 text-purple-500" />
-                    AI Insights
+                    Member Metrics
                   </div>
-                  <ul className="space-y-1">
-                    {member.aiInsights.map((insight, index) => (
-                      <li key={index} className="text-sm text-muted-foreground">
-                        • {insight}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Attendance Rate:</span>
+                      <br />
+                      {member.metrics.attendanceRate}%
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Engagement Score:</span>
+                      <br />
+                      {member.metrics.engagementScore}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Lifetime Value:</span>
+                      <br />
+                      ${member.metrics.lifetimeValue}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );
