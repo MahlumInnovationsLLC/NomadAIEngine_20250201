@@ -35,7 +35,7 @@ import {
   ResponsiveContainer
 } from "recharts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface Exercise {
   id: string;
@@ -132,6 +132,7 @@ export function WorkoutRecommendationEngine({ memberId, workoutData, onDataUpdat
   const [activeTab, setActiveTab] = useState("current");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: workoutPlan, isLoading: isLoadingPlan, error: planError } = useQuery({
     queryKey: ['/api/workout-plans', memberId],
