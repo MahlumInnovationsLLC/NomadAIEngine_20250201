@@ -35,6 +35,8 @@ const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const TicketDetails = lazy(() => import("@/pages/admin/TicketDetails"));
 const SupportTickets = lazy(() => import("@/pages/admin/SupportTickets"));
 const TicketDetailsPage = lazy(() => import("@/pages/TicketDetailsPage"));
+const PersonalizedExperience = lazy(() => import("@/components/member/PersonalizedExperience").then(module => ({ default: module.PersonalizedExperience })));
+
 
 function LoadingFallback() {
   return (
@@ -121,6 +123,7 @@ function App() {
                   <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
                   <Route path="/marketing-control" component={() => <ProtectedRoute component={MarketingControl} />} />
                   <Route path="/member-management" component={() => <ProtectedRoute component={MemberManagement} />} />
+                  <Route path="/member-management/personalized" component={() => <ProtectedRoute component={PersonalizedExperience} />} />
                   <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
                   <Route path="/admin/support/:id" component={() => (
                     <ProtectedRoute component={TicketDetailsPage} />

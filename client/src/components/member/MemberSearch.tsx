@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,7 +14,6 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faSearch,
-  faFilter,
   faUser,
   faChartLine,
   faCalendar,
@@ -36,7 +35,11 @@ interface Member {
   aiInsightCount: number;
 }
 
-export function MemberSearch() {
+interface MemberSearchProps {
+  onSelect?: (member: Member) => void;
+}
+
+export function MemberSearch({ onSelect }: MemberSearchProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [membershipFilter, setMembershipFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -49,10 +52,10 @@ export function MemberSearch() {
     const matchesSearch = !searchTerm || 
       `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.email.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
     const matchesMembership = !membershipFilter || member.membershipType === membershipFilter;
     const matchesStatus = !statusFilter || member.membershipStatus === statusFilter;
-    
+
     return matchesSearch && matchesMembership && matchesStatus;
   });
 
@@ -122,7 +125,11 @@ export function MemberSearch() {
             ))
           ) : (
             filteredMembers.map((member) => (
-              <Card key={member.id} className="hover:shadow-md transition-shadow">
+              <Card 
+                key={member.id} 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => onSelect?.(member)}
+              >
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row md:items-center gap-4">
                     <div className="flex-1">
