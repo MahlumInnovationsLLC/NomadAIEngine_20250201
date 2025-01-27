@@ -176,38 +176,102 @@ export async function addPoolChemicalReading(reading: ChemicalReading): Promise<
 // Building Systems Functions
 export async function getBuildingSystems(): Promise<BuildingSystem[]> {
   try {
-    // For testing purposes, return a mock building system
-    const mockSystems: BuildingSystem[] = [{
-      id: "mock-hvac-1",
-      name: "Main HVAC System",
-      type: "HVAC",
-      status: "operational",
-      lastInspection: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-      nextInspection: new Date(Date.now() + 23 * 24 * 60 * 60 * 1000).toISOString(), // 23 days from now
-      maintenanceHistory: [
-        {
-          date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          type: "routine",
-          description: "Regular maintenance check",
-          technician: "John Smith",
-          cost: 250
-        }
-      ],
-      location: "Building A - First Floor",
-      installationDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year ago
-      warranty: {
-        provider: "HVAC Solutions Inc",
-        expirationDate: new Date(Date.now() + 730 * 24 * 60 * 60 * 1000).toISOString(), // 2 years from now
-        coverage: "Full parts and labor"
+    // For testing purposes, return mock building systems
+    const mockSystems: BuildingSystem[] = [
+      {
+        id: "mock-hvac-1",
+        name: "Main HVAC System",
+        type: "HVAC",
+        status: "operational",
+        lastInspection: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        nextInspection: new Date(Date.now() + 23 * 24 * 60 * 60 * 1000).toISOString(),
+        maintenanceHistory: [
+          {
+            date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            type: "routine",
+            description: "Regular maintenance check",
+            technician: "John Smith",
+            cost: 250
+          }
+        ],
+        location: "Building A - First Floor",
+        installationDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+        warranty: {
+          provider: "HVAC Solutions Inc",
+          expirationDate: new Date(Date.now() + 730 * 24 * 60 * 60 * 1000).toISOString(),
+          coverage: "Full parts and labor"
+        },
+        specifications: {
+          model: "HAC-2000",
+          capacity: "10 tons",
+          efficiency: "SEER 16"
+        },
+        createdAt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date().toISOString()
       },
-      specifications: {
-        model: "HAC-2000",
-        capacity: "10 tons",
-        efficiency: "SEER 16"
+      {
+        id: "mock-electrical-1",
+        name: "Emergency Generator",
+        type: "Electrical",
+        status: "maintenance",
+        lastInspection: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+        nextInspection: new Date(Date.now() + 16 * 24 * 60 * 60 * 1000).toISOString(),
+        maintenanceHistory: [
+          {
+            date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+            type: "repair",
+            description: "Replaced fuel filter",
+            technician: "Mike Johnson",
+            cost: 450
+          }
+        ],
+        location: "Building B - Basement",
+        installationDate: new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString(),
+        warranty: {
+          provider: "PowerGen Corp",
+          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          coverage: "Limited warranty"
+        },
+        specifications: {
+          model: "PG-5000",
+          capacity: "500 kW",
+          fuelType: "Diesel"
+        },
+        createdAt: new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date().toISOString()
       },
-      createdAt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date().toISOString()
-    }];
+      {
+        id: "mock-plumbing-1",
+        name: "Water Treatment System",
+        type: "Plumbing",
+        status: "error",
+        lastInspection: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        nextInspection: new Date(Date.now() + 0 * 24 * 60 * 60 * 1000).toISOString(),
+        maintenanceHistory: [
+          {
+            date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            type: "emergency",
+            description: "Filter system malfunction",
+            technician: "Sarah Wilson",
+            cost: 850
+          }
+        ],
+        location: "Building A - Basement",
+        installationDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+        warranty: {
+          provider: "AquaPure Systems",
+          expirationDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+          coverage: "Parts only"
+        },
+        specifications: {
+          model: "AP-2000",
+          capacity: "1000 GPD",
+          filterType: "Reverse Osmosis"
+        },
+        createdAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
 
     return mockSystems;
   } catch (error) {
