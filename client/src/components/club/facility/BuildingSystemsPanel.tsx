@@ -144,7 +144,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       status: 'operational' as const,
       location: formData.get('location') as string,
       notes: formData.get('notes') as string || null,
-      healthScore: '100',
+      healthScore: "100.00",
       metadata: {}
     };
 

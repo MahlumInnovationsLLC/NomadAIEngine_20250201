@@ -412,12 +412,12 @@ export const buildingSystems = pgTable("building_systems", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   type: text("type").notNull(),
-  status: text("status", { 
-    enum: ['operational', 'maintenance', 'offline', 'error'] 
+  status: text("status", {
+    enum: ['operational', 'maintenance', 'offline', 'error']
   }).notNull().default('operational'),
   lastMaintenanceDate: timestamp("last_maintenance_date"),
   nextMaintenanceDate: timestamp("next_maintenance_date"),
-  healthScore: decimal("health_score", { precision: 4, scale: 2 }),
+  healthScore: decimal("health_score", { precision: 5, scale: 2 }), // Increased precision to handle scores up to 999.99
   location: text("location"),
   notes: text("notes"),
   metadata: jsonb("metadata"),
@@ -429,8 +429,8 @@ export const facilityInspections = pgTable("facility_inspections", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   type: text("type").notNull(),
-  status: text("status", { 
-    enum: ['pending', 'in_progress', 'completed', 'overdue'] 
+  status: text("status", {
+    enum: ['pending', 'in_progress', 'completed', 'overdue']
   }).notNull().default('pending'),
   scheduledDate: timestamp("scheduled_date").notNull(),
   completedDate: timestamp("completed_date"),
