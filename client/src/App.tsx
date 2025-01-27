@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -16,8 +16,6 @@ import Navbar from "@/components/layout/Navbar";
 import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
-import FacilityDashboard from "@/components/club/facility/FacilityDashboard";
-import { useEffect } from 'react';
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
