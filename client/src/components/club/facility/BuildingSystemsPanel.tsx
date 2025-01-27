@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -24,16 +24,22 @@ import {
 import PredictiveMaintenancePanel from "./PredictiveMaintenancePanel";
 
 interface BuildingSystemsPanelProps {
-  systems: BuildingSystem[];
+  systems?: BuildingSystem[];
 }
 
-export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelProps) {
+export default function BuildingSystemsPanel({ systems: initialSystems }: BuildingSystemsPanelProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedSystem, setSelectedSystem] = useState<BuildingSystem | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
   const [showPredictions, setShowPredictions] = useState(false);
+
+  // Fetch building systems using React Query
+  const { data: systems = [] } = useQuery<BuildingSystem[]>({
+    queryKey: ['/api/facility/building-systems'],
+    initialData: initialSystems,
+  });
 
   const updateSystemMutation = useMutation({
     mutationFn: async (data: { id: string; status: BuildingSystem['status'] }) => {
@@ -110,14 +116,14 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
   };
 
   const getSystemIcon = (type: string) => {
-    switch (type) {
-      case 'HVAC':
+    switch (type.toLowerCase()) {
+      case 'hvac':
         return 'fan';
-      case 'Electrical':
+      case 'electrical':
         return 'bolt';
-      case 'Plumbing':
+      case 'plumbing':
         return 'faucet';
-      case 'Safety':
+      case 'safety':
         return 'shield-halved';
       default:
         return 'cog';
@@ -210,8 +216,7 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
                     size="sm"
                     variant={system.status === 'operational' ? 'outline' : 'default'}
                     className="flex-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       updateSystemMutation.mutate({
                         id: system.id,
                         status: system.status === 'operational' ? 'maintenance' : 'operational'
@@ -223,8 +228,7 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       setSelectedSystem(system);
                       setShowPredictions(true);
                     }}

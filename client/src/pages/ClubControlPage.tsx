@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { Equipment, FloorPlan } from "@db/schema";
 import ClubControlTabs from "@/components/club/ClubControlTabs";
+import FacilityDashboard from "@/components/club/facility/FacilityDashboard";
 
 // Lazy load components
 const EquipmentList = lazy(() => import("@/components/club/EquipmentList"));
@@ -21,8 +22,10 @@ const LoadingSpinner = () => (
   </div>
 );
 
+type TabType = "equipment" | "facility";
+
 export default function ClubControlPage() {
-  const [view, setView] = useState<"list" | "map">("list");
+  const [activeTab, setActiveTab] = useState<TabType>("facility");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment[]>([]);
   const [showingPrediction, setShowingPrediction] = useState(false);
 
@@ -58,7 +61,35 @@ export default function ClubControlPage() {
         </p>
       </div>
 
-      <ClubControlTabs />
+      <div className="flex space-x-4 mb-6">
+        <Button 
+          variant={activeTab === "equipment" ? "default" : "outline"}
+          onClick={() => setActiveTab("equipment")}
+        >
+          Equipment
+        </Button>
+        <Button 
+          variant={activeTab === "facility" ? "default" : "outline"}
+          onClick={() => setActiveTab("facility")}
+        >
+          Facility
+        </Button>
+      </div>
+
+      <Suspense fallback={<LoadingSpinner />}>
+        {activeTab === "equipment" ? (
+          <div className="space-y-6">
+            <EquipmentList data={equipment} onSelect={handleEquipmentSelect} />
+            {showingPrediction && selectedEquipment.length > 0 && (
+              <EquipmentUsagePrediction equipment={selectedEquipment} />
+            )}
+            <EquipmentComparisonDashboard />
+            <EquipmentPerformanceReport />
+          </div>
+        ) : (
+          <FacilityDashboard />
+        )}
+      </Suspense>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   faSlack,
   faWindows,
   faFacebook,
-  faInstagram
+  faInstagram,
 } from '@fortawesome/free-brands-svg-icons';
 import {
   faCheck,
@@ -88,6 +88,8 @@ import {
   faCoins,
   faBullseye,
   faHome,
+  faServer,
+  faWater,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -177,7 +179,9 @@ library.add(
   faDollarSign,
   faCoins,
   faBullseye,
-  faHome
+  faHome,
+  faServer,
+  faWater
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -271,7 +275,9 @@ const iconMap: Record<string, IconDefinition> = {
   'dollar-sign': faDollarSign,
   'coins': faCoins,
   'bullseye': faBullseye,
-  'home': faHome
+  'home': faHome,
+  'server': faServer,
+  'water': faWater
 };
 
 export function FontAwesomeIcon({ 
@@ -282,24 +288,6 @@ export function FontAwesomeIcon({
 }: FontAwesomeIconProps) {
   if (Array.isArray(icon)) {
     const [prefix, name] = icon;
-    if (prefix === 'fab') {
-      // Handle brand icons
-      const iconName = `fa${name.charAt(0).toUpperCase()}${name.slice(1)}`;
-      const brandIcon = iconMap[name];
-      if (!brandIcon) {
-        console.warn(`Brand icon "${name}" not found`);
-        return null;
-      }
-      return (
-        <FAIcon 
-          icon={brandIcon}
-          className={className}
-          size={size}
-          {...props}
-        />
-      );
-    }
-    // Handle pro light icons with array notation
     return (
       <FAIcon 
         icon={[prefix, name]}

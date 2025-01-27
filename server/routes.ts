@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer } from 'ws';
 import { CosmosClient, Container } from "@azure/cosmos";
 import { ContainerClient } from "@azure/storage-blob";
 import multer from "multer";
@@ -25,9 +26,8 @@ import {
   workoutSetLogs,
 } from "@db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
-import { WebSocketServer, WebSocket } from "ws";
 import { generateReport } from "./services/document-generator";
-import { listChats } from "./services/azure/cosmos_service";
+import { listChats, cosmosContainer } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
 import type { Request, Response } from "express";
 import { getStorageMetrics, getRecentActivity } from "./services/azure/blob_service";
@@ -35,7 +35,7 @@ import adminRouter from "./routes/admin";
 import { sendApprovalRequestEmail } from './services/email';
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { generateHealthReport } from "./services/health-report-generator";
-import { initializeMemberStorage, searchMembers, updateMemberData } from "./services/memberStorage"; // Import updateMemberData
+import { initializeMemberStorage, searchMembers, updateMemberData } from "./services/memberStorage";
 import { createWorkoutLog, getWorkoutLog, updateWorkoutLog } from "./services/workout-storage";
 import {
   getLatestPoolMaintenance,
@@ -44,6 +44,7 @@ import {
   addBuildingSystem,
   getInspections,
   createInspection,
+  updateBuildingSystem
 } from "./services/azure/facility_service";
 
 // Types
@@ -1866,7 +1867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })
             .returning();
 
-          // Generate approval/reject links
+          //          // Generate approval/reject links
           const baseUrl = `${req.protocol}://${req.get('host')}`;
           const approvalLink = `${baseUrl}/api/documents/${documentId}/approve/${approval.id}`;
           const rejectLink = `${baseUrl}/api/documents/${documentId}/reject/${approval.id}`;
@@ -2628,10 +2629,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 }
 
-import { WebSocketServer } from 'ws';
-// ... existing imports remain unchanged ...
-
-// Update WebSocket setup
 export function setupWebSocketServer(httpServer: Server, app: Express): WebSocketServer {
   const wss = new WebSocketServer({
     server: httpServer,
@@ -2765,4 +2762,60 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
   });
 
   return wss;
+}
+
+// Update the getBuildingSystems function to remove ordering
+export async function getBuildingSystems() {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.type = 'building-system'"
+    };
+
+    const { resources } = await cosmosContainer.items.query(querySpec).fetchAll();
+    return resources || [];
+  } catch (error) {
+    console.error("Error fetching building systems:", error);
+    throw error;
+  }
+}
+
+// Update the addBuildingSystem function
+export async function addBuildingSystem(systemData) {
+  try {
+    const newSystem = {
+      id: uuidv4(),
+      type: 'building-system',
+      ...systemData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource } = await cosmosContainer.items.create(newSystem);
+    return resource;
+  } catch (error) {
+    console.error("Error adding building system:", error);
+    throw error;
+  }
+}
+
+// Add updateBuildingSystem function
+export async function updateBuildingSystem(id, updates) {
+  try {
+    const { resource } = await cosmosContainer.item(id, id).read();
+    if (!resource) {
+      throw new Error("Building system not found");
+    }
+
+    const updatedSystem = {
+      ...resource,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource: updated } = await cosmosContainer.item(id, id).replace(updatedSystem);
+    return updated;
+  } catch (error) {
+    console.error("Error updating building system:", error);
+    throw error;
+  }
 }

@@ -1,7 +1,6 @@
 import { OpenAIClient } from "@azure/openai";
 import { AzureKeyCredential } from "@azure/core-auth";
-import { checkContainerAvailability } from "./cosmos_service";
-import { checkBlobStorageConnection } from "./blob_service";
+import { getContainer } from "./cosmos_service";
 
 let client: OpenAIClient | null = null;
 const deploymentName = process.env.AZURE_OPENAI_MODEL || "GYMAIEngine-gpt-4o";
@@ -80,11 +79,47 @@ export async function checkOpenAIConnection() {
       });
     }
 
-    // Check other services
-    services.push(...await Promise.all([
-      checkCosmosDBStatus(),
-      checkBlobStorageStatus()
-    ]));
+    // Check Cosmos DB connection
+    try {
+      const container = getContainer('building-systems');
+      if (!container) {
+        services.push({
+          name: "Azure Cosmos DB",
+          status: "error",
+          message: "Failed to connect to Cosmos DB"
+        });
+      } else {
+        await container.items.query("SELECT VALUE COUNT(1) FROM c").fetchAll();
+        services.push({
+          name: "Azure Cosmos DB",
+          status: "connected",
+          message: "Connected to Cosmos DB"
+        });
+      }
+    } catch (error: any) {
+      services.push({
+        name: "Azure Cosmos DB",
+        status: "error",
+        message: `Failed to connect to Cosmos DB: ${error.message || 'Unknown error'}`
+      });
+    }
+
+    // Check Blob Storage
+    try {
+      const blobStatus = await checkBlobStorageConnection();
+      services.push({
+        name: "Azure Blob Storage",
+        status: blobStatus ? "connected" : "error",
+        message: blobStatus ? "Connected to Blob Storage" : "Failed to connect to Blob Storage"
+      });
+    } catch (error: any) {
+      services.push({
+        name: "Azure Blob Storage",
+        status: "error",
+        message: `Failed to connect to Blob Storage: ${error.message || 'Unknown error'}`
+      });
+    }
+
 
     return services;
   } catch (error) {
@@ -94,40 +129,6 @@ export async function checkOpenAIConnection() {
       status: "error",
       message: error instanceof Error ? error.message : "Failed to check services status"
     }];
-  }
-}
-
-async function checkCosmosDBStatus() {
-  try {
-    const cosmosStatus = await checkContainerAvailability();
-    return {
-      name: "Azure Cosmos DB",
-      status: cosmosStatus ? "connected" : "error",
-      message: cosmosStatus ? "Connected to Cosmos DB" : "Failed to connect to Cosmos DB"
-    };
-  } catch (error: any) {
-    return {
-      name: "Azure Cosmos DB",
-      status: "error",
-      message: `Failed to connect to Cosmos DB: ${error.message || 'Unknown error'}`
-    };
-  }
-}
-
-async function checkBlobStorageStatus() {
-  try {
-    const blobStatus = await checkBlobStorageConnection();
-    return {
-      name: "Azure Blob Storage",
-      status: blobStatus ? "connected" : "error",
-      message: blobStatus ? "Connected to Blob Storage" : "Failed to connect to Blob Storage"
-    };
-  } catch (error: any) {
-    return {
-      name: "Azure Blob Storage",
-      status: "error",
-      message: `Failed to connect to Blob Storage: ${error.message || 'Unknown error'}`
-    };
   }
 }
 
@@ -207,5 +208,63 @@ export async function generateSummary(content: string) {
   } catch (error) {
     console.warn("Error generating summary:", error);
     return null;
+  }
+}
+
+export async function predictMaintenanceNeeds(systemData: any) {
+  const openaiClient = await ensureInitialized();
+  if (!openaiClient) {
+    return "AI service unavailable for maintenance prediction";
+  }
+
+  try {
+    console.log("Generating maintenance prediction for system:", systemData.name);
+    const result = await openaiClient.getChatCompletions(deploymentName, [
+      {
+        role: "system",
+        content: `You are an expert facility maintenance AI assistant specializing in predictive maintenance for building systems. Analyze the provided system data and generate maintenance predictions and recommendations.
+
+Format your response as a JSON object with the following structure:
+{
+  "nextMaintenanceDate": "YYYY-MM-DD",
+  "predictedIssues": ["issue1", "issue2"],
+  "maintenanceRecommendations": ["recommendation1", "recommendation2"],
+  "urgencyLevel": "low|medium|high",
+  "estimatedMaintenanceCost": number,
+  "confidenceScore": number (0-1)
+}`
+      },
+      {
+        role: "user",
+        content: JSON.stringify(systemData)
+      }
+    ]);
+
+    if (!result?.choices?.[0]?.message?.content) {
+      throw new Error("No prediction generated");
+    }
+
+    const prediction = JSON.parse(result.choices[0].message.content);
+    return prediction;
+  } catch (error) {
+    console.error("Error generating maintenance prediction:", error);
+    return null;
+  }
+}
+
+async function checkBlobStorageStatus() {
+  try {
+    const blobStatus = await checkBlobStorageConnection();
+    return {
+      name: "Azure Blob Storage",
+      status: blobStatus ? "connected" : "error",
+      message: blobStatus ? "Connected to Blob Storage" : "Failed to connect to Blob Storage"
+    };
+  } catch (error: any) {
+    return {
+      name: "Azure Blob Storage",
+      status: "error",
+      message: `Failed to connect to Blob Storage: ${error.message || 'Unknown error'}`
+    };
   }
 }

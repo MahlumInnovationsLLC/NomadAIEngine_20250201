@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 let client: CosmosClient | null = null;
 export let database: Database | null = null;
-let container: Container | null = null;
+let containers: Record<string, Container> = {};
 
 export async function initializeCosmosDB() {
   try {
@@ -26,22 +26,23 @@ export async function initializeCosmosDB() {
     database = db;
 
     // Create containers if they don't exist
-    await Promise.all([
-      database.containers.createIfNotExists({
-        id: "chats",
-        partitionKey: { paths: ["/userKey"] }
-      }),
-      database.containers.createIfNotExists({
-        id: "equipment",
-        partitionKey: { paths: ["/id"] }
-      }),
-      database.containers.createIfNotExists({
-        id: "equipment-types",
-        partitionKey: { paths: ["/id"] }
-      })
-    ]);
+    const containerConfigs = [
+      { id: "chats", partitionKey: "/userKey" },
+      { id: "equipment", partitionKey: "/id" },
+      { id: "equipment-types", partitionKey: "/id" },
+      { id: "building-systems", partitionKey: "/id" }
+    ];
 
-    container = database.container('chats');
+    await Promise.all(
+      containerConfigs.map(async (config) => {
+        const { container } = await database!.containers.createIfNotExists({
+          id: config.id,
+          partitionKey: { paths: [config.partitionKey] }
+        });
+        containers[config.id] = container;
+      })
+    );
+
     console.log("Successfully connected to Azure Cosmos DB and initialized containers");
   } catch (error) {
     console.error("Error initializing Cosmos DB:", error);
@@ -49,31 +50,31 @@ export async function initializeCosmosDB() {
   }
 }
 
-export async function checkContainerAvailability(): Promise<boolean> {
-  try {
-    if (!container) {
-      await initializeCosmosDB();
-    }
-    if (!container) {
-      return false;
-    }
-    await container.read();
-    return true;
-  } catch (error) {
-    console.error("Error checking Cosmos DB connection:", error);
-    return false;
-  }
+// Export functions to get specific containers
+export function getContainer(containerId: string): Container | null {
+  return containers[containerId] || null;
 }
 
-function ensureContainer() {
+export const cosmosContainer = {
+  get items() {
+    return getContainer('building-systems')?.items;
+  },
+  item(id: string, partitionKey: string) {
+    return getContainer('building-systems')?.item(id, partitionKey);
+  }
+};
+
+function ensureContainer(containerId: string) {
+  const container = getContainer(containerId);
   if (!container) {
-    throw new Error("Cosmos DB not initialized. Please check your connection.");
+    throw new Error(`Cosmos DB container '${containerId}' not initialized. Please check your connection.`);
   }
   return container;
 }
 
+
 export async function createChat(chatData: any) {
-  const cont = ensureContainer();
+  const cont = ensureContainer('building-systems');
 
   try {
     // Generate a unique chat ID using UUID with timestamp to avoid conflicts
@@ -114,7 +115,7 @@ export async function createChat(chatData: any) {
 }
 
 export async function updateChat(chatId: string, updates: any) {
-  const cont = ensureContainer();
+  const cont = ensureContainer('building-systems');
 
   try {
     const { resource: existingChat } = await cont.item(chatId, updates.userKey || 'default_user').read();
@@ -145,7 +146,7 @@ export async function updateChat(chatId: string, updates: any) {
 }
 
 export async function deleteChat(chatId: string, userKey: string = 'default_user') {
-  const cont = ensureContainer();
+  const cont = ensureContainer('building-systems');
 
   try {
     // Soft delete by marking the chat as deleted
@@ -170,7 +171,7 @@ export async function deleteChat(chatId: string, userKey: string = 'default_user
 }
 
 export async function listChats(userKey: string = 'default_user') {
-  const cont = ensureContainer();
+  const cont = ensureContainer('building-systems');
 
   try {
     const querySpec = {
