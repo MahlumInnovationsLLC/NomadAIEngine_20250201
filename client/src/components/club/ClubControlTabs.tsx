@@ -35,43 +35,50 @@ export default function ClubControlTabs() {
   };
 
   return (
-    <Card className="p-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full grid grid-cols-2 gap-4">
-          <TabsTrigger value="equipment" className="w-full">Equipment</TabsTrigger>
-          <TabsTrigger value="facility" className="w-full">Facility</TabsTrigger>
-        </TabsList>
+    <div className="space-y-8">
+      <h2 className="text-3xl font-bold tracking-tight">Club Control</h2>
+      <p className="text-muted-foreground">
+        Manage your facility equipment and maintenance
+      </p>
 
-        <TabsContent value="equipment" className="space-y-4">
-          <StatisticsCards equipment={equipment} />
+      <Card className="p-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="w-full grid grid-cols-2 gap-4">
+            <TabsTrigger value="equipment" className="w-full">Equipment</TabsTrigger>
+            <TabsTrigger value="facility" className="w-full">Facility</TabsTrigger>
+          </TabsList>
 
-          {/* Equipment Sub-tabs */}
-          <Tabs value={activeEquipmentTab} onValueChange={setActiveEquipmentTab}>
-            <TabsList className="w-full flex justify-start space-x-2">
-              <TabsTrigger value="management">Equipment Management</TabsTrigger>
-              <TabsTrigger value="maintenance">Equipment Maintenance</TabsTrigger>
-            </TabsList>
+          <TabsContent value="equipment" className="space-y-4">
+            <StatisticsCards equipment={equipment} />
 
-            <TabsContent value="management" className="space-y-4">
-              <EquipmentList 
-                equipment={equipment}
-                onEquipmentSelect={handleEquipmentSelect}
-                selectedEquipment={selectedEquipment}
-              />
-              <EquipmentDashboard />
-            </TabsContent>
+            {/* Equipment Sub-tabs */}
+            <Tabs value={activeEquipmentTab} onValueChange={setActiveEquipmentTab}>
+              <TabsList className="w-full flex justify-start space-x-2">
+                <TabsTrigger value="management">Equipment Management</TabsTrigger>
+                <TabsTrigger value="maintenance">Equipment Maintenance</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="maintenance" className="space-y-4">
-              <EquipmentHealthDashboard />
-              <MaintenanceTimeline equipment={equipment} />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
+              <TabsContent value="management" className="space-y-4">
+                <EquipmentList 
+                  equipment={equipment}
+                  onEquipmentSelect={handleEquipmentSelect}
+                  selectedEquipment={selectedEquipment}
+                />
+                <EquipmentDashboard />
+              </TabsContent>
 
-        <TabsContent value="facility" className="space-y-4">
-          <FacilityDashboard />
-        </TabsContent>
-      </Tabs>
-    </Card>
+              <TabsContent value="maintenance" className="space-y-4">
+                <EquipmentHealthDashboard />
+                <MaintenanceTimeline equipment={equipment} />
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="facility" className="space-y-4">
+            <FacilityDashboard />
+          </TabsContent>
+        </Tabs>
+      </Card>
+    </div>
   );
 }
