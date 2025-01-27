@@ -11,6 +11,7 @@ import { Equipment } from "@db/schema";
 
 export default function ClubControlTabs() {
   const [activeTab, setActiveTab] = useState("equipment");
+  const [activeEquipmentTab, setActiveEquipmentTab] = useState("management");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment[]>([]);
 
   // Fetch equipment data
@@ -42,13 +43,27 @@ export default function ClubControlTabs() {
 
         <TabsContent value="equipment" className="space-y-4">
           <StatisticsCards equipment={equipment} />
-          <EquipmentList 
-            equipment={equipment}
-            onEquipmentSelect={handleEquipmentSelect}
-            selectedEquipment={selectedEquipment}
-          />
-          <MaintenanceTimeline equipment={equipment} />
-          <EquipmentDashboard />
+
+          {/* Equipment Sub-tabs */}
+          <Tabs value={activeEquipmentTab} onValueChange={setActiveEquipmentTab}>
+            <TabsList>
+              <TabsTrigger value="management">Equipment Management</TabsTrigger>
+              <TabsTrigger value="maintenance">Equipment Maintenance</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="management" className="space-y-4">
+              <EquipmentList 
+                equipment={equipment}
+                onEquipmentSelect={handleEquipmentSelect}
+                selectedEquipment={selectedEquipment}
+              />
+              <EquipmentDashboard />
+            </TabsContent>
+
+            <TabsContent value="maintenance" className="space-y-4">
+              <MaintenanceTimeline equipment={equipment} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="facility" className="space-y-4">
