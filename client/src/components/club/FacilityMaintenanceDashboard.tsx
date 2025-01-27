@@ -32,6 +32,8 @@ export default function FacilityMaintenanceDashboard() {
   const pendingInspections = inspections?.filter(i => i.status === "pending") || [];
   const criticalSystems = buildingSystems?.filter(s => s.status !== "operational") || [];
 
+  console.log("Building Systems Data:", buildingSystems); // Add logging
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex justify-between items-center">
@@ -93,20 +95,12 @@ export default function FacilityMaintenanceDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs defaultValue={activeView} className="space-y-4" onValueChange={setActiveView}>
         <TabsList>
-          <TabsTrigger value="overview" onClick={() => setActiveView("overview")}>
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="pool" onClick={() => setActiveView("pool")}>
-            Pool Maintenance
-          </TabsTrigger>
-          <TabsTrigger value="systems" onClick={() => setActiveView("systems")}>
-            Building Systems
-          </TabsTrigger>
-          <TabsTrigger value="inspections" onClick={() => setActiveView("inspections")}>
-            Inspections
-          </TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="pool">Pool Maintenance</TabsTrigger>
+          <TabsTrigger value="systems">Building Systems</TabsTrigger>
+          <TabsTrigger value="inspections">Inspections</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">

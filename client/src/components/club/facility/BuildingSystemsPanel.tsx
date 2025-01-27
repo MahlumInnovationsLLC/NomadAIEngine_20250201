@@ -41,6 +41,8 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
     initialData: initialSystems,
   });
 
+  console.log("BuildingSystemsPanel - Received systems:", systems); // Debug log
+
   const updateSystemMutation = useMutation({
     mutationFn: async (data: { id: string; status: BuildingSystem['status'] }) => {
       const response = await fetch(`/api/facility/building-systems/${data.id}`, {
@@ -151,6 +153,9 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
     filterType === "all" ? true : system.type === filterType
   );
 
+  // Debug log for filtered systems
+  console.log("BuildingSystemsPanel - Filtered systems:", filteredSystems);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -243,6 +248,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
         ))}
       </div>
 
+      {/* Add System Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
@@ -296,6 +302,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
         </DialogContent>
       </Dialog>
 
+      {/* Predictive Maintenance Dialog */}
       <Dialog 
         open={showPredictions && selectedSystem !== null} 
         onOpenChange={(open) => {
