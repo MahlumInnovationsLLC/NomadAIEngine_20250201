@@ -37,18 +37,24 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
   const [filterType, setFilterType] = useState<string>("all");
   const [showPredictions, setShowPredictions] = useState(false);
 
-  // Fetch building systems using React Query
+  // Fetch building systems using React Query with automatic refetching
   const { data: systems = [], isLoading } = useQuery<BuildingSystem[]>({
     queryKey: [BUILDING_SYSTEMS_QUERY_KEY],
     initialData: initialSystems,
+    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const addSystemMutation = useMutation({
     mutationFn: async (newSystem: Partial<BuildingSystem>) => {
+      console.log("Adding new system:", newSystem); // Debug log
       const response = await fetch(BUILDING_SYSTEMS_QUERY_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSystem),
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -56,11 +62,16 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
         throw new Error(error || 'Failed to add system');
       }
 
-      return response.json();
+      const data = await response.json();
+      console.log("Server response:", data); // Debug log
+      return data;
     },
-    onSuccess: () => {
-      // Invalidate and refetch
+    onSuccess: (data) => {
+      console.log("Successfully added system:", data); // Debug log
+      // Force refetch the systems data
       queryClient.invalidateQueries({ queryKey: [BUILDING_SYSTEMS_QUERY_KEY] });
+      queryClient.refetchQueries({ queryKey: [BUILDING_SYSTEMS_QUERY_KEY] });
+
       setShowAddDialog(false);
       toast({
         title: 'System Added',
@@ -68,6 +79,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       });
     },
     onError: (error: Error) => {
+      console.error("Error adding system:", error); // Debug log
       toast({
         title: 'Error',
         description: error.message,
@@ -82,6 +94,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: data.status }),
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -136,8 +149,12 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       type: formData.get('type') as string,
       status: 'operational' as const,
       location: formData.get('location') as string,
+      notes: formData.get('notes') as string,
+      healthScore: 100,
+      metadata: {}
     };
 
+    console.log("Submitting new system:", newSystem); // Debug log
     await addSystemMutation.mutateAsync(newSystem);
   };
 
@@ -317,6 +334,15 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
                 name="location"
                 placeholder="Building Section A"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Input
+                id="notes"
+                name="notes"
+                placeholder="Additional information about the system"
               />
             </div>
 

@@ -24,6 +24,7 @@ import {
   marketingEvents,
   workoutLogs,
   workoutSetLogs,
+  buildingSystems
 } from "@db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { generateReport } from "./services/document-generator";
@@ -387,7 +388,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Building Systems endpoints
     app.get("/api/facility/building-systems", async (_req, res) => {
       try {
-        const systems = await getBuildingSystems();
+        console.log("Fetching building systems");
+        const systems = await db.select().from(buildingSystems);
+        console.log("Retrieved building systems:", systems);
         res.json(systems);
       } catch (error) {
         console.error("Error fetching building systems:", error);
@@ -397,12 +400,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.post("/api/facility/building-systems", async (req, res) => {
       try {
+        console.log("Received building system creation request:", req.body);
         const systemData = req.body;
-        const newSystem = await addBuildingSystem(systemData);
+
+        // Insert into database using drizzle
+        const [newSystem] = await db.insert(buildingSystems).values({
+          name: systemData.name,
+          type: systemData.type,
+          status: 'operational',
+          location: systemData.location,
+          notes: systemData.notes || null,
+          healthScore: '100',
+          metadata: {},
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastMaintenanceDate: null,
+          nextMaintenanceDate: null
+        }).returning();
+
+        console.log("Created new building system:", newSystem);
         res.json(newSystem);
       } catch (error) {
         console.error("Error adding building system:", error);
-        res.status(500).json({ error: "Failed to add building system" });
+        res.status(500).json({ error: "Failed to add building system", details: error instanceof Error ? error.message : String(error) });
       }
     });
 
@@ -410,10 +430,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const { id } = req.params;
         const updates = req.body;
-        const updatedSystem = await updateBuildingSystem(id, updates);
+
+        const [updatedSystem] = await db
+          .update(buildingSystems)
+          .set({
+            ...updates,
+            updatedAt: new Date()
+          })
+          .where(eq(buildingSystems.id, parseInt(id)))
+          .returning();
+
         if (!updatedSystem) {
           return res.status(404).json({ error: "Building system not found" });
         }
+
         res.json(updatedSystem);
       } catch (error) {
         console.error("Error updating building system:", error);
@@ -908,9 +938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error creating equipment:", error);
         res.status(500).json({ error: "Failed to create equipment" });
       }
-    });
-
-    app.patch("/api/equipment/:id", async (req, res) => {
+    });app.patch("/api/equipment/:id", async (req, res) => {
       try {
         const { id } = req.params;
         const updates = req.body;
