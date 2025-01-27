@@ -407,6 +407,41 @@ export const workoutSetLogs = pgTable("workout_set_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Add new tables for building systems and inspections
+export const buildingSystems = pgTable("building_systems", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  status: text("status", { 
+    enum: ['operational', 'maintenance', 'offline', 'error'] 
+  }).notNull().default('operational'),
+  lastMaintenanceDate: timestamp("last_maintenance_date"),
+  nextMaintenanceDate: timestamp("next_maintenance_date"),
+  healthScore: decimal("health_score", { precision: 4, scale: 2 }),
+  location: text("location"),
+  notes: text("notes"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const facilityInspections = pgTable("facility_inspections", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  type: text("type").notNull(),
+  status: text("status", { 
+    enum: ['pending', 'in_progress', 'completed', 'overdue'] 
+  }).notNull().default('pending'),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  completedDate: timestamp("completed_date"),
+  inspector: text("inspector"),
+  findings: jsonb("findings"),
+  issues: jsonb("issues"),
+  recommendations: text("recommendations"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Add after the existing tables
 export const customerSegments = pgTable("customer_segments", {
   id: serial("id").primaryKey(),
@@ -778,7 +813,6 @@ export const milestoneCelebrationsRelations = relations(milestoneCelebrations, (
   }),
 }));
 
-
 // Add relations
 export const workoutLogsRelations = relations(workoutLogs, ({ many, one }) => ({
   sets: many(workoutSetLogs),
@@ -795,7 +829,16 @@ export const workoutSetLogsRelations = relations(workoutSetLogs, ({ one }) => ({
   }),
 }));
 
-// Add schemas for the new tables
+// Add relations
+export const buildingSystemsRelations = relations(buildingSystems, ({ }) => ({
+  // Future relations can be added here
+}));
+
+export const facilityInspectionsRelations = relations(facilityInspections, ({ }) => ({
+  // Future relations can be added here
+}));
+
+// Schemas
 export const insertMemberSchema = createInsertSchema(members);
 export const selectMemberSchema = createSelectSchema(members);
 
@@ -851,6 +894,12 @@ export const selectUserMilestoneSchema = createSelectSchema(userMilestones);
 export const insertMilestoneCelebrationSchema = createInsertSchema(milestoneCelebrations);
 export const selectMilestoneCelebrationSchema = createSelectSchema(milestoneCelebrations);
 
+// Add schemas
+export const insertBuildingSystemSchema = createInsertSchema(buildingSystems);
+export const selectBuildingSystemSchema = createSelectSchema(buildingSystems);
+
+export const insertFacilityInspectionSchema = createInsertSchema(facilityInspections);
+export const selectFacilityInspectionSchema = createSelectSchema(facilityInspections);
 
 // Types
 export type Document = typeof documents.$inferSelect;
@@ -924,5 +973,8 @@ export type InsertWorkoutLog = typeof workoutLogs.$inferInsert;
 export type SelectWorkoutLog = typeof workoutLogs.$inferSelect;
 export type InsertWorkoutSetLog = typeof workoutSetLogs.$inferInsert;
 export type SelectWorkoutSetLog = typeof workoutSetLogs.$inferSelect;
+
+export type BuildingSystem = typeof buildingSystems.$inferSelect;
+export type FacilityInspection = typeof facilityInspections.$inferSelect;
 
 import { integer } from "drizzle-orm/pg-core";
