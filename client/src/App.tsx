@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { lazy, Suspense } from "react";
+import { Switch, Route } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import Navbar from "@/components/layout/Navbar";
 import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
+import FacilityDashboard from "@/components/club/facility/FacilityDashboard";
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
@@ -166,5 +167,22 @@ export default function AppWrapper() {
         </QueryClientProvider>
       </MsalProvider>
     </ErrorBoundary>
+  );
+}
+
+function ClubControlPage() {
+  return (
+    <AnimateTransition variant="fade">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold tracking-tight">Club Control</h1>
+        </div>
+        <div className="space-y-4">
+          <div className="grid gap-4">
+            <FacilityDashboard />
+          </div>
+        </div>
+      </div>
+    </AnimateTransition>
   );
 }
