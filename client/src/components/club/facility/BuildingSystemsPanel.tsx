@@ -36,9 +36,61 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
   const [showPredictions, setShowPredictions] = useState(false);
 
   // Fetch building systems using React Query
-  const { data: systems = [], isLoading } = useQuery<BuildingSystem[]>({
+  const { data: systems = [], isLoading, isError } = useQuery<BuildingSystem[]>({
     queryKey: ['/api/facility/building-systems'],
     initialData: initialSystems,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  const addSystemMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      console.log("Creating new building system with form data:", Object.fromEntries(formData));
+      const newSystem = {
+        name: formData.get('name') as string,
+        type: formData.get('type') as BuildingSystem['type'],
+        status: 'operational' as const,
+        location: formData.get('location') as string,
+        lastInspection: new Date().toISOString(),
+        nextInspection: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        maintenanceHistory: [],
+        installationDate: new Date().toISOString(),
+        warranty: {
+          provider: "Default Provider",
+          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          coverage: "Standard warranty"
+        },
+        specifications: {},
+      };
+
+      const response = await fetch('/api/facility/building-systems', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSystem),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to add system: ${errorText}`);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/facility/building-systems'] });
+      setShowAddDialog(false);
+      toast({
+        title: 'System Added',
+        description: 'New building system has been added successfully.',
+      });
+    },
+    onError: (error: Error) => {
+      console.error("Error adding building system:", error);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
   const updateSystemMutation = useMutation({
@@ -60,54 +112,6 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       toast({
         title: 'System Updated',
         description: 'Building system status has been updated successfully.',
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const addSystemMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      const newSystem = {
-        name: formData.get('name') as string,
-        type: formData.get('type') as BuildingSystem['type'],
-        status: 'operational' as const,
-        location: formData.get('location') as string,
-        lastInspection: new Date().toISOString(),
-        nextInspection: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-        maintenanceHistory: [],
-        installationDate: new Date().toISOString(),
-        warranty: {
-          provider: "Default Provider",
-          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
-          coverage: "Standard warranty"
-        },
-        specifications: {},
-      };
-
-      const response = await fetch('/api/facility/building-systems', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSystem),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add system');
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/facility/building-systems'] });
-      setShowAddDialog(false);
-      toast({
-        title: 'System Added',
-        description: 'New building system has been added successfully.',
       });
     },
     onError: (error: Error) => {
@@ -153,9 +157,26 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
     addSystemMutation.mutate(formData);
   };
 
-  const filteredSystems = systems.filter(system => 
+  const filteredSystems = systems.filter(system =>
     filterType === "all" ? true : system.type === filterType
   );
+
+  if (isError) {
+    return (
+      <Card className="w-full">
+        <CardContent className="flex flex-col items-center justify-center py-8">
+          <FontAwesomeIcon icon="exclamation-triangle" className="h-12 w-12 text-destructive mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Error Loading Systems</h3>
+          <p className="text-muted-foreground text-center mb-4">
+            Failed to load building systems. Please try again later.
+          </p>
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/facility/building-systems'] })}>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full">
@@ -295,7 +316,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
 
             <div className="space-y-2">
               <Label htmlFor="type">System Type</Label>
-              <Select name="type" required>
+              <Select name="type" required defaultValue="">
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -319,16 +340,27 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              Add System
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={addSystemMutation.isPending}
+            >
+              {addSystemMutation.isPending ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-r-transparent"></div>
+                  Adding...
+                </>
+              ) : (
+                'Add System'
+              )}
             </Button>
           </form>
         </DialogContent>
       </Dialog>
 
       {/* Predictive Maintenance Dialog */}
-      <Dialog 
-        open={showPredictions && selectedSystem !== null} 
+      <Dialog
+        open={showPredictions && selectedSystem !== null}
         onOpenChange={(open) => {
           setShowPredictions(open);
           if (!open) setSelectedSystem(null);

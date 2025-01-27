@@ -1,17 +1,10 @@
-import { CosmosClient } from "@azure/cosmos";
+import { Container } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
+import { getContainer, isCosmosInitialized, waitForCosmosInitialization } from './cosmos_service';
 
-if (!process.env.AZURE_COSMOS_CONNECTION_STRING) {
-  throw new Error("Azure Cosmos DB connection string not found");
-}
+let buildingSystemsContainer: Container | null = null;
 
-const client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
-const database = client.database("GYMAIEngineDB");
-const facilityContainer = database.container("facility-maintenance");
-const poolMaintenanceContainer = database.container("pool-maintenance");
-const buildingSystemsContainer = database.container("building-systems");
-const inspectionContainer = database.container("inspections");
-
+// Types
 export interface ChemicalReading {
   type: string;
   value: number;
@@ -59,65 +52,137 @@ export interface BuildingSystem {
     expirationDate: string;
     coverage: string;
   };
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface Inspection {
-  id: string;
-  type: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual';
-  status: 'pending' | 'completed' | 'overdue' | 'in-progress';
-  assignedTo: string;
-  dueDate: string;
-  completedDate?: string;
-  area: string;
-  checklist: {
-    item: string;
-    status: 'pass' | 'fail' | 'na';
-    notes?: string;
-  }[];
-  photos?: string[];
-  issues?: {
-    description: string;
-    severity: 'low' | 'medium' | 'high';
-    status: 'open' | 'in-progress' | 'resolved';
-  }[];
-  createdAt: string;
-  updatedAt: string;
+// Initialize Building Systems Container
+export async function getBuildingSystemsContainer(): Promise<Container> {
+  if (!buildingSystemsContainer) {
+    // Wait for Cosmos DB to be initialized
+    if (!isCosmosInitialized()) {
+      console.log("Waiting for Cosmos DB initialization...");
+      await waitForCosmosInitialization();
+    }
+
+    const container = getContainer('building-systems');
+    if (!container) {
+      throw new Error("Building systems container not initialized");
+    }
+    buildingSystemsContainer = container;
+  }
+  return buildingSystemsContainer;
 }
 
-export async function initializeFacilityDatabase() {
+// Building Systems Functions
+export async function getBuildingSystems(): Promise<BuildingSystem[]> {
   try {
-    await database.containers.createIfNotExists({
-      id: "facility-maintenance",
-      partitionKey: { paths: ["/id"] }
-    });
+    const container = await getBuildingSystemsContainer();
+    console.log("Fetching building systems from Cosmos DB...");
 
-    await database.containers.createIfNotExists({
-      id: "pool-maintenance",
-      partitionKey: { paths: ["/id"] }
-    });
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.type IN ('HVAC', 'Electrical', 'Plumbing', 'Safety', 'Other') ORDER BY c.createdAt DESC"
+    };
 
-    await database.containers.createIfNotExists({
-      id: "building-systems",
-      partitionKey: { paths: ["/id"] }
-    });
-
-    await database.containers.createIfNotExists({
-      id: "inspections",
-      partitionKey: { paths: ["/id"] }
-    });
-
-    console.log("Facility maintenance containers initialized successfully");
+    const { resources } = await container.items.query<BuildingSystem>(querySpec).fetchAll();
+    console.log(`Retrieved ${resources.length} building systems`);
+    return resources;
   } catch (error) {
-    console.error("Failed to initialize facility maintenance database:", error);
+    console.error("Failed to get building systems:", error);
+    return [];
+  }
+}
+
+export async function addBuildingSystem(system: Omit<BuildingSystem, "id" | "createdAt" | "updatedAt">): Promise<BuildingSystem> {
+  try {
+    const container = await getBuildingSystemsContainer();
+    console.log("Adding new building system:", system);
+
+    const now = new Date().toISOString();
+    const newSystem: BuildingSystem = {
+      id: uuidv4(),
+      ...system,
+      maintenanceHistory: system.maintenanceHistory || [],
+      specifications: system.specifications || {},
+      createdAt: now,
+      updatedAt: now
+    };
+
+    console.log("Creating building system in Cosmos DB...");
+    const { resource } = await container.items.create(newSystem);
+
+    if (!resource) {
+      throw new Error("Failed to create building system - no resource returned");
+    }
+
+    console.log("Successfully created building system:", resource.id);
+    return resource;
+  } catch (error) {
+    console.error("Failed to add building system:", error);
     throw error;
   }
 }
 
-// Pool Maintenance Functions
+export async function updateBuildingSystem(id: string, updates: Partial<BuildingSystem>): Promise<BuildingSystem | null> {
+  try {
+    const container = await getBuildingSystemsContainer();
+    console.log(`Updating building system ${id}:`, updates);
+
+    // First, get the existing system
+    const { resource: existingSystem } = await container.item(id, id).read<BuildingSystem>();
+
+    if (!existingSystem) {
+      console.warn(`Building system ${id} not found`);
+      return null;
+    }
+
+    const updatedSystem = {
+      ...existingSystem,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    console.log("Updating building system in Cosmos DB...");
+    const { resource } = await container.item(id, id).replace(updatedSystem);
+
+    if (!resource) {
+      throw new Error("Failed to update building system - no resource returned");
+    }
+
+    console.log("Successfully updated building system:", resource.id);
+    return resource;
+  } catch (error) {
+    console.error("Error updating building system:", error);
+    throw error;
+  }
+}
+
+export async function initializeFacilityDatabase() {
+  try {
+    // Wait for Cosmos DB to be initialized
+    if (!isCosmosInitialized()) {
+      console.log("Waiting for Cosmos DB initialization...");
+      await waitForCosmosInitialization();
+    }
+
+    console.log("Initializing building systems container...");
+    await getBuildingSystemsContainer();
+
+    // Initialize other containers as needed
+    console.log("Facility database initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize facility database:", error);
+    throw error;
+  }
+}
+
+// Initialize the database when the module loads
+initializeFacilityDatabase().catch(console.error);
+
 export async function getLatestPoolMaintenance(): Promise<PoolMaintenance | null> {
   try {
+    const database = await import("./cosmos_service").then(module => module.database);
+    const poolMaintenanceContainer = database.container('pool-maintenance');
     const querySpec = {
       query: "SELECT TOP 1 * FROM c ORDER BY c.createdAt DESC"
     };
@@ -132,6 +197,8 @@ export async function getLatestPoolMaintenance(): Promise<PoolMaintenance | null
 
 export async function addPoolChemicalReading(reading: ChemicalReading): Promise<PoolMaintenance> {
   try {
+    const database = await import("./cosmos_service").then(module => module.database);
+    const poolMaintenanceContainer = database.container('pool-maintenance');
     const latest = await getLatestPoolMaintenance();
     const now = new Date().toISOString();
 
@@ -173,157 +240,11 @@ export async function addPoolChemicalReading(reading: ChemicalReading): Promise<
   }
 }
 
-// Building Systems Functions
-export async function getBuildingSystems(): Promise<BuildingSystem[]> {
-  try {
-    // For testing purposes, return mock building systems
-    const mockSystems: BuildingSystem[] = [
-      {
-        id: "mock-hvac-1",
-        name: "Main HVAC System",
-        type: "HVAC",
-        status: "operational",
-        lastInspection: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        nextInspection: new Date(Date.now() + 23 * 24 * 60 * 60 * 1000).toISOString(),
-        maintenanceHistory: [
-          {
-            date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            type: "routine",
-            description: "Regular maintenance check",
-            technician: "John Smith",
-            cost: 250
-          }
-        ],
-        location: "Building A - First Floor",
-        installationDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
-        warranty: {
-          provider: "HVAC Solutions Inc",
-          expirationDate: new Date(Date.now() + 730 * 24 * 60 * 60 * 1000).toISOString(),
-          coverage: "Full parts and labor"
-        },
-        specifications: {
-          model: "HAC-2000",
-          capacity: "10 tons",
-          efficiency: "SEER 16"
-        },
-        createdAt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: "mock-electrical-1",
-        name: "Emergency Generator",
-        type: "Electrical",
-        status: "maintenance",
-        lastInspection: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        nextInspection: new Date(Date.now() + 16 * 24 * 60 * 60 * 1000).toISOString(),
-        maintenanceHistory: [
-          {
-            date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-            type: "repair",
-            description: "Replaced fuel filter",
-            technician: "Mike Johnson",
-            cost: 450
-          }
-        ],
-        location: "Building B - Basement",
-        installationDate: new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString(),
-        warranty: {
-          provider: "PowerGen Corp",
-          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-          coverage: "Limited warranty"
-        },
-        specifications: {
-          model: "PG-5000",
-          capacity: "500 kW",
-          fuelType: "Diesel"
-        },
-        createdAt: new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: "mock-plumbing-1",
-        name: "Water Treatment System",
-        type: "Plumbing",
-        status: "error",
-        lastInspection: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        nextInspection: new Date(Date.now() + 0 * 24 * 60 * 60 * 1000).toISOString(),
-        maintenanceHistory: [
-          {
-            date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            type: "emergency",
-            description: "Filter system malfunction",
-            technician: "Sarah Wilson",
-            cost: 850
-          }
-        ],
-        location: "Building A - Basement",
-        installationDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
-        warranty: {
-          provider: "AquaPure Systems",
-          expirationDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-          coverage: "Parts only"
-        },
-        specifications: {
-          model: "AP-2000",
-          capacity: "1000 GPD",
-          filterType: "Reverse Osmosis"
-        },
-        createdAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
 
-    return mockSystems;
-  } catch (error) {
-    console.error("Failed to get building systems:", error);
-    throw error;
-  }
-}
-
-export async function addBuildingSystem(system: Omit<BuildingSystem, "id" | "createdAt" | "updatedAt">): Promise<BuildingSystem> {
-  try {
-    const now = new Date().toISOString();
-    const newSystem = {
-      id: uuidv4(),
-      ...system,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    const { resource } = await buildingSystemsContainer.items.create(newSystem);
-    if (!resource) throw new Error("Failed to create building system");
-    return resource;
-  } catch (error) {
-    console.error("Failed to add building system:", error);
-    throw error;
-  }
-}
-
-export async function updateBuildingSystem(id: string, updates: Partial<BuildingSystem>): Promise<BuildingSystem | null> {
-  try {
-    const { resource: existingSystem } = await buildingSystemsContainer.item(id, id).read();
-
-    if (!existingSystem) {
-      return null;
-    }
-
-    const updatedSystem = {
-      ...existingSystem,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-
-    const { resource } = await buildingSystemsContainer.item(id, id).replace(updatedSystem);
-    return resource || null;
-  } catch (error) {
-    console.error("Error updating building system:", error);
-    throw error;
-  }
-}
-
-// Inspection Functions
 export async function getInspections(status?: Inspection["status"]): Promise<Inspection[]> {
   try {
+    const database = await import("./cosmos_service").then(module => module.database);
+    const inspectionContainer = database.container('inspections');
     const querySpec = {
       query: status
         ? "SELECT * FROM c WHERE c.status = @status ORDER BY c.dueDate ASC"
@@ -341,6 +262,8 @@ export async function getInspections(status?: Inspection["status"]): Promise<Ins
 
 export async function createInspection(inspection: Omit<Inspection, "id" | "createdAt" | "updatedAt">): Promise<Inspection> {
   try {
+    const database = await import("./cosmos_service").then(module => module.database);
+    const inspectionContainer = database.container('inspections');
     const now = new Date().toISOString();
     const newInspection = {
       id: uuidv4(),
@@ -358,5 +281,25 @@ export async function createInspection(inspection: Omit<Inspection, "id" | "crea
   }
 }
 
-// Initialize the database when the module loads
-initializeFacilityDatabase().catch(console.error);
+export interface Inspection {
+  id: string;
+  type: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual';
+  status: 'pending' | 'completed' | 'overdue' | 'in-progress';
+  assignedTo: string;
+  dueDate: string;
+  completedDate?: string;
+  area: string;
+  checklist: {
+    item: string;
+    status: 'pass' | 'fail' | 'na';
+    notes?: string;
+  }[];
+  photos?: string[];
+  issues?: {
+    description: string;
+    severity: 'low' | 'medium' | 'high';
+    status: 'open' | 'in-progress' | 'resolved';
+  }[];
+  createdAt: string;
+  updatedAt: string;
+}
