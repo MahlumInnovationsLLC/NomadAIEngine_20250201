@@ -4,15 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 let client: CosmosClient | null = null;
 export let database: Database | null = null;
 let containers: Record<string, Container> = {};
-let isInitialized = false;
 
 export async function initializeCosmosDB() {
   try {
-    if (isInitialized) {
-      console.log("Cosmos DB already initialized");
-      return;
-    }
-
     if (!process.env.AZURE_COSMOS_CONNECTION_STRING) {
       throw new Error("Azure Cosmos DB connection string not configured");
     }
@@ -23,11 +17,9 @@ export async function initializeCosmosDB() {
       throw new Error("Azure Cosmos DB connection string is empty");
     }
 
-    console.log("Creating Cosmos DB client...");
     client = new CosmosClient(connectionString);
 
     // Create database if it doesn't exist
-    console.log("Creating/getting database...");
     const { database: db } = await client.databases.createIfNotExists({
       id: "GYMAIEngineDB"
     });
@@ -38,16 +30,11 @@ export async function initializeCosmosDB() {
       { id: "chats", partitionKey: "/userKey" },
       { id: "equipment", partitionKey: "/id" },
       { id: "equipment-types", partitionKey: "/id" },
-      { id: "building-systems", partitionKey: "/id" },
-      { id: "facility-maintenance", partitionKey: "/id" },
-      { id: "pool-maintenance", partitionKey: "/id" },
-      { id: "inspections", partitionKey: "/id" }
+      { id: "building-systems", partitionKey: "/id" }
     ];
 
-    console.log("Creating/getting containers...");
     await Promise.all(
       containerConfigs.map(async (config) => {
-        console.log(`Creating/getting container: ${config.id}`);
         const { container } = await database!.containers.createIfNotExists({
           id: config.id,
           partitionKey: { paths: [config.partitionKey] }
@@ -56,7 +43,6 @@ export async function initializeCosmosDB() {
       })
     );
 
-    isInitialized = true;
     console.log("Successfully connected to Azure Cosmos DB and initialized containers");
   } catch (error) {
     console.error("Error initializing Cosmos DB:", error);
@@ -66,19 +52,7 @@ export async function initializeCosmosDB() {
 
 // Export functions to get specific containers
 export function getContainer(containerId: string): Container | null {
-  if (!isInitialized) {
-    console.warn(`Cosmos DB not initialized when requesting container: ${containerId}`);
-    return null;
-  }
   return containers[containerId] || null;
-}
-
-function ensureContainer(containerId: string) {
-  const container = getContainer(containerId);
-  if (!container) {
-    throw new Error(`Cosmos DB container '${containerId}' not initialized. Please check your connection.`);
-  }
-  return container;
 }
 
 export const cosmosContainer = {
@@ -90,23 +64,15 @@ export const cosmosContainer = {
   }
 };
 
-// Export function to check initialization status
-export function isCosmosInitialized() {
-  return isInitialized;
+function ensureContainer(containerId: string) {
+  const container = getContainer(containerId);
+  if (!container) {
+    throw new Error(`Cosmos DB container '${containerId}' not initialized. Please check your connection.`);
+  }
+  return container;
 }
 
-// Export function to wait for initialization
-export async function waitForCosmosInitialization(timeoutMs = 30000) {
-  const startTime = Date.now();
-  while (!isInitialized && Date.now() - startTime < timeoutMs) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  if (!isInitialized) {
-    throw new Error("Timed out waiting for Cosmos DB initialization");
-  }
-}
 
-// Export function to create chat
 export async function createChat(chatData: any) {
   const cont = ensureContainer('building-systems');
 
@@ -148,7 +114,6 @@ export async function createChat(chatData: any) {
   }
 }
 
-// Export function to update chat
 export async function updateChat(chatId: string, updates: any) {
   const cont = ensureContainer('building-systems');
 
@@ -180,7 +145,6 @@ export async function updateChat(chatId: string, updates: any) {
   }
 }
 
-// Export function to delete chat
 export async function deleteChat(chatId: string, userKey: string = 'default_user') {
   const cont = ensureContainer('building-systems');
 
@@ -206,7 +170,6 @@ export async function deleteChat(chatId: string, userKey: string = 'default_user
   }
 }
 
-// Export function to list chats
 export async function listChats(userKey: string = 'default_user') {
   const cont = ensureContainer('building-systems');
 
