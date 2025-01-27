@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { Equipment, FloorPlan } from "@db/schema";
+import ClubControlTabs from "@/components/club/ClubControlTabs";
 
 // Lazy load components
 const EquipmentList = lazy(() => import("@/components/club/EquipmentList"));
@@ -50,73 +51,14 @@ export default function ClubControlPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Club Control</h1>
-          <p className="text-muted-foreground">
-            Monitor and manage your fitness equipment
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={view === "list" ? "default" : "outline"}
-            onClick={() => setView("list")}
-            className="gap-2"
-          >
-            <FontAwesomeIcon icon="list" className="h-4 w-4" />
-            List View
-          </Button>
-          <Button
-            variant={view === "map" ? "default" : "outline"}
-            onClick={() => setView("map")}
-            className="gap-2"
-          >
-            <FontAwesomeIcon icon="map-pin" className="h-4 w-4" />
-            Map View
-          </Button>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Club Control</h1>
+        <p className="text-muted-foreground">
+          Manage your facility equipment and maintenance
+        </p>
       </div>
 
-      <Suspense fallback={<LoadingSpinner />}>
-        <StatisticsCards equipment={equipment} />
-      </Suspense>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-        <div className="lg:col-span-2">
-          <Card className="bg-card rounded-lg border">
-            <Suspense fallback={<LoadingSpinner />}>
-              {view === "list" ? (
-                <EquipmentList 
-                  equipment={equipment} 
-                  onEquipmentSelect={handleEquipmentSelect}
-                  selectedEquipment={selectedEquipment}
-                />
-              ) : (
-                <FloorPlanView 
-                  floorPlan={floorPlan} 
-                  equipment={equipment}
-                />
-              )}
-            </Suspense>
-          </Card>
-        </div>
-
-        <div className="space-y-8">
-          <Suspense fallback={<LoadingSpinner />}>
-            <EquipmentComparisonDashboard selectedEquipment={selectedEquipment} />
-          </Suspense>
-
-          {showingPrediction && selectedEquipment.length === 1 && (
-            <Suspense fallback={<LoadingSpinner />}>
-              <EquipmentUsagePrediction equipmentId={selectedEquipment[0].id} />
-            </Suspense>
-          )}
-
-          <Suspense fallback={<LoadingSpinner />}>
-            <EquipmentPerformanceReport selectedEquipment={selectedEquipment} />
-          </Suspense>
-        </div>
-      </div>
+      <ClubControlTabs />
     </div>
   );
 }
