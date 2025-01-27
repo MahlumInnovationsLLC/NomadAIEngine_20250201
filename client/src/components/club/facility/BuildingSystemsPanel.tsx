@@ -72,7 +72,24 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
   });
 
   const addSystemMutation = useMutation({
-    mutationFn: async (newSystem: Partial<BuildingSystem>) => {
+    mutationFn: async (formData: FormData) => {
+      const newSystem = {
+        name: formData.get('name') as string,
+        type: formData.get('type') as BuildingSystem['type'],
+        status: 'operational' as const,
+        location: formData.get('location') as string,
+        lastInspection: new Date().toISOString(),
+        nextInspection: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        maintenanceHistory: [],
+        installationDate: new Date().toISOString(),
+        warranty: {
+          provider: "Default Provider",
+          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+          coverage: "Standard warranty"
+        },
+        specifications: {},
+      };
+
       const response = await fetch('/api/facility/building-systems', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -133,18 +150,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
   const handleAddSystem = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-
-    const newSystem = {
-      name: formData.get('name') as string,
-      type: formData.get('type') as BuildingSystem['type'],
-      status: 'operational' as BuildingSystem['status'],
-      location: formData.get('location') as string,
-      lastInspection: new Date().toISOString(),
-      nextInspection: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      installationDate: new Date().toISOString(),
-    };
-
-    addSystemMutation.mutate(newSystem);
+    addSystemMutation.mutate(formData);
   };
 
   const filteredSystems = systems.filter(system => 
