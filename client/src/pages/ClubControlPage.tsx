@@ -1,10 +1,10 @@
 import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { Equipment, FloorPlan } from "@db/schema";
-import ClubControlTabs from "@/components/club/ClubControlTabs";
 import FacilityDashboard from "@/components/club/facility/FacilityDashboard";
 
 // Lazy load components
@@ -22,10 +22,7 @@ const LoadingSpinner = () => (
   </div>
 );
 
-type TabType = "equipment" | "facility";
-
 export default function ClubControlPage() {
-  const [activeTab, setActiveTab] = useState<TabType>("facility");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment[]>([]);
   const [showingPrediction, setShowingPrediction] = useState(false);
 
@@ -61,39 +58,35 @@ export default function ClubControlPage() {
         </p>
       </div>
 
-      <div className="flex space-x-4 mb-6">
-        <Button 
-          variant={activeTab === "equipment" ? "default" : "outline"}
-          onClick={() => setActiveTab("equipment")}
-        >
-          Equipment
-        </Button>
-        <Button 
-          variant={activeTab === "facility" ? "default" : "outline"}
-          onClick={() => setActiveTab("facility")}
-        >
-          Facility
-        </Button>
-      </div>
+      <Tabs defaultValue="equipment" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="equipment">Equipment</TabsTrigger>
+          <TabsTrigger value="facility">Facility</TabsTrigger>
+        </TabsList>
 
-      <Suspense fallback={<LoadingSpinner />}>
-        {activeTab === "equipment" ? (
-          <div className="space-y-6">
-            <EquipmentList 
-              equipment={equipment} 
-              onEquipmentSelect={handleEquipmentSelect}
-              selectedEquipment={selectedEquipment}
-            />
-            {showingPrediction && selectedEquipment.length > 0 && (
-              <EquipmentUsagePrediction equipmentId={selectedEquipment[0].id} />
-            )}
-            <EquipmentComparisonDashboard selectedEquipment={selectedEquipment} />
-            <EquipmentPerformanceReport selectedEquipment={selectedEquipment} />
-          </div>
-        ) : (
-          <FacilityDashboard />
-        )}
-      </Suspense>
+        <TabsContent value="equipment" className="space-y-6">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="space-y-6">
+              <EquipmentList 
+                equipment={equipment} 
+                onEquipmentSelect={handleEquipmentSelect}
+                selectedEquipment={selectedEquipment}
+              />
+              {showingPrediction && selectedEquipment.length > 0 && (
+                <EquipmentUsagePrediction equipmentId={selectedEquipment[0].id} />
+              )}
+              <EquipmentComparisonDashboard selectedEquipment={selectedEquipment} />
+              <EquipmentPerformanceReport selectedEquipment={selectedEquipment} />
+            </div>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="facility">
+          <Suspense fallback={<LoadingSpinner />}>
+            <FacilityDashboard />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
