@@ -8,6 +8,7 @@ import StatisticsCards from "./StatisticsCards";
 import EquipmentList from "./EquipmentList";
 import { useQuery } from "@tanstack/react-query";
 import { Equipment } from "@db/schema";
+import { EquipmentHealthDashboard } from "./EquipmentHealthDashboard";
 
 export default function ClubControlTabs() {
   const [activeTab, setActiveTab] = useState("equipment");
@@ -61,6 +62,7 @@ export default function ClubControlTabs() {
             </TabsContent>
 
             <TabsContent value="maintenance" className="space-y-4">
+              <EquipmentHealthDashboard />
               <MaintenanceTimeline equipment={equipment} />
             </TabsContent>
           </Tabs>
