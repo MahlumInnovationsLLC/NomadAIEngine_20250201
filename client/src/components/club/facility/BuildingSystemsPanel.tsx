@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import PredictiveMaintenancePanel from "./PredictiveMaintenancePanel";
 
 interface BuildingSystemsPanelProps {
   systems: BuildingSystem[];
@@ -32,6 +33,7 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
   const [selectedSystem, setSelectedSystem] = useState<BuildingSystem | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
+  const [showPredictions, setShowPredictions] = useState(false);
 
   const updateSystemMutation = useMutation({
     mutationFn: async (data: { id: string; status: BuildingSystem['status'] }) => {
@@ -173,7 +175,6 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
           <Card
             key={system.id}
             className="cursor-pointer hover:bg-accent transition-colors"
-            onClick={() => setSelectedSystem(system)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{system.name}</CardTitle>
@@ -183,7 +184,7 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
               />
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Status:</span>
                   <span className={getStatusColor(system.status)}>{system.status}</span>
@@ -219,6 +220,18 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
                   >
                     {system.status === 'operational' ? 'Mark Maintenance' : 'Mark Operational'}
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedSystem(system);
+                      setShowPredictions(true);
+                    }}
+                  >
+                    <FontAwesomeIcon icon="chart-line" className="mr-2 h-4 w-4" />
+                    Predict
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -226,7 +239,6 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
         ))}
       </div>
 
-      {/* Add System Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
@@ -277,6 +289,27 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
               Add System
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog 
+        open={showPredictions && selectedSystem !== null} 
+        onOpenChange={(open) => {
+          setShowPredictions(open);
+          if (!open) setSelectedSystem(null);
+        }}
+      >
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Predictive Maintenance - {selectedSystem?.name}</DialogTitle>
+            <DialogDescription>
+              AI-powered maintenance predictions and recommendations
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSystem && (
+            <PredictiveMaintenancePanel system={selectedSystem} />
+          )}
         </DialogContent>
       </Dialog>
     </div>
