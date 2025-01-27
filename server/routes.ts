@@ -37,6 +37,14 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import { generateHealthReport } from "./services/health-report-generator";
 import { initializeMemberStorage, searchMembers, updateMemberData } from "./services/memberStorage"; // Import updateMemberData
 import { createWorkoutLog, getWorkoutLog, updateWorkoutLog } from "./services/workout-storage";
+import {
+  getLatestPoolMaintenance,
+  addPoolChemicalReading,
+  getBuildingSystems,
+  addBuildingSystem,
+  getInspections,
+  createInspection,
+} from "./services/azure/facility_service";
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -342,10 +350,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Initialize the HTTP server
-    const httpServer = createServer(app);
-    const wsServer = setupWebSocketServer(httpServer, app); // Pass app to setupWebSocketServer
-
     // Add user authentication middleware
     app.use((req: AuthenticatedRequest, res, next) => {
       req.user = { id: '1', username: 'test_user' };
@@ -356,6 +360,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.use('/api/support', supportRouter);
     app.use('/api/admin', adminRouter);
 
+
+    // Pool Maintenance endpoints
+    app.get("/api/facility/pool/latest", async (_req, res) => {
+      try {
+        const poolData = await getLatestPoolMaintenance();
+        res.json(poolData);
+      } catch (error) {
+        console.error("Error fetching pool maintenance:", error);
+        res.status(500).json({ error: "Failed to fetch pool maintenance data" });
+      }
+    });
+
+    app.post("/api/facility/pool/readings", async (req, res) => {
+      try {
+        const reading = req.body;
+        const updatedMaintenance = await addPoolChemicalReading(reading);
+        res.json(updatedMaintenance);
+      } catch (error) {
+        console.error("Error adding pool reading:", error);
+        res.status(500).json({ error: "Failed to add pool reading" });
+      }
+    });
+
+    // Building Systems endpoints
+    app.get("/api/facility/building-systems", async (_req, res) => {
+      try {
+        const systems = await getBuildingSystems();
+        res.json(systems);
+      } catch (error) {
+        console.error("Error fetching building systems:", error);
+        res.status(500).json({ error: "Failed to fetch building systems" });
+      }
+    });
+
+    app.post("/api/facility/building-systems", async (req, res) => {
+      try {
+        const systemData = req.body;
+        const newSystem = await addBuildingSystem(systemData);
+        res.json(newSystem);
+      } catch (error) {
+        console.error("Error adding building system:", error);
+        res.status(500).json({ error: "Failed to add building system" });
+      }
+    });
+
+    app.patch("/api/facility/building-systems/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const updates = req.body;
+        const updatedSystem = await updateBuildingSystem(id, updates);
+        if (!updatedSystem) {
+          return res.status(404).json({ error: "Building system not found" });
+        }
+        res.json(updatedSystem);
+      } catch (error) {
+        console.error("Error updating building system:", error);
+        res.status(500).json({ error: "Failed to update building system" });
+      }
+    });
+
+
+    // Inspection endpoints
+    app.get("/api/facility/inspections", async (req, res) => {
+      try {
+        const status = req.query.status as string | undefined;
+        const inspections = await getInspections(status as any);
+        res.json(inspections);
+      } catch (error) {
+        console.error("Error fetching inspections:", error);
+        res.status(500).json({ error: "Failed to fetch inspections" });
+      }
+    });
+
+    app.post("/api/facility/inspections", async (req, res) => {
+      try {
+        const inspectionData = req.body;
+        const newInspection = await createInspection(inspectionData);
+        res.json(newInspection);
+      } catch (error) {
+        console.error("Error creating inspection:", error);
+        res.status(500).json({ error: "Failed to create inspection" });
+      }
+    });
 
     // Workout Plans endpoints
     app.get("/api/workout-plans/:memberId", async (req, res) => {
@@ -609,7 +696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { memberId, workoutPlanId } = req.body;
 
         if (!memberId || !workoutPlanId) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             error: "Missing required fields",
             details: "Both memberId and workoutPlanId are required"
           });
@@ -621,7 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(workoutLog);
       } catch (error) {
         console.error("Error creating workout log:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           error: "Failed to create workout log",
           details: error instanceof Error ? error.message : "Unknown error"
         });
@@ -912,7 +999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ],
             criteria: [
               {
-                type:"transactional",
+                type: "transactional",
                 condition: "greater_than",
                 value: "$1000/month",
                 confidence: 0.92,
@@ -1783,7 +1870,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const baseUrl = `${req.protocol}://${req.get('host')}`;
           const approvalLink = `${baseUrl}/api/documents/${documentId}/approve/${approval.id}`;
           const rejectLink = `${baseUrl}/api/documents/${documentId}/reject/${approval.id}`;
-
           // Send email
           await sendApprovalRequestEmail(approver.userId, {
             documentName: document.title,
@@ -1791,6 +1877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             requesterName: userId,
             approvalLink,
             rejectLink,
+            requestId: documentId
           });
         });
 
@@ -1871,7 +1958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({ message: "Document approved successfully" });
       } catch (error) {
-        console.error("Error approving document:",error);
+        console.error("Error approving document:", error);
         res.status(500).json({ error: "Failed to approve document" });
       }
     });
@@ -1881,7 +1968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const documentId = parseInt(req.params.documentId);
         const approvalId = parseInt(req.params.approvalId);
-        constuserId =req.user?.id;
+        const userId = req.user?.id;
         const { comments } = req.body;
 
         if (!documentId || !approvalId || !userId) {
@@ -2532,6 +2619,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
+    const httpServer = createServer(app);
+    const wsServer = setupWebSocketServer(httpServer, app); // Pass app to setupWebSocketServer
     return httpServer;
   } catch (error) {
     console.error("Error registering routes:", error);
