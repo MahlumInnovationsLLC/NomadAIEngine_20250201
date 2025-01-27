@@ -36,12 +36,10 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
   const [showPredictions, setShowPredictions] = useState(false);
 
   // Fetch building systems using React Query
-  const { data: systems = [] } = useQuery<BuildingSystem[]>({
+  const { data: systems = [], isLoading } = useQuery<BuildingSystem[]>({
     queryKey: ['/api/facility/building-systems'],
     initialData: initialSystems,
   });
-
-  console.log("BuildingSystemsPanel - Received systems:", systems); // Debug log
 
   const updateSystemMutation = useMutation({
     mutationFn: async (data: { id: string; status: BuildingSystem['status'] }) => {
@@ -153,100 +151,120 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
     filterType === "all" ? true : system.type === filterType
   );
 
-  // Debug log for filtered systems
-  console.log("BuildingSystemsPanel - Filtered systems:", filteredSystems);
-
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Building Systems</h3>
-        <div className="flex gap-4">
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Systems</SelectItem>
-              <SelectItem value="HVAC">HVAC</SelectItem>
-              <SelectItem value="Electrical">Electrical</SelectItem>
-              <SelectItem value="Plumbing">Plumbing</SelectItem>
-              <SelectItem value="Safety">Safety</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={() => setShowAddDialog(true)}>
-            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-            Add System
-          </Button>
+    <Card className="w-full">
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-xl font-semibold">Building Systems</CardTitle>
+          <div className="flex gap-4">
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Systems</SelectItem>
+                <SelectItem value="HVAC">HVAC</SelectItem>
+                <SelectItem value="Electrical">Electrical</SelectItem>
+                <SelectItem value="Plumbing">Plumbing</SelectItem>
+                <SelectItem value="Safety">Safety</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setShowAddDialog(true)}>
+              <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+              Add System
+            </Button>
+          </div>
         </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredSystems.map((system) => (
-          <Card
-            key={system.id}
-            className="cursor-pointer hover:bg-accent transition-colors"
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{system.name}</CardTitle>
-              <FontAwesomeIcon
-                icon={getSystemIcon(system.type)}
-                className={`h-4 w-4 ${getStatusColor(system.status)}`}
-              />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status:</span>
-                  <span className={getStatusColor(system.status)}>{system.status}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Type:</span>
-                  <span>{system.type}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Location:</span>
-                  <span>{system.location}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Last Inspection:</span>
-                  <span>{new Date(system.lastInspection).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Next Inspection:</span>
-                  <span>{new Date(system.nextInspection).toLocaleDateString()}</span>
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant={system.status === 'operational' ? 'outline' : 'default'}
-                    className="flex-1"
-                    onClick={() => {
-                      updateSystemMutation.mutate({
-                        id: system.id,
-                        status: system.status === 'operational' ? 'maintenance' : 'operational'
-                      });
-                    }}
-                  >
-                    {system.status === 'operational' ? 'Mark Maintenance' : 'Mark Operational'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedSystem(system);
-                      setShowPredictions(true);
-                    }}
-                  >
-                    <FontAwesomeIcon icon="chart-line" className="mr-2 h-4 w-4" />
-                    Predict
-                  </Button>
-                </div>
-              </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : filteredSystems.length === 0 ? (
+          <Card className="bg-muted">
+            <CardContent className="flex flex-col items-center justify-center py-8">
+              <FontAwesomeIcon icon="building" className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Building Systems</h3>
+              <p className="text-muted-foreground text-center mb-4">
+                Add your first building system to start monitoring and maintaining your facility.
+              </p>
+              <Button onClick={() => setShowAddDialog(true)}>
+                <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                Add Your First System
+              </Button>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredSystems.map((system) => (
+              <Card
+                key={system.id}
+                className="cursor-pointer hover:bg-accent transition-colors"
+              >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{system.name}</CardTitle>
+                  <FontAwesomeIcon
+                    icon={getSystemIcon(system.type)}
+                    className={`h-4 w-4 ${getStatusColor(system.status)}`}
+                  />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className={getStatusColor(system.status)}>{system.status}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Type:</span>
+                      <span>{system.type}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Location:</span>
+                      <span>{system.location}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Last Inspection:</span>
+                      <span>{new Date(system.lastInspection).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Next Inspection:</span>
+                      <span>{new Date(system.nextInspection).toLocaleDateString()}</span>
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant={system.status === 'operational' ? 'outline' : 'default'}
+                        className="flex-1"
+                        onClick={() => {
+                          updateSystemMutation.mutate({
+                            id: system.id,
+                            status: system.status === 'operational' ? 'maintenance' : 'operational'
+                          });
+                        }}
+                      >
+                        {system.status === 'operational' ? 'Mark Maintenance' : 'Mark Operational'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedSystem(system);
+                          setShowPredictions(true);
+                        }}
+                      >
+                        <FontAwesomeIcon icon="chart-line" className="mr-2 h-4 w-4" />
+                        Predict
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </CardContent>
 
       {/* Add System Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -323,6 +341,6 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   );
 }
