@@ -5,6 +5,22 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { BuildingSystem } from "@/types/facility";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface BuildingSystemsPanelProps {
   systems: BuildingSystem[];
@@ -14,6 +30,8 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedSystem, setSelectedSystem] = useState<BuildingSystem | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [filterType, setFilterType] = useState<string>("all");
 
   const updateSystemMutation = useMutation({
     mutationFn: async (data: { id: string; status: BuildingSystem['status'] }) => {
@@ -45,6 +63,37 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
     },
   });
 
+  const addSystemMutation = useMutation({
+    mutationFn: async (newSystem: Partial<BuildingSystem>) => {
+      const response = await fetch('/api/facility/building-systems', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSystem),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add system');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/facility/building-systems'] });
+      setShowAddDialog(false);
+      toast({
+        title: 'System Added',
+        description: 'New building system has been added successfully.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const getStatusColor = (status: BuildingSystem['status']) => {
     switch (status) {
       case 'operational':
@@ -58,27 +107,78 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
     }
   };
 
+  const getSystemIcon = (type: string) => {
+    switch (type) {
+      case 'HVAC':
+        return 'fan';
+      case 'Electrical':
+        return 'bolt';
+      case 'Plumbing':
+        return 'faucet';
+      case 'Safety':
+        return 'shield-halved';
+      default:
+        return 'cog';
+    }
+  };
+
+  const handleAddSystem = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    const newSystem = {
+      name: formData.get('name') as string,
+      type: formData.get('type') as BuildingSystem['type'],
+      status: 'operational' as BuildingSystem['status'],
+      location: formData.get('location') as string,
+      lastInspection: new Date().toISOString(),
+      nextInspection: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      installationDate: new Date().toISOString(),
+    };
+
+    addSystemMutation.mutate(newSystem);
+  };
+
+  const filteredSystems = systems.filter(system => 
+    filterType === "all" ? true : system.type === filterType
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Building Systems</h3>
-        <Button>
-          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-          Add System
-        </Button>
+        <div className="flex gap-4">
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Systems</SelectItem>
+              <SelectItem value="HVAC">HVAC</SelectItem>
+              <SelectItem value="Electrical">Electrical</SelectItem>
+              <SelectItem value="Plumbing">Plumbing</SelectItem>
+              <SelectItem value="Safety">Safety</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setShowAddDialog(true)}>
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            Add System
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {systems.map((system) => (
+        {filteredSystems.map((system) => (
           <Card
             key={system.id}
-            className="cursor-pointer hover:bg-accent"
+            className="cursor-pointer hover:bg-accent transition-colors"
             onClick={() => setSelectedSystem(system)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{system.name}</CardTitle>
               <FontAwesomeIcon
-                icon={system.type === 'HVAC' ? 'fan' : 'bolt'}
+                icon={getSystemIcon(system.type)}
                 className={`h-4 w-4 ${getStatusColor(system.status)}`}
               />
             </CardHeader>
@@ -89,6 +189,10 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
                   <span className={getStatusColor(system.status)}>{system.status}</span>
                 </div>
                 <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Type:</span>
+                  <span>{system.type}</span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Location:</span>
                   <span>{system.location}</span>
                 </div>
@@ -96,10 +200,14 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
                   <span className="text-muted-foreground">Last Inspection:</span>
                   <span>{new Date(system.lastInspection).toLocaleDateString()}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Next Inspection:</span>
+                  <span>{new Date(system.nextInspection).toLocaleDateString()}</span>
+                </div>
                 <div className="mt-4 flex gap-2">
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant={system.status === 'operational' ? 'outline' : 'default'}
                     className="flex-1"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -117,6 +225,60 @@ export default function BuildingSystemsPanel({ systems }: BuildingSystemsPanelPr
           </Card>
         ))}
       </div>
+
+      {/* Add System Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Building System</DialogTitle>
+            <DialogDescription>
+              Add a new system to monitor and maintain
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddSystem} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">System Name</Label>
+              <Input
+                id="name"
+                name="name"
+                placeholder="Main HVAC Unit"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="type">System Type</Label>
+              <Select name="type" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HVAC">HVAC</SelectItem>
+                  <SelectItem value="Electrical">Electrical</SelectItem>
+                  <SelectItem value="Plumbing">Plumbing</SelectItem>
+                  <SelectItem value="Safety">Safety</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                name="location"
+                placeholder="Building Section A"
+                required
+              />
+            </div>
+
+            <Button type="submit" className="w-full">
+              Add System
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
