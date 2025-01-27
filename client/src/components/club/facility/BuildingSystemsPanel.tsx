@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
-import type { BuildingSystem } from "@db/schema";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { BuildingSystem } from "@/types/facility";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import PredictiveMaintenancePanel from "./PredictiveMaintenancePanel";
 
 interface BuildingSystemsPanelProps {
@@ -37,19 +39,18 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
   const [filterType, setFilterType] = useState<string>("all");
   const [showPredictions, setShowPredictions] = useState(false);
 
-  // Fetch building systems using React Query with automatic refetching
-  const { data: systems = [], isLoading } = useQuery<BuildingSystem[]>({
+  // Fetch building systems
+  const { data: systems = [], isLoading, error } = useQuery<BuildingSystem[]>({
     queryKey: [BUILDING_SYSTEMS_QUERY_KEY],
     initialData: initialSystems,
-    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchInterval: 5000,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
-    staleTime: 0,
+    retry: 3,
   });
 
   const addSystemMutation = useMutation({
     mutationFn: async (newSystem: Partial<BuildingSystem>) => {
-      console.log("Adding new system:", newSystem); // Debug log
       const response = await fetch(BUILDING_SYSTEMS_QUERY_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,20 +59,14 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to add system');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to add system');
       }
 
-      const data = await response.json();
-      console.log("Server response:", data); // Debug log
-      return data;
+      return response.json();
     },
-    onSuccess: (data) => {
-      console.log("Successfully added system:", data); // Debug log
-      // Force refetch the systems data
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [BUILDING_SYSTEMS_QUERY_KEY] });
-      queryClient.refetchQueries({ queryKey: [BUILDING_SYSTEMS_QUERY_KEY] });
-
       setShowAddDialog(false);
       toast({
         title: 'System Added',
@@ -79,7 +74,6 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       });
     },
     onError: (error: Error) => {
-      console.error("Error adding system:", error); // Debug log
       toast({
         title: 'Error',
         description: error.message,
@@ -149,18 +143,28 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       type: formData.get('type') as string,
       status: 'operational' as const,
       location: formData.get('location') as string,
-      notes: formData.get('notes') as string,
-      healthScore: 100,
+      notes: formData.get('notes') as string || null,
+      healthScore: '100',
       metadata: {}
     };
 
-    console.log("Submitting new system:", newSystem); // Debug log
     await addSystemMutation.mutateAsync(newSystem);
   };
 
   const filteredSystems = systems.filter(system => 
     filterType === "all" ? true : system.type === filterType
   );
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load building systems. Please try again later.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   const EmptyState = () => (
     <Card className="w-full p-6 text-center">

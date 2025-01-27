@@ -24,12 +24,20 @@ export interface PoolMaintenance {
 }
 
 export interface BuildingSystem {
-  id: string;
+  id: number;
   name: string;
-  type: 'HVAC' | 'Electrical' | 'Plumbing' | 'Safety' | 'Other';
+  type: string;
   status: 'operational' | 'maintenance' | 'error' | 'offline';
-  lastInspection: string;
-  nextInspection: string;
+  lastMaintenanceDate: string | null;
+  nextMaintenanceDate: string | null;
+  healthScore: string | null;
+  location: string | null;
+  notes: string | null;
+  metadata: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  lastInspection: string; //Retained from original
+  nextInspection: string; //Retained from original
   maintenanceHistory: {
     date: string;
     type: string;
@@ -37,16 +45,13 @@ export interface BuildingSystem {
     technician: string;
     cost?: number;
   }[];
-  specifications?: Record<string, any>;
-  location: string;
-  installationDate: string;
+  specifications?: Record<string, any>; //Retained from original
+  installationDate: string; //Retained from original
   warranty: {
     provider: string;
     expirationDate: string;
     coverage: string;
   };
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface Inspection {
