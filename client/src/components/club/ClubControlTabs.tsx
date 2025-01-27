@@ -37,9 +37,9 @@ export default function ClubControlTabs() {
   return (
     <Card className="p-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 w-[400px]">
-          <TabsTrigger value="equipment">Equipment</TabsTrigger>
-          <TabsTrigger value="facility">Facility</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-2 gap-4">
+          <TabsTrigger value="equipment" className="w-full">Equipment</TabsTrigger>
+          <TabsTrigger value="facility" className="w-full">Facility</TabsTrigger>
         </TabsList>
 
         <TabsContent value="equipment" className="space-y-4">
@@ -47,7 +47,7 @@ export default function ClubControlTabs() {
 
           {/* Equipment Sub-tabs */}
           <Tabs value={activeEquipmentTab} onValueChange={setActiveEquipmentTab}>
-            <TabsList>
+            <TabsList className="w-full flex justify-start space-x-2">
               <TabsTrigger value="management">Equipment Management</TabsTrigger>
               <TabsTrigger value="maintenance">Equipment Maintenance</TabsTrigger>
             </TabsList>
