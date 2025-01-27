@@ -37,91 +37,62 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import { generateHealthReport } from "./services/health-report-generator";
 import { initializeMemberStorage, searchMembers, updateMemberData } from "./services/memberStorage";
 import { createWorkoutLog, getWorkoutLog, updateWorkoutLog } from "./services/workout-storage";
-import {
-  getLatestPoolMaintenance,
-  addPoolChemicalReading,
-  getBuildingSystems,
-  addBuildingSystem,
-  getInspections,
-  createInspection,
-  updateBuildingSystem
-} from "./services/azure/facility_service";
-
-// Types
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-  };
-}
-
-interface PerplexityResponse {
-  choices: Array<{
-    message: {
-      role: string;
-      content: string;
-    };
-  }>;
-  citations?: string[];
-}
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  createdAt: string;
-  mode?: 'chat' | 'web-search';
-  citations?: string[];
-}
-
-interface Equipment {
-  id: string;
-  name: string;
-  type: string;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  yearManufactured: number;
-  lastMaintenanceDate?: Date;
-  nextMaintenanceDate?: Date;
-  status: 'active' | 'maintenance' | 'retired';
-}
-
-interface EquipmentType {
-  id: string;
-  manufacturer: string;
-  model: string;
-  type: string;
-}
-
-interface MemberMetrics {
-  height: number;
-  weight: number;
-  bodyFat?: number;
-  goals: string[];
-  fitnessLevel: 'beginner' | 'intermediate' | 'advanced';
-  medicalConditions?: string[];
-  preferredWorkoutTypes?: string[];
-  workoutHistory?: {
-    date: string;
-    type: string;
-    duration: number;
-    intensity: string;
-  }[];
-}
-
-// Initialize Azure Blob Storage Client with SAS token
-const sasUrl = process.env.AZURE_STORAGE_SAS_URL || "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
-
-if (!sasUrl) {
-  throw new Error("Azure Blob Storage SAS URL not found");
-}
-
-let containerClient: ContainerClient;
-let equipmentContainer: Container;
-let equipmentTypeContainer: Container;
 
 // Helper Functions
+async function getBuildingSystems() {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c"
+    };
+
+    const { resources } = await cosmosContainer.items.query(querySpec).fetchAll();
+    return resources || [];  
+  } catch (error) {
+    console.error("Error fetching building systems:", error);
+    throw error;
+  }
+}
+
+async function addBuildingSystem(systemData) {
+  try {
+    const newSystem = {
+      id: uuidv4(),
+      type: 'building-system',
+      ...systemData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource } = await cosmosContainer.items.create(newSystem);
+    return resource;
+  } catch (error) {
+    console.error("Error adding building system:", error);
+    throw error;
+  }
+}
+
+async function updateBuildingSystem(id, updates) {
+  try {
+    const { resource } = await cosmosContainer.item(id, id).read();
+    if (!resource) {
+      throw new Error("Building system not found");
+    }
+
+    const updatedSystem = {
+      ...resource,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource: updated } = await cosmosContainer.item(id, id).replace(updatedSystem);
+    return updated;
+  } catch (error) {
+    console.error("Error updating building system:", error);
+    throw error;
+  }
+}
+
+
 async function initializeContainers() {
   const { database } = await import("./services/azure/cosmos_service");
   if (!database) {
@@ -333,16 +304,94 @@ const defaultMemberMetrics: MemberMetrics = {
   medicalConditions: []
 };
 
+// Placeholder for predictMaintenanceNeeds function
+async function predictMaintenanceNeeds(system: any): Promise<any> {
+  //  Replace this with actual prediction logic using OpenAI or another model
+  return {
+    nextMaintenance: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+    probabilityOfFailure: Math.random() * 0.2,
+    recommendedActions: ["Inspect system", "Replace part X"],
+    historicalData: []
+  };
+}
+
+// Types
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    username: string;
+  };
+}
+
+interface PerplexityResponse {
+  choices: Array<{
+    message: {
+      role: string;
+      content: string;
+    };
+  }>;
+  citations?: string[];
+}
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+  mode?: 'chat' | 'web-search';
+  citations?: string[];
+}
+
+interface Equipment {
+  id: string;
+  name: string;
+  type: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  yearManufactured: number;
+  lastMaintenanceDate?: Date;
+  nextMaintenanceDate?: Date;
+  status: 'active' | 'maintenance' | 'retired';
+}
+
+interface EquipmentType {
+  id: string;
+  manufacturer: string;
+  model: string;
+  type: string;
+}
+
+interface MemberMetrics {
+  height: number;
+  weight: number;
+  bodyFat?: number;
+  goals: string[];
+  fitnessLevel: 'beginner' | 'intermediate' | 'advanced';
+  medicalConditions?: string[];
+  preferredWorkoutTypes?: string[];
+  workoutHistory?: {
+    date: string;
+    type: string;
+    duration: number;
+    intensity: string;
+  }[];
+}
+
+// Initialize Azure Blob Storage Client with SAS token
+const sasUrl = process.env.AZURE_STORAGE_SAS_URL || "https://gymaidata.blob.core.windows.net/documents?sp=racwdli&st=2025-01-09T20:30:31Z&se=2026-01-02T04:30:31Z&spr=https&sv=2022-11-02&sr=c&sig=eCSIm%2B%2FjBLs2DjKlHicKtZGxVWIPihiFoRmld2UbpIE%3D";
+
+if (!sasUrl) {
+  throw new Error("Azure Blob Storage SAS URL not found");
+}
+
+let containerClient: ContainerClient;
+let equipmentContainer: Container;
+let equipmentTypeContainer: Container;
+
+
 export async function registerRoutes(app: Express): Promise<Server> {
   try {
-    console.log("Creating Container Client with SAS token...");
-    containerClient = new ContainerClient(sasUrl);
-    console.log("Successfully created Container Client");
-
-    // Initialize Azure Blob Storage for member data
-    await initializeMemberStorage();
-    console.log("Member storage initialized successfully");
-
     // Configure multer for memory storage
     const upload = multer({
       storage: multer.memoryStorage(),
@@ -351,9 +400,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
+    // Initialize Azure Blob Storage for member data
+    await initializeMemberStorage();
+    console.log("Member storage initialized successfully");
+
+    // Initialize Cosmos DB containers if needed
+    await initializeContainers();
+
     // Add user authentication middleware
-    app.use((req: AuthenticatedRequest, res, next) => {
-      req.user = { id: '1', username: 'test_user' };
+    app.use((req: Request, res, next) => {
+      (req as any).user = { id: '1', username: 'test_user' };
       next();
     });
 
@@ -884,7 +940,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(newType);
       } catch (error) {
         console.error("Error creating equipment type:", error);
-        res.status(500).json({ error: "Failed to create equipment type" });
+        res.status(500).json({ error: "Failedto create equipment type" });
       }
     });
 
@@ -910,7 +966,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    app.patch("/api/equipment/:id", async (req, res) => {
+    app.patch("/api/equipment/:id", async (req, res) =>{
       try {
         const { id } = req.params;
         const updates = req.body;
@@ -2620,11 +2676,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
+    // Add predictive maintenance endpoint
+    app.get("/api/facility/predictive/:systemId", async (req, res) => {
+      try {
+        const { systemId } = req.params;
+
+        // Get the system data first
+        const systems = await getBuildingSystems();
+        const system = systems.find(s => s.id === systemId);
+
+        if (!system) {
+          return res.status(404).json({ error: "System not found" });
+        }
+
+        // Generate mock prediction data
+        const prediction = {
+          systemId: system.id,
+          healthScore: Math.floor(Math.random() * 40 + 60), // Between 60-100
+          predictedIssues: [
+            {
+              component: "Primary Motor",
+              probability: Math.random(),
+              severity: Math.random() > 0.7 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low',
+              recommendedAction: "Schedule inspection and potential replacement",
+              estimatedTimeToFailure: Math.floor(Math.random() * 30 + 15) // 15-45 days
+            },
+            {
+              component: "Control System",
+              probability: Math.random(),
+              severity: Math.random() > 0.7 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low',
+              recommendedAction: "Update firmware and calibrate sensors",
+              estimatedTimeToFailure: Math.floor(Math.random() * 60 + 30) // 30-90 days
+            }
+          ],
+          maintenanceRecommendations: [
+            {
+              action: "Preventive Maintenance Check",
+              priority: 'medium',
+              estimatedCost: Math.floor(Math.random() * 1000 + 500),
+              benefitDescription: "Extends system lifespan and prevents unexpected failures"
+            },
+            {
+              action: "Component Replacement",
+              priority: 'high',
+              estimatedCost: Math.floor(Math.random() * 2000 + 1000),
+              benefitDescription: "Prevents system failure and improves efficiency"
+            }
+          ],
+          historicalData: Array.from({ length: 7 }, (_, i) => ({
+            date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString(),
+            performanceScore: 85 - Math.random() * 15,
+            energyEfficiency: 90 - Math.random() * 20,
+            maintenanceCost: 1000 + Math.random() * 2000
+          }))
+        };
+
+        res.json(prediction);
+      } catch (error) {
+        console.error("Error generating predictive maintenance:", error);
+        res.status(500).json({
+          error: "Failed to generate predictive maintenance data",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    });
+
+    //Fix the document approval section
+    app.post("/api/documents/:documentId/approvals", async (req, res) => {
+      try {
+        const { documentId } = req.params;
+        const { approvers } = req.body;
+
+        const document = await db
+          .select()
+          .from(documents)
+          .where(eq(documents.id, documentId));
+
+        if (!document) {
+          throw new Error("Document not found");
+        }
+
+        // Send approval requests to all approvers
+        const approvalPromises = approvers.map(async (approver) => {
+          // Create approval entry
+          const [approval] = await db
+            .insert(documentApprovals)
+            .values({
+              documentId,
+              approver: approver.id,
+              status: 'pending',
+              comments: null,
+              dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+            });
+
+          // Send email notification
+          await sendApprovalRequestEmail({
+            to: approver.email,
+            documentName: document.title,
+            requestId: approval.id
+          });
+
+          return approval;
+        });
+
+        const approvals = await Promise.all(approvalPromises);
+        res.json(approvals);
+      } catch (error) {
+        console.error("Error creating approval requests:", error);
+        res.status(500).json({ error: "Failed to create approval requests" });
+      }
+    });
+
     const httpServer = createServer(app);
-    const wsServer = setupWebSocketServer(httpServer, app); // Pass app to setupWebSocketServer
+    const wsServer = new WebSocketServer({ server: httpServer });
     return httpServer;
   } catch (error) {
-    console.error("Error registering routes:", error);
+    console.error("Error in registerRoutes:", error);
     throw error;
   }
 }
@@ -2768,11 +2935,11 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
 export async function getBuildingSystems() {
   try {
     const querySpec = {
-      query: "SELECT * FROM c WHERE c.type = 'building-system'"
+      query: "SELECT * FROM c"
     };
 
     const { resources } = await cosmosContainer.items.query(querySpec).fetchAll();
-    return resources || [];
+    return resources || [];  
   } catch (error) {
     console.error("Error fetching building systems:", error);
     throw error;
@@ -2818,4 +2985,5 @@ export async function updateBuildingSystem(id, updates) {
     console.error("Error updating building system:", error);
     throw error;
   }
+}
 }

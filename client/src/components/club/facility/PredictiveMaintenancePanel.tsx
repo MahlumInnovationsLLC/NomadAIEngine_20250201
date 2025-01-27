@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { Progress } from "@/components/ui/progress";
 import { BuildingSystem } from "@/types/facility";
 import { useQuery } from "@tanstack/react-query";
-import { Progress } from "@/components/ui/progress";
 import {
   LineChart,
   Line,
@@ -27,7 +26,7 @@ interface MaintenancePrediction {
     probability: number;
     severity: 'low' | 'medium' | 'high';
     recommendedAction: string;
-    estimatedTimeToFailure: number; // in days
+    estimatedTimeToFailure: number;
   }[];
   maintenanceRecommendations: {
     action: string;
@@ -46,12 +45,16 @@ interface MaintenancePrediction {
 export default function PredictiveMaintenancePanel({ system }: PredictiveMaintenancePanelProps) {
   const [selectedMetric, setSelectedMetric] = useState<'performanceScore' | 'energyEfficiency' | 'maintenanceCost'>('performanceScore');
 
-  const { data: prediction } = useQuery<MaintenancePrediction>({
+  const { data: prediction, isLoading } = useQuery<MaintenancePrediction>({
     queryKey: [`/api/facility/predictive/${system.id}`],
   });
 
-  if (!prediction) {
-    return null;
+  if (isLoading || !prediction) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   const getHealthScoreColor = (score: number) => {
@@ -85,11 +88,16 @@ export default function PredictiveMaintenancePanel({ system }: PredictiveMainten
                 {prediction.healthScore}%
               </p>
             </div>
-            <Progress 
-              value={prediction.healthScore} 
-              className="w-[200px]"
-              indicatorClassName={getHealthScoreColor(prediction.healthScore)}
-            />
+            <div className="w-[200px]">
+              <Progress 
+                value={prediction.healthScore} 
+                className={`h-2 rounded-full ${
+                  prediction.healthScore >= 80 ? 'bg-green-500' : 
+                  prediction.healthScore >= 60 ? 'bg-yellow-500' : 
+                  'bg-red-500'
+                }`}
+              />
+            </div>
           </div>
 
           {/* Performance Trends */}
@@ -117,7 +125,7 @@ export default function PredictiveMaintenancePanel({ system }: PredictiveMainten
                 Maintenance Cost
               </Button>
             </div>
-            
+
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={prediction.historicalData}>
@@ -143,63 +151,67 @@ export default function PredictiveMaintenancePanel({ system }: PredictiveMainten
       </Card>
 
       {/* Predicted Issues */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Predicted Issues</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {prediction.predictedIssues.map((issue, index) => (
-              <div key={index} className="flex items-start justify-between p-4 border rounded-lg">
-                <div className="space-y-1">
-                  <p className="font-medium">{issue.component}</p>
-                  <p className="text-sm text-muted-foreground">{issue.recommendedAction}</p>
-                  <p className="text-sm">
-                    Estimated time to failure: {issue.estimatedTimeToFailure} days
-                  </p>
+      {prediction.predictedIssues && prediction.predictedIssues.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Predicted Issues</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {prediction.predictedIssues.map((issue, index) => (
+                <div key={index} className="flex items-start justify-between p-4 border rounded-lg">
+                  <div className="space-y-1">
+                    <p className="font-medium">{issue.component}</p>
+                    <p className="text-sm text-muted-foreground">{issue.recommendedAction}</p>
+                    <p className="text-sm">
+                      Estimated time to failure: {issue.estimatedTimeToFailure} days
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-bold ${getSeverityColor(issue.severity)}`}>
+                      {Math.round(issue.probability * 100)}% Risk
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {issue.severity.toUpperCase()} Severity
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className={`font-bold ${getSeverityColor(issue.severity)}`}>
-                    {Math.round(issue.probability * 100)}% Risk
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {issue.severity.toUpperCase()} Severity
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Maintenance Recommendations */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Recommended Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {prediction.maintenanceRecommendations.map((recommendation, index) => (
-              <div key={index} className="p-4 border rounded-lg">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="font-medium">{recommendation.action}</p>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    getSeverityColor(recommendation.priority)
-                  }`}>
-                    {recommendation.priority.toUpperCase()} Priority
-                  </span>
+      {prediction.maintenanceRecommendations && prediction.maintenanceRecommendations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Recommended Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {prediction.maintenanceRecommendations.map((recommendation, index) => (
+                <div key={index} className="p-4 border rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="font-medium">{recommendation.action}</p>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      getSeverityColor(recommendation.priority)
+                    }`}>
+                      {recommendation.priority.toUpperCase()} Priority
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {recommendation.benefitDescription}
+                  </p>
+                  <p className="text-sm">
+                    Estimated Cost: ${recommendation.estimatedCost.toLocaleString()}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  {recommendation.benefitDescription}
-                </p>
-                <p className="text-sm">
-                  Estimated Cost: ${recommendation.estimatedCost.toLocaleString()}
-                </p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
