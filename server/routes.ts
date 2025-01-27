@@ -26,7 +26,7 @@ import {
   workoutSetLogs,
   buildingSystems
 } from "@db/schema";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm"; // Added desc import
 import { generateReport } from "./services/document-generator";
 import { listChats, cosmosContainer } from "./services/azure/cosmos_service";
 import { analyzeDocument, checkOpenAIConnection } from "./services/azure/openai_service";
@@ -452,6 +452,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
 
+    // Add notifications endpoint right after building systems endpoints
+    app.get("/api/notifications/facility", async (req: AuthenticatedRequest, res) => {
+      try {
+        // Fetch notifications for the current user
+        const facilityNotifications = await db.select()
+          .from(notifications)
+          .where(eq(notifications.type, 'facility'))
+          .orderBy(desc(notifications.createdAt))
+          .limit(50);
+
+        res.json(facilityNotifications);
+      } catch (error) {
+        console.error("Error fetching facility notifications:", error);
+        res.status(500).json({ error: "Failed to fetch notifications" });
+      }
+    });
+
+    app.post("/api/notifications/facility/read", async (req: AuthenticatedRequest, res) => {
+      try {
+        const { notificationIds } = req.body;
+        const userId = req.user?.id;
+
+        if (!userId || !notificationIds?.length) {
+          return res.status(400).json({ error: "Missing required parameters" });
+        }
+
+        // Mark notifications as read
+        await db
+          .update(userNotifications)
+          .set({ read: true, updatedAt: new Date() })
+          .where(
+            and(
+              eq(userNotifications.userId, userId),
+              inArray(userNotifications.notificationId, notificationIds)
+            )
+          );
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error marking notifications as read:", error);
+        res.status(500).json({ error: "Failed to update notifications" });
+      }
+    });
+
+    // Helper function to create facility notifications
+    async function createFacilityNotification(title: string, message: string, priority: 'low' | 'medium' | 'high' | 'urgent' = 'medium') {
+      try {
+        const [notification] = await db
+          .insert(notifications)
+          .values({
+            type: 'facility',
+            title,
+            message,
+            priority,
+            createdAt: new Date(),
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expires in 7 days
+          })
+          .returning();
+
+        return notification;
+      } catch (error) {
+        console.error("Error creating facility notification:", error);
+        throw error;
+      }
+    }
+
     // Inspection endpoints
     app.get("/api/facility/inspections", async (req, res) => {
       try {
@@ -867,7 +933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log("Starting chat mode with content:", content);
             aiResponse = await analyzeDocument(content);
             await trackAIEngineUsage(req.user?.id || 'anonymous', 'chat', 0.5, { messageLength: content.length });
-          } catch (error) {
+          } catch (error{
             console.error("Error in chat mode:", error);
             throw error;
           }
@@ -938,7 +1004,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error creating equipment:", error);
         res.status(500).json({ error: "Failed to create equipment" });
       }
-    });app.patch("/api/equipment/:id", async (req, res) => {
+    });
+    app.patch("/api/equipment/:id", async (req, res) => {
       try {
         const { id } = req.params;
         const updates = req.body;
@@ -2846,4 +2913,5 @@ export async function updateBuildingSystem(id, updates) {
     console.error("Error updating building system:", error);
     throw error;
   }
+}
 }

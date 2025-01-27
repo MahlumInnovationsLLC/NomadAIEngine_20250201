@@ -24,6 +24,7 @@ import type { BuildingSystem } from "@/types/facility";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import PredictiveMaintenancePanel from "./PredictiveMaintenancePanel";
+import NotificationsPanel from "./NotificationsPanel";
 
 interface BuildingSystemsPanelProps {
   systems?: BuildingSystem[];
@@ -151,7 +152,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
     await addSystemMutation.mutateAsync(newSystem);
   };
 
-  const filteredSystems = systems.filter(system => 
+  const filteredSystems = systems.filter(system =>
     filterType === "all" ? true : system.type === filterType
   );
 
@@ -188,27 +189,30 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Building Systems</h3>
-        {systems.length > 0 && (
-          <div className="flex gap-4">
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Systems</SelectItem>
-                <SelectItem value="HVAC">HVAC</SelectItem>
-                <SelectItem value="Electrical">Electrical</SelectItem>
-                <SelectItem value="Plumbing">Plumbing</SelectItem>
-                <SelectItem value="Safety">Safety</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={() => setShowAddDialog(true)}>
-              <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-              Add System
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          <NotificationsPanel />
+          {systems.length > 0 && (
+            <div className="flex gap-4">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Systems</SelectItem>
+                  <SelectItem value="HVAC">HVAC</SelectItem>
+                  <SelectItem value="Electrical">Electrical</SelectItem>
+                  <SelectItem value="Plumbing">Plumbing</SelectItem>
+                  <SelectItem value="Safety">Safety</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => setShowAddDialog(true)}>
+                <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                Add System
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -358,8 +362,8 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       </Dialog>
 
       {/* Predictive Maintenance Dialog */}
-      <Dialog 
-        open={showPredictions && selectedSystem !== null} 
+      <Dialog
+        open={showPredictions && selectedSystem !== null}
         onOpenChange={(open) => {
           setShowPredictions(open);
           if (!open) setSelectedSystem(null);
