@@ -27,6 +27,8 @@ interface BuildingSystemsPanelProps {
   systems?: BuildingSystem[];
 }
 
+const BUILDING_SYSTEMS_QUERY_KEY = '/api/facility/building-systems';
+
 export default function BuildingSystemsPanel({ systems: initialSystems }: BuildingSystemsPanelProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -37,13 +39,13 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
 
   // Fetch building systems using React Query
   const { data: systems = [], isLoading } = useQuery<BuildingSystem[]>({
-    queryKey: ['/api/facility/building-systems'],
+    queryKey: [BUILDING_SYSTEMS_QUERY_KEY],
     initialData: initialSystems,
   });
 
   const addSystemMutation = useMutation({
     mutationFn: async (newSystem: Partial<BuildingSystem>) => {
-      const response = await fetch('/api/facility/building-systems', {
+      const response = await fetch(BUILDING_SYSTEMS_QUERY_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSystem),
@@ -57,7 +59,8 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/facility/building-systems'] });
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: [BUILDING_SYSTEMS_QUERY_KEY] });
       setShowAddDialog(false);
       toast({
         title: 'System Added',
@@ -75,7 +78,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
 
   const updateSystemMutation = useMutation({
     mutationFn: async (data: { id: number; status: BuildingSystem['status'] }) => {
-      const response = await fetch(`/api/facility/building-systems/${data.id}`, {
+      const response = await fetch(`${BUILDING_SYSTEMS_QUERY_KEY}/${data.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: data.status }),
@@ -88,7 +91,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/facility/building-systems'] });
+      queryClient.invalidateQueries({ queryKey: [BUILDING_SYSTEMS_QUERY_KEY] });
       toast({
         title: 'System Updated',
         description: 'Building system status has been updated successfully.',
@@ -135,7 +138,7 @@ export default function BuildingSystemsPanel({ systems: initialSystems }: Buildi
       location: formData.get('location') as string,
     };
 
-    addSystemMutation.mutate(newSystem);
+    await addSystemMutation.mutateAsync(newSystem);
   };
 
   const filteredSystems = systems.filter(system => 
