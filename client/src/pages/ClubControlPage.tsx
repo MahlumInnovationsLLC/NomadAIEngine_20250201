@@ -79,12 +79,16 @@ export default function ClubControlPage() {
       <Suspense fallback={<LoadingSpinner />}>
         {activeTab === "equipment" ? (
           <div className="space-y-6">
-            <EquipmentList data={equipment} onSelect={handleEquipmentSelect} />
+            <EquipmentList 
+              equipment={equipment} 
+              onEquipmentSelect={handleEquipmentSelect}
+              selectedEquipment={selectedEquipment}
+            />
             {showingPrediction && selectedEquipment.length > 0 && (
-              <EquipmentUsagePrediction equipment={selectedEquipment} />
+              <EquipmentUsagePrediction equipmentId={selectedEquipment[0].id} />
             )}
-            <EquipmentComparisonDashboard />
-            <EquipmentPerformanceReport />
+            <EquipmentComparisonDashboard selectedEquipment={selectedEquipment} />
+            <EquipmentPerformanceReport selectedEquipment={selectedEquipment} />
           </div>
         ) : (
           <FacilityDashboard />

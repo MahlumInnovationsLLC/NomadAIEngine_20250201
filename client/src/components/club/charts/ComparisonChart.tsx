@@ -1,9 +1,13 @@
-
 import React, { Suspense } from 'react';
 import { Equipment } from "@db/schema";
+import type { ResponsiveContainer, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, BarChart } from 'recharts';
+
+interface ChartProps extends React.ComponentProps<typeof BarChart> {
+  children?: React.ReactNode;
+}
 
 const LazyChart = React.lazy(() => import('recharts').then(module => ({
-  default: ({ children, ...props }) => (
+  default: ({ children, ...props }: ChartProps) => (
     <module.ResponsiveContainer>
       <module.BarChart {...props}>
         {children}
@@ -38,9 +42,11 @@ const colors = [
 ];
 
 export default function ComparisonChart({ data, selectedEquipment }: ComparisonChartProps) {
+  if (!data || !selectedEquipment) return null;
+
   return (
     <Suspense fallback={<div>Loading chart...</div>}>
-      <LazyChart data={data}>
+      <LazyChart data={data} height={300}>
         <LazyChartComponents.CartesianGrid strokeDasharray="3 3" />
         <LazyChartComponents.XAxis dataKey="metric" />
         <LazyChartComponents.YAxis />

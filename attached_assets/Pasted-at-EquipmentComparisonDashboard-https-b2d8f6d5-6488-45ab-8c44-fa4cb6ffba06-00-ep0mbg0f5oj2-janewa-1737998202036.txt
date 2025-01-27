@@ -1,0 +1,35 @@
+at EquipmentComparisonDashboard (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/club/EquipmentComparisonDashboard.tsx:22:56)
+    at div
+    at Suspense
+    at div
+    at ClubControlPage (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/pages/ClubControlPage.tsx:46:37)
+    at div
+    at MotionComponent (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=61d58463:943:40)
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AnimateTransition (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/AnimateTransition.tsx:48:3)
+    at OnboardingProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/onboarding/OnboardingProvider.tsx:21:38)
+    at AuthenticatedTemplate (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@azure_msal-react.js?v=61d58463:210:34)
+    at Suspense
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at ProtectedRoute (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/App.tsx:108:38)
+    at component
+    at Route (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=61d58463:323:16)
+    at Switch (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=61d58463:379:17)
+    at Suspense
+    at PresenceChild (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=61d58463:121:24)
+    at AnimatePresence (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=61d58463:210:26)
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AnimatePresenceWrapper (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/AnimateTransition.tsx:84:3)
+    at div
+    at main
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at div
+    at App
+    at _ (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=61d58463:44:25)
+    at J (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=61d58463:42:18)
+    at ThemeProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/theme-provider.tsx:21:33)
+    at QueryClientProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=61d58463:2829:3)
+    at MsalProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@azure_msal-react.js?v=61d58463:127:25)
+    at ErrorBoundary (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AppWrapper
+    at QueryClientProvider (https://b2d8f6d5-6488-45ab-8c44-fa4cb6ffba06-00-ep0mbg0f5oj2.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=61d58463:2829:3)
