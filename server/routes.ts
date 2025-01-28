@@ -126,6 +126,25 @@ async function createFacilityNotification({
   }
 }
 
+async function initializeContainers() {
+  const containerConfigs = [
+    { id: "chats", partitionKey: "/userKey" },
+    { id: "equipment", partitionKey: "/id" },
+    { id: "equipment-types", partitionKey: "/id" },
+    { id: "building-systems", partitionKey: "/id" }
+  ];
+
+  await Promise.all(
+    containerConfigs.map(async (config) => {
+      const { container } = await database!.containers.createIfNotExists({
+        id: config.id,
+        partitionKey: { paths: [config.partitionKey] }
+      });
+      containers[config.id] = container;
+    })
+  );
+}
+
 export function registerRoutes(app: Express): Server {
   // Building Systems endpoints
   app.get("/api/facility/building-systems", async (_req, res) => {
