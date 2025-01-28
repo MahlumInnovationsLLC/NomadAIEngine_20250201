@@ -16,16 +16,23 @@ export interface EquipmentType {
   manufacturer: string;
   model: string;
   category: string;
-  connectivityType: string;
+  connectivityType?: string;
+  maintenanceSchedule?: {
+    frequency: number;
+    unit: 'days' | 'weeks' | 'months';
+  };
+  specifications?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Equipment {
   id: string;
   name: string;
   equipmentTypeId: string;
-  status: string;
+  status: 'active' | 'maintenance' | 'inactive' | 'error';
   healthScore: number;
-  deviceConnectionStatus: string;
+  deviceConnectionStatus?: 'connected' | 'disconnected' | 'error';
   deviceIdentifier?: string;
   deviceType?: string;
   maintenanceScore?: number;
@@ -71,7 +78,9 @@ export async function getEquipmentType(manufacturer: string, model: string): Pro
       ]
     };
 
-    const { resources: types } = await equipmentTypesContainer.items.query<EquipmentType>(querySpec).fetchAll();
+    const { resources: types } = await equipmentTypesContainer.items
+      .query<EquipmentType>(querySpec)
+      .fetchAll();
     return types[0] || null;
   } catch (error) {
     console.error("Failed to get equipment type:", error);
@@ -79,15 +88,18 @@ export async function getEquipmentType(manufacturer: string, model: string): Pro
   }
 }
 
-export async function createEquipmentType(type: Omit<EquipmentType, "id">): Promise<EquipmentType> {
+export async function createEquipmentType(type: Omit<EquipmentType, "id" | "createdAt" | "updatedAt">): Promise<EquipmentType> {
   try {
-    const newType = {
+    const now = new Date().toISOString();
+    const newType: EquipmentType = {
       id: uuidv4(),
-      ...type
+      ...type,
+      createdAt: now,
+      updatedAt: now
     };
 
     const { resource } = await equipmentTypesContainer.items.create(newType);
-    if (!resource) throw new Error("Failed to create equipment type");
+    if (!resource) throw new Error("Failed to create equipment type in Cosmos DB");
     return resource;
   } catch (error) {
     console.error("Failed to create equipment type:", error);
@@ -101,7 +113,9 @@ export async function getAllEquipment(): Promise<Equipment[]> {
       query: "SELECT * FROM c ORDER BY c.createdAt DESC"
     };
 
-    const { resources: equipment } = await equipmentContainer.items.query<Equipment>(querySpec).fetchAll();
+    const { resources: equipment } = await equipmentContainer.items
+      .query<Equipment>(querySpec)
+      .fetchAll();
     return equipment;
   } catch (error) {
     console.error("Failed to get all equipment:", error);
@@ -112,15 +126,17 @@ export async function getAllEquipment(): Promise<Equipment[]> {
 export async function createEquipment(equipment: Omit<Equipment, "id" | "createdAt" | "updatedAt">): Promise<Equipment> {
   try {
     const now = new Date().toISOString();
-    const newEquipment = {
+    const newEquipment: Equipment = {
       id: uuidv4(),
       ...equipment,
+      status: equipment.status || 'inactive',
+      healthScore: equipment.healthScore || 100,
       createdAt: now,
       updatedAt: now
     };
 
     const { resource } = await equipmentContainer.items.create(newEquipment);
-    if (!resource) throw new Error("Failed to create equipment");
+    if (!resource) throw new Error("Failed to create equipment in Cosmos DB");
     return resource;
   } catch (error) {
     console.error("Failed to create equipment:", error);
@@ -140,7 +156,7 @@ export async function updateEquipment(id: string, updates: Partial<Equipment>): 
     };
 
     const { resource } = await equipmentContainer.item(id, id).replace(updatedEquipment);
-    if (!resource) throw new Error("Failed to update equipment");
+    if (!resource) throw new Error("Failed to update equipment in Cosmos DB");
     return resource;
   } catch (error) {
     console.error("Failed to update equipment:", error);

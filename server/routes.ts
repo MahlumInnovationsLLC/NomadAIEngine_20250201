@@ -7,89 +7,34 @@ import {
   buildingSystems,
   notifications,
   userNotifications,
-  facilityNotifications
-} from "@db/schema";
-
-// Configure multer for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
-
-import type { Express } from "express";
-import express from "express";
-import { createServer, type Server } from "http";
-import { WebSocketServer } from 'ws';
-import { db } from "@db";
-import {
-  buildingSystems,
-  notifications,
-  userNotifications,
-  facilityNotifications
+  facilityNotifications,
+  documents,
+  documentCollaborators,
+  documentApprovals,
+  documentWorkflows,
+  documentPermissions,
+  roles,
+  trainingModules,
+  userTraining,
+  aiEngineActivity,
+  marketingEvents,
+  integrationConfigs
 } from "@db/schema";
 import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { v4 as uuidv4 } from 'uuid';
-import { database, containers } from "./services/azure/cosmos_service";
+import { 
+  getEquipmentType, 
+  createEquipmentType,
+  getAllEquipment,
+  createEquipment,
+  updateEquipment 
+} from './services/azure/equipment_service';
 
 
-// Remove standalone export of these functions since they are now part of the route handlers
-async function getBuildingSystems() {
-  try {
-    const systems = await db.select().from(buildingSystems);
-    return systems;
-  } catch (error) {
-    console.error("Error fetching building systems:", error);
-    throw error;
-  }
-}
-
-async function addBuildingSystem(systemData: {
-  name: string;
-  type: string;
-  location: string;
-  notes?: string | null;
-}) {
-  try {
-    const newSystem = {
-      name: systemData.name,
-      type: systemData.type,
-      status: 'operational' as const,
-      location: systemData.location,
-      notes: systemData.notes || null,
-      healthScore: '100',
-      metadata: {},
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    const [createdSystem] = await db
-      .insert(buildingSystems)
-      .values(newSystem)
-      .returning();
-
-    return createdSystem;
-  } catch (error) {
-    console.error("Error adding building system:", error);
-    throw error;
-  }
-}
-
-async function updateBuildingSystem(id: number, updates: Partial<typeof buildingSystems.$inferInsert>) {
-  try {
-    const [updatedSystem] = await db
-      .update(buildingSystems)
-      .set({
-        ...updates,
-        updatedAt: new Date()
-      })
-      .where(eq(buildingSystems.id, id))
-      .returning();
-
-    return updatedSystem;
-  } catch (error) {
-    console.error("Error updating building system:", error);
-    throw error;
-  }
-}
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // Helper function to create facility notifications
 async function createFacilityNotification({
@@ -149,7 +94,7 @@ export function registerRoutes(app: Express): Server {
   // Building Systems endpoints
   app.get("/api/facility/building-systems", async (_req, res) => {
     try {
-      const systems = await getBuildingSystems();
+      const systems = await db.select().from(buildingSystems);
       res.json(systems);
     } catch (error) {
       console.error("Error fetching building systems:", error);
@@ -160,18 +105,33 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/facility/building-systems", async (req, res) => {
     try {
       const systemData = req.body;
-      const newSystem = await addBuildingSystem(systemData);
+      const newSystem = {
+        name: systemData.name,
+        type: systemData.type,
+        status: 'operational' as const,
+        location: systemData.location,
+        notes: systemData.notes || null,
+        healthScore: '100',
+        metadata: {},
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const [createdSystem] = await db
+        .insert(buildingSystems)
+        .values(newSystem)
+        .returning();
 
       // Create a notification for the new system
       await createFacilityNotification({
-        buildingSystemId: newSystem.id,
+        buildingSystemId: createdSystem.id,
         type: 'status_change',
         title: 'New Building System Added',
-        message: `New system "${newSystem.name}" has been added to the facility.`,
+        message: `New system "${createdSystem.name}" has been added to the facility.`,
         priority: 'low'
       });
 
-      res.json(newSystem);
+      res.json(createdSystem);
     } catch (error) {
       console.error("Error adding building system:", error);
       res.status(500).json({ error: "Failed to add building system" });
@@ -182,7 +142,14 @@ export function registerRoutes(app: Express): Server {
     try {
       const { id } = req.params;
       const updates = req.body;
-      const updatedSystem = await updateBuildingSystem(parseInt(id), updates);
+      const [updatedSystem] = await db
+        .update(buildingSystems)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(buildingSystems.id, parseInt(id)))
+        .returning();
 
       if (!updatedSystem) {
         return res.status(404).json({ error: "Building system not found" });
@@ -743,41 +710,72 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/equipment-types", async (req, res) => {
     try {
       const type = req.body;
-      const existingType = await getEquipmentType(type.manufacturer, type.model);
 
+      // Validate required fields
+      if (!type.manufacturer || !type.model || !type.category) {
+        return res.status(400).json({ 
+          error: "Missing required fields",
+          details: "manufacturer, model, and category are required"
+        });
+      }
+
+      // Check if type already exists
+      const existingType = await getEquipmentType(type.manufacturer, type.model);
       if (existingType) {
-        return res.json(existingType);
+        return res.status(409).json({ 
+          error: "Equipment type already exists",
+          existingType 
+        });
       }
 
       const newType = await createEquipmentType(type);
       res.json(newType);
     } catch (error) {
       console.error("Error creating equipment type:", error);
-      res.status(500).json({ error: "Failed to create equipment type" });
+      res.status(500).json({ 
+        error: "Failed to create equipment type",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
   // Equipment endpoints
-  app.get("/api/equipment", async (req, res) => {
+  app.get("/api/equipment", async (_req, res) => {
     try {
       const equipment = await getAllEquipment();
       res.json(equipment);
     } catch (error) {
       console.error("Error getting equipment:", error);
-      res.status(500).json({ error: "Failed to get equipment" });
+      res.status(500).json({ 
+        error: "Failed to get equipment",
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
   app.post("/api/equipment", async (req, res) => {
     try {
       const equipmentData = req.body;
+
+      // Validate required fields
+      if (!equipmentData.name || !equipmentData.equipmentTypeId) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "name and equipmentTypeId are required"
+        });
+      }
+
       const newEquipment = await createEquipment(equipmentData);
       res.json(newEquipment);
     } catch (error) {
       console.error("Error creating equipment:", error);
-      res.status(500).json({ error: "Failed to create equipment" });
+      res.status(500).json({ 
+        error: "Failed to create equipment",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
+
   app.patch("/api/equipment/:id", async (req, res) => {
     try {
       const { id } = req.params;
@@ -789,7 +787,10 @@ export function registerRoutes(app: Express): Server {
       res.json(updatedEquipment);
     } catch (error) {
       console.error("Error updating equipment:", error);
-      res.status(500).json({ error: "Failed to update equipment" });
+      res.status(500).json({ 
+        error: "Failed to update equipment",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
@@ -927,7 +928,7 @@ export function registerRoutes(app: Express): Server {
         lastVisit: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
         visitsThisMonth: Math.floor(Math.random() * 20),
         metrics: {
-          attendanceRate: Math.round(Math.random() * 100),
+          attendanceRate: Math.round(Math.random* 100),
           engagementScore: Math.round(Math.random() * 100),
           lifetimeValue: Math.round(Math.random() * 1000),
         }
@@ -1640,7 +1641,7 @@ export function registerRoutes(app: Express): Server {
         .where(
           and(
             eq(userNotifications.userId, userId),
-            eq(userNotifications.notificationId, notificationIds[0])
+            inArray(userNotifications.notificationId, notificationIds)
           )
         );
 
@@ -1908,7 +1909,7 @@ export function registerRoutes(app: Express): Server {
       await db
         .insert(userTraining)
         .values({
-          userId: req.user.id,
+          userId: requser.id,
           moduleId,
           progress,
           status,
