@@ -118,6 +118,8 @@ export const equipment = pgTable("equipment", {
   deviceType: text("device_type"),
   deviceIdentifier: text("device_identifier"),
   lastSyncTime: timestamp("last_sync_time"),
+  imageUrl: text("image_url"),
+  imagePath: text("image_path"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

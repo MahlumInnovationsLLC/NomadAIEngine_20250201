@@ -139,20 +139,28 @@ export function EquipmentEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Add the image upload component here */}
-        <div className="mb-6">
-          <FormLabel>Equipment Image</FormLabel>
-          <EquipmentImageUpload
-            equipmentId={equipment.id}
-            currentImageUrl={equipment.imageUrl}
-          />
-        </div>
-
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((data) => updateMutation.mutate(data))}
             className="space-y-4"
           >
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Equipment Image</FormLabel>
+                  <FormControl>
+                    <EquipmentImageUpload
+                      equipmentId={equipment.id.toString()}
+                      currentImageUrl={equipment.imageUrl}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="name"
