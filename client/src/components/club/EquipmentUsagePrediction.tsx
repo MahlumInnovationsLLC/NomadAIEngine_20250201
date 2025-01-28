@@ -77,6 +77,25 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
     );
   }
 
+  // Ensure the data is valid before transforming
+  if (!Array.isArray(analytics.dailyUsage)) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage Analytics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <FontAwesomeIcon icon="circle-exclamation" className="h-4 w-4" />
+            <AlertDescription>
+              Invalid analytics data format
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Transform the analytics data for the chart
   const chartData = analytics.dailyUsage.map(day => ({
     date: format(new Date(day.date), 'MMM d'),

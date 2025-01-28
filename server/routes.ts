@@ -23,12 +23,12 @@ import {
 import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  getEquipmentType, 
+import {
+  getEquipmentType,
   createEquipmentType,
   getAllEquipment,
   createEquipment,
-  updateEquipment 
+  updateEquipment
 } from './services/azure/equipment_service';
 
 
@@ -90,7 +90,7 @@ async function initializeContainers() {
   );
 }
 
-export function registerRoutes(app: Express): Server {
+export function registerRoutes(app: express.Application): Server {
   // Building Systems endpoints
   app.get("/api/facility/building-systems", async (_req, res) => {
     try {
@@ -713,7 +713,7 @@ export function registerRoutes(app: Express): Server {
 
       // Validate required fields
       if (!type.manufacturer || !type.model || !type.category) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Missing required fields",
           details: "manufacturer, model, and category are required"
         });
@@ -722,9 +722,9 @@ export function registerRoutes(app: Express): Server {
       // Check if type already exists
       const existingType = await getEquipmentType(type.manufacturer, type.model);
       if (existingType) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "Equipment type already exists",
-          existingType 
+          existingType
         });
       }
 
@@ -732,7 +732,7 @@ export function registerRoutes(app: Express): Server {
       res.json(newType);
     } catch (error) {
       console.error("Error creating equipment type:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to create equipment type",
         details: error instanceof Error ? error.message : "Unknown error"
       });
@@ -746,9 +746,9 @@ export function registerRoutes(app: Express): Server {
       res.json(equipment);
     } catch (error) {
       console.error("Error getting equipment:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to get equipment",
-        details: error instanceof Error ? error.message : "Unknown error" 
+        details: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
@@ -769,7 +769,7 @@ export function registerRoutes(app: Express): Server {
       res.json(newEquipment);
     } catch (error) {
       console.error("Error creating equipment:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to create equipment",
         details: error instanceof Error ? error.message : "Unknown error"
       });
@@ -787,12 +787,71 @@ export function registerRoutes(app: Express): Server {
       res.json(updatedEquipment);
     } catch (error) {
       console.error("Error updating equipment:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to update equipment",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
+
+  // Add these routes after the existing equipment endpoints
+  app.get("/api/equipment/:id/analytics", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          error: "Missing required query parameters",
+          details: "startDate and endDate are required"
+        });
+      }
+
+      const analytics = await getEquipmentUsageAnalytics(
+        id,
+        startDate as string,
+        endDate as string
+      );
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error getting equipment analytics:", error);
+      res.status(500).json({
+        error: "Failed to get equipment analytics",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Add this route to record equipment usage
+  app.post("/api/equipment/:id/usage", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const usageData = req.body;
+
+      // Validate required fields
+      if (!usageData.startTime || !usageData.endTime || !usageData.duration) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "startTime, endTime, and duration are required"
+        });
+      }
+
+      const usage = await recordEquipmentUsage({
+        equipmentId: id,
+        ...usageData
+      });
+
+      res.json(usage);
+    } catch (error) {
+      console.error("Error recording equipment usage:", error);
+      res.status(500).json({
+        error: "Failed to record equipment usage",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
 
   // Marketing Segments endpoints
   app.post("/api/marketing/segments/generate", async (req: AuthenticatedRequest, res) => {
@@ -928,7 +987,7 @@ export function registerRoutes(app: Express): Server {
         lastVisit: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
         visitsThisMonth: Math.floor(Math.random() * 20),
         metrics: {
-          attendanceRate: Math.round(Math.random* 100),
+          attendanceRate: Math.round(Math.random() * 100),
           engagementScore: Math.round(Math.random() * 100),
           lifetimeValue: Math.round(Math.random() * 1000),
         }
@@ -1858,7 +1917,7 @@ export function registerRoutes(app: Express): Server {
       // Update document status
       await db
         .update(documents)
-        .set({
+        .set.set({
           status: 'draft',
           updatedAt: new Date(),
           updatedBy: userId,
@@ -1909,7 +1968,7 @@ export function registerRoutes(app: Express): Server {
       await db
         .insert(userTraining)
         .values({
-          userId: requser.id,
+          userId: req.user.id,
           moduleId,
           progress,
           status,
