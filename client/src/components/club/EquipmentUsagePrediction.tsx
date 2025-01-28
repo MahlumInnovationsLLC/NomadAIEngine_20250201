@@ -5,18 +5,29 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { Skeleton } from "@/components/ui/skeleton";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { addDays, format, subDays } from "date-fns";
 
-interface PredictionResponse {
-  equipment: {
-    id: string;
-    name: string;
-  };
-  predictions: Array<{
-    timestamp: string;
-    predictedUsage: number;
-    confidence: number;
+interface UsageAnalytics {
+  dailyUsage: Array<{
+    date: string;
+    totalMinutes: number;
+    sessions: number;
+    peakHour: number;
+    avgDuration: number;
   }>;
-  lastUpdated: string;
+  weeklyTrends: Array<{
+    week: string;
+    totalMinutes: number;
+    sessions: number;
+    mostActiveDay: string;
+  }>;
+  timeOfDayDistribution: Array<{
+    hour: number;
+    sessions: number;
+    avgDuration: number;
+  }>;
+  utilizationRate: number;
+  averageSessionDuration: number;
 }
 
 interface EquipmentUsagePredictionProps {
@@ -24,8 +35,14 @@ interface EquipmentUsagePredictionProps {
 }
 
 export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsagePredictionProps) {
-  const { data: prediction, isLoading, isError, error } = useQuery<PredictionResponse>({
-    queryKey: [`/api/equipment/${equipmentId}/predictions`],
+  const endDate = new Date();
+  const startDate = subDays(endDate, 7); // Last 7 days
+
+  const { data: analytics, isLoading, isError, error } = useQuery<UsageAnalytics>({
+    queryKey: [
+      `/api/equipment/${equipmentId}/analytics`,
+      `?startDate=${format(startDate, 'yyyy-MM-dd')}&endDate=${format(endDate, 'yyyy-MM-dd')}`
+    ],
     retry: 2
   });
 
@@ -33,7 +50,7 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Usage Prediction</CardTitle>
+          <CardTitle>Usage Analytics</CardTitle>
         </CardHeader>
         <CardContent>
           <Skeleton className="h-[200px] w-full" />
@@ -42,17 +59,17 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
     );
   }
 
-  if (isError || !prediction) {
+  if (isError || !analytics) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Usage Prediction</CardTitle>
+          <CardTitle>Usage Analytics</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <FontAwesomeIcon icon="circle-exclamation" className="h-4 w-4" />
             <AlertDescription>
-              {error instanceof Error ? error.message : 'Error loading predictions'}
+              {error instanceof Error ? error.message : 'Error loading analytics'}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -60,24 +77,17 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
     );
   }
 
-  // Transform the prediction data for the chart
-  const chartData = prediction.predictions.map(p => ({
-    time: new Date(p.timestamp).toLocaleTimeString('en-US', { 
-      hour: 'numeric',
-      hour12: true 
-    }),
-    usage: p.predictedUsage,
-    confidence: p.confidence
+  // Transform the analytics data for the chart
+  const chartData = analytics.dailyUsage.map(day => ({
+    date: format(new Date(day.date), 'MMM d'),
+    usage: Math.round(day.totalMinutes / 60), // Convert to hours
+    sessions: day.sessions,
   }));
-
-  // Calculate average usage and confidence
-  const avgUsage = chartData.reduce((acc, curr) => acc + curr.usage, 0) / chartData.length;
-  const avgConfidence = chartData.reduce((acc, curr) => acc + curr.confidence, 0) / chartData.length;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Usage Prediction</CardTitle>
+        <CardTitle>Usage Analytics</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -86,37 +96,61 @@ export default function EquipmentUsagePrediction({ equipmentId }: EquipmentUsage
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  dataKey="time"
-                  interval={3}  // Show every 4th label to prevent overcrowding
+                  dataKey="date"
+                  interval={1}
                   angle={-45}
                   textAnchor="end"
                 />
-                <YAxis />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
                 <Tooltip />
                 <Legend />
                 <Line
+                  yAxisId="left"
                   type="monotone"
                   dataKey="usage"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
-                  name="Predicted Usage %"
+                  name="Hours Used"
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="sessions"
+                  stroke="hsl(var(--secondary))"
+                  strokeWidth={2}
+                  name="Sessions"
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Average Usage:</span>
-              <span>{avgUsage.toFixed(1)}%</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Average Session Duration:</span>
+                <span>{Math.round(analytics.averageSessionDuration)} minutes</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Utilization Rate:</span>
+                <span>{analytics.utilizationRate.toFixed(1)}%</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Prediction Confidence:</span>
-              <span>{(avgConfidence * 100).toFixed(1)}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Last Updated:</span>
-              <span>{new Date(prediction.lastUpdated).toLocaleString()}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Peak Usage Time:</span>
+                <span>
+                  {analytics.timeOfDayDistribution
+                    .reduce((max, curr) => curr.sessions > max.sessions ? curr : max)
+                    .hour}:00
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Sessions (7 days):</span>
+                <span>
+                  {analytics.dailyUsage.reduce((sum, day) => sum + day.sessions, 0)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
