@@ -28,9 +28,9 @@ import {
   createEquipmentType,
   getAllEquipment,
   createEquipment,
-  updateEquipment
+  updateEquipment,
+  uploadEquipmentImage
 } from './services/azure/equipment_service';
-
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -794,6 +794,57 @@ export function registerRoutes(app: express.Application): Server {
     }
   });
 
+  // Add this after the existing equipment endpoints
+  app.post("/api/equipment/:id/image", upload.single('image'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({
+          error: "No file uploaded",
+          details: "An image file is required"
+        });
+      }
+
+      // Validate file type
+      if (!file.mimetype.startsWith('image/')) {
+        return res.status(400).json({
+          error: "Invalid file type",
+          details: "Only image files are allowed"
+        });
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        return res.status(400).json({
+          error: "File too large",
+          details: "Maximum file size is 5MB"
+        });
+      }
+
+      const result = await uploadEquipmentImage(
+        id,
+        file.buffer,
+        file.originalname,
+        file.mimetype
+      );
+
+      if (!result) {
+        throw new Error('Failed to upload image');
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error uploading equipment image:", error);
+      res.status(500).json({
+        error: "Failed to upload equipment image",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Add these routes after the existing equipment endpoints
   app.get("/api/equipment/:id/analytics", async (req, res) => {
     try {
@@ -905,8 +956,7 @@ export function registerRoutes(app: express.Application): Server {
       console.error("Error generating segments:", error);
       res.status(500).json({ error: "Failed to generate segments" });
     }
-  });
-
+  });<pre>
   app.get("/api/marketing/segments", async (_req, res) => {
     try {
       // For demo purposes, return some sample segments
@@ -1917,7 +1967,7 @@ export function registerRoutes(app: express.Application): Server {
       // Update document status
       await db
         .update(documents)
-        .set.set({
+        .set({
           status: 'draft',
           updatedAt: new Date(),
           updatedBy: userId,

@@ -30,6 +30,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { EquipmentImageUpload } from "./EquipmentImageUpload";
 
 interface EquipmentEditDialogProps {
   equipment: Equipment;
@@ -137,6 +138,15 @@ export function EquipmentEditDialog({
             Update equipment details and manage device connections
           </DialogDescription>
         </DialogHeader>
+
+        {/* Add the image upload component here */}
+        <div className="mb-6">
+          <FormLabel>Equipment Image</FormLabel>
+          <EquipmentImageUpload
+            equipmentId={equipment.id}
+            currentImageUrl={equipment.imageUrl}
+          />
+        </div>
 
         <Form {...form}>
           <form

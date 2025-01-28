@@ -1,5 +1,6 @@
 import { CosmosClient } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
+import { uploadDocument } from '../blobStorage';
 
 // Get the connection string from environment variables
 const connectionString = process.env.AZURE_COSMOS_CONNECTION_STRING;
@@ -50,6 +51,8 @@ export interface Equipment {
   modelYear?: number;
   createdAt: string;
   updatedAt: string;
+  imageUrl?: string;
+  imagePath?: string;
 }
 
 export interface EquipmentUsage {
@@ -406,3 +409,45 @@ function calculateTotalPossibleMinutes(startDate: string, endDate: string): numb
 
 // Initialize the database when the module loads
 initializeEquipmentDatabase().catch(console.error);
+
+
+export async function uploadEquipmentImage(
+  equipmentId: string,
+  imageBuffer: Buffer,
+  fileName: string,
+  mimeType: string
+): Promise<{ url: string; path: string } | null> {
+  try {
+    console.log(`Uploading image for equipment ${equipmentId}`);
+    const result = await uploadDocument(imageBuffer, fileName, {
+      equipmentId,
+      mimeType,
+      type: 'equipment-image'
+    });
+
+    if (!result) {
+      throw new Error('Failed to upload image to blob storage');
+    }
+
+    // Update equipment record with image URL
+    const { resource: equipment } = await equipmentContainer.item(equipmentId, equipmentId).read();
+    if (!equipment) {
+      throw new Error('Equipment not found');
+    }
+
+    await equipmentContainer.item(equipmentId, equipmentId).replace({
+      ...equipment,
+      imageUrl: result.url,
+      imagePath: result.path,
+      updatedAt: new Date().toISOString()
+    });
+
+    return {
+      url: result.url,
+      path: result.path
+    };
+  } catch (error) {
+    console.error('Error uploading equipment image:', error);
+    throw error;
+  }
+}
