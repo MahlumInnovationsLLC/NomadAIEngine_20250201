@@ -921,7 +921,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Topic is required" });
       }
 
-      console.log(``Generating report for topic: ${topic}`);
+      console.log(`Generating report for topic: ${topic}`);
       const filename = await generateReport(topic);
 
       if (!filename) {
