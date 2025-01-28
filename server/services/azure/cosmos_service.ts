@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 let client: CosmosClient | null = null;
 export let database: Database | null = null;
-let containers: Record<string, Container> = {};
+export let containers: Record<string, Container> = {};
 
 export async function initializeCosmosDB() {
   try {
@@ -50,11 +50,12 @@ export async function initializeCosmosDB() {
   }
 }
 
-// Export functions to get specific containers
+// Get container helper function
 export function getContainer(containerId: string): Container | null {
   return containers[containerId] || null;
 }
 
+// Export container access object
 export const cosmosContainer = {
   get items() {
     return getContainer('building-systems')?.items;
@@ -63,6 +64,11 @@ export const cosmosContainer = {
     return getContainer('building-systems')?.item(id, partitionKey);
   }
 };
+
+// Initialize on module load
+initializeCosmosDB().catch(console.error);
+
+// Export functions to get specific containers
 
 function ensureContainer(containerId: string) {
   const container = getContainer(containerId);
@@ -191,6 +197,3 @@ export async function listChats(userKey: string = 'default_user') {
     throw error;
   }
 }
-
-// Initialize on module load
-initializeCosmosDB().catch(console.error);
