@@ -36,8 +36,8 @@ export interface BuildingSystem {
   metadata: unknown;
   createdAt: Date;
   updatedAt: Date;
-  lastInspection: string; //Retained from original
-  nextInspection: string; //Retained from original
+  lastInspection: string;
+  nextInspection: string;
   maintenanceHistory: {
     date: string;
     type: string;
@@ -45,13 +45,14 @@ export interface BuildingSystem {
     technician: string;
     cost?: number;
   }[];
-  specifications?: Record<string, any>; //Retained from original
-  installationDate: string; //Retained from original
+  specifications?: Record<string, any>;
+  installationDate: string;
   warranty: {
     provider: string;
     expirationDate: string;
     coverage: string;
   };
+  notifications?: FacilityNotification[];
 }
 
 export interface Inspection {
@@ -75,4 +76,18 @@ export interface Inspection {
   }[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FacilityNotification {
+  id: number;
+  buildingSystemId: number;
+  type: 'maintenance_due' | 'system_error' | 'inspection_required' | 'health_alert' | 'status_change';
+  title: string;
+  message: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'unread' | 'read' | 'acknowledged' | 'resolved';
+  metadata?: Record<string, any>;
+  createdAt: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
 }

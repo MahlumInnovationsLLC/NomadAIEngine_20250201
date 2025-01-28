@@ -246,6 +246,27 @@ export const userNotifications = pgTable("user_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Add to the existing schema, after notifications table
+export const facilityNotifications = pgTable("facility_notifications", {
+  id: serial("id").primaryKey(),
+  buildingSystemId: integer("building_system_id").references(() => buildingSystems.id),
+  type: text("type", {
+    enum: ['maintenance_due', 'system_error', 'inspection_required', 'health_alert', 'status_change']
+  }).notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  priority: text("priority", {
+    enum: ['low', 'medium', 'high', 'critical']
+  }).notNull().default('medium'),
+  status: text("status", {
+    enum: ['unread', 'read', 'acknowledged', 'resolved']
+  }).notNull().default('unread'),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+});
+
 // Add support ticket tables
 export const supportTickets = pgTable("support_tickets", {
   id: serial("id").primaryKey(),
@@ -830,12 +851,20 @@ export const workoutSetLogsRelations = relations(workoutSetLogs, ({ one }) => ({
 }));
 
 // Add relations
-export const buildingSystemsRelations = relations(buildingSystems, ({ }) => ({
-  // Future relations can be added here
+export const buildingSystemsRelations = relations(buildingSystems, ({ many }) => ({
+  notifications: many(facilityNotifications)
 }));
 
 export const facilityInspectionsRelations = relations(facilityInspections, ({ }) => ({
   // Future relations can be added here
+}));
+
+// Add to relations section
+export const facilityNotificationsRelations = relations(facilityNotifications, ({ one }) => ({
+  buildingSystem: one(buildingSystems, {
+    fields: [facilityNotifications.buildingSystemId],
+    references: [buildingSystems.id],
+  }),
 }));
 
 // Schemas
@@ -900,6 +929,10 @@ export const selectBuildingSystemSchema = createSelectSchema(buildingSystems);
 
 export const insertFacilityInspectionSchema = createInsertSchema(facilityInspections);
 export const selectFacilityInspectionSchema = createSelectSchema(facilityInspections);
+
+// Add schemas
+export const insertFacilityNotificationSchema = createInsertSchema(facilityNotifications);
+export const selectFacilityNotificationSchema = createSelectSchema(facilityNotifications);
 
 // Types
 export type Document = typeof documents.$inferSelect;
@@ -976,5 +1009,8 @@ export type SelectWorkoutSetLog = typeof workoutSetLogs.$inferSelect;
 
 export type BuildingSystem = typeof buildingSystems.$inferSelect;
 export type FacilityInspection = typeof facilityInspections.$inferSelect;
+
+// Add types for facility notifications
+export type FacilityNotification = typeof facilityNotifications.$inferSelect;
 
 import { integer } from "drizzle-orm/pg-core";
