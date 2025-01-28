@@ -1,4 +1,3 @@
-
 import multer from 'multer';
 import express from "express";
 import { createServer, type Server } from "http";
@@ -29,6 +28,7 @@ import {
 import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { v4 as uuidv4 } from 'uuid';
+import { database, containers } from "./services/azure/cosmos_service";
 
 
 // Remove standalone export of these functions since they are now part of the route handlers
