@@ -742,18 +742,34 @@ export function registerRoutes(app: Express): Server {
   // Equipment Types endpoints
   app.post("/api/equipment-types", async (req, res) => {
     try {
-      const type = req.body;
-      const existingType = await getEquipmentType(type.manufacturer, type.model);
+      const { name, manufacturer, model, category, connectivityType } = req.body;
+      
+      if (!name || !category || !connectivityType) {
+        return res.status(400).json({ 
+          error: "Missing required fields: name, category, and connectivityType are required" 
+        });
+      }
 
+      const existingType = await getEquipmentType(manufacturer, model);
       if (existingType) {
         return res.json(existingType);
       }
 
-      const newType = await createEquipmentType(type);
-      res.json(newType);
+      const newType = await createEquipmentType({
+        name,
+        manufacturer,
+        model,
+        category,
+        connectivityType
+      });
+      
+      res.status(201).json(newType);
     } catch (error) {
       console.error("Error creating equipment type:", error);
-      res.status(500).json({ error: "Failed to create equipment type" });
+      res.status(500).json({ 
+        error: "Failed to create equipment type", 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
