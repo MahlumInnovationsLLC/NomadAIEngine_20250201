@@ -1900,7 +1900,7 @@ export function registerRoutes(app: Express): Server {
   // Document content endpoint - updating to handle paths correctly
   app.get("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
     try {
-      const documentPath = req`.params["path*"];
+      const documentPath = req.params["path*"];
       console.log("Fetching document content for path:", documentPath);
 
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
