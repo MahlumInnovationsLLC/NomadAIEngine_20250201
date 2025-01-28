@@ -31,6 +31,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { EquipmentImageUpload } from "./EquipmentImageUpload";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface EquipmentEditDialogProps {
   equipment: Equipment;
@@ -131,190 +134,222 @@ export function EquipmentEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>Edit Equipment</DialogTitle>
           <DialogDescription>
-            Update equipment details and manage device connections
+            Update equipment details and manage settings
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit((data) => updateMutation.mutate(data))}
-            className="space-y-4"
-          >
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Equipment Image</FormLabel>
-                  <FormControl>
+        <Tabs defaultValue="general" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="general">
+              <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
+              General
+            </TabsTrigger>
+            <TabsTrigger value="device">
+              <FontAwesomeIcon icon="wifi" className="mr-2 h-4 w-4" />
+              Device
+            </TabsTrigger>
+            <TabsTrigger value="image">
+              <FontAwesomeIcon icon="image" className="mr-2 h-4 w-4" />
+              Image
+            </TabsTrigger>
+          </TabsList>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit((data) => updateMutation.mutate(data))}>
+              <TabsContent value="general">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>General Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter equipment name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="serialNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Serial Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter serial number" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="modelNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Model Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter model number" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="modelYear"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Model Year</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              {...field} 
+                              onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              placeholder="Enter model year" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="device">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Device Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="deviceType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Device Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select device type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="bluetooth">Bluetooth</SelectItem>
+                              <SelectItem value="wifi">WiFi</SelectItem>
+                              <SelectItem value="ant">ANT+</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Type of connection for real-time data tracking
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="deviceIdentifier"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Device Identifier</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter device ID" />
+                          </FormControl>
+                          <FormDescription>
+                            Unique identifier for the tracking device
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="deviceConnectionStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Connection Status</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select connection status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="connected">Connected</SelectItem>
+                              <SelectItem value="disconnected">Disconnected</SelectItem>
+                              <SelectItem value="pairing">Pairing</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="image">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Equipment Image</CardTitle>
+                  </CardHeader>
+                  <CardContent>
                     <EquipmentImageUpload
                       equipmentId={equipment.id.toString()}
                       currentImageUrl={equipment.imageUrl}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormDescription className="mt-2">
+                      Upload an image of the equipment. Supported formats: JPG, PNG. Max size: 5MB.
+                    </FormDescription>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Enter equipment name" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="serialNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Serial Number</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Enter serial number" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="modelNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Model Number</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Enter model number" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="modelYear"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Model Year</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="number" 
-                      {...field} 
-                      onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                      placeholder="Enter model year" 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="deviceType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Device Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select device type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="bluetooth">Bluetooth</SelectItem>
-                      <SelectItem value="wifi">WiFi</SelectItem>
-                      <SelectItem value="ant">ANT+</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Type of connection for real-time data tracking
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="deviceIdentifier"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Device Identifier</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Enter device ID" />
-                  </FormControl>
-                  <FormDescription>
-                    Unique identifier for the tracking device
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="deviceConnectionStatus"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Connection Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select connection status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="connected">Connected</SelectItem>
-                      <SelectItem value="disconnected">Disconnected</SelectItem>
-                      <SelectItem value="pairing">Pairing</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to delete this equipment?")) {
-                    deleteMutation.mutate();
-                  }
-                }}
-              >
-                Delete
-              </Button>
-              <div className="flex gap-2">
+              <div className="mt-6 flex justify-between">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
+                  variant="destructive"
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to delete this equipment?")) {
+                      deleteMutation.mutate();
+                    }
+                  }}
                 >
-                  Cancel
+                  Delete Equipment
                 </Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={updateMutation.isPending}>
+                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
               </div>
-            </DialogFooter>
-          </form>
-        </Form>
+            </form>
+          </Form>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
