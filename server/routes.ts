@@ -739,7 +739,9 @@ export function registerRoutes(app: Express): Server {
     res.json(activeUsers);
   });
 
-  // Equipment Types endpoints
+  import { getEquipmentType, createEquipmentType, getAllEquipment } from './services/azure/equipment_service';
+
+// Equipment Types endpoints
   app.post("/api/equipment-types", async (req, res) => {
     try {
       const { name, manufacturer, model, category, connectivityType } = req.body;
