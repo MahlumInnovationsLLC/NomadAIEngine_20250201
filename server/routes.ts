@@ -1,3 +1,20 @@
+
+import multer from 'multer';
+import express from "express";
+import { createServer, type Server } from "http";
+import { WebSocketServer } from 'ws';
+import { db } from "@db";
+import {
+  buildingSystems,
+  notifications,
+  userNotifications,
+  facilityNotifications
+} from "@db/schema";
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
