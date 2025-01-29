@@ -7,11 +7,11 @@ export let containers: Record<string, Container> = {};
 
 export async function initializeCosmosDB() {
   try {
-    if (!process.env.AZURE_COSMOS_CONNECTION_STRING) {
+    if (!process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING) {
       throw new Error("Azure Cosmos DB connection string not configured");
     }
 
-    const connectionString = process.env.AZURE_COSMOS_CONNECTION_STRING.trim();
+    const connectionString = process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING.trim();
 
     if (!connectionString) {
       throw new Error("Azure Cosmos DB connection string is empty");
@@ -21,7 +21,7 @@ export async function initializeCosmosDB() {
 
     // Create database if it doesn't exist
     const { database: db } = await client.databases.createIfNotExists({
-      id: "GYMAIEngineDB"
+      id: "NomadAIEngineDB"
     });
     database = db;
 
@@ -30,7 +30,10 @@ export async function initializeCosmosDB() {
       { id: "chats", partitionKey: "/userKey" },
       { id: "equipment", partitionKey: "/id" },
       { id: "equipment-types", partitionKey: "/id" },
-      { id: "building-systems", partitionKey: "/id" }
+      { id: "production-lines", partitionKey: "/id" },
+      { id: "manufacturing-systems", partitionKey: "/id" },
+      { id: "maintenance-records", partitionKey: "/id" },
+      { id: "quality-inspections", partitionKey: "/id" }
     ];
 
     await Promise.all(
@@ -58,17 +61,16 @@ export function getContainer(containerId: string): Container | null {
 // Export container access object
 export const cosmosContainer = {
   get items() {
-    return getContainer('building-systems')?.items;
+    return getContainer('production-lines')?.items;
   },
   item(id: string, partitionKey: string) {
-    return getContainer('building-systems')?.item(id, partitionKey);
+    return getContainer('production-lines')?.item(id, partitionKey);
   }
 };
 
 // Initialize on module load
 initializeCosmosDB().catch(console.error);
 
-// Export functions to get specific containers
 
 function ensureContainer(containerId: string) {
   const container = getContainer(containerId);
@@ -80,7 +82,7 @@ function ensureContainer(containerId: string) {
 
 
 export async function createChat(chatData: any) {
-  const cont = ensureContainer('building-systems');
+  const cont = ensureContainer('chats'); // Changed to 'chats' container
 
   try {
     // Generate a unique chat ID using UUID with timestamp to avoid conflicts
@@ -121,7 +123,7 @@ export async function createChat(chatData: any) {
 }
 
 export async function updateChat(chatId: string, updates: any) {
-  const cont = ensureContainer('building-systems');
+  const cont = ensureContainer('chats'); // Changed to 'chats' container
 
   try {
     const { resource: existingChat } = await cont.item(chatId, updates.userKey || 'default_user').read();
@@ -152,7 +154,7 @@ export async function updateChat(chatId: string, updates: any) {
 }
 
 export async function deleteChat(chatId: string, userKey: string = 'default_user') {
-  const cont = ensureContainer('building-systems');
+  const cont = ensureContainer('chats'); // Changed to 'chats' container
 
   try {
     // Soft delete by marking the chat as deleted
@@ -177,7 +179,7 @@ export async function deleteChat(chatId: string, userKey: string = 'default_user
 }
 
 export async function listChats(userKey: string = 'default_user') {
-  const cont = ensureContainer('building-systems');
+  const cont = ensureContainer('chats'); // Changed to 'chats' container
 
   try {
     const querySpec = {

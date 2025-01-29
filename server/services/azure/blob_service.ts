@@ -1,7 +1,27 @@
 import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 
+let blobServiceClient: BlobServiceClient | null = null;
 let containerClient: ContainerClient | null = null;
-const containerName = "documents";
+const containerName = "manufacturing-documents";
+
+export async function getBlobServiceClient() {
+  if (blobServiceClient) return blobServiceClient;
+
+  if (!process.env.NOMAD_AZURE_BLOB_CONNECTION_STRING) {
+    console.warn("Azure Blob Storage connection string not configured. File storage will be disabled.");
+    return null;
+  }
+
+  try {
+    blobServiceClient = BlobServiceClient.fromConnectionString(
+      process.env.NOMAD_AZURE_BLOB_CONNECTION_STRING
+    );
+    return blobServiceClient;
+  } catch (error) {
+    console.error("Error initializing Blob Service Client:", error);
+    return null;
+  }
+}
 
 export async function initializeBlobStorage() {
   try {
@@ -26,8 +46,7 @@ export async function initializeBlobStorage() {
 
     console.log("Attempting to connect to Azure Blob Storage...");
 
-    const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-
+    blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
     console.log("Successfully created Blob Service Client");
 
     containerClient = blobServiceClient.getContainerClient(containerName);
@@ -50,6 +69,7 @@ export async function initializeBlobStorage() {
       });
     }
     containerClient = null;
+    blobServiceClient = null;
   }
 }
 

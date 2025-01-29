@@ -1,9 +1,10 @@
 import { OpenAIClient } from "@azure/openai";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { getContainer } from "./cosmos_service";
+import { getBlobServiceClient } from "./blob_service";
 
 let client: OpenAIClient | null = null;
-const deploymentName = process.env.AZURE_OPENAI_MODEL || "GYMAIEngine-gpt-4o";
+const deploymentName = process.env.NOMAD_AZURE_OPENAI_MODEL || "NomadAIEngine-gpt-4";
 
 export async function initializeOpenAI() {
   try {
@@ -13,13 +14,13 @@ export async function initializeOpenAI() {
     }
 
     // Validate environment variables
-    if (!process.env.AZURE_OPENAI_ENDPOINT?.trim() || !process.env.AZURE_OPENAI_API_KEY?.trim()) {
+    if (!process.env.NOMAD_AZURE_OPENAI_ENDPOINT?.trim() || !process.env.NOMAD_AZURE_OPENAI_API_KEY?.trim()) {
       console.warn("Azure OpenAI credentials not configured or empty");
       return null;
     }
 
-    const endpoint = process.env.AZURE_OPENAI_ENDPOINT.trim();
-    const apiKey = process.env.AZURE_OPENAI_API_KEY.trim();
+    const endpoint = process.env.NOMAD_AZURE_OPENAI_ENDPOINT.trim();
+    const apiKey = process.env.NOMAD_AZURE_OPENAI_API_KEY.trim();
 
     console.log("Creating OpenAI client...");
     client = new OpenAIClient(endpoint, new AzureKeyCredential(apiKey));
@@ -49,6 +50,21 @@ export async function ensureInitialized() {
     return initializeOpenAI();
   }
   return client;
+}
+
+async function checkBlobStorageConnection(): Promise<boolean> {
+  try {
+    const blobServiceClient = await getBlobServiceClient();
+    if (!blobServiceClient) return false;
+
+    // List containers to verify connection
+    const containers = blobServiceClient.listContainers();
+    await containers.next();
+    return true;
+  } catch (error) {
+    console.error("Error checking blob storage connection:", error);
+    return false;
+  }
 }
 
 export async function checkOpenAIConnection() {
@@ -120,7 +136,6 @@ export async function checkOpenAIConnection() {
       });
     }
 
-
     return services;
   } catch (error) {
     console.error("Error checking services status:", error);
@@ -143,7 +158,7 @@ export async function analyzeDocument(content: string) {
     const result = await openaiClient.getChatCompletions(deploymentName, [
       { 
         role: "system", 
-        content: `You are a helpful assistant for a Fitness Facility and Health Club. You are an expert in all things fitness and Health Club Management. You are also a professional report writer that creates detailed, well-structured reports with your fitness industry expertise.
+        content: `You are a helpful assistant for a Vehicle Manufacturing Facility. You are an expert in manufacturing processes, production optimization, and quality control. You are also a professional report writer that creates detailed, well-structured reports with your manufacturing industry expertise.
 
 When asked to generate a report, structure your response in the following format:
 
@@ -200,7 +215,7 @@ export async function generateSummary(content: string) {
 
   try {
     const result = await openaiClient.getChatCompletions(deploymentName, [
-      { role: "system", content: "You are an AI assistant that summarizes documents." },
+      { role: "system", content: "You are an AI assistant that summarizes manufacturing documents." },
       { role: "user", content: `Please summarize this document: ${content}` }
     ]);
 
@@ -222,7 +237,7 @@ export async function predictMaintenanceNeeds(systemData: any) {
     const result = await openaiClient.getChatCompletions(deploymentName, [
       {
         role: "system",
-        content: `You are an expert facility maintenance AI assistant specializing in predictive maintenance for building systems. Analyze the provided system data and generate maintenance predictions and recommendations.
+        content: `You are an expert manufacturing maintenance AI assistant specializing in predictive maintenance for production systems. Analyze the provided system data and generate maintenance predictions and recommendations.
 
 Format your response as a JSON object with the following structure:
 {
