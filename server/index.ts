@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { initializeCosmosDB } from "./services/azure/cosmos_service";
+import { initializeManufacturingDatabase } from "./services/azure/facility_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
 
@@ -61,10 +61,10 @@ app.use((req, res, next) => {
     log("Initializing Azure services...");
 
     try {
-      await initializeCosmosDB();
-      log("Cosmos DB initialized successfully");
+      await initializeManufacturingDatabase();
+      log("Manufacturing database initialized successfully");
     } catch (error) {
-      console.error("Failed to initialize Cosmos DB, continuing with limited functionality:", error);
+      console.error("Failed to initialize manufacturing database, continuing with limited functionality:", error);
     }
 
     try {
@@ -100,7 +100,7 @@ app.use((req, res, next) => {
     }
 
     const PORT = 5000;
-    
+
     // Kill any existing process on port 5000
     server.on('error', (e: any) => {
       if (e.code === 'EADDRINUSE') {

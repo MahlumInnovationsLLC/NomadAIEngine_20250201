@@ -3,6 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer } from 'ws';
 import { db } from "@db";
+import { CosmosClient } from "@azure/cosmos";
 import {
   buildingSystems,
   notifications,
@@ -31,6 +32,11 @@ import {
   updateEquipment,
   uploadEquipmentImage
 } from './services/azure/equipment_service';
+
+// Initialize Cosmos DB client
+const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
+const cosmosDatabase = cosmosClient.database("NomadAIEngineDB");
+const containers: { [key: string]: any } = {};
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -79,16 +85,25 @@ async function initializeContainers() {
     { id: "building-systems", partitionKey: "/id" }
   ];
 
-  await Promise.all(
-    containerConfigs.map(async (config) => {
-      const { container } = await database!.containers.createIfNotExists({
-        id: config.id,
-        partitionKey: { paths: [config.partitionKey] }
-      });
-      containers[config.id] = container;
-    })
-  );
+  try {
+    await Promise.all(
+      containerConfigs.map(async (config) => {
+        const { container } = await cosmosDatabase.containers.createIfNotExists({
+          id: config.id,
+          partitionKey: { paths: [config.partitionKey] }
+        });
+        containers[config.id] = container;
+      })
+    );
+    console.log("Successfully initialized all containers");
+  } catch (error) {
+    console.error("Error initializing containers:", error);
+    throw error;
+  }
 }
+
+// Initialize containers
+initializeContainers().catch(console.error);
 
 export function registerRoutes(app: express.Application): Server {
   // Building Systems endpoints
@@ -956,7 +971,7 @@ export function registerRoutes(app: express.Application): Server {
       console.error("Error generating segments:", error);
       res.status(500).json({ error: "Failed to generate segments" });
     }
-  });<pre>
+  });
   app.get("/api/marketing/segments", async (_req, res) => {
     try {
       // For demo purposes, return some sample segments
@@ -1892,7 +1907,7 @@ export function registerRoutes(app: express.Application): Server {
 
       if (!documentId || !approvalId || !userId) {
         return res.status(400).json({ error: "Missing required fields" });
-      }
+}
 
       // Update approval status
       await db

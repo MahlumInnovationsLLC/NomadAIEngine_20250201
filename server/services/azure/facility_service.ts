@@ -1,18 +1,18 @@
 import { CosmosClient } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
 
-if (!process.env.AZURE_COSMOS_CONNECTION_STRING) {
+if (!process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING) {
   throw new Error("Azure Cosmos DB connection string not found");
 }
 
-const client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
-const database = client.database("GYMAIEngineDB");
-const facilityContainer = database.container("facility-maintenance");
-const poolMaintenanceContainer = database.container("pool-maintenance");
-const buildingSystemsContainer = database.container("building-systems");
-const inspectionContainer = database.container("inspections");
+const client = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING);
+const database = client.database("NomadAIEngineDB");
+const productionContainer = database.container("production-lines");
+const manufacturingSystemsContainer = database.container("manufacturing-systems");
+const maintenanceContainer = database.container("maintenance-records");
+const qualityInspectionContainer = database.container("quality-inspections");
 
-export interface ChemicalReading {
+export interface ProductionMetrics {
   type: string;
   value: number;
   unit: string;
@@ -20,27 +20,27 @@ export interface ChemicalReading {
   recordedBy: string;
 }
 
-export interface PoolMaintenance {
+export interface ProductionLine {
   id: string;
-  readings: ChemicalReading[];
-  lastCleaning: string;
-  nextCleaning: string;
-  filterStatus: string;
-  chemicalLevels: {
-    chlorine: number;
-    pH: number;
-    alkalinity: number;
-    calcium: number;
+  metrics: ProductionMetrics[];
+  lastMaintenance: string;
+  nextMaintenance: string;
+  status: 'operational' | 'maintenance' | 'error' | 'offline';
+  performance: {
+    efficiency: number;
+    quality: number;
+    availability: number;
+    oee: number;
   };
   notes: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface BuildingSystem {
+export interface ManufacturingSystem {
   id: string;
   name: string;
-  type: 'HVAC' | 'Electrical' | 'Plumbing' | 'Safety' | 'Other';
+  type: 'Assembly' | 'Machining' | 'Finishing' | 'Testing' | 'Packaging' | 'Other';
   status: 'operational' | 'maintenance' | 'error' | 'offline';
   lastInspection: string;
   nextInspection: string;
@@ -63,236 +63,118 @@ export interface BuildingSystem {
   updatedAt: string;
 }
 
-export interface Inspection {
+export interface QualityInspection {
   id: string;
-  type: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual';
-  status: 'pending' | 'completed' | 'overdue' | 'in-progress';
+  type: 'incoming' | 'in-process' | 'final' | 'audit';
+  status: 'pending' | 'completed' | 'failed' | 'in-progress';
   assignedTo: string;
   dueDate: string;
   completedDate?: string;
-  area: string;
+  productionLine: string;
   checklist: {
     item: string;
+    specification: string;
+    measurement?: number;
+    tolerance?: number;
     status: 'pass' | 'fail' | 'na';
     notes?: string;
   }[];
-  photos?: string[];
-  issues?: {
+  defects?: {
     description: string;
-    severity: 'low' | 'medium' | 'high';
-    status: 'open' | 'in-progress' | 'resolved';
+    severity: 'minor' | 'major' | 'critical';
+    status: 'identified' | 'investigating' | 'resolved';
+    correctiveAction?: string;
   }[];
   createdAt: string;
   updatedAt: string;
 }
 
-export async function initializeFacilityDatabase() {
+export async function initializeManufacturingDatabase() {
   try {
     await database.containers.createIfNotExists({
-      id: "facility-maintenance",
+      id: "production-lines",
       partitionKey: { paths: ["/id"] }
     });
 
     await database.containers.createIfNotExists({
-      id: "pool-maintenance",
+      id: "manufacturing-systems",
       partitionKey: { paths: ["/id"] }
     });
 
     await database.containers.createIfNotExists({
-      id: "building-systems",
+      id: "maintenance-records",
       partitionKey: { paths: ["/id"] }
     });
 
     await database.containers.createIfNotExists({
-      id: "inspections",
+      id: "quality-inspections",
       partitionKey: { paths: ["/id"] }
     });
 
-    console.log("Facility maintenance containers initialized successfully");
+    console.log("Manufacturing database containers initialized successfully");
   } catch (error) {
-    console.error("Failed to initialize facility maintenance database:", error);
+    console.error("Failed to initialize manufacturing database:", error);
     throw error;
   }
 }
 
-// Pool Maintenance Functions
-export async function getLatestPoolMaintenance(): Promise<PoolMaintenance | null> {
+// Production Line Functions
+export async function getProductionLineStatus(): Promise<ProductionLine | null> {
   try {
     const querySpec = {
       query: "SELECT TOP 1 * FROM c ORDER BY c.createdAt DESC"
     };
 
-    const { resources } = await poolMaintenanceContainer.items.query<PoolMaintenance>(querySpec).fetchAll();
+    const { resources } = await productionContainer.items.query<ProductionLine>(querySpec).fetchAll();
     return resources[0] || null;
   } catch (error) {
-    console.error("Failed to get latest pool maintenance:", error);
+    console.error("Failed to get production line status:", error);
     throw error;
   }
 }
 
-export async function addPoolChemicalReading(reading: ChemicalReading): Promise<PoolMaintenance> {
+export async function addProductionMetrics(metrics: ProductionMetrics): Promise<ProductionLine> {
   try {
-    const latest = await getLatestPoolMaintenance();
+    const latest = await getProductionLineStatus();
     const now = new Date().toISOString();
 
     if (latest) {
       const updated = {
         ...latest,
-        readings: [...latest.readings, reading],
+        metrics: [...latest.metrics, metrics],
         updatedAt: now
       };
 
-      const { resource } = await poolMaintenanceContainer.item(latest.id, latest.id).replace(updated);
-      if (!resource) throw new Error("Failed to update pool maintenance");
+      const { resource } = await productionContainer.item(latest.id, latest.id).replace(updated);
+      if (!resource) throw new Error("Failed to update production metrics");
       return resource;
     } else {
-      const newRecord: PoolMaintenance = {
+      const newRecord: ProductionLine = {
         id: uuidv4(),
-        readings: [reading],
-        lastCleaning: now,
-        nextCleaning: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Next week
-        filterStatus: "clean",
-        chemicalLevels: {
-          chlorine: 0,
-          pH: 7,
-          alkalinity: 0,
-          calcium: 0
+        metrics: [metrics],
+        lastMaintenance: now,
+        nextMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: "operational",
+        performance: {
+          efficiency: 100,
+          quality: 100,
+          availability: 100,
+          oee: 100
         },
         notes: "",
         createdAt: now,
         updatedAt: now
       };
 
-      const { resource } = await poolMaintenanceContainer.items.create(newRecord);
-      if (!resource) throw new Error("Failed to create pool maintenance record");
+      const { resource } = await productionContainer.items.create(newRecord);
+      if (!resource) throw new Error("Failed to create production record");
       return resource;
     }
   } catch (error) {
-    console.error("Failed to add pool chemical reading:", error);
-    throw error;
-  }
-}
-
-// Building Systems Functions
-export async function getBuildingSystems(): Promise<BuildingSystem[]> {
-  try {
-    // For testing purposes, return a mock building system
-    const mockSystems: BuildingSystem[] = [{
-      id: "mock-hvac-1",
-      name: "Main HVAC System",
-      type: "HVAC",
-      status: "operational",
-      lastInspection: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-      nextInspection: new Date(Date.now() + 23 * 24 * 60 * 60 * 1000).toISOString(), // 23 days from now
-      maintenanceHistory: [
-        {
-          date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          type: "routine",
-          description: "Regular maintenance check",
-          technician: "John Smith",
-          cost: 250
-        }
-      ],
-      location: "Building A - First Floor",
-      installationDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year ago
-      warranty: {
-        provider: "HVAC Solutions Inc",
-        expirationDate: new Date(Date.now() + 730 * 24 * 60 * 60 * 1000).toISOString(), // 2 years from now
-        coverage: "Full parts and labor"
-      },
-      specifications: {
-        model: "HAC-2000",
-        capacity: "10 tons",
-        efficiency: "SEER 16"
-      },
-      createdAt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date().toISOString()
-    }];
-
-    return mockSystems;
-  } catch (error) {
-    console.error("Failed to get building systems:", error);
-    throw error;
-  }
-}
-
-export async function addBuildingSystem(system: Omit<BuildingSystem, "id" | "createdAt" | "updatedAt">): Promise<BuildingSystem> {
-  try {
-    const now = new Date().toISOString();
-    const newSystem = {
-      id: uuidv4(),
-      ...system,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    const { resource } = await buildingSystemsContainer.items.create(newSystem);
-    if (!resource) throw new Error("Failed to create building system");
-    return resource;
-  } catch (error) {
-    console.error("Failed to add building system:", error);
-    throw error;
-  }
-}
-
-export async function updateBuildingSystem(id: string, updates: Partial<BuildingSystem>): Promise<BuildingSystem | null> {
-  try {
-    const { resource: existingSystem } = await buildingSystemsContainer.item(id, id).read();
-
-    if (!existingSystem) {
-      return null;
-    }
-
-    const updatedSystem = {
-      ...existingSystem,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-
-    const { resource } = await buildingSystemsContainer.item(id, id).replace(updatedSystem);
-    return resource || null;
-  } catch (error) {
-    console.error("Error updating building system:", error);
-    throw error;
-  }
-}
-
-// Inspection Functions
-export async function getInspections(status?: Inspection["status"]): Promise<Inspection[]> {
-  try {
-    const querySpec = {
-      query: status
-        ? "SELECT * FROM c WHERE c.status = @status ORDER BY c.dueDate ASC"
-        : "SELECT * FROM c ORDER BY c.dueDate ASC",
-      parameters: status ? [{ name: "@status", value: status }] : undefined
-    };
-
-    const { resources } = await inspectionContainer.items.query<Inspection>(querySpec).fetchAll();
-    return resources;
-  } catch (error) {
-    console.error("Failed to get inspections:", error);
-    throw error;
-  }
-}
-
-export async function createInspection(inspection: Omit<Inspection, "id" | "createdAt" | "updatedAt">): Promise<Inspection> {
-  try {
-    const now = new Date().toISOString();
-    const newInspection = {
-      id: uuidv4(),
-      ...inspection,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    const { resource } = await inspectionContainer.items.create(newInspection);
-    if (!resource) throw new Error("Failed to create inspection");
-    return resource;
-  } catch (error) {
-    console.error("Failed to create inspection:", error);
+    console.error("Failed to add production metrics:", error);
     throw error;
   }
 }
 
 // Initialize the database when the module loads
-initializeFacilityDatabase().catch(console.error);
+initializeManufacturingDatabase().catch(console.error);
