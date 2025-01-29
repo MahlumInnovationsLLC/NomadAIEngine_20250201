@@ -90,6 +90,12 @@ import {
   faHome,
   faServer,
   faWater,
+  faIndustry,
+  faBoxesStacked,
+  faTruckFast,
+  faMapLocationDot,
+  faWrench,
+  faCheckCircle,
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -181,7 +187,13 @@ library.add(
   faBullseye,
   faHome,
   faServer,
-  faWater
+  faWater,
+  faIndustry,
+  faBoxesStacked,
+  faTruckFast,
+  faMapLocationDot,
+  faWrench,
+  faCheckCircle,
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -277,19 +289,25 @@ const iconMap: Record<string, IconDefinition> = {
   'bullseye': faBullseye,
   'home': faHome,
   'server': faServer,
-  'water': faWater
+  'water': faWater,
+  'industry': faIndustry,
+  'boxes-stacked': faBoxesStacked,
+  'truck-fast': faTruckFast,
+  'map-location-dot': faMapLocationDot,
+  'wrench': faWrench,
+  'check-circle': faCheckCircle,
 };
 
-export function FontAwesomeIcon({ 
-  icon, 
+export function FontAwesomeIcon({
+  icon,
   size,
   className,
-  ...props 
+  ...props
 }: FontAwesomeIconProps) {
   if (Array.isArray(icon)) {
     const [prefix, name] = icon;
     return (
-      <FAIcon 
+      <FAIcon
         icon={[prefix, name]}
         className={className}
         size={size}
@@ -306,7 +324,7 @@ export function FontAwesomeIcon({
   }
 
   return (
-    <FAIcon 
+    <FAIcon
       icon={faIcon}
       className={className}
       size={size}

@@ -24,9 +24,9 @@ const msalInstance = new PublicClientApplication(msalConfig);
 const Home = lazy(() => import("@/pages/Home"));
 const ChatPage = lazy(() => import("@/pages/ChatPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
-const ClubControlPage = lazy(() => import("@/pages/ClubControlPage"));
+const ManufacturingControlPage = lazy(() => import("@/pages/ManufacturingControlPage"));
 const MarketingControl = lazy(() => import("@/pages/MarketingControl"));
-const MemberManagement = lazy(() => import("@/components/member/MemberDashboard").then(module => ({ default: module.default })));
+const MaterialHandling = lazy(() => import("@/components/material/MaterialDashboard").then(module => ({ default: module.default })));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const DocManagePage = lazy(() => import("@/pages/DocManage"));
 const DocumentManagementPage = lazy(() => import("@/pages/DocumentManagement"));
@@ -118,9 +118,9 @@ function App() {
                   <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
                   <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
                   <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
-                  <Route path="/club-control" component={() => <ProtectedRoute component={ClubControlPage} />} />
+                  <Route path="/manufacturing-control" component={() => <ProtectedRoute component={ManufacturingControlPage} />} />
                   <Route path="/marketing-control" component={() => <ProtectedRoute component={MarketingControl} />} />
-                  <Route path="/member-management" component={() => <ProtectedRoute component={MemberManagement} />} />
+                  <Route path="/material-handling" component={() => <ProtectedRoute component={MaterialHandling} />} />
                   <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
                   <Route path="/admin/support/:id" component={() => (
                     <ProtectedRoute component={TicketDetailsPage} />

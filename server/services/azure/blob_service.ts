@@ -5,12 +5,12 @@ const containerName = "documents";
 
 export async function initializeBlobStorage() {
   try {
-    if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
+    if (!process.env.NOMAD_AZURE_BLOB_CONNECTION_STRING) {
       console.warn("Azure Blob Storage connection string not configured. File storage will be disabled.");
       return;
     }
 
-    const connectionString = process.env.AZURE_BLOB_CONNECTION_STRING.trim();
+    const connectionString = process.env.NOMAD_AZURE_BLOB_CONNECTION_STRING.trim();
 
     if (!connectionString) {
       console.warn("Azure Blob Storage connection string is empty. File storage will be disabled.");

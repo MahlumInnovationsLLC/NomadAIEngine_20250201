@@ -1,12 +1,12 @@
 import { BlobServiceClient } from "@azure/storage-blob";
 import { v4 as uuidv4 } from "uuid";
 
-if (!process.env.AZURE_STORAGE_CONNECTION_STRING) {
+if (!process.env.NOMAD_AZURE_BLOB_CONNECTION_STRING) {
   throw new Error("Azure Storage connection string not found");
 }
 
 const blobServiceClient = BlobServiceClient.fromConnectionString(
-  process.env.AZURE_STORAGE_CONNECTION_STRING
+  process.env.NOMAD_AZURE_BLOB_CONNECTION_STRING
 );
 
 const containerName = "member-workouts";

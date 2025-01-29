@@ -107,9 +107,9 @@ export default function Navbar() {
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <Link href="/club-control">
+              <Link href="/manufacturing-control">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Club Control
+                  Manufacturing Control
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
@@ -121,9 +121,9 @@ export default function Navbar() {
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <Link href="/member-management">
+              <Link href="/material-handling">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Member Management
+                  Material Handling
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>

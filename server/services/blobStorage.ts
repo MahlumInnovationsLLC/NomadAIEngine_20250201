@@ -1,13 +1,13 @@
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 import { createHash } from "crypto";
 
-if (!process.env.AZURE_BLOB_CONNECTION_STRING) {
-  throw new Error("AZURE_BLOB_CONNECTION_STRING environment variable is required");
+if (!process.env.NOMAD_AZURE_BLOB_CONNECTION_STRING) {
+  throw new Error("NOMAD_AZURE_BLOB_CONNECTION_STRING environment variable is required");
 }
 
 // Create the BlobServiceClient with retries
 const blobServiceClient = BlobServiceClient.fromConnectionString(
-  process.env.AZURE_BLOB_CONNECTION_STRING
+  process.env.NOMAD_AZURE_BLOB_CONNECTION_STRING
 );
 
 const CONTAINER_NAME = "documents";
@@ -20,7 +20,7 @@ export async function initializeBlobStorage() {
     try {
       await containerClient.getProperties();
       console.log(`Successfully connected to container: ${CONTAINER_NAME}`);
-    } catch (error) {
+    } catch (error: any) {
       if (error.statusCode === 404) {
         // Container doesn't exist, create it
         await containerClient.create({
