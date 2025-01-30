@@ -23,15 +23,18 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', origin);
   }
 
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  // Allow credentials and required headers for token-based auth
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-client-SKU, x-client-ver, x-ms-client-request-id, x-ms-client-session-id');
 
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
-  } else {
-    next();
+    return;
   }
+
+  next();
 });
 
 app.use((req, res, next) => {

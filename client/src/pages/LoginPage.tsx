@@ -38,25 +38,43 @@ export default function LoginPage() {
       // Log attempt configuration
       console.debug("Login attempt:", {
         origin: window.location.origin,
-        href: window.location.href
+        href: window.location.href,
+        pathname: window.location.pathname
       });
 
       // Attempt login with popup
-      const result = await instance.loginPopup(loginRequest);
+      const result = await instance.loginPopup({
+        ...loginRequest,
+        redirectUri: window.location.origin
+      });
 
       if (result) {
         console.debug("Login successful:", { 
           account: result.account?.username,
-          tenantId: result.account?.tenantId
+          tenantId: result.account?.tenantId,
+          scopes: result.scopes
         });
         setLocation("/dashboard");
       }
     } catch (error: any) {
       console.error("Login error:", error);
+
+      // Extract detailed error information
+      const errorDetails = {
+        errorCode: error.errorCode,
+        errorMessage: error.errorMessage,
+        subError: error.subError || '',
+        name: error.name,
+        errorNo: error.errorNo,
+        correlationId: error.correlationId
+      };
+      console.error("Error details:", errorDetails);
+
+      // Show user-friendly error message
       toast({
         variant: "destructive",
         title: "Authentication Error",
-        description: error.message || "Failed to sign in. Please try again.",
+        description: error.errorMessage || "Failed to sign in. Please try again.",
       });
     }
   };
