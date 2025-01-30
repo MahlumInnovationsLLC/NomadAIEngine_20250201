@@ -19,7 +19,11 @@ import { AddProductionLineForm } from "./AddProductionLineForm";
 import { BuildStageProgress } from "./BuildStageProgress";
 import { InventoryAllocation } from "./InventoryAllocation";
 
-export default function ProductionLinesGrid() {
+interface ProductionLinesGridProps {
+  onLineSelect?: (lineId: string) => void;
+}
+
+export default function ProductionLinesGrid({ onLineSelect }: ProductionLinesGridProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedLine, setSelectedLine] = useState<ProductionLine | null>(null);
 
@@ -27,6 +31,11 @@ export default function ProductionLinesGrid() {
     queryKey: ['/api/manufacturing/production-lines'],
     refetchInterval: 5000, // Refresh every 5 seconds
   });
+
+  const handleLineClick = (line: ProductionLine) => {
+    setSelectedLine(line);
+    onLineSelect?.(line.id);
+  };
 
   const getStatusColor = (status: ProductionLine['status']) => {
     switch (status) {
@@ -106,7 +115,7 @@ export default function ProductionLinesGrid() {
           <Card 
             key={line.id}
             className="cursor-pointer hover:bg-accent transition-colors"
-            onClick={() => setSelectedLine(line)}
+            onClick={() => handleLineClick(line)}
           >
             <CardHeader>
               <CardTitle className="flex items-center justify-between">

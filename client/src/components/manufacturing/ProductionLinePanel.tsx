@@ -3,17 +3,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import ProductionLinesGrid from "./production/ProductionLinesGrid";
+import { ProductionScheduler } from "./production/ProductionScheduler";
+import { BayScheduler } from "./production/BayScheduler";
 import { InventoryAllocation } from "./production/InventoryAllocation";
 import { useQuery } from "@tanstack/react-query";
-import type { ProductionLine } from "@/types/manufacturing";
+import type { ProductionLine, ProductionBay, ProductionOrder } from "@/types/manufacturing";
 
 export default function ProductionLinePanel() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
 
   // Fetch production lines for inventory allocation
   const { data: productionLines = [] } = useQuery<ProductionLine[]>({
     queryKey: ['/api/manufacturing/production-lines'],
     refetchInterval: 5000,
+  });
+
+  const { data: bays = [] } = useQuery<ProductionBay[]>({
+    queryKey: ['/api/manufacturing/bays', selectedLineId],
+    enabled: !!selectedLineId,
+  });
+
+  const { data: orders = [] } = useQuery<ProductionOrder[]>({
+    queryKey: ['/api/manufacturing/orders', selectedLineId],
+    enabled: !!selectedLineId,
   });
 
   return (
@@ -39,20 +52,32 @@ export default function ProductionLinePanel() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <ProductionLinesGrid />
+          <ProductionLinesGrid onLineSelect={setSelectedLineId} />
         </TabsContent>
 
-        <TabsContent value="scheduling">
-          <Card>
-            <CardHeader>
-              <CardTitle>Production Schedule</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Production scheduling features coming soon...
-              </p>
-            </CardContent>
-          </Card>
+        <TabsContent value="scheduling" className="space-y-6">
+          {selectedLineId ? (
+            <div className="space-y-6">
+              <ProductionScheduler productionLineId={selectedLineId} />
+              <BayScheduler 
+                bays={bays}
+                orders={orders}
+                onAssign={(orderId, bayId) => {
+                  console.log(`Assigned order ${orderId} to bay ${bayId}`);
+                }}
+              />
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <FontAwesomeIcon icon="calendar" className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Select a Production Line</h3>
+                <p className="text-muted-foreground">
+                  Please select a production line from the overview to view and manage its schedule
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-6">

@@ -18,6 +18,40 @@ export interface InventoryAllocation {
   lastUpdated: string;
 }
 
+export interface BuildStageIssue {
+  id: string;
+  stageId: string;
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'investigating' | 'resolved' | 'closed';
+  reportedBy: string;
+  assignedTo?: string;
+  createdAt: string;
+  updatedAt: string;
+  resolution?: string;
+  affectedComponents?: string[];
+  qualityImpact?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  skills: string[];
+  availability: 'available' | 'assigned' | 'unavailable';
+  currentAssignment?: string;
+}
+
+export interface ProductionTeam {
+  id: string;
+  name: string;
+  supervisor: string;
+  members: TeamMember[];
+  shift: 'morning' | 'afternoon' | 'night';
+  specializations: string[];
+}
+
 export interface BuildStage {
   id: string;
   name: string;
@@ -29,7 +63,36 @@ export interface BuildStage {
   estimatedDuration: number; // in minutes
   actualDuration?: number; // in minutes
   dependencies: string[]; // IDs of dependent stages
+  assignedTeam?: ProductionTeam;
   assignedOperators: string[];
+  earnedHours: number;
+  allocatedHours: number;
+  issues: BuildStageIssue[];
+  qualityChecks: {
+    checkId: string;
+    status: 'pending' | 'passed' | 'failed';
+    timestamp: string;
+  }[];
+}
+
+export interface ProductionBay {
+  id: string;
+  name: string;
+  status: 'available' | 'occupied' | 'maintenance';
+  currentOrder?: ProductionOrder;
+  assignedTeam?: ProductionTeam;
+  specializations: string[];
+  dimensions: {
+    length: number;
+    width: number;
+    height: number;
+    unit: string;
+  };
+  equipment: {
+    id: string;
+    name: string;
+    status: 'operational' | 'maintenance' | 'error';
+  }[];
 }
 
 export interface ProductionOrder {
@@ -44,6 +107,10 @@ export interface ProductionOrder {
   completedDate?: string;
   customer?: string;
   notes?: string;
+  assignedBay?: ProductionBay;
+  earnedHours: number;
+  allocatedHours: number;
+  progress: number;
 }
 
 export interface ProductionLine {
@@ -70,8 +137,24 @@ export interface ProductionLine {
   lastMaintenance: string;
   nextMaintenance: string;
   notes: string;
+  productionBays: ProductionBay[];
+  assignedTeams: ProductionTeam[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface GanttScheduleItem {
+  id: string;
+  orderNumber: string;
+  productName: string;
+  startDate: Date;
+  endDate: Date;
+  progress: number;
+  dependencies: string[];
+  assignedBay: string;
+  assignedTeam: string;
+  type: 'production' | 'maintenance' | 'setup';
+  status: 'scheduled' | 'in_progress' | 'completed' | 'delayed';
 }
 
 export interface ProductionSchedule {
@@ -82,6 +165,7 @@ export interface ProductionSchedule {
     endTime: string;
     reason: string;
   }[];
+  ganttItems: GanttScheduleItem[];
 }
 
 export interface QualityCheck {
