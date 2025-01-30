@@ -3,9 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import ProductionLinesGrid from "./production/ProductionLinesGrid";
+import { InventoryAllocation } from "./production/InventoryAllocation";
+import { useQuery } from "@tanstack/react-query";
+import type { ProductionLine } from "@/types/manufacturing";
 
 export default function ProductionLinePanel() {
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Fetch production lines for inventory allocation
+  const { data: productionLines = [] } = useQuery<ProductionLine[]>({
+    queryKey: ['/api/manufacturing/production-lines'],
+    refetchInterval: 5000,
+  });
 
   return (
     <div className="space-y-6">
@@ -34,7 +43,6 @@ export default function ProductionLinePanel() {
         </TabsContent>
 
         <TabsContent value="scheduling">
-          {/* We'll implement these components in subsequent iterations */}
           <Card>
             <CardHeader>
               <CardTitle>Production Schedule</CardTitle>
@@ -47,8 +55,30 @@ export default function ProductionLinePanel() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="inventory">
-          <ProductionLinesGrid />
+        <TabsContent value="inventory" className="space-y-6">
+          <div className="grid gap-6">
+            {productionLines.map((line) => (
+              <Card key={line.id}>
+                <CardHeader>
+                  <CardTitle>{line.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <InventoryAllocation productionLine={line} />
+                </CardContent>
+              </Card>
+            ))}
+            {productionLines.length === 0 && (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <FontAwesomeIcon icon="boxes-stacked" className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Production Lines</h3>
+                  <p className="text-muted-foreground">
+                    Add production lines to manage inventory allocation
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics">
