@@ -22,7 +22,8 @@ export default function LoginPage() {
       tenantId: !!import.meta.env.VITE_NOMAD_AZURE_TENANT_ID,
       origin: window.location.origin,
       href: window.location.href,
-      pathname: window.location.pathname
+      pathname: window.location.pathname,
+      fullUrl: `${window.location.origin}${window.location.pathname}`
     });
 
     // Check if Azure AD configuration is present
@@ -57,7 +58,7 @@ export default function LoginPage() {
       localStorage.clear();
 
       // Log configuration for debugging
-      console.debug("Login configuration:", {
+      console.debug("Login attempt configuration:", {
         clientId: import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID ? "Set" : "Not set",
         tenantId: import.meta.env.VITE_NOMAD_AZURE_TENANT_ID ? "Set" : "Not set",
         redirectUri: window.location.origin,
@@ -68,10 +69,18 @@ export default function LoginPage() {
       });
 
       // Attempt login with popup
-      await instance.loginPopup({
+      const result = await instance.loginPopup({
         ...loginRequest,
         redirectUri: window.location.origin,
       });
+
+      if (result) {
+        console.debug("Login successful:", { 
+          account: result.account?.username,
+          tenantId: result.account?.tenantId
+        });
+        setLocation("/dashboard");
+      }
     } catch (error: any) {
       console.error("Login error:", error);
       toast({
