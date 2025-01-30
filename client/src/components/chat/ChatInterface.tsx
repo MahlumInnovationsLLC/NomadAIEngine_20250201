@@ -110,7 +110,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       {showWelcome ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <h1 className="text-3xl font-bold mb-2">GYM AI Engine</h1>
+            <h1 className="text-3xl font-bold mb-2">NOMAD AI Engine</h1>
             <p className="text-muted-foreground">I'm here to help! Ask me anything.</p>
           </div>
         </div>
