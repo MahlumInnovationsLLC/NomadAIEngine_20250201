@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QualityFormTemplate } from "@/types/manufacturing";
-import { 
+import {
   fabInspectionTemplates,
   paintQCTemplates,
   productionQCTemplates,
@@ -62,7 +62,7 @@ export function InspectionTemplateDialog({
   editTemplate,
 }: InspectionTemplateDialogProps) {
   const [sections, setSections] = useState(editTemplate?.sections || []);
-  const [selectedBaseTemplate, setSelectedBaseTemplate] = useState<string>("");
+  const [selectedBaseTemplate, setSelectedBaseTemplate] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof templateFormSchema>>({
     resolver: zodResolver(templateFormSchema),
@@ -84,7 +84,18 @@ export function InspectionTemplateDialog({
     }
   };
 
-  const loadBaseTemplate = (templateId: string) => {
+  const loadBaseTemplate = (templateId: string | null) => {
+    if (!templateId) {
+      form.reset({
+        name: "",
+        type: "inspection",
+        description: "",
+        sections: [],
+      });
+      setSections([]);
+      return;
+    }
+
     const allTemplates = [
       ...fabInspectionTemplates,
       ...paintQCTemplates,
@@ -152,17 +163,20 @@ export function InspectionTemplateDialog({
             {!editTemplate && (
               <FormItem>
                 <FormLabel>Start from Template</FormLabel>
-                <Select value={selectedBaseTemplate} onValueChange={(value) => {
-                  setSelectedBaseTemplate(value);
-                  loadBaseTemplate(value);
-                }}>
+                <Select
+                  value={selectedBaseTemplate || undefined}
+                  onValueChange={(value) => {
+                    setSelectedBaseTemplate(value);
+                    loadBaseTemplate(value);
+                  }}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a base template" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">Create from scratch</SelectItem>
+                    <SelectItem value="new">Create from scratch</SelectItem>
                     <SelectItem value="fab-subframe-template">Subframe Inspection</SelectItem>
                     <SelectItem value="fab-birdcage-template">Birdcage Inspection</SelectItem>
                     <SelectItem value="post-paint-qc">Post Paint QC</SelectItem>
