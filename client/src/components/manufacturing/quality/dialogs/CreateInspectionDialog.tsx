@@ -20,8 +20,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
 import { QualityFormTemplate } from "@/types/manufacturing";
+import {
+  fabInspectionTemplates,
+  paintQCTemplates,
+  productionQCTemplates,
+  finalQCTemplates,
+  postDeliveryQCTemplates,
+} from "@/templates/qualityTemplates";
 
 const inspectionFormSchema = z.object({
   type: z.enum(["incoming", "in-process", "final", "audit"]),
@@ -41,9 +47,13 @@ interface CreateInspectionDialogProps {
 export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionDialogProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
 
-  const { data: templates } = useQuery<QualityFormTemplate[]>({
-    queryKey: ["/api/manufacturing/quality/templates"],
-  });
+  const allTemplates = [
+    ...fabInspectionTemplates,
+    ...paintQCTemplates,
+    ...productionQCTemplates,
+    ...finalQCTemplates,
+    ...postDeliveryQCTemplates,
+  ];
 
   const form = useForm<z.infer<typeof inspectionFormSchema>>({
     resolver: zodResolver(inspectionFormSchema),
@@ -54,7 +64,7 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
   });
 
   const handleTemplateChange = (templateId: string) => {
-    const template = templates?.find((t) => t.id === templateId);
+    const template = allTemplates.find((t) => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
     }
@@ -62,7 +72,6 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
 
   const onSubmit = async (values: z.infer<typeof inspectionFormSchema>) => {
     try {
-      // Implementation for creating a new inspection
       console.log("Creating inspection:", values);
       onOpenChange(false);
     } catch (error) {
@@ -123,7 +132,7 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {templates?.map((template) => (
+                        {allTemplates.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.name}
                           </SelectItem>
@@ -239,7 +248,6 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
                                 </SelectTrigger>
                               </Select>
                             )}
-                            {/* Add other field types as needed */}
                           </div>
                         </div>
                       ))}
