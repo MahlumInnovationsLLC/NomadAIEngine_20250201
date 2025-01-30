@@ -6,7 +6,8 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ProductionSchedule, ProductionOrder, ProductionBay, ProductionTeam } from "@/types/manufacturing";
-import { format, parseISO } from "date-fns";
+import format from "date-fns/format";
+import parseISO from "date-fns/parseISO";
 
 // Define our own ProcessedEvent type since it's not exported from react-scheduler
 interface ProcessedEvent {
@@ -21,7 +22,6 @@ interface ProcessedEvent {
   color?: string;
   textColor?: string;
   allDay?: boolean;
-  //rrule?: string;
   description?: string;
   status?: string;
   progress?: number;
@@ -80,11 +80,10 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
       start: new Date(item.startDate),
       end: new Date(item.endDate),
       admin_id: item.assignedBay,
-      color: item.type === 'maintenance' ? '#FFA500' : 
-             item.type === 'setup' ? '#4CAF50' : '#2196F3',
+      color: item.type === 'maintenance' ? '#FFA500' :
+        item.type === 'setup' ? '#4CAF50' : '#2196F3',
       textColor: '#fff',
       allDay: false,
-      //rrule: undefined,
       status: item.status,
       progress: item.progress,
       assignedTeam: item.assignedTeam,
@@ -94,13 +93,13 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
     }));
   }, [schedule, teams]);
 
-  const resources = useMemo(() => 
+  const resources = useMemo(() =>
     bays.map(bay => ({
       admin_id: bay.id,
       title: bay.name,
       mobile: bay.status,
-      color: bay.status === 'available' ? '#4CAF50' : 
-             bay.status === 'maintenance' ? '#FFA500' : '#2196F3',
+      color: bay.status === 'available' ? '#4CAF50' :
+        bay.status === 'maintenance' ? '#FFA500' : '#2196F3',
     })), [bays]);
 
   if (isLoading) {
@@ -124,7 +123,7 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
         <CardTitle>Production Schedule</CardTitle>
         <div className="flex items-center gap-2">
           <Button
-            variant={view === 'day' ? 'default' : 'outline'} 
+            variant={view === 'day' ? 'default' : 'outline'}
             onClick={() => setView('day')}
             size="sm"
           >
@@ -184,16 +183,18 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
                 config: { label: "Assigned Team" }
               }
             ]}
-            onEventDrop={async (droppedEvent: ProcessedEvent) => {
-              const { event_id, start, end, admin_id } = droppedEvent;
+            onEventDrop={async (_event, _droppedOn, updatedEvent, _originalEvent) => {
+              const { event_id, start, end, admin_id } = updatedEvent;
               const bay = bays.find(b => b.id === admin_id);
 
+              if (!bay) return; // Skip update if bay not found
+
               await updateScheduleMutation.mutateAsync({
-                orderId: event_id as string,
+                orderId: event_id.toString(),
                 updates: {
                   startDate: start.toISOString(),
                   dueDate: end.toISOString(),
-                  assignedBay: bay
+                  assignedBay: bay // Now passing the full bay object
                 }
               });
             }}
@@ -204,9 +205,9 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
                     variant="outline"
                     className={
                       event.status === 'completed' ? 'bg-green-500/10 text-green-500' :
-                      event.status === 'in_progress' ? 'bg-blue-500/10 text-blue-500' :
-                      event.status === 'delayed' ? 'bg-red-500/10 text-red-500' :
-                      'bg-gray-500/10 text-gray-500'
+                        event.status === 'in_progress' ? 'bg-blue-500/10 text-blue-500' :
+                          event.status === 'delayed' ? 'bg-red-500/10 text-red-500' :
+                            'bg-gray-500/10 text-gray-500'
                     }
                   >
                     {event.status}
