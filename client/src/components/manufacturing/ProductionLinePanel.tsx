@@ -48,16 +48,7 @@ export default function ProductionLinePanel() {
         </TabsContent>
 
         <TabsContent value="inventory">
-          <Card>
-            <CardHeader>
-              <CardTitle>Inventory Allocation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Inventory allocation features coming soon...
-              </p>
-            </CardContent>
-          </Card>
+          <ProductionLinesGrid />
         </TabsContent>
 
         <TabsContent value="analytics">

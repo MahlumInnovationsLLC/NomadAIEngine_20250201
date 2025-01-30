@@ -1,3 +1,5 @@
+import type { InventoryAllocationEvent } from "./inventory";
+
 export interface ProductionMetrics {
   type: string;
   value: number;
@@ -57,7 +59,7 @@ export interface ProductionLine {
   };
   currentOrder?: ProductionOrder;
   buildStages: BuildStage[];
-  allocatedInventory: InventoryAllocation[];
+  allocatedInventory: InventoryAllocationEvent[];
   metrics: ProductionMetrics[];
   performance: {
     efficiency: number;
