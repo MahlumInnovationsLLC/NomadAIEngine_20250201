@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
 import ProductionLinePanel from "@/components/manufacturing/ProductionLinePanel";
+import QualityControlPanel from "@/components/manufacturing/QualityControlPanel";
 
 export default function ManufacturingControlPage() {
   return (
@@ -42,7 +43,7 @@ export default function ManufacturingControlPage() {
           </TabsContent>
 
           <TabsContent value="quality" className="space-y-6">
-            {/* Quality Control Panel will go here */}
+            <QualityControlPanel />
           </TabsContent>
 
           <TabsContent value="maintenance" className="space-y-6">
