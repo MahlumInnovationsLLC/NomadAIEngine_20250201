@@ -16,10 +16,31 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Debug logging for environment variables
+    console.debug("Environment Variables Status:", {
+      clientId: !!import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID,
+      tenantId: !!import.meta.env.VITE_NOMAD_AZURE_TENANT_ID,
+      origin: window.location.origin
+    });
+
+    // Check if Azure AD configuration is present
+    if (!import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID || !import.meta.env.VITE_NOMAD_AZURE_TENANT_ID) {
+      console.error("Azure AD configuration missing", {
+        clientIdExists: !!import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID,
+        tenantIdExists: !!import.meta.env.VITE_NOMAD_AZURE_TENANT_ID
+      });
+      toast({
+        variant: "destructive",
+        title: "Configuration Error",
+        description: "Azure AD authentication is not properly configured. Please contact support.",
+      });
+      return;
+    }
+
     if (isAuthenticated) {
       setLocation("/dashboard");
     }
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated, setLocation, toast]);
 
   const handleLogin = async () => {
     try {
@@ -32,6 +53,17 @@ export default function LoginPage() {
       // Clear any existing sessions
       sessionStorage.clear();
       localStorage.clear();
+
+      // Log configuration for debugging
+      console.debug("Login configuration:", {
+        clientId: import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID ? "Set" : "Not set",
+        tenantId: import.meta.env.VITE_NOMAD_AZURE_TENANT_ID ? "Set" : "Not set",
+        redirectUri: window.location.origin,
+        loginRequest: {
+          ...loginRequest,
+          redirectUri: window.location.origin,
+        }
+      });
 
       // Attempt login with popup
       await instance.loginPopup({
@@ -60,9 +92,9 @@ export default function LoginPage() {
       >
         <Card className="w-full max-w-md mx-4 backdrop-blur-sm bg-card/95 dark:bg-card/90">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome</CardTitle>
             <CardDescription>
-              Sign in with your Microsoft account to continue
+              Sign in with your Microsoft account to access the manufacturing portal
             </CardDescription>
           </CardHeader>
           <CardContent>
