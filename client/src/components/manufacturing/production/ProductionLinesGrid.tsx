@@ -17,6 +17,7 @@ import type { ProductionLine, BuildStage } from "@/types/manufacturing";
 import { AlertCircle, Plus } from "lucide-react";
 import { AddProductionLineForm } from "./AddProductionLineForm";
 import { BuildStageProgress } from "./BuildStageProgress";
+import { InventoryAllocation } from "./InventoryAllocation";
 
 export default function ProductionLinesGrid() {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -192,8 +193,9 @@ export default function ProductionLinesGrid() {
               <DialogTitle>{selectedLine.name}</DialogTitle>
               <DialogDescription>{selectedLine.description}</DialogDescription>
             </DialogHeader>
-            <div className="space-y-6">
+            <div className="grid gap-6">
               <BuildStageProgress line={selectedLine} />
+              <InventoryAllocation productionLine={selectedLine} />
             </div>
           </DialogContent>
         </Dialog>
