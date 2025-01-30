@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ProductionSchedule, ProductionOrder, ProductionBay, ProductionTeam } from "@/types/manufacturing";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 interface ProcessedEvent {
   event_id: string | number;
@@ -36,7 +36,7 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
 
   const { data: schedule, isLoading } = useQuery<ProductionSchedule>({
     queryKey: [`/api/manufacturing/schedule/${productionLineId}`],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
   const { data: bays = [] } = useQuery<ProductionBay[]>({
@@ -75,8 +75,8 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
     return schedule.ganttItems.map(item => ({
       event_id: item.id,
       title: `${item.productName} (Order #${item.orderNumber})`,
-      start: parseISO(item.startDate),
-      end: parseISO(item.endDate),
+      start: new Date(item.startDate),
+      end: new Date(item.endDate),
       admin_id: item.assignedBay,
       color: item.type === 'maintenance' ? '#FFA500' :
         item.type === 'setup' ? '#4CAF50' : '#2196F3',
@@ -181,22 +181,22 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
                 config: { label: "Assigned Team" }
               }
             ]}
-            onEventDrop={async (_event, _droppedOn, updatedEvent, _originalEvent) => {
+            onEventDrop={async (droppedOn, updatedEvent, originalEvent) => {
               const { event_id, start, end, admin_id } = updatedEvent;
               const bay = bays.find(b => b.id === admin_id);
 
-              if (!bay) return; // Skip update if bay not found
+              if (!bay) return;
 
               await updateScheduleMutation.mutateAsync({
                 orderId: event_id.toString(),
                 updates: {
                   startDate: start.toISOString(),
                   dueDate: end.toISOString(),
-                  assignedBay: bay // Now passing the full bay object
+                  assignedBay: bay
                 }
               });
             }}
-            viewerExtraComponent={(_fields, event) => (
+            viewerExtraComponent={(fields, event) => (
               <div className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge
