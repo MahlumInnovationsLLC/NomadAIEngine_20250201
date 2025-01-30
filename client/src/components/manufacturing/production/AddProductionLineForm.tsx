@@ -18,13 +18,15 @@ interface AddProductionLineFormProps {
   onClose: () => void;
 }
 
+type ProductionLineType = ProductionLine['type'];
+
 export function AddProductionLineForm({ onClose }: AddProductionLineFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    type: "assembly",
+    type: "assembly" as ProductionLineType,
     capacity: {
       planned: 0,
       unit: "units/hour"
@@ -64,7 +66,7 @@ export function AddProductionLineForm({ onClose }: AddProductionLineFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const newLine = {
       ...formData,
       status: 'operational' as const,
@@ -116,7 +118,7 @@ export function AddProductionLineForm({ onClose }: AddProductionLineFormProps) {
         <Label htmlFor="type">Type</Label>
         <Select
           value={formData.type}
-          onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
+          onValueChange={(value: ProductionLineType) => setFormData(prev => ({ ...prev, type: value }))}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select type" />
