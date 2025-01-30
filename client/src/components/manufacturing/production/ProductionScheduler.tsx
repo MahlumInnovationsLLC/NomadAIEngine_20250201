@@ -6,10 +6,8 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ProductionSchedule, ProductionOrder, ProductionBay, ProductionTeam } from "@/types/manufacturing";
-import format from "date-fns/format";
-import parseISO from "date-fns/parseISO";
+import { format, parseISO } from "date-fns";
 
-// Define our own ProcessedEvent type since it's not exported from react-scheduler
 interface ProcessedEvent {
   event_id: string | number;
   title: string;
@@ -77,8 +75,8 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
     return schedule.ganttItems.map(item => ({
       event_id: item.id,
       title: `${item.productName} (Order #${item.orderNumber})`,
-      start: new Date(item.startDate),
-      end: new Date(item.endDate),
+      start: parseISO(item.startDate),
+      end: parseISO(item.endDate),
       admin_id: item.assignedBay,
       color: item.type === 'maintenance' ? '#FFA500' :
         item.type === 'setup' ? '#4CAF50' : '#2196F3',
@@ -198,7 +196,7 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
                 }
               });
             }}
-            viewerExtraComponent={(fields, event) => (
+            viewerExtraComponent={(_fields, event) => (
               <div className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge

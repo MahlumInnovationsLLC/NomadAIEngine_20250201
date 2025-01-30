@@ -19,8 +19,8 @@ createRoot(rootElement).render(
     <QueryClientProvider client={queryClient}>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <App />
+        <Toaster />
       </LocalizationProvider>
-      <Toaster />
     </QueryClientProvider>
   </StrictMode>,
 );
