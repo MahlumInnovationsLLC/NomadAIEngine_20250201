@@ -4,7 +4,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -20,13 +19,12 @@ import { AddProductionLineForm } from "./AddProductionLineForm";
 import { BuildStageProgress } from "./BuildStageProgress";
 
 export default function ProductionLinesGrid() {
-  const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedLine, setSelectedLine] = useState<ProductionLine | null>(null);
 
   const { data: productionLines = [], isLoading, error } = useQuery<ProductionLine[]>({
     queryKey: ['/api/manufacturing/production-lines'],
-    refetchInterval: 5000,
+    refetchInterval: 5000, // Refresh every 5 seconds
   });
 
   const getStatusColor = (status: ProductionLine['status']) => {
@@ -56,7 +54,7 @@ export default function ProductionLinesGrid() {
   };
 
   const calculateOverallProgress = (stages: BuildStage[]) => {
-    if (stages.length === 0) return 0;
+    if (!stages?.length) return 0;
     return (stages.reduce((acc, stage) => acc + stage.progress, 0) / stages.length);
   };
 
@@ -146,12 +144,12 @@ export default function ProductionLinesGrid() {
                 <div className="flex justify-between text-sm">
                   <span>Capacity</span>
                   <span>
-                    {line.capacity.actual}/{line.capacity.planned} {line.capacity.unit}
+                    {line.capacity?.actual ?? 0}/{line.capacity?.planned ?? 0} {line.capacity?.unit ?? 'units/hour'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>OEE</span>
-                  <span>{line.performance.oee.toFixed(1)}%</span>
+                  <span>{(line.performance?.oee ?? 0).toFixed(1)}%</span>
                 </div>
               </div>
             </CardContent>
@@ -196,7 +194,6 @@ export default function ProductionLinesGrid() {
             </DialogHeader>
             <div className="space-y-6">
               <BuildStageProgress line={selectedLine} />
-              {/* We'll add more detailed components here in subsequent iterations */}
             </div>
           </DialogContent>
         </Dialog>
