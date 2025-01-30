@@ -111,6 +111,7 @@ export interface ProductionOrder {
   earnedHours: number;
   allocatedHours: number;
   progress: number;
+  projectId?: string; // Add project reference
 }
 
 export interface ProductionLine {
@@ -166,6 +167,7 @@ export interface ProductionSchedule {
     reason: string;
   }[];
   ganttItems: GanttScheduleItem[];
+  projectId?: string; // Add project reference
 }
 
 export interface QualityCheck {
@@ -231,4 +233,65 @@ export interface QualityInspection {
   }[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProjectInventoryAllocation extends InventoryAllocation {
+  projectId: string;
+  allocatedDate: string;
+  requestedBy: string;
+  notes?: string;
+}
+
+export interface ProductionProject {
+  id: string;
+  projectNumber: string;
+  name: string;
+  description: string;
+  status: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
+  startDate: string;
+  targetCompletionDate: string;
+  actualCompletionDate?: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  customer?: string;
+  projectManager: string;
+  totalBudgetedHours: number;
+  totalActualHours: number;
+  inventory: ProjectInventoryAllocation[];
+  productionOrders: ProductionOrder[];
+  schedule?: ProductionSchedule;
+  metrics: {
+    completionPercentage: number;
+    hoursVariance: number;
+    qualityScore: number;
+    delayedTasks: number;
+  };
+  documents: {
+    id: string;
+    name: string;
+    type: string;
+    url: string;
+    uploadedBy: string;
+    uploadedAt: string;
+  }[];
+  notes: {
+    id: string;
+    content: string;
+    author: string;
+    timestamp: string;
+    type: 'general' | 'issue' | 'milestone';
+  }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectCreationForm {
+  projectNumber: string;
+  name: string;
+  description: string;
+  startDate: string;
+  targetCompletionDate: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  customer?: string;
+  projectManager: string;
+  totalBudgetedHours: number;
 }

@@ -32,6 +32,7 @@ import {
   updateEquipment,
   uploadEquipmentImage
 } from './services/azure/equipment_service';
+import projectsRouter from "./routes/manufacturing/projects";
 
 // Initialize Cosmos DB client
 const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
@@ -948,7 +949,7 @@ export function registerRoutes(app: express.Application): Server {
           "Shows strong affinity for premium products",
           "Responds well to email marketing campaigns"
         ],
-        criteria: [
+        criteria:[
           {
             type: "behavioral",
             condition: "greater_than",
@@ -1905,9 +1906,9 @@ export function registerRoutes(app: express.Application): Server {
       const approvalId = parseInt(req.params.approvalId);
       const userId = req.user?.id;
 
-      if (!documentId || !approvalId || !userId) {
+      if (!documentId || !approvalId|| !userId) {
         return res.status(400).json({ error: "Missing required fields" });
-}
+      }
 
       // Update approval status
       await db
@@ -2612,6 +2613,9 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to sync with Outlook calendar" });
     }
   });
+
+  // Add manufacturing projects routes
+  app.use("/api/manufacturing/projects", projectsRouter);
 
   const httpServer = createServer(app);
   return httpServer;
