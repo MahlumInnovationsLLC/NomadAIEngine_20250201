@@ -21,52 +21,57 @@ export function BuildStageProgress({ line }: BuildStageProgressProps) {
     }
   };
 
+  const calculateOverallProgress = (stages: BuildStage[] | undefined) => {
+    if (!stages || stages.length === 0) return 0;
+    return Math.round(stages.reduce((acc, stage) => acc + (stage.progress || 0), 0) / stages.length);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Build Stages</h3>
         <div className="text-sm text-muted-foreground">
-          Overall Progress: {Math.round(line.buildStages.reduce((acc, stage) => acc + stage.progress, 0) / line.buildStages.length)}%
+          Overall Progress: {calculateOverallProgress(line.buildStages)}%
         </div>
       </div>
 
       <div className="space-y-4">
-        {line.buildStages.map((stage) => (
-          <Card key={stage.id}>
-            <CardHeader className="py-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{stage.name}</CardTitle>
-                <Badge variant="outline" className={getStageStatusColor(stage.status)}>
-                  {stage.status.replace('_', ' ')}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="py-3">
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">
-                  {stage.description}
+        {line.buildStages && line.buildStages.length > 0 ? (
+          line.buildStages.map((stage) => (
+            <Card key={stage.id}>
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{stage.name}</CardTitle>
+                  <Badge variant="outline" className={getStageStatusColor(stage.status)}>
+                    {stage.status.replace('_', ' ')}
+                  </Badge>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Progress value={stage.progress} className="flex-1" />
-                  <span className="text-sm font-medium">{stage.progress}%</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Estimated: {stage.estimatedDuration}min</span>
-                  {stage.actualDuration && (
-                    <span>Actual: {stage.actualDuration}min</span>
+              </CardHeader>
+              <CardContent className="py-3">
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground">
+                    {stage.description}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Progress value={stage.progress || 0} className="flex-1" />
+                    <span className="text-sm font-medium">{stage.progress || 0}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Estimated: {stage.estimatedDuration}min</span>
+                    {stage.actualDuration && (
+                      <span>Actual: {stage.actualDuration}min</span>
+                    )}
+                  </div>
+                  {stage.assignedOperators && stage.assignedOperators.length > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      Assigned: {stage.assignedOperators.join(', ')}
+                    </div>
                   )}
                 </div>
-                {stage.assignedOperators.length > 0 && (
-                  <div className="text-sm text-muted-foreground">
-                    Assigned: {stage.assignedOperators.join(', ')}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {line.buildStages.length === 0 && (
+              </CardContent>
+            </Card>
+          ))
+        ) : (
           <div className="text-center py-8 text-muted-foreground">
             No build stages defined for this production line
           </div>
