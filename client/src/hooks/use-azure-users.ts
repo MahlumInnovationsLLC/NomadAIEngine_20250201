@@ -16,7 +16,7 @@ interface AzureADUser {
   };
 }
 
-const GYM_AI_ENGINE_GROUP_ID = 'e8dd9d7a-62e9-4142-b6e2-9491e1dac1e8';
+const NOMAD_AI_ENGINE_GROUP_ID = 'e8dd9d7a-62e9-4142-b6e2-9491e1dac1e8';
 
 export function useAzureUsers() {
   const { instance, accounts } = useMsal();

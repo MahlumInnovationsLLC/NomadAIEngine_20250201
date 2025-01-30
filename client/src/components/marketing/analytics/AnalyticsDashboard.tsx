@@ -39,7 +39,7 @@ export function AnalyticsDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Analytics Dashboard</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Nomad AI Engine Analytics Dashboard</h2>
         <Select value={timeframe} onValueChange={setTimeframe}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Select timeframe" />

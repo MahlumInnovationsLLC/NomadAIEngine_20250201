@@ -12,7 +12,7 @@ export default function Home() {
     <div className="max-w-4xl mx-auto py-12 pt-20">
       <div className="text-center mb-12" data-tour="welcome-section">
         <h1 className="text-4xl font-bold tracking-tight mb-4">
-          Welcome to GYM AI Engine
+          Welcome to Nomad AI Engine
         </h1>
         <p className="text-muted-foreground text-lg mb-6">
           Your intelligent assistant for document management and conversations
