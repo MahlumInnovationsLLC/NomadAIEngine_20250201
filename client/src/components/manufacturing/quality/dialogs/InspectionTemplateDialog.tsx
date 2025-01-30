@@ -76,7 +76,6 @@ export function InspectionTemplateDialog({
 
   const onSubmit = async (values: z.infer<typeof templateFormSchema>) => {
     try {
-      // Implementation for creating/updating template
       console.log("Saving template:", values);
       onOpenChange(false);
     } catch (error) {
@@ -150,8 +149,8 @@ export function InspectionTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{editTemplate ? "Edit Template" : "Create New Template"}</DialogTitle>
           <DialogDescription>
             Design a quality form template by adding sections and fields
@@ -159,191 +158,193 @@ export function InspectionTemplateDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {!editTemplate && (
-              <FormItem>
-                <FormLabel>Start from Template</FormLabel>
-                <Select
-                  value={selectedBaseTemplate || undefined}
-                  onValueChange={(value) => {
-                    setSelectedBaseTemplate(value);
-                    loadBaseTemplate(value);
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a base template" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="new">Create from scratch</SelectItem>
-                    <SelectItem value="fab-subframe-template">Subframe Inspection</SelectItem>
-                    <SelectItem value="fab-birdcage-template">Birdcage Inspection</SelectItem>
-                    <SelectItem value="post-paint-qc">Post Paint QC</SelectItem>
-                    <SelectItem value="equipment-id-qc">Equipment ID QC</SelectItem>
-                    <SelectItem value="testing-qc">Testing QC</SelectItem>
-                    <SelectItem value="final-qc-checklist">Final QC</SelectItem>
-                    <SelectItem value="post-delivery-inspection">Post-Delivery QC</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+            <div className="space-y-6 overflow-y-auto flex-grow pr-4">
+              {!editTemplate && (
+                <FormItem>
+                  <FormLabel>Start from Template</FormLabel>
+                  <Select
+                    value={selectedBaseTemplate || undefined}
+                    onValueChange={(value) => {
+                      setSelectedBaseTemplate(value);
+                      loadBaseTemplate(value);
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a base template" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="new">Create from scratch</SelectItem>
+                      <SelectItem value="fab-subframe-template">Subframe Inspection</SelectItem>
+                      <SelectItem value="fab-birdcage-template">Birdcage Inspection</SelectItem>
+                      <SelectItem value="post-paint-qc">Post Paint QC</SelectItem>
+                      <SelectItem value="equipment-id-qc">Equipment ID QC</SelectItem>
+                      <SelectItem value="testing-qc">Testing QC</SelectItem>
+                      <SelectItem value="final-qc-checklist">Final QC</SelectItem>
+                      <SelectItem value="post-delivery-inspection">Post-Delivery QC</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
 
-            <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter template name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="inspection">Inspection</SelectItem>
+                          <SelectItem value="audit">Audit</SelectItem>
+                          <SelectItem value="ncr">NCR</SelectItem>
+                          <SelectItem value="capa">CAPA</SelectItem>
+                          <SelectItem value="scar">SCAR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
-                name="name"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Template Name</FormLabel>
+                    <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter template name" {...field} />
+                      <Input placeholder="Enter template description" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Template Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="inspection">Inspection</SelectItem>
-                        <SelectItem value="audit">Audit</SelectItem>
-                        <SelectItem value="ncr">NCR</SelectItem>
-                        <SelectItem value="capa">CAPA</SelectItem>
-                        <SelectItem value="scar">SCAR</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium">Template Sections</h4>
+                  <Button type="button" variant="outline" onClick={addSection}>
+                    <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                    Add Section
+                  </Button>
+                </div>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter template description" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h4 className="font-medium">Template Sections</h4>
-                <Button type="button" variant="outline" onClick={addSection}>
-                  <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                  Add Section
-                </Button>
-              </div>
-
-              {sections.map((section, sectionIndex) => (
-                <div key={section.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="space-y-4 flex-1">
-                      <Input
-                        value={section.title}
-                        onChange={(e) => {
-                          const newSections = [...sections];
-                          newSections[sectionIndex].title = e.target.value;
-                          setSections(newSections);
-                        }}
-                        placeholder="Section Title"
-                      />
-                      <Input
-                        value={section.description || ""}
-                        onChange={(e) => {
-                          const newSections = [...sections];
-                          newSections[sectionIndex].description = e.target.value;
-                          setSections(newSections);
-                        }}
-                        placeholder="Section Description (optional)"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeSection(sectionIndex)}
-                    >
-                      <FontAwesomeIcon icon="trash" className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {section.fields.map((field, fieldIndex) => (
-                      <div key={field.id} className="flex gap-2">
+                {sections.map((section, sectionIndex) => (
+                  <div key={section.id} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="space-y-4 flex-1">
                         <Input
-                          value={field.label}
+                          value={section.title}
                           onChange={(e) => {
                             const newSections = [...sections];
-                            newSections[sectionIndex].fields[fieldIndex].label = e.target.value;
+                            newSections[sectionIndex].title = e.target.value;
                             setSections(newSections);
                           }}
-                          placeholder="Field Label"
+                          placeholder="Section Title"
                         />
-                        <Select
-                          value={field.type}
-                          onValueChange={(value: any) => {
+                        <Input
+                          value={section.description || ""}
+                          onChange={(e) => {
                             const newSections = [...sections];
-                            newSections[sectionIndex].fields[fieldIndex].type = value;
+                            newSections[sectionIndex].description = e.target.value;
                             setSections(newSections);
                           }}
-                        >
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Field Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="text">Text</SelectItem>
-                            <SelectItem value="number">Number</SelectItem>
-                            <SelectItem value="select">Select</SelectItem>
-                            <SelectItem value="multiselect">Multi-Select</SelectItem>
-                            <SelectItem value="checkbox">Checkbox</SelectItem>
-                            <SelectItem value="date">Date</SelectItem>
-                            <SelectItem value="file">File Upload</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeField(sectionIndex, fieldIndex)}
-                        >
-                          <FontAwesomeIcon icon="trash" className="h-4 w-4" />
-                        </Button>
+                          placeholder="Section Description (optional)"
+                        />
                       </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addField(sectionIndex)}
-                    >
-                      <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                      Add Field
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeSection(sectionIndex)}
+                      >
+                        <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {section.fields.map((field, fieldIndex) => (
+                        <div key={field.id} className="flex gap-2">
+                          <Input
+                            value={field.label}
+                            onChange={(e) => {
+                              const newSections = [...sections];
+                              newSections[sectionIndex].fields[fieldIndex].label = e.target.value;
+                              setSections(newSections);
+                            }}
+                            placeholder="Field Label"
+                          />
+                          <Select
+                            value={field.type}
+                            onValueChange={(value: any) => {
+                              const newSections = [...sections];
+                              newSections[sectionIndex].fields[fieldIndex].type = value;
+                              setSections(newSections);
+                            }}
+                          >
+                            <SelectTrigger className="w-[200px]">
+                              <SelectValue placeholder="Field Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="number">Number</SelectItem>
+                              <SelectItem value="select">Select</SelectItem>
+                              <SelectItem value="multiselect">Multi-Select</SelectItem>
+                              <SelectItem value="checkbox">Checkbox</SelectItem>
+                              <SelectItem value="date">Date</SelectItem>
+                              <SelectItem value="file">File Upload</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeField(sectionIndex, fieldIndex)}
+                          >
+                            <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addField(sectionIndex)}
+                      >
+                        <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                        Add Field
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-6 border-t mt-6">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
