@@ -15,7 +15,7 @@ export default function Home() {
           Welcome to Nomad AI Engine
         </h1>
         <p className="text-muted-foreground text-lg mb-6">
-          Your intelligent assistant for document management and conversations
+          Your intelligent assistant for Project and Manufacturing management
         </p>
         {isFirstVisit && (
           <Button onClick={startOnboarding} size="lg" className="gap-2">
