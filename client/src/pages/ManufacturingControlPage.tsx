@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
+import ProductionLinePanel from "@/components/manufacturing/ProductionLinePanel";
 
 export default function ManufacturingControlPage() {
   return (
@@ -37,7 +38,7 @@ export default function ManufacturingControlPage() {
           </TabsList>
 
           <TabsContent value="production" className="space-y-6">
-            {/* Production Line Management Panel will go here */}
+            <ProductionLinePanel />
           </TabsContent>
 
           <TabsContent value="quality" className="space-y-6">
