@@ -22,16 +22,26 @@ export interface ProductionMetrics {
 
 export interface ProductionLine {
   id: string;
-  metrics: ProductionMetrics[];
-  lastMaintenance: string;
-  nextMaintenance: string;
+  name: string;
+  description?: string;
+  type: 'assembly' | 'machining' | 'fabrication' | 'packaging' | 'testing';
   status: 'operational' | 'maintenance' | 'error' | 'offline';
+  capacity: {
+    planned: number;
+    actual: number;
+    unit: string;
+  };
+  metrics: ProductionMetrics[];
+  buildStages: any[];
+  allocatedInventory: any[];
   performance: {
     efficiency: number;
     quality: number;
     availability: number;
     oee: number;
   };
+  lastMaintenance: string;
+  nextMaintenance: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -65,10 +75,20 @@ export async function initializeManufacturingDatabase() {
       const now = new Date().toISOString();
       const defaultProductionLine: ProductionLine = {
         id: uuidv4(),
+        name: "Main Assembly Line",
+        description: "Primary vehicle assembly line",
+        type: "assembly",
         metrics: [],
+        buildStages: [],
+        allocatedInventory: [],
         lastMaintenance: now,
         nextMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         status: "operational",
+        capacity: {
+          planned: 100,
+          actual: 85,
+          unit: "units/day"
+        },
         performance: {
           efficiency: 98.5,
           quality: 99.2,
@@ -89,7 +109,6 @@ export async function initializeManufacturingDatabase() {
   }
 }
 
-// Production Line Functions
 export async function getProductionLineStatus(): Promise<ProductionLine | null> {
   try {
     const querySpec = {
@@ -122,10 +141,19 @@ export async function addProductionMetrics(metrics: ProductionMetrics): Promise<
     } else {
       const newRecord: ProductionLine = {
         id: uuidv4(),
+        name: "Default Production Line",
+        type: "assembly",
         metrics: [metrics],
+        buildStages: [],
+        allocatedInventory: [],
         lastMaintenance: now,
         nextMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         status: "operational",
+        capacity: {
+          planned: 100,
+          actual: 0,
+          unit: "units/day"
+        },
         performance: {
           efficiency: 100,
           quality: 100,

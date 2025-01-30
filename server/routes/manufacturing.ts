@@ -1,28 +1,29 @@
 import { Router } from "express";
 import { getProductionLineStatus, addProductionMetrics } from "../services/azure/facility_service";
+import crypto from 'crypto';
 
 const router = Router();
 
-// Get production line status
-router.get("/production-line", async (req, res) => {
+// Get all production lines
+router.get("/production-lines", async (req, res) => {
   try {
     const status = await getProductionLineStatus();
-    res.json(status || {
-      id: "default",
-      metrics: [],
-      lastMaintenance: new Date().toISOString(),
-      nextMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "operational",
-      performance: {
-        efficiency: 100,
-        quality: 100,
-        availability: 100,
-        oee: 100
-      },
-      notes: "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+    // For now, we'll wrap the single line in an array until we implement multi-line support
+    res.json(status ? [status] : []);
+  } catch (error) {
+    console.error("Failed to get production lines:", error);
+    res.status(500).json({ error: "Failed to get production lines" });
+  }
+});
+
+// Get single production line status
+router.get("/production-line/:id", async (req, res) => {
+  try {
+    const status = await getProductionLineStatus();
+    if (!status) {
+      return res.status(404).json({ error: "Production line not found" });
+    }
+    res.json(status);
   } catch (error) {
     console.error("Failed to get production line status:", error);
     res.status(500).json({ error: "Failed to get production line status" });
@@ -30,7 +31,7 @@ router.get("/production-line", async (req, res) => {
 });
 
 // Update production line status
-router.post("/production-line/status", async (req, res) => {
+router.post("/production-line/:id/status", async (req, res) => {
   try {
     const { status } = req.body;
     if (!status) {
@@ -45,7 +46,7 @@ router.post("/production-line/status", async (req, res) => {
 });
 
 // Add production metrics
-router.post("/production-line/metrics", async (req, res) => {
+router.post("/production-line/:id/metrics", async (req, res) => {
   try {
     const metrics = req.body;
     const result = await addProductionMetrics(metrics);
@@ -53,6 +54,31 @@ router.post("/production-line/metrics", async (req, res) => {
   } catch (error) {
     console.error("Failed to add production metrics:", error);
     res.status(500).json({ error: "Failed to add production metrics" });
+  }
+});
+
+// Create new production line
+router.post("/production-lines", async (req, res) => {
+  try {
+    const now = new Date().toISOString();
+    const newLine = {
+      ...req.body,
+      id: crypto.randomUUID(),
+      metrics: [],
+      buildStages: [],
+      allocatedInventory: [],
+      lastMaintenance: now,
+      nextMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // TODO: Implement creation in Cosmos DB
+    // For now return mock response
+    res.status(201).json(newLine);
+  } catch (error) {
+    console.error("Failed to create production line:", error);
+    res.status(500).json({ error: "Failed to create production line" });
   }
 });
 
