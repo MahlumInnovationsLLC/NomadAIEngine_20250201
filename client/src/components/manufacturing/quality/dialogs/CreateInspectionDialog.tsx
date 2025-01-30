@@ -81,8 +81,8 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
-        <DialogHeader className="flex-shrink-0 pb-4">
+      <DialogContent className="max-w-2xl h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Create New Quality Inspection</DialogTitle>
           <DialogDescription>
             Create a new quality inspection using a template or custom form.
@@ -90,9 +90,9 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1">
-            <div className="flex-1 overflow-y-auto pr-2">
-              <div className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-4 p-1">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -261,7 +261,7 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 mt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 mt-4 border-t flex-shrink-0">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
