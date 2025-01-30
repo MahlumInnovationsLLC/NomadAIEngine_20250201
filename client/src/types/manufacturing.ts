@@ -295,3 +295,165 @@ export interface ProjectCreationForm {
   projectManager: string;
   totalBudgetedHours: number;
 }
+
+export interface QualityFormTemplate {
+  id: string;
+  name: string;
+  type: 'inspection' | 'audit' | 'ncr' | 'capa' | 'scar';
+  description: string;
+  sections: {
+    id: string;
+    title: string;
+    description?: string;
+    fields: {
+      id: string;
+      label: string;
+      type: 'text' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'file';
+      required: boolean;
+      options?: string[];
+      validation?: {
+        min?: number;
+        max?: number;
+        pattern?: string;
+      };
+    }[];
+  }[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  isActive: boolean;
+}
+
+export interface NonConformanceReport {
+  id: string;
+  number: string; // NCR tracking number
+  title: string;
+  description: string;
+  detectedDate: string;
+  reportedBy: string;
+  severity: 'minor' | 'major' | 'critical';
+  status: 'draft' | 'open' | 'under_review' | 'pending_disposition' | 'closed';
+  type: 'product' | 'process' | 'material' | 'documentation';
+  area: string;
+  productLine?: string;
+  lotNumber?: string;
+  quantityAffected?: number;
+  disposition: 'use_as_is' | 'rework' | 'repair' | 'scrap' | 'return_to_supplier' | 'pending';
+  containmentActions: {
+    action: string;
+    assignedTo: string;
+    dueDate: string;
+    completedDate?: string;
+    status: 'pending' | 'in_progress' | 'completed';
+  }[];
+  rootCauseAnalysis?: {
+    category: string;
+    description: string;
+    attachments?: string[];
+  };
+  correctiveActionId?: string; // Reference to CAPA if created
+  attachments: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CorrectiveAction {
+  id: string;
+  number: string; // CAPA tracking number
+  title: string;
+  description: string;
+  type: 'corrective' | 'preventive' | 'improvement';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'draft' | 'open' | 'in_progress' | 'verification' | 'closed';
+  source: 'ncr' | 'audit' | 'customer_complaint' | 'internal';
+  sourceReference?: string; // Reference to source document (e.g., NCR number)
+  problemStatement: string;
+  rootCauseAnalysis: {
+    method: '5why' | 'fishbone' | 'fmea' | 'other';
+    findings: string;
+    attachments?: string[];
+  };
+  actions: {
+    id: string;
+    type: 'immediate' | 'corrective' | 'preventive';
+    description: string;
+    assignedTo: string;
+    dueDate: string;
+    completedDate?: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'verified';
+    verificationMethod?: string;
+    verificationResults?: string;
+    verifiedBy?: string;
+    verificationDate?: string;
+  }[];
+  effectiveness: {
+    criteria: string;
+    measurement: string;
+    results?: string;
+    verifiedBy?: string;
+    verificationDate?: string;
+  };
+  attachments: string[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupplierCorrectiveAction {
+  id: string;
+  number: string; // SCAR tracking number
+  supplierId: string;
+  supplierName: string;
+  issueDate: string;
+  responseRequired: string;
+  status: 'draft' | 'issued' | 'supplier_response' | 'review' | 'closed';
+  issue: {
+    description: string;
+    partNumbers?: string[];
+    lotNumbers?: string[];
+    quantityAffected?: number;
+    occurrenceDate: string;
+    category: 'quality' | 'delivery' | 'documentation' | 'other';
+    severity: 'minor' | 'major' | 'critical';
+  };
+  containmentActions: {
+    action: string;
+    responsibility: 'supplier' | 'internal';
+    dueDate: string;
+    completedDate?: string;
+    status: 'pending' | 'in_progress' | 'completed';
+    verification?: string;
+  }[];
+  rootCauseAnalysis?: {
+    method: string;
+    findings: string;
+    attachments?: string[];
+  };
+  correctiveActions: {
+    action: string;
+    type: 'immediate' | 'long_term';
+    responsibility: string;
+    dueDate: string;
+    completedDate?: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'verified';
+    verification?: string;
+  }[];
+  preventiveActions: {
+    action: string;
+    responsibility: string;
+    dueDate: string;
+    completedDate?: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'verified';
+  }[];
+  verification: {
+    method: string;
+    results?: string;
+    verifiedBy?: string;
+    verificationDate?: string;
+  };
+  attachments: string[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
