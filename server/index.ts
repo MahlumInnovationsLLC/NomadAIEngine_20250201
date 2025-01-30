@@ -5,7 +5,8 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeManufacturingDatabase } from "./services/azure/facility_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
-import manufacturingRoutes from "./routes/manufacturing"; // Add this import
+import manufacturingRoutes from "./routes/manufacturing";
+import inventoryRoutes from "./routes/inventory"; // Add this import
 
 const app = express();
 app.use(express.json());
@@ -27,7 +28,7 @@ app.use((req, res, next) => {
   // Allow credentials and required headers for token-based auth
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-client-SKU, x-client-ver, x-ms-client-request-id, x-ms-client-session-id');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -38,8 +39,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Register manufacturing routes
+// Register routes
 app.use('/api/manufacturing', manufacturingRoutes);
+app.use('/api/inventory', inventoryRoutes); // Add this line
 
 app.use((req, res, next) => {
   const start = Date.now();
