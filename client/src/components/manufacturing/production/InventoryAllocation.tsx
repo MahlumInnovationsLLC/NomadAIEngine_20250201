@@ -12,9 +12,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
 import type { ProductionLine } from "@/types/manufacturing";
-import type { InventoryItem } from "@/types/inventory";
+import type { InventoryItem, InventoryAllocationEvent } from "@/types/inventory";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 
 interface InventoryAllocationProps {
   productionLine: ProductionLine;
@@ -28,6 +30,7 @@ export function InventoryAllocation({ productionLine }: InventoryAllocationProps
 
   const { data: inventoryItems = [], isLoading: isLoadingInventory } = useQuery<InventoryItem[]>({
     queryKey: ['/api/inventory/items'],
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
   });
 
   const allocateMutation = useMutation({
@@ -95,11 +98,53 @@ export function InventoryAllocation({ productionLine }: InventoryAllocationProps
     }
   };
 
+  // Update the filter condition to match the correct enum value
+  const inventoryStats = {
+    totalItems: inventoryItems.length,
+    lowStockItems: inventoryItems.filter(item => item.status === 'low_stock').length,
+    outOfStockItems: inventoryItems.filter(item => item.status === 'out_of_stock').length,
+  };
+
+  if (isLoadingInventory) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 bg-muted rounded animate-pulse" />
+        <div className="grid gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-4">
+                <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                <div className="h-4 bg-muted rounded w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Inventory Allocation</h3>
+        <div className="flex gap-4">
+          <Badge variant="outline" className={inventoryStats.lowStockItems > 0 ? 'bg-yellow-500/10 text-yellow-500' : ''}>
+            {inventoryStats.lowStockItems} Low Stock
+          </Badge>
+          <Badge variant="outline" className={inventoryStats.outOfStockItems > 0 ? 'bg-red-500/10 text-red-500' : ''}>
+            {inventoryStats.outOfStockItems} Out of Stock
+          </Badge>
+        </div>
       </div>
+
+      {inventoryStats.lowStockItems > 0 && (
+        <Alert className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Some items are running low on stock. Please review inventory levels.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -116,16 +161,26 @@ export function InventoryAllocation({ productionLine }: InventoryAllocationProps
                   <SelectValue placeholder="Select item" />
                 </SelectTrigger>
                 <SelectContent>
-                  {inventoryItems.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>{item.name}</span>
-                        <Badge variant="outline" className={getStatusColor(item.status)}>
-                          {item.quantity} {item.unit}
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {inventoryItems.map((item) => {
+                    const isLowStock = item.status === 'low_stock';
+                    const isOutOfStock = item.status === 'out_of_stock';
+
+                    return (
+                      <SelectItem key={item.id} value={item.id} disabled={isOutOfStock}>
+                        <div className="flex items-center justify-between w-full">
+                          <span className="flex items-center gap-2">
+                            {item.name}
+                            {isLowStock && (
+                              <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                            )}
+                          </span>
+                          <Badge variant="outline" className={getStatusColor(item.status)}>
+                            {item.quantity} {item.unit}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -138,6 +193,11 @@ export function InventoryAllocation({ productionLine }: InventoryAllocationProps
                 min={0}
                 placeholder="Quantity"
               />
+              {selectedItem && (
+                <div className="text-sm text-muted-foreground">
+                  Available: {inventoryItems.find(i => i.id === selectedItem)?.quantity || 0} {inventoryItems.find(i => i.id === selectedItem)?.unit}
+                </div>
+              )}
             </div>
 
             <Button
@@ -155,22 +215,40 @@ export function InventoryAllocation({ productionLine }: InventoryAllocationProps
         <h4 className="font-medium">Currently Allocated</h4>
         {productionLine.allocatedInventory && productionLine.allocatedInventory.length > 0 ? (
           <div className="grid gap-4">
-            {productionLine.allocatedInventory.map((allocation) => {
+            {productionLine.allocatedInventory.map((allocation: InventoryAllocationEvent) => {
               const item = inventoryItems.find(i => i.id === allocation.itemId);
+              if (!item) return null;
+
               return (
                 <Card key={allocation.itemId}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium">{item?.name}</p>
+                        <p className="font-medium">{item.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {allocation.quantity} {item?.unit}
+                          {allocation.quantity} {item.unit}
                         </p>
                       </div>
-                      <Badge variant="outline">
-                        Allocated
-                      </Badge>
+                      <div className="space-y-2">
+                        <Badge variant="outline">
+                          Allocated
+                        </Badge>
+                        {item.status === 'low_stock' && (
+                          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500">
+                            Low Stock
+                          </Badge>
+                        )}
+                      </div>
                     </div>
+                    {item.status === 'low_stock' && (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Stock Level</span>
+                          <span>{Math.round((item.quantity / item.reorderPoint) * 100)}%</span>
+                        </div>
+                        <Progress value={(item.quantity / item.reorderPoint) * 100} className="h-1" />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

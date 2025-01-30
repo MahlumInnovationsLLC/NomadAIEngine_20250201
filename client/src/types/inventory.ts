@@ -15,14 +15,16 @@ export const inventoryItemSchema = z.object({
 
 export type InventoryItem = z.infer<typeof inventoryItemSchema>;
 
-export interface InventoryAllocationEvent {
-  itemId: string;
-  quantity: number;
-  allocatedTo: string; // Production line ID
-  timestamp: string;
-  type: 'allocation' | 'deallocation';
-  status: 'pending' | 'completed' | 'failed';
-}
+export const inventoryAllocationSchema = z.object({
+  itemId: z.string(),
+  quantity: z.number(),
+  allocatedTo: z.string(), // Production line ID
+  timestamp: z.string(),
+  type: z.enum(['allocation', 'deallocation']),
+  status: z.enum(['pending', 'completed', 'failed']),
+});
+
+export type InventoryAllocationEvent = z.infer<typeof inventoryAllocationSchema>;
 
 export interface InventoryUpdateEvent {
   itemId: string;
