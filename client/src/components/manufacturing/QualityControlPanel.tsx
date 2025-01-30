@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import SPCChartView from "./quality/SPCChartView";
 import QualityMetricsOverview from "./quality/QualityMetricsOverview";
+import QualityInspectionList from "./quality/QualityInspectionList";
+import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
+import DefectAnalytics from "./quality/DefectAnalytics";
 import { QualityInspection } from "@/types/manufacturing";
 
 export default function QualityControlPanel() {
@@ -99,15 +102,15 @@ export default function QualityControlPanel() {
         </TabsContent>
 
         <TabsContent value="inspections">
-          {/* Inspection List Component will go here */}
+          <QualityInspectionList />
         </TabsContent>
 
         <TabsContent value="suppliers">
-          {/* Supplier Quality Dashboard will go here */}
+          <SupplierQualityDashboard />
         </TabsContent>
 
         <TabsContent value="defects">
-          {/* Defect Tracking and Analysis will go here */}
+          <DefectAnalytics />
         </TabsContent>
       </Tabs>
     </div>
