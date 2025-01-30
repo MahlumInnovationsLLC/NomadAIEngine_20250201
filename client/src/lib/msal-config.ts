@@ -10,8 +10,8 @@ export const msalConfig: Configuration = {
     navigateToLoginRequestUrl: true,
   },
   cache: {
-    cacheLocation: "sessionStorage",
-    storeAuthStateInCookie: false,
+    cacheLocation: "localStorage",
+    storeAuthStateInCookie: true,
   },
   system: {
     allowNativeBroker: false,
@@ -51,7 +51,6 @@ export const msalConfig: Configuration = {
 export const loginRequest = {
   scopes: ["User.Read", "openid", "profile"],
   prompt: "select_account",
-  redirectStartPage: window.location.origin
 };
 
 // Add here the endpoints for MS Graph API services you would like to use.

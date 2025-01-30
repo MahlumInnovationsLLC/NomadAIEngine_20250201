@@ -16,34 +16,16 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Debug logging for environment variables and URLs
-    console.debug("Login Environment:", {
-      clientId: !!import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID,
-      tenantId: !!import.meta.env.VITE_NOMAD_AZURE_TENANT_ID,
-      origin: window.location.origin,
-      href: window.location.href,
-      pathname: window.location.pathname,
-      fullUrl: `${window.location.origin}${window.location.pathname}`
-    });
-
-    // Check if Azure AD configuration is present
-    if (!import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID || !import.meta.env.VITE_NOMAD_AZURE_TENANT_ID) {
-      console.error("Azure AD configuration missing", {
-        clientIdExists: !!import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID,
-        tenantIdExists: !!import.meta.env.VITE_NOMAD_AZURE_TENANT_ID
-      });
-      toast({
-        variant: "destructive",
-        title: "Configuration Error",
-        description: "Azure AD authentication is not properly configured. Please contact support.",
-      });
+    // Check if already authenticated
+    if (isAuthenticated) {
+      setLocation("/dashboard");
       return;
     }
 
-    if (isAuthenticated) {
-      setLocation("/dashboard");
-    }
-  }, [isAuthenticated, setLocation, toast]);
+    // Clear any existing sessions on mount
+    sessionStorage.clear();
+    localStorage.clear();
+  }, [isAuthenticated, setLocation]);
 
   const handleLogin = async () => {
     try {
@@ -53,26 +35,14 @@ export default function LoginPage() {
         description: "Please wait...",
       });
 
-      // Clear any existing sessions
-      sessionStorage.clear();
-      localStorage.clear();
-
-      // Log configuration for debugging
-      console.debug("Login attempt configuration:", {
-        clientId: import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID ? "Set" : "Not set",
-        tenantId: import.meta.env.VITE_NOMAD_AZURE_TENANT_ID ? "Set" : "Not set",
-        redirectUri: window.location.origin,
-        loginRequest: {
-          ...loginRequest,
-          redirectUri: window.location.origin,
-        }
+      // Log attempt configuration
+      console.debug("Login attempt:", {
+        origin: window.location.origin,
+        href: window.location.href
       });
 
       // Attempt login with popup
-      const result = await instance.loginPopup({
-        ...loginRequest,
-        redirectUri: window.location.origin,
-      });
+      const result = await instance.loginPopup(loginRequest);
 
       if (result) {
         console.debug("Login successful:", { 
