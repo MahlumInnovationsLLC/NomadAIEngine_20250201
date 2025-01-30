@@ -4,7 +4,7 @@ import { getContainer } from "./cosmos_service";
 import { getBlobServiceClient } from "./blob_service";
 
 let client: OpenAIClient | null = null;
-const deploymentName = process.env.NOMAD_AZURE_OPENAI_MODEL || "nomad-ai";
+const deploymentName = process.env.NOMAD_AZURE_OPENAI_MODEL || "NomadAIEngine";
 
 export async function initializeOpenAI() {
   try {
