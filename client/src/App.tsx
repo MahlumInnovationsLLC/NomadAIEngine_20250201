@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import Navbar from "@/components/layout/Navbar";
-import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
+import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
 
@@ -48,6 +48,7 @@ function RedirectToLogin() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
+    console.debug("Redirecting to login page");
     setLocation("/login");
   }, [setLocation]);
 
@@ -58,6 +59,7 @@ function RedirectToDashboard() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
+    console.debug("Redirecting to dashboard");
     setLocation("/dashboard");
   }, [setLocation]);
 
@@ -65,6 +67,17 @@ function RedirectToDashboard() {
 }
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
+  const isAuthenticated = useIsAuthenticated();
+  const { instance } = useMsal();
+
+  useEffect(() => {
+    // Log authentication state for debugging
+    console.debug("Protected route auth state:", {
+      isAuthenticated,
+      accounts: instance.getAllAccounts()
+    });
+  }, [isAuthenticated, instance]);
+
   return (
     <ErrorBoundary fallback={<div>Something went wrong</div>}>
       <Suspense fallback={<LoadingFallback />}>

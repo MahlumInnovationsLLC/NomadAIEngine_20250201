@@ -16,8 +16,9 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if already authenticated
+    // Check if already authenticated and redirect
     if (isAuthenticated) {
+      console.debug("User is already authenticated, redirecting to dashboard");
       setLocation("/dashboard");
       return;
     }
@@ -54,7 +55,11 @@ export default function LoginPage() {
           tenantId: result.account?.tenantId,
           scopes: result.scopes
         });
-        setLocation("/dashboard");
+
+        // Add a small delay to ensure state updates are processed
+        setTimeout(() => {
+          setLocation("/dashboard");
+        }, 100);
       }
     } catch (error: any) {
       console.error("Login error:", error);
