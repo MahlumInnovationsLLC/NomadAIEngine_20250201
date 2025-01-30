@@ -22,6 +22,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QualityFormTemplate } from "@/types/manufacturing";
+import { 
+  fabInspectionTemplates,
+  paintQCTemplates,
+  productionQCTemplates,
+  finalQCTemplates,
+  postDeliveryQCTemplates
+} from "@/templates/qualityTemplates";
 
 const templateFormSchema = z.object({
   name: z.string().min(1, "Template name is required"),
@@ -55,6 +62,7 @@ export function InspectionTemplateDialog({
   editTemplate,
 }: InspectionTemplateDialogProps) {
   const [sections, setSections] = useState(editTemplate?.sections || []);
+  const [selectedBaseTemplate, setSelectedBaseTemplate] = useState<string>("");
 
   const form = useForm<z.infer<typeof templateFormSchema>>({
     resolver: zodResolver(templateFormSchema),
@@ -73,6 +81,27 @@ export function InspectionTemplateDialog({
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving template:", error);
+    }
+  };
+
+  const loadBaseTemplate = (templateId: string) => {
+    const allTemplates = [
+      ...fabInspectionTemplates,
+      ...paintQCTemplates,
+      ...productionQCTemplates,
+      ...finalQCTemplates,
+      ...postDeliveryQCTemplates
+    ];
+
+    const template = allTemplates.find(t => t.id === templateId);
+    if (template) {
+      form.reset({
+        name: `Copy of ${template.name}`,
+        type: template.type,
+        description: template.description,
+        sections: template.sections,
+      });
+      setSections(template.sections);
     }
   };
 
@@ -120,6 +149,32 @@ export function InspectionTemplateDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {!editTemplate && (
+              <FormItem>
+                <FormLabel>Start from Template</FormLabel>
+                <Select value={selectedBaseTemplate} onValueChange={(value) => {
+                  setSelectedBaseTemplate(value);
+                  loadBaseTemplate(value);
+                }}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a base template" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="">Create from scratch</SelectItem>
+                    <SelectItem value="fab-subframe-template">Subframe Inspection</SelectItem>
+                    <SelectItem value="fab-birdcage-template">Birdcage Inspection</SelectItem>
+                    <SelectItem value="post-paint-qc">Post Paint QC</SelectItem>
+                    <SelectItem value="equipment-id-qc">Equipment ID QC</SelectItem>
+                    <SelectItem value="testing-qc">Testing QC</SelectItem>
+                    <SelectItem value="final-qc-checklist">Final QC</SelectItem>
+                    <SelectItem value="post-delivery-inspection">Post-Delivery QC</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
