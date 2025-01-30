@@ -37,58 +37,6 @@ export interface ProductionLine {
   updatedAt: string;
 }
 
-export interface ManufacturingSystem {
-  id: string;
-  name: string;
-  type: 'Assembly' | 'Machining' | 'Finishing' | 'Testing' | 'Packaging' | 'Other';
-  status: 'operational' | 'maintenance' | 'error' | 'offline';
-  lastInspection: string;
-  nextInspection: string;
-  maintenanceHistory: {
-    date: string;
-    type: string;
-    description: string;
-    technician: string;
-    cost?: number;
-  }[];
-  specifications?: Record<string, any>;
-  location: string;
-  installationDate: string;
-  warranty: {
-    provider: string;
-    expirationDate: string;
-    coverage: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface QualityInspection {
-  id: string;
-  type: 'incoming' | 'in-process' | 'final' | 'audit';
-  status: 'pending' | 'completed' | 'failed' | 'in-progress';
-  assignedTo: string;
-  dueDate: string;
-  completedDate?: string;
-  productionLine: string;
-  checklist: {
-    item: string;
-    specification: string;
-    measurement?: number;
-    tolerance?: number;
-    status: 'pass' | 'fail' | 'na';
-    notes?: string;
-  }[];
-  defects?: {
-    description: string;
-    severity: 'minor' | 'major' | 'critical';
-    status: 'identified' | 'investigating' | 'resolved';
-    correctiveAction?: string;
-  }[];
-  createdAt: string;
-  updatedAt: string;
-}
-
 export async function initializeManufacturingDatabase() {
   try {
     await database.containers.createIfNotExists({
@@ -110,6 +58,29 @@ export async function initializeManufacturingDatabase() {
       id: "quality-inspections",
       partitionKey: { paths: ["/id"] }
     });
+
+    // Create a default production line if none exists
+    const { resources } = await productionContainer.items.query("SELECT TOP 1 * FROM c").fetchAll();
+    if (resources.length === 0) {
+      const now = new Date().toISOString();
+      const defaultProductionLine: ProductionLine = {
+        id: uuidv4(),
+        metrics: [],
+        lastMaintenance: now,
+        nextMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: "operational",
+        performance: {
+          efficiency: 98.5,
+          quality: 99.2,
+          availability: 97.8,
+          oee: 95.6
+        },
+        notes: "Initial production line setup",
+        createdAt: now,
+        updatedAt: now
+      };
+      await productionContainer.items.create(defaultProductionLine);
+    }
 
     console.log("Manufacturing database containers initialized successfully");
   } catch (error) {

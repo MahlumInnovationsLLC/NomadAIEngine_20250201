@@ -5,6 +5,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeManufacturingDatabase } from "./services/azure/facility_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
+import manufacturingRoutes from "./routes/manufacturing"; // Add this import
 
 const app = express();
 app.use(express.json());
@@ -36,6 +37,9 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Register manufacturing routes
+app.use('/api/manufacturing', manufacturingRoutes);
 
 app.use((req, res, next) => {
   const start = Date.now();
