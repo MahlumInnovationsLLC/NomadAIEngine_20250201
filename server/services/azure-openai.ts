@@ -12,7 +12,7 @@ const client = new OpenAIClient(
 export async function getChatCompletion(messages: Array<{ role: string; content: string }>) {
   try {
     const result = await client.getChatCompletions(
-      "NomadAIEngine-gpt-4o", 
+      "nomad-ai", 
       messages,
       {
         temperature: 0.7,
