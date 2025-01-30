@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ProductionSchedule, ProductionOrder, ProductionBay, ProductionTeam } from "@/types/manufacturing";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 // Define our own ProcessedEvent type since it's not exported from react-scheduler
 interface ProcessedEvent {
@@ -21,7 +21,7 @@ interface ProcessedEvent {
   color?: string;
   textColor?: string;
   allDay?: boolean;
-  rrule?: string;
+  //rrule?: string;
   description?: string;
   status?: string;
   progress?: number;
@@ -84,7 +84,7 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
              item.type === 'setup' ? '#4CAF50' : '#2196F3',
       textColor: '#fff',
       allDay: false,
-      rrule: undefined,
+      //rrule: undefined,
       status: item.status,
       progress: item.progress,
       assignedTeam: item.assignedTeam,
@@ -99,7 +99,6 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
       admin_id: bay.id,
       title: bay.name,
       mobile: bay.status,
-      avatar: undefined,
       color: bay.status === 'available' ? '#4CAF50' : 
              bay.status === 'maintenance' ? '#FFA500' : '#2196F3',
     })), [bays]);
@@ -159,7 +158,6 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
             resourceFields={{
               idField: "admin_id",
               textField: "title",
-              avatarField: "avatar",
               colorField: "color",
             }}
             fields={[
@@ -195,7 +193,7 @@ export function ProductionScheduler({ productionLineId }: ProductionSchedulerPro
                 updates: {
                   startDate: start.toISOString(),
                   dueDate: end.toISOString(),
-                  assignedBay: bay // Now correctly passing the full bay object
+                  assignedBay: bay
                 }
               });
             }}
