@@ -16,11 +16,13 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Debug logging for environment variables
-    console.debug("Environment Variables Status:", {
+    // Debug logging for environment variables and URLs
+    console.debug("Login Environment:", {
       clientId: !!import.meta.env.VITE_NOMAD_AZURE_CLIENT_ID,
       tenantId: !!import.meta.env.VITE_NOMAD_AZURE_TENANT_ID,
-      origin: window.location.origin
+      origin: window.location.origin,
+      href: window.location.href,
+      pathname: window.location.pathname
     });
 
     // Check if Azure AD configuration is present
