@@ -186,8 +186,8 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader className="flex-none">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="flex-none p-6 pb-4">
           <DialogTitle>{isEditing ? 'Edit' : 'Create'} Non-Conformance Report</DialogTitle>
           <DialogDescription>
             {isEditing ? 'Modify the NCR details' : 'Create a new NCR based on the inspection findings'}
@@ -195,8 +195,8 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1">
-            <div className="flex-1 overflow-y-auto pr-6 -mr-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto px-6">
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -456,11 +456,13 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-6 flex-none border-t mt-6">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">{isEditing ? 'Update' : 'Create'} NCR</Button>
+            <div className="flex-none p-6 border-t bg-background">
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">{isEditing ? 'Update' : 'Create'} NCR</Button>
+              </div>
             </div>
           </form>
         </Form>
