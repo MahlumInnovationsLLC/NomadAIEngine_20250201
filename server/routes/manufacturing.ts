@@ -8,6 +8,40 @@ const router = Router();
 // Register quality routes
 router.use('/quality', qualityRoutes);
 
+// Quality Inspection Routes
+router.post("/quality/inspections", async (req, res) => {
+  try {
+    const inspectionData = req.body;
+    const result = await saveQualityInspection(inspectionData);
+    res.status(201).json(result);
+  } catch (error) {
+    console.error("Failed to create quality inspection:", error);
+    res.status(500).json({ error: "Failed to create quality inspection" });
+  }
+});
+
+router.get("/quality/inspections", async (req, res) => {
+  try {
+    const inspections = await getQualityInspections();
+    res.json(inspections);
+  } catch (error) {
+    console.error("Failed to get quality inspections:", error);
+    res.status(500).json({ error: "Failed to get quality inspections" });
+  }
+});
+
+router.put("/quality/inspections/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    const result = await updateQualityInspection(id, updates);
+    res.json(result);
+  } catch (error) {
+    console.error("Failed to update quality inspection:", error);
+    res.status(500).json({ error: "Failed to update quality inspection" });
+  }
+});
+
 // Production Lines Routes
 router.get("/production-lines", async (req, res) => {
   try {

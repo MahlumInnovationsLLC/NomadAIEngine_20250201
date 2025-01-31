@@ -6,11 +6,35 @@ const router = Router();
 // Initialize Cosmos DB client
 const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
 const database = cosmosClient.database("NomadAIEngineDB");
-const container = database.container("quality-management");
+
+// Initialize containers
+async function initializeContainer() {
+  try {
+    const { container } = await database.containers.createIfNotExists({
+      id: "quality-management",
+      partitionKey: { paths: ["/id"] }
+    });
+    console.log("Successfully initialized quality-management container");
+    return container;
+  } catch (error) {
+    console.error("Error initializing container:", error);
+    throw error;
+  }
+}
+
+let container: any;
+initializeContainer().then(c => {
+  container = c;
+}).catch(console.error);
 
 // Get all NCRs
 router.get('/ncrs', async (req, res) => {
   try {
+    if (!container) {
+      console.log('Container not initialized, attempting to initialize...');
+      container = await initializeContainer();
+    }
+
     console.log('Fetching NCRs from Cosmos DB...');
     const { resources: ncrs } = await container.items
       .query('SELECT * FROM c WHERE c.type = "ncr" ORDER BY c._ts DESC')
@@ -29,6 +53,10 @@ router.get('/ncrs', async (req, res) => {
 // Create new NCR
 router.post('/ncrs', async (req, res) => {
   try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
     console.log('Creating new NCR:', req.body);
     const ncrData = {
       ...req.body,
@@ -52,6 +80,10 @@ router.post('/ncrs', async (req, res) => {
 // Update NCR
 router.put('/ncrs/:id', async (req, res) => {
   try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
     const { id } = req.params;
     const ncrData = {
       ...req.body,
