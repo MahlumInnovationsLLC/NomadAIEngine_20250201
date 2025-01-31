@@ -26,16 +26,16 @@ export function InspectionDetailsDialog({
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [newDefect, setNewDefect] = useState({ description: "", severity: "minor" });
 
-  const handleFieldUpdate = (itemId: string, value: any) => {
+  const handleFieldUpdate = (itemId: string, value: string | number) => {
     setCurrentInspection(prev => ({
       ...prev,
       results: {
         ...prev.results,
-        checklistItems: prev.results.checklistItems.map(item => 
-          item.id === itemId ? { 
-            ...item, 
-            measurement: typeof value === 'number' ? value : value,
-            status: item.type === 'select' ? value : item.status 
+        checklistItems: prev.results.checklistItems.map(item =>
+          item.id === itemId ? {
+            ...item,
+            measurement: value,
+            status: value === "pass" || value === "fail" || value === "na" ? value : item.status
           } : item
         )
       }
@@ -49,8 +49,7 @@ export function InspectionDetailsDialog({
       id: `DEF-${Date.now()}`,
       description: newDefect.description,
       severity: newDefect.severity as "minor" | "major" | "critical",
-      status: "identified",
-      timestamp: new Date().toISOString()
+      status: "identified"
     };
 
     setCurrentInspection(prev => ({
@@ -76,10 +75,9 @@ export function InspectionDetailsDialog({
 
   const handleSave = async () => {
     try {
-      // Calculate overall status based on defects and completion
       const hasDefects = currentInspection.results.defectsFound.length > 0;
-      const isComplete = currentInspection.results.checklistItems.every(item => 
-        item.type === 'select' ? ['pass', 'fail', 'na'].includes(item.status) : item.measurement !== undefined
+      const isComplete = currentInspection.results.checklistItems.every(item =>
+        item.status === "pass" || item.status === "fail" || item.status === "na"
       );
 
       const updatedInspection = {
@@ -88,7 +86,7 @@ export function InspectionDetailsDialog({
         updatedAt: new Date().toISOString()
       };
 
-      onUpdate(updatedInspection);
+      await onUpdate(updatedInspection);
       toast({
         title: "Success",
         description: "Inspection details have been updated.",
@@ -122,43 +120,47 @@ export function InspectionDetailsDialog({
               {/* Inspection Fields */}
               {currentInspection.results.checklistItems.map((item) => (
                 <div key={item.id} className="space-y-2">
-                  <label className="text-sm font-medium">{item.parameter}</label>
-                  {item.type === "number" && (
-                    <Input
-                      type="number"
-                      value={item.measurement || ""}
-                      onChange={(e) => handleFieldUpdate(item.id, parseFloat(e.target.value))}
-                    />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium">{item.parameter}</label>
+                    <span className="text-xs text-muted-foreground">{item.specification}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <Select
+                        value={item.status}
+                        onValueChange={(value) => handleFieldUpdate(item.id, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select result" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pass">Pass</SelectItem>
+                          <SelectItem value="fail">Fail</SelectItem>
+                          <SelectItem value="na">N/A</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {(item.status === "pass" || item.status === "fail") && (
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          placeholder="Enter measurement"
+                          value={item.measurement || ""}
+                          onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
+                        />
+                      </div>
+                    )}
+                    <Badge variant={
+                      item.status === "pass" ? "default" :
+                      item.status === "fail" ? "destructive" :
+                      "secondary"
+                    }>
+                      {item.status}
+                    </Badge>
+                  </div>
+                  {item.notes && (
+                    <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
                   )}
-                  {item.type === "text" && (
-                    <Input
-                      type="text"
-                      value={item.measurement || ""}
-                      onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
-                    />
-                  )}
-                  {item.type === "select" && (
-                    <Select
-                      value={item.status}
-                      onValueChange={(value) => handleFieldUpdate(item.id, value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pass">Pass</SelectItem>
-                        <SelectItem value="fail">Fail</SelectItem>
-                        <SelectItem value="na">N/A</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                  <Badge variant={
-                    item.status === "pass" ? "default" : 
-                    item.status === "fail" ? "destructive" : 
-                    "secondary"
-                  }>
-                    {item.status}
-                  </Badge>
                 </div>
               ))}
 
