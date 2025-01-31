@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -25,72 +25,17 @@ import { NonConformanceReport } from "@/types/manufacturing";
 
 export default function NCRList() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedNCR, setSelectedNCR] = useState<NonConformanceReport | null>(null);
 
-  const { data: ncrs = [] } = useQuery<NonConformanceReport[]>({
+  const { data: ncrs = [], isLoading, error } = useQuery<NonConformanceReport[]>({
     queryKey: ['/api/manufacturing/quality/ncrs'],
-  });
-
-  const createNCRMutation = useMutation({
-    mutationFn: async (data: Partial<NonConformanceReport>) => {
-      const response = await fetch('/api/manufacturing/quality/ncrs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) throw new Error('Failed to create NCR');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-      setShowCreateDialog(false);
-      toast({
-        title: "Success",
-        description: "NCR created successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateNCRMutation = useMutation({
-    mutationFn: async (data: NonConformanceReport) => {
-      const response = await fetch(`/api/manufacturing/quality/ncrs/${data.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) throw new Error('Failed to update NCR');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-      setSelectedNCR(null);
-      toast({
-        title: "Success",
-        description: "NCR updated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    staleTime: 5000,
+    retry: 2,
   });
 
   const getStatusBadgeVariant = (status: NonConformanceReport['status']) => {
     switch (status) {
-      case 'draft':
-        return 'secondary';
       case 'open':
         return 'default';
       case 'under_review':
@@ -108,7 +53,6 @@ export default function NCRList() {
     return new Date(date).toLocaleDateString();
   };
 
-  // Group NCRs by status
   const groupedNCRs = ncrs.reduce((acc, ncr) => {
     const status = ncr.status;
     if (!acc[status]) {
@@ -133,13 +77,13 @@ export default function NCRList() {
       </TableHeader>
       <TableBody>
         {ncrs.map((ncr) => (
-          <TableRow key={ncr.id}>
+          <TableRow key={ncr.id || ncr.number}>
             <TableCell className="font-medium">{ncr.number}</TableCell>
             <TableCell>{formatDate(ncr.createdAt)}</TableCell>
             <TableCell>{ncr.type}</TableCell>
             <TableCell>
               <Badge variant={getStatusBadgeVariant(ncr.status)}>
-                {ncr.status}
+                {ncr.status.replace('_', ' ')}
               </Badge>
             </TableCell>
             <TableCell>
@@ -164,11 +108,7 @@ export default function NCRList() {
                     <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      // Create CAPA from NCR
-                    }}
-                  >
+                  <DropdownMenuItem>
                     <FontAwesomeIcon icon="clipboard-list" className="mr-2 h-4 w-4" />
                     Create CAPA
                   </DropdownMenuItem>
@@ -180,6 +120,14 @@ export default function NCRList() {
       </TableBody>
     </Table>
   );
+
+  if (isLoading) {
+    return <div>Loading NCRs...</div>;
+  }
+
+  if (error) {
+    return <div>Error loading NCRs: {error instanceof Error ? error.message : 'Unknown error'}</div>;
+  }
 
   return (
     <div className="space-y-4">
@@ -239,7 +187,7 @@ export default function NCRList() {
               setSelectedNCR(null);
             }
           }}
-          defaultValues={selectedNCR}
+          defaultValues={selectedNCR || undefined}
         />
       )}
     </div>

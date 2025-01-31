@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 interface NonConformanceReport {
+  id?: string;
   title: string;
   description: string;
   type: "product" | "process" | "material" | "documentation";
@@ -45,14 +46,13 @@ interface NonConformanceReport {
     assignedTo: string;
     dueDate: string;
   }[];
-  status: "open" | "closed";
-  inspectionId?: number;
+  status: "open" | "closed" | "under_review" | "pending_disposition";
+  inspectionId?: string;
   number: string;
   createdAt: string;
   updatedAt: string;
   reportedBy: string;
 }
-
 
 const ncrFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -119,7 +119,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
     try {
       const ncrData = {
         ...values,
-        status: "open",
+        status: "open" as const,
         inspectionId: inspection?.id,
         number: `NCR-${Date.now().toString().slice(-6)}`,
         createdAt: new Date().toISOString(),
@@ -133,9 +133,12 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
         body: JSON.stringify(ncrData)
       });
 
-      if (!response.ok) throw new Error('Failed to create NCR');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create NCR');
+      }
 
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
 
       if (onSuccess) {
         onSuccess();
@@ -151,7 +154,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
       console.error("Error creating NCR:", error);
       toast({
         title: "Error",
-        description: "Failed to create NCR",
+        description: error instanceof Error ? error.message : "Failed to create NCR",
         variant: "destructive",
       });
     }
