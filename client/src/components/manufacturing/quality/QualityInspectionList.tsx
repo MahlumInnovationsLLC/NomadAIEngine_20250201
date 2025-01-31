@@ -20,12 +20,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QualityInspection, QualityFormTemplate, NonConformanceReport } from "@/types/manufacturing";
+import { useToast } from "@/hooks/use-toast";
 
 import { CreateInspectionDialog } from "./dialogs/CreateInspectionDialog";
 import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 import { NCRDialog } from "./dialogs/NCRDialog";
 
 export default function QualityInspectionList() {
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("inspections");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -33,7 +35,7 @@ export default function QualityInspectionList() {
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
 
-  const { data: inspections } = useQuery<QualityInspection[]>({
+  const { data: inspections = [] } = useQuery<QualityInspection[]>({
     queryKey: ["/api/manufacturing/quality/inspections"],
   });
 
@@ -62,6 +64,47 @@ export default function QualityInspectionList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/inspections"] });
       setShowCreateDialog(false);
+      toast({
+        title: 'Success',
+        description: 'New inspection has been created successfully.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const updateInspectionMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const response = await fetch(`/api/manufacturing/quality/inspections/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update inspection');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/inspections"] });
+      toast({
+        title: 'Status Updated',
+        description: 'Inspection status has been updated successfully.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
     },
   });
 
@@ -80,6 +123,10 @@ export default function QualityInspectionList() {
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString();
+  };
+
+  const handleStatusUpdate = (id: string, newStatus: string) => {
+    updateInspectionMutation.mutate({ id, status: newStatus });
   };
 
   const handleCreateNCR = (inspection: QualityInspection) => {
@@ -140,9 +187,27 @@ export default function QualityInspectionList() {
                         {inspection.type.replace('-', ' ')}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(inspection.status)}>
-                          {inspection.status}
-                        </Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className={`${getStatusColor(inspection.status)} text-white`}>
+                              {inspection.status}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(inspection.id, 'pending')}>
+                              Pending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(inspection.id, 'in-progress')}>
+                              In Progress
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(inspection.id, 'completed')}>
+                              Completed
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(inspection.id, 'failed')}>
+                              Failed
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                       <TableCell>{inspection.assignedTo}</TableCell>
                       <TableCell>{formatDate(inspection.dueDate)}</TableCell>
