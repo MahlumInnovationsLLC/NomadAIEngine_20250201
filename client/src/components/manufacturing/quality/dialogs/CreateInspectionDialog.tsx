@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -31,10 +32,10 @@ import {
 
 const inspectionFormSchema = z.object({
   type: z.enum(["incoming", "in-process", "final", "audit"]),
-  templateId: z.string(),
-  productionLine: z.string(),
-  assignedTo: z.string(),
-  dueDate: z.string(),
+  templateId: z.string().min(1, "Please select a template"),
+  productionLine: z.string().min(1, "Production line is required"),
+  assignedTo: z.string().min(1, "Assignee is required"),
+  dueDate: z.string().min(1, "Due date is required"),
   priority: z.enum(["low", "medium", "high", "urgent"]),
   notes: z.string().optional(),
 });
@@ -46,6 +47,7 @@ interface CreateInspectionDialogProps {
 }
 
 export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateInspectionDialogProps) {
+  const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
 
   const allTemplates = [
@@ -60,6 +62,7 @@ export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateI
     resolver: zodResolver(inspectionFormSchema),
     defaultValues: {
       type: "in-process",
+      priority: "medium",
       notes: "",
     },
   });
@@ -74,10 +77,15 @@ export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateI
   const handleSubmit = async (values: z.infer<typeof inspectionFormSchema>) => {
     try {
       const template = allTemplates.find((t) => t.id === values.templateId);
+      if (!template) {
+        throw new Error("Template not found");
+      }
+
       const inspection = {
         ...values,
+        id: `INSP-${Date.now()}`,
         status: "pending",
-        templateName: template?.name,
+        templateName: template.name,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         defects: [],
@@ -92,9 +100,22 @@ export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateI
         ) || [],
       };
 
-      onSubmit(inspection);
+      console.log("Submitting inspection:", inspection);
+      await onSubmit(inspection);
+
+      toast({
+        title: "Success",
+        description: "New inspection has been created successfully.",
+      });
+
+      onOpenChange(false);
     } catch (error) {
       console.error("Error creating inspection:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create inspection",
+        variant: "destructive",
+      });
     }
   };
 
@@ -213,7 +234,7 @@ export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateI
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Priority</FormLabel>
-                        <Select onValueChange={field.onChange}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select priority" />
