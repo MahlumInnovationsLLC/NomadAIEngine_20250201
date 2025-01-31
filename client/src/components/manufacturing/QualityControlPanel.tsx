@@ -11,9 +11,14 @@ import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
 import DefectAnalytics from "./quality/DefectAnalytics";
 import { CreateInspectionDialog } from "./quality/dialogs/CreateInspectionDialog";
 import type { QualityInspection, QualityMetrics } from "@/types/manufacturing";
+import NCRList from "./quality/NCRList";
+import CAPAList from "./quality/CAPAList";
+import SCARList from "./quality/SCARList";
+import MRBList from "./quality/MRBList";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
+  const [qmsActiveView, setQmsActiveView] = useState("inspections");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const { data: qualityMetrics } = useQuery<QualityMetrics>({
@@ -91,7 +96,7 @@ export const QualityControlPanel = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="spc">SPC Charts</TabsTrigger>
-          <TabsTrigger value="inspections">Inspections</TabsTrigger>
+          <TabsTrigger value="nomad-qms">Nomad QMS</TabsTrigger>
           <TabsTrigger value="suppliers">Supplier Quality</TabsTrigger>
           <TabsTrigger value="defects">Defect Analysis</TabsTrigger>
         </TabsList>
@@ -104,8 +109,43 @@ export const QualityControlPanel = () => {
           <SPCChartView />
         </TabsContent>
 
-        <TabsContent value="inspections">
-          <QualityInspectionList inspections={qualityInspections || []} />
+        <TabsContent value="nomad-qms">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quality Management System</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={qmsActiveView} onValueChange={setQmsActiveView} className="space-y-4">
+                <TabsList className="w-full">
+                  <TabsTrigger value="inspections">Inspections</TabsTrigger>
+                  <TabsTrigger value="ncr">NCR</TabsTrigger>
+                  <TabsTrigger value="capa">CAPA</TabsTrigger>
+                  <TabsTrigger value="scar">SCAR</TabsTrigger>
+                  <TabsTrigger value="mrb">MRB</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="inspections">
+                  <QualityInspectionList inspections={qualityInspections || []} />
+                </TabsContent>
+
+                <TabsContent value="ncr">
+                  <NCRList />
+                </TabsContent>
+
+                <TabsContent value="capa">
+                  <CAPAList />
+                </TabsContent>
+
+                <TabsContent value="scar">
+                  <SCARList />
+                </TabsContent>
+
+                <TabsContent value="mrb">
+                  <MRBList />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="suppliers">
