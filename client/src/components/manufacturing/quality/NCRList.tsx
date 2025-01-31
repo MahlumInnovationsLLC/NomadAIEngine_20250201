@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { NCRDialog } from "./dialogs/NCRDialog";
+import { NCRDetailsDialog } from "./dialogs/NCRDetailsDialog";
 import { NonConformanceReport } from "@/types/manufacturing";
 
 const fetchNCRs = async (): Promise<NonConformanceReport[]> => {
@@ -88,6 +89,7 @@ export default function NCRList() {
       <TableHeader>
         <TableRow>
           <TableHead>NCR #</TableHead>
+          <TableHead>Title</TableHead>
           <TableHead>Date Created</TableHead>
           <TableHead>Type</TableHead>
           <TableHead>Status</TableHead>
@@ -98,8 +100,13 @@ export default function NCRList() {
       </TableHeader>
       <TableBody>
         {ncrs.map((ncr) => (
-          <TableRow key={ncr.id || ncr.number}>
+          <TableRow 
+            key={ncr.id || ncr.number}
+            className="cursor-pointer hover:bg-muted/50"
+            onClick={() => setSelectedNCR(ncr)}
+          >
             <TableCell className="font-medium">{ncr.number}</TableCell>
+            <TableCell>{ncr.title}</TableCell>
             <TableCell>{formatDate(ncr.createdAt)}</TableCell>
             <TableCell>{ncr.type}</TableCell>
             <TableCell>
@@ -115,7 +122,7 @@ export default function NCRList() {
             <TableCell>{ncr.reportedBy}</TableCell>
             <TableCell>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon">
                     <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
                   </Button>
@@ -125,11 +132,14 @@ export default function NCRList() {
                     <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
                     View Details
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedNCR(ncr);
+                  }}>
                     <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
                     <FontAwesomeIcon icon="clipboard-list" className="mr-2 h-4 w-4" />
                     Create CAPA
                   </DropdownMenuItem>
@@ -217,14 +227,26 @@ export default function NCRList() {
 
       {(showCreateDialog || selectedNCR) && (
         <NCRDialog
-          open={showCreateDialog || !!selectedNCR}
+          open={showCreateDialog}
           onOpenChange={(open) => {
             if (!open) {
               setShowCreateDialog(false);
               setSelectedNCR(null);
             }
           }}
-          defaultValues={selectedNCR || undefined}
+          defaultValues={selectedNCR}
+        />
+      )}
+
+      {selectedNCR && !showCreateDialog && (
+        <NCRDetailsDialog
+          open={!!selectedNCR}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedNCR(null);
+            }
+          }}
+          ncr={selectedNCR}
         />
       )}
     </div>
