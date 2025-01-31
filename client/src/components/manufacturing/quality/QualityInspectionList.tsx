@@ -37,6 +37,14 @@ export default function QualityInspectionList() {
     queryKey: ["/api/manufacturing/quality/inspections"],
   });
 
+  const { data: templates = [] } = useQuery<QualityFormTemplate[]>({
+    queryKey: ["/api/manufacturing/quality/templates"],
+  });
+
+  const { data: ncrs = [] } = useQuery<NonConformanceReport[]>({
+    queryKey: ["/api/manufacturing/quality/ncrs"],
+  });
+
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {
       const response = await fetch('/api/manufacturing/quality/inspections', {
@@ -200,7 +208,7 @@ export default function QualityInspectionList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {templates?.map((template) => (
+                  {templates.map((template) => (
                     <TableRow key={template.id}>
                       <TableCell className="font-medium">{template.name}</TableCell>
                       <TableCell className="capitalize">{template.type}</TableCell>
@@ -252,7 +260,7 @@ export default function QualityInspectionList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {ncrs?.map((ncr) => (
+                  {ncrs.map((ncr) => (
                     <TableRow key={ncr.id}>
                       <TableCell className="font-medium">{ncr.number}</TableCell>
                       <TableCell>{ncr.title}</TableCell>
