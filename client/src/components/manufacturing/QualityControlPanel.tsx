@@ -9,16 +9,18 @@ import QualityMetricsOverview from "./quality/QualityMetricsOverview";
 import QualityInspectionList from "./quality/QualityInspectionList";
 import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
 import DefectAnalytics from "./quality/DefectAnalytics";
+import { CreateInspectionDialog } from "./quality/dialogs/CreateInspectionDialog";
 import type { QualityInspection, QualityMetrics } from "@/types/manufacturing";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const { data: qualityMetrics } = useQuery<QualityMetrics>({
     queryKey: ['/api/manufacturing/quality/metrics'],
   });
 
-  const { data: qualityInspections } = useQuery<QualityInspection[]>({
+  const { data: qualityInspections, refetch: refetchInspections } = useQuery<QualityInspection[]>({
     queryKey: ['/api/manufacturing/quality/inspections'],
     refetchInterval: 30000, // Refresh every 30 seconds to ensure data is current
   });
@@ -37,7 +39,7 @@ export const QualityControlPanel = () => {
             <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
             Export Report
           </Button>
-          <Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
             <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
             New Inspection
           </Button>
@@ -114,6 +116,34 @@ export const QualityControlPanel = () => {
           <DefectAnalytics />
         </TabsContent>
       </Tabs>
+
+      {showCreateDialog && (
+        <CreateInspectionDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onSubmit={async (data) => {
+            try {
+              const response = await fetch('/api/manufacturing/quality/inspections', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+              });
+
+              if (!response.ok) {
+                throw new Error(`Failed to create inspection: ${response.statusText}`);
+              }
+
+              await refetchInspections();
+              setShowCreateDialog(false);
+            } catch (error) {
+              console.error('Error creating inspection:', error);
+              throw error;
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
