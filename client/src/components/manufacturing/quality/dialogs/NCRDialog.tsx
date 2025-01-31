@@ -186,8 +186,8 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-none">
           <DialogTitle>{isEditing ? 'Edit' : 'Create'} Non-Conformance Report</DialogTitle>
           <DialogDescription>
             {isEditing ? 'Modify the NCR details' : 'Create a new NCR based on the inspection findings'}
@@ -195,217 +195,18 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter NCR title" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="product">Product</SelectItem>
-                        <SelectItem value="process">Process</SelectItem>
-                        <SelectItem value="material">Material</SelectItem>
-                        <SelectItem value="documentation">Documentation</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Describe the non-conformance" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="severity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Severity</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select severity" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="minor">Minor</SelectItem>
-                        <SelectItem value="major">Major</SelectItem>
-                        <SelectItem value="critical">Critical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="open">Open</SelectItem>
-                        <SelectItem value="under_review">Under Review</SelectItem>
-                        <SelectItem value="pending_disposition">Pending Disposition</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="disposition"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Disposition</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select disposition" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="use_as_is">Use As Is</SelectItem>
-                        <SelectItem value="rework">Rework</SelectItem>
-                        <SelectItem value="repair">Repair</SelectItem>
-                        <SelectItem value="scrap">Scrap</SelectItem>
-                        <SelectItem value="return_to_supplier">Return to Supplier</SelectItem>
-                        <SelectItem value="pending">Pending Decision</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="area"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Area</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter affected area" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="productLine"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Product Line</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter product line" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="lotNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lot Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter lot number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="quantityAffected"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quantity Affected</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="Enter quantity"
-                        {...field}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h4 className="font-medium">Containment Actions</h4>
-                <Button type="button" variant="outline" onClick={addContainmentAction}>
-                  <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                  Add Action
-                </Button>
-              </div>
-
-              {form.watch("containmentActions").map((_, index) => (
-                <div key={index} className="grid grid-cols-3 gap-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1">
+            <div className="flex-1 overflow-y-auto pr-6 -mr-6">
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name={`containmentActions.${index}.action`}
+                    name="title"
                     render={({ field }) => (
                       <FormItem>
+                        <FormLabel>Title</FormLabel>
                         <FormControl>
-                          <Input placeholder="Action description" {...field} />
+                          <Input placeholder="Enter NCR title" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -414,45 +215,248 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
 
                   <FormField
                     control={form.control}
-                    name={`containmentActions.${index}.assignedTo`}
+                    name="type"
                     render={({ field }) => (
                       <FormItem>
-                        <FormControl>
-                          <Input placeholder="Assigned to" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex gap-2">
-                    <FormField
-                      control={form.control}
-                      name={`containmentActions.${index}.dueDate`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
+                        <FormLabel>Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <Input type="date" {...field} />
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                          <SelectContent>
+                            <SelectItem value="product">Product</SelectItem>
+                            <SelectItem value="process">Process</SelectItem>
+                            <SelectItem value="material">Material</SelectItem>
+                            <SelectItem value="documentation">Documentation</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeContainmentAction(index)}
-                    >
-                      <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Describe the non-conformance" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="severity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Severity</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select severity" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="minor">Minor</SelectItem>
+                            <SelectItem value="major">Major</SelectItem>
+                            <SelectItem value="critical">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="under_review">Under Review</SelectItem>
+                            <SelectItem value="pending_disposition">Pending Disposition</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="disposition"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Disposition</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select disposition" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="use_as_is">Use As Is</SelectItem>
+                            <SelectItem value="rework">Rework</SelectItem>
+                            <SelectItem value="repair">Repair</SelectItem>
+                            <SelectItem value="scrap">Scrap</SelectItem>
+                            <SelectItem value="return_to_supplier">Return to Supplier</SelectItem>
+                            <SelectItem value="pending">Pending Decision</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="area"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Area</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter affected area" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="productLine"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Product Line</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter product line" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="lotNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lot Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter lot number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="quantityAffected"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantity Affected</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="Enter quantity"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium">Containment Actions</h4>
+                    <Button type="button" variant="outline" onClick={addContainmentAction}>
+                      <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                      Add Action
                     </Button>
                   </div>
+
+                  {form.watch("containmentActions").map((_, index) => (
+                    <div key={index} className="grid grid-cols-3 gap-2">
+                      <FormField
+                        control={form.control}
+                        name={`containmentActions.${index}.action`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input placeholder="Action description" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`containmentActions.${index}.assignedTo`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input placeholder="Assigned to" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="flex gap-2">
+                        <FormField
+                          control={form.control}
+                          name={`containmentActions.${index}.dueDate`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormControl>
+                                <Input type="date" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeContainmentAction(index)}
+                        >
+                          <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-6 flex-none border-t mt-6">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
