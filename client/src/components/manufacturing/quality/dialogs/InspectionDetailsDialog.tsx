@@ -109,7 +109,7 @@ export function InspectionDetailsDialog({
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>ID: {inspection.id}</span>
               <span>•</span>
-              <span>Type: {inspection.templateType}</span>
+              <span>Template: {inspection.templateType}</span>
               <span>•</span>
               <Badge>{inspection.status}</Badge>
             </div>
@@ -117,15 +117,26 @@ export function InspectionDetailsDialog({
 
           <div className="flex-1 overflow-y-auto">
             <div className="space-y-6">
-              {/* Inspection Fields */}
-              {currentInspection.results.checklistItems.map((item) => (
-                <div key={item.id} className="space-y-2">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium">{item.parameter}</label>
-                    <span className="text-xs text-muted-foreground">{item.specification}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
+              <div className="border rounded-lg p-4">
+                <h4 className="font-semibold mb-4">Inspection Checklist</h4>
+                {currentInspection.results.checklistItems.map((item) => (
+                  <div key={item.id} className="space-y-4 mb-6">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-medium">{item.parameter}</label>
+                      <span className="text-xs text-muted-foreground">{item.specification}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Input
+                          type={typeof item.measurement === 'number' ? 'number' : 'text'}
+                          placeholder="Enter measurement"
+                          value={item.measurement || ""}
+                          onChange={(e) => handleFieldUpdate(item.id, 
+                            typeof item.measurement === 'number' ? 
+                            parseFloat(e.target.value) : e.target.value
+                          )}
+                        />
+                      </div>
                       <Select
                         value={item.status}
                         onValueChange={(value) => handleFieldUpdate(item.id, value)}
@@ -140,16 +151,6 @@ export function InspectionDetailsDialog({
                         </SelectContent>
                       </Select>
                     </div>
-                    {(item.status === "pass" || item.status === "fail") && (
-                      <div className="flex-1">
-                        <Input
-                          type="text"
-                          placeholder="Enter measurement"
-                          value={item.measurement || ""}
-                          onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
-                        />
-                      </div>
-                    )}
                     <Badge variant={
                       item.status === "pass" ? "default" :
                       item.status === "fail" ? "destructive" :
@@ -158,11 +159,8 @@ export function InspectionDetailsDialog({
                       {item.status}
                     </Badge>
                   </div>
-                  {item.notes && (
-                    <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
 
               {/* Defects Section */}
               <div className="space-y-4 border-t pt-4">
