@@ -9,7 +9,7 @@ import { InventoryAllocation } from "./production/InventoryAllocation";
 import { useQuery } from "@tanstack/react-query";
 import type { ProductionLine, ProductionBay, ProductionOrder } from "@/types/manufacturing";
 
-export default function ProductionLinePanel() {
+export const ProductionLinePanel = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
 

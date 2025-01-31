@@ -11,7 +11,7 @@ import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
 import DefectAnalytics from "./quality/DefectAnalytics";
 import { QualityInspection } from "@/types/manufacturing";
 
-export default function QualityControlPanel() {
+export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
 
   const { data: qualityMetrics } = useQuery({
