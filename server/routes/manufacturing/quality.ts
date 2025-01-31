@@ -97,19 +97,29 @@ router.post('/ncrs', async (req, res) => {
 // Upload attachment to NCR
 router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => {
   try {
-    if (!container || !req.file) {
-      return res.status(400).json({ message: 'Invalid request' });
+    console.log('Starting NCR attachment upload...');
+    if (!container) {
+      console.log('Container not initialized, initializing...');
+      container = await initializeContainer();
+    }
+
+    if (!req.file) {
+      console.log('No file provided in request');
+      return res.status(400).json({ message: 'No file provided' });
     }
 
     const { id } = req.params;
     const userKey = req.body.userKey || 'default';
 
+    console.log(`Reading NCR ${id} with userKey ${userKey}`);
     // Get the existing NCR
     const { resource: ncr } = await container.item(id, userKey).read();
     if (!ncr) {
+      console.log('NCR not found');
       return res.status(404).json({ message: 'NCR not found' });
     }
 
+    console.log('Uploading file to Azure Blob Storage...');
     // Upload file to blob storage
     const attachment = await uploadNCRAttachment(
       req.file,
@@ -117,6 +127,7 @@ router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => 
       req.body.uploadedBy || 'system'
     );
 
+    console.log('File uploaded successfully, updating NCR in Cosmos DB...');
     // Update NCR with new attachment
     ncr.attachments = [...(ncr.attachments || []), {
       ...attachment,
@@ -124,8 +135,10 @@ router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => 
     }];
     ncr.updatedAt = new Date().toISOString();
 
+    console.log('Saving updated NCR...');
     // Save updated NCR
     const { resource: updatedNcr } = await container.item(id, userKey).replace(ncr);
+    console.log('NCR updated successfully');
     res.json(updatedNcr);
   } catch (error) {
     console.error('Error uploading attachment:', error);

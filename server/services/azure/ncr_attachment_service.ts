@@ -1,12 +1,14 @@
-import { BlobServiceClient } from "@azure/storage-blob";
+import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 import { v4 as uuidv4 } from 'uuid';
 
-const blobServiceClient = BlobServiceClient.fromConnectionString(
-  process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING || ""
-);
+const connectionString = process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING;
+if (!connectionString) {
+  throw new Error('Azure Storage connection string not found');
+}
 
+const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
 const containerName = "ncr-attachments";
-const containerClient = blobServiceClient.getContainerClient(containerName);
+let containerClient: ContainerClient;
 
 export interface UploadNCRAttachmentResult {
   id: string;
@@ -15,17 +17,28 @@ export interface UploadNCRAttachmentResult {
   fileType: string;
   blobUrl: string;
   uploadedAt: string;
+  uploadedBy: string;
 }
 
 export async function initializeNCRAttachmentsContainer() {
   try {
-    await containerClient.createIfNotExists({
+    containerClient = blobServiceClient.getContainerClient(containerName);
+    const createContainerResponse = await containerClient.createIfNotExists({
       access: 'blob'
     });
-    console.log("NCR attachments container initialized successfully");
+
+    if (createContainerResponse.succeeded) {
+      console.log("NCR attachments container created successfully");
+    } else {
+      console.log("NCR attachments container already exists");
+    }
+
+    // Test container access
+    await containerClient.getProperties();
+    console.log("Successfully verified NCR attachments container access");
   } catch (error) {
     console.error("Failed to initialize NCR attachments container:", error);
-    throw error;
+    throw new Error('Failed to initialize NCR attachments container. Please check Azure Storage configuration.');
   }
 }
 
@@ -34,41 +47,63 @@ export async function uploadNCRAttachment(
   ncrId: string,
   uploadedBy: string
 ): Promise<UploadNCRAttachmentResult> {
+  if (!containerClient) {
+    await initializeNCRAttachmentsContainer();
+  }
+
   try {
     const fileExtension = file.originalname.split('.').pop();
-    const blobName = `${ncrId}/${uuidv4()}.${fileExtension}`;
+    const uniqueId = uuidv4();
+    const blobName = `${ncrId}/${uniqueId}.${fileExtension}`;
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
     await blockBlobClient.uploadData(file.buffer, {
       blobHTTPHeaders: {
-        blobContentType: file.mimetype
+        blobContentType: file.mimetype,
+        blobCacheControl: 'public, max-age=31536000'
       }
     });
 
     const result: UploadNCRAttachmentResult = {
-      id: uuidv4(),
+      id: uniqueId,
       fileName: file.originalname,
       fileSize: file.size,
       fileType: file.mimetype,
       blobUrl: blockBlobClient.url,
-      uploadedAt: new Date().toISOString()
+      uploadedAt: new Date().toISOString(),
+      uploadedBy
     };
 
     return result;
   } catch (error) {
     console.error("Failed to upload NCR attachment:", error);
-    throw error;
+    throw new Error(error instanceof Error ? error.message : 'Failed to upload NCR attachment');
   }
 }
 
-export async function deleteNCRAttachment(ncrId: string, attachmentId: string) {
+export async function deleteNCRAttachment(ncrId: string, attachmentId: string): Promise<void> {
+  if (!containerClient) {
+    await initializeNCRAttachmentsContainer();
+  }
+
   try {
-    const blobName = `${ncrId}/${attachmentId}`;
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-    await blockBlobClient.delete();
+    const blobsIter = containerClient.listBlobsFlat({
+      prefix: `${ncrId}/`
+    });
+
+    for await (const blob of blobsIter) {
+      if (blob.name.includes(attachmentId)) {
+        const blockBlobClient = containerClient.getBlockBlobClient(blob.name);
+        await blockBlobClient.delete();
+        console.log(`Successfully deleted blob: ${blob.name}`);
+        return;
+      }
+    }
+
+    throw new Error('Attachment not found');
   } catch (error) {
     console.error("Failed to delete NCR attachment:", error);
-    throw error;
+    throw new Error(error instanceof Error ? error.message : 'Failed to delete NCR attachment');
   }
 }
 
