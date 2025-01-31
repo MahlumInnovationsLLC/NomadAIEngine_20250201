@@ -51,19 +51,21 @@ const ncrFormSchema = z.object({
 interface NCRDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  inspection: QualityInspection;
+  inspection?: QualityInspection;
+  defaultValues?: any; // We'll type this properly once we have the NCR type
 }
 
-export function NCRDialog({ open, onOpenChange, inspection }: NCRDialogProps) {
+export function NCRDialog({ open, onOpenChange, inspection, defaultValues }: NCRDialogProps) {
   const form = useForm<z.infer<typeof ncrFormSchema>>({
     resolver: zodResolver(ncrFormSchema),
-    defaultValues: {
-      title: `NCR: ${inspection.type} - ${inspection.productionLine}`,
+    defaultValues: defaultValues || {
+      title: inspection ? `NCR: ${inspection.templateType} - ${inspection.productionLineId}` : "",
       description: "",
       type: "product",
       severity: "major",
-      area: inspection.productionLine,
-      productLine: inspection.productionLine,
+      area: inspection?.productionLineId || "",
+      productLine: inspection?.productionLineId || "",
+      disposition: "pending",
       containmentActions: [
         {
           action: "",
