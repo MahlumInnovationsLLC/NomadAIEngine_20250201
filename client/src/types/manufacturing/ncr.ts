@@ -15,6 +15,7 @@ export type NCRAttachment = z.infer<typeof NCRAttachmentSchema>;
 
 export const NCRSchema = z.object({
   id: z.string(),
+  number: z.string(),
   title: z.string(),
   description: z.string(),
   type: z.enum(["product", "process", "material", "documentation"]),
@@ -24,15 +25,17 @@ export const NCRSchema = z.object({
   area: z.string(),
   productLine: z.string(),
   lotNumber: z.string().optional(),
-  quantityAffected: z.number(),
+  quantityAffected: z.number().optional(),
   containmentActions: z.array(z.object({
     action: z.string(),
     assignedTo: z.string(),
     dueDate: z.string(),
   })),
-  attachments: z.array(NCRAttachmentSchema),
+  attachments: z.array(NCRAttachmentSchema).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  reportedBy: z.string().optional(),
+  userKey: z.string().optional(),
 });
 
 export type NCR = z.infer<typeof NCRSchema>;

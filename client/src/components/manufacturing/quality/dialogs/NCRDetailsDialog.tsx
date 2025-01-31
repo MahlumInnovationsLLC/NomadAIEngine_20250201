@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { NonConformanceReport } from "@/types/manufacturing";
+import { NCR, NCRAttachment } from "@/types/manufacturing/ncr";
 import { NCRDialog } from "./NCRDialog";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 interface NCRDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  ncr: NonConformanceReport;
+  ncr: NCR;
 }
 
 export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogProps) {
@@ -175,7 +175,7 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Attachments</h3>
                   <div className="space-y-2">
-                    {ncr.attachments.map((attachment) => (
+                    {ncr.attachments.map((attachment: NCRAttachment) => (
                       <Card key={attachment.id}>
                         <CardContent className="flex items-center justify-between p-4">
                           <div className="flex items-center gap-2">
