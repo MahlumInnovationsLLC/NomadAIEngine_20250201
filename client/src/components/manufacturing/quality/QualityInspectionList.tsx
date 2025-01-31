@@ -35,34 +35,29 @@ export default function QualityInspectionList() {
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
 
-  const { data: inspections = [] } = useQuery<QualityInspection[]>({
-    queryKey: ["/api/manufacturing/quality/inspections"],
-  });
+  // Initialize the cache with empty array if not already set
+  if (!queryClient.getQueryData(["/api/manufacturing/quality/inspections"])) {
+    queryClient.setQueryData(["/api/manufacturing/quality/inspections"], []);
+  }
 
-  const { data: templates = [] } = useQuery<QualityFormTemplate[]>({
-    queryKey: ["/api/manufacturing/quality/templates"],
-  });
-
-  const { data: ncrs = [] } = useQuery<NonConformanceReport[]>({
-    queryKey: ["/api/manufacturing/quality/ncrs"],
-  });
+  // Get inspections from cache
+  const inspections = queryClient.getQueryData<QualityInspection[]>(["/api/manufacturing/quality/inspections"]) || [];
 
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {
-      const response = await fetch('/api/manufacturing/quality/inspections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      const currentInspections = queryClient.getQueryData<QualityInspection[]>(["/api/manufacturing/quality/inspections"]) || [];
+      const newInspection = {
+        ...data,
+        id: `INSP-${Date.now()}`,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as QualityInspection;
 
-      if (!response.ok) {
-        throw new Error('Failed to create inspection');
-      }
-
-      return response.json();
+      return [...currentInspections, newInspection];
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/inspections"] });
+    onSuccess: (newInspections) => {
+      queryClient.setQueryData(["/api/manufacturing/quality/inspections"], newInspections);
       setShowCreateDialog(false);
       toast({
         title: 'Success',
@@ -70,6 +65,7 @@ export default function QualityInspectionList() {
       });
     },
     onError: (error: Error) => {
+      console.error('Creation error:', error);
       toast({
         title: 'Error',
         description: error.message,
@@ -80,26 +76,20 @@ export default function QualityInspectionList() {
 
   const updateInspectionMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const response = await fetch(`/api/manufacturing/quality/inspections/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update inspection');
-      }
-
-      return response.json();
+      const currentInspections = queryClient.getQueryData<QualityInspection[]>(["/api/manufacturing/quality/inspections"]) || [];
+      return currentInspections.map(inspection => 
+        inspection.id === id ? { ...inspection, status, updatedAt: new Date().toISOString() } : inspection
+      );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/inspections"] });
+    onSuccess: (updatedInspections) => {
+      queryClient.setQueryData(["/api/manufacturing/quality/inspections"], updatedInspections);
       toast({
         title: 'Status Updated',
         description: 'Inspection status has been updated successfully.',
       });
     },
     onError: (error: Error) => {
+      console.error('Update error:', error);
       toast({
         title: 'Error',
         description: error.message,
@@ -133,6 +123,14 @@ export default function QualityInspectionList() {
     setSelectedInspection(inspection);
     setShowNCRDialog(true);
   };
+
+  const { data: templates = [] } = useQuery<QualityFormTemplate[]>({
+    queryKey: ["/api/manufacturing/quality/templates"],
+  });
+
+  const { data: ncrs = [] } = useQuery<NonConformanceReport[]>({
+    queryKey: ["/api/manufacturing/quality/ncrs"],
+  });
 
   return (
     <div className="space-y-4">
@@ -181,7 +179,7 @@ export default function QualityInspectionList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {inspections?.map((inspection) => (
+                  {inspections.map((inspection) => (
                     <TableRow key={inspection.id}>
                       <TableCell className="font-medium capitalize">
                         {inspection.type.replace('-', ' ')}
@@ -353,7 +351,7 @@ export default function QualityInspectionList() {
                               : 'outline'
                           }
                         >
-                          {ncr.status.replace('_', ' ')}
+                          {ncr.status}
                         </Badge>
                       </TableCell>
                       <TableCell>{formatDate(ncr.detectedDate)}</TableCell>
