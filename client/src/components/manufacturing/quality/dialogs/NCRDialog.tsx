@@ -21,6 +21,38 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QualityInspection } from "@/types/manufacturing";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/components/ui/use-toast";
+
+interface NonConformanceReport {
+  title: string;
+  description: string;
+  type: "product" | "process" | "material" | "documentation";
+  severity: "minor" | "major" | "critical";
+  area: string;
+  productLine?: string;
+  lotNumber?: string;
+  quantityAffected?: number;
+  disposition:
+    | "use_as_is"
+    | "rework"
+    | "repair"
+    | "scrap"
+    | "return_to_supplier"
+    | "pending";
+  containmentActions: {
+    action: string;
+    assignedTo: string;
+    dueDate: string;
+  }[];
+  status: "open" | "closed";
+  inspectionId?: number;
+  number: string;
+  createdAt: string;
+  updatedAt: string;
+  reportedBy: string;
+}
+
 
 const ncrFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -52,17 +84,24 @@ interface NCRDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inspection?: QualityInspection;
-  defaultValues?: any; // We'll type this properly once we have the NCR type
+  defaultValues?: Partial<NonConformanceReport>;
+  onSuccess?: () => void;
 }
 
-export function NCRDialog({ open, onOpenChange, inspection, defaultValues }: NCRDialogProps) {
+export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuccess }: NCRDialogProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const form = useForm<z.infer<typeof ncrFormSchema>>({
     resolver: zodResolver(ncrFormSchema),
     defaultValues: defaultValues || {
       title: inspection ? `NCR: ${inspection.templateType} - ${inspection.productionLineId}` : "",
-      description: "",
+      description: inspection?.results.defectsFound.map(d => 
+        `${d.severity.toUpperCase()}: ${d.description}`
+      ).join('\n') || "",
       type: "product",
-      severity: "major",
+      severity: inspection?.results.defectsFound.some(d => d.severity === 'critical') ? 'critical' :
+               inspection?.results.defectsFound.some(d => d.severity === 'major') ? 'major' : 'minor',
       area: inspection?.productionLineId || "",
       productLine: inspection?.productionLineId || "",
       disposition: "pending",
@@ -78,11 +117,43 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues }: NCR
 
   const onSubmit = async (values: z.infer<typeof ncrFormSchema>) => {
     try {
-      // Implementation for creating NCR
-      console.log("Creating NCR:", values);
+      const ncrData = {
+        ...values,
+        status: "open",
+        inspectionId: inspection?.id,
+        number: `NCR-${Date.now().toString().slice(-6)}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reportedBy: "Current User", // In a real app, this would come from auth context
+      };
+
+      const response = await fetch('/api/manufacturing/quality/ncrs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ncrData)
+      });
+
+      if (!response.ok) throw new Error('Failed to create NCR');
+
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        toast({
+          title: "Success",
+          description: "NCR created successfully",
+        });
+      }
+
       onOpenChange(false);
     } catch (error) {
       console.error("Error creating NCR:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create NCR",
+        variant: "destructive",
+      });
     }
   };
 

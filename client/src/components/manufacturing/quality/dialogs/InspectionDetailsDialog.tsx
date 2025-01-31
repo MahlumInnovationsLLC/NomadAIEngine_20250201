@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { QualityInspection } from "@/types/manufacturing";
+import { QualityInspection, NonConformanceReport } from "@/types/manufacturing";
 import { NCRDialog } from "./NCRDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface InspectionDetailsDialogProps {
   open: boolean;
@@ -22,17 +23,18 @@ export function InspectionDetailsDialog({
   onUpdate 
 }: InspectionDetailsDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [currentInspection, setCurrentInspection] = useState<QualityInspection>(inspection);
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [newDefect, setNewDefect] = useState({ description: "", severity: "minor" });
 
-  const handleFieldUpdate = (itemId: string, value: any) => {
+  const handleFieldUpdate = (itemId: string, measurement: string | number) => {
     setCurrentInspection(prev => ({
       ...prev,
       results: {
         ...prev.results,
         checklistItems: prev.results.checklistItems.map(item => 
-          item.id === itemId ? { ...item, value, status: "completed" } : item
+          item.id === itemId ? { ...item, measurement, status: measurement ? "pass" : "fail" } : item
         )
       }
     }));
@@ -45,6 +47,7 @@ export function InspectionDetailsDialog({
       id: `DEF-${Date.now()}`,
       description: newDefect.description,
       severity: newDefect.severity as "minor" | "major" | "critical",
+      status: "identified",
       timestamp: new Date().toISOString()
     };
 
@@ -69,16 +72,39 @@ export function InspectionDetailsDialog({
     }));
   };
 
+  const handleCreateNCR = async () => {
+    setShowNCRDialog(true);
+  };
+
+  const handleNCRCreated = () => {
+    // Invalidate the NCR query to refresh the NCR list
+    queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+    setShowNCRDialog(false);
+    toast({
+      title: "Success",
+      description: "NCR created successfully from inspection findings",
+    });
+  };
+
   const handleSave = () => {
     try {
-      // Calculate overall status based on defects and completion
+      // Calculate overall status based on defects and checklist items
       const hasDefects = currentInspection.results.defectsFound.length > 0;
-      const isComplete = currentInspection.results.checklistItems.every(item => item.status === "completed");
+      const allItemsComplete = currentInspection.results.checklistItems.every(
+        item => item.status === "pass" || item.status === "fail"
+      );
+      const hasFailures = currentInspection.results.checklistItems.some(
+        item => item.status === "fail"
+      );
+
+      const newStatus = hasDefects || hasFailures ? "failed" : 
+                       allItemsComplete ? "completed" : 
+                       "in_progress";
 
       const updatedInspection = {
         ...currentInspection,
         updatedAt: new Date().toISOString(),
-        status: hasDefects ? "failed" : isComplete ? "completed" : "in_progress"
+        status: newStatus
       };
 
       onUpdate(updatedInspection);
@@ -119,20 +145,20 @@ export function InspectionDetailsDialog({
                   {item.type === "number" && (
                     <Input
                       type="number"
-                      value={item.value || ""}
+                      value={item.measurement || ""}
                       onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
                     />
                   )}
                   {item.type === "text" && (
                     <Input
                       type="text"
-                      value={item.value || ""}
+                      value={item.measurement || ""}
                       onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
                     />
                   )}
                   {item.type === "select" && (
                     <Select
-                      value={item.value?.toString() || ""}
+                      value={item.measurement?.toString() || ""}
                       onValueChange={(value) => handleFieldUpdate(item.id, value)}
                     >
                       <SelectTrigger>
@@ -199,7 +225,7 @@ export function InspectionDetailsDialog({
                 {currentInspection.results.defectsFound.length > 0 && (
                   <Button 
                     variant="destructive"
-                    onClick={() => setShowNCRDialog(true)}
+                    onClick={handleCreateNCR}
                     className="w-full"
                   >
                     Create NCR for Defects
@@ -223,6 +249,7 @@ export function InspectionDetailsDialog({
           open={showNCRDialog}
           onOpenChange={setShowNCRDialog}
           inspection={currentInspection}
+          onSuccess={handleNCRCreated}
         />
       )}
     </>

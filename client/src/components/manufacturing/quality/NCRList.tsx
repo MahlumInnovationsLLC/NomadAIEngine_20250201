@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { NonConformanceReport } from "@/types/manufacturing";
@@ -93,7 +94,7 @@ export default function NCRList() {
       case 'open':
         return 'default';
       case 'under_review':
-        return 'default';
+        return 'warning';
       case 'pending_disposition':
         return 'default';
       case 'closed':
@@ -106,6 +107,79 @@ export default function NCRList() {
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString();
   };
+
+  // Group NCRs by status
+  const groupedNCRs = ncrs.reduce((acc, ncr) => {
+    const status = ncr.status;
+    if (!acc[status]) {
+      acc[status] = [];
+    }
+    acc[status].push(ncr);
+    return acc;
+  }, {} as Record<string, NonConformanceReport[]>);
+
+  const NCRTable = ({ ncrs }: { ncrs: NonConformanceReport[] }) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>NCR #</TableHead>
+          <TableHead>Date Created</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Severity</TableHead>
+          <TableHead>Reported By</TableHead>
+          <TableHead>Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {ncrs.map((ncr) => (
+          <TableRow key={ncr.id}>
+            <TableCell className="font-medium">{ncr.number}</TableCell>
+            <TableCell>{formatDate(ncr.createdAt)}</TableCell>
+            <TableCell>{ncr.type}</TableCell>
+            <TableCell>
+              <Badge variant={getStatusBadgeVariant(ncr.status)}>
+                {ncr.status}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <Badge variant={ncr.severity === 'critical' ? 'destructive' : 'default'}>
+                {ncr.severity}
+              </Badge>
+            </TableCell>
+            <TableCell>{ncr.reportedBy}</TableCell>
+            <TableCell>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
+                    <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                    View Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
+                    <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      // Create CAPA from NCR
+                    }}
+                  >
+                    <FontAwesomeIcon icon="clipboard-list" className="mr-2 h-4 w-4" />
+                    Create CAPA
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
 
   return (
     <div className="space-y-4">
@@ -122,73 +196,39 @@ export default function NCRList() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent NCRs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>NCR #</TableHead>
-                <TableHead>Date Created</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Reported By</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ncrs.map((ncr) => (
-                <TableRow key={ncr.id}>
-                  <TableCell className="font-medium">{ncr.number}</TableCell>
-                  <TableCell>{formatDate(ncr.createdAt)}</TableCell>
-                  <TableCell>{ncr.type}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(ncr.status)}>
-                      {ncr.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={ncr.severity === 'critical' ? 'destructive' : 'default'}>
-                      {ncr.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{ncr.reportedBy}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
-                          <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
-                          <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            // Create CAPA from NCR
-                          }}
-                        >
-                          <FontAwesomeIcon icon="clipboard-list" className="mr-2 h-4 w-4" />
-                          Create CAPA
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="all" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all">All NCRs</TabsTrigger>
+          <TabsTrigger value="open">Open</TabsTrigger>
+          <TabsTrigger value="under_review">Under Review</TabsTrigger>
+          <TabsTrigger value="pending_disposition">Pending Disposition</TabsTrigger>
+          <TabsTrigger value="closed">Closed</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all">
+          <Card>
+            <CardHeader>
+              <CardTitle>All NCRs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NCRTable ncrs={ncrs} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {Object.entries(groupedNCRs).map(([status, statusNcrs]) => (
+          <TabsContent key={status} value={status}>
+            <Card>
+              <CardHeader>
+                <CardTitle>{status.replace('_', ' ').toUpperCase()} NCRs</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <NCRTable ncrs={statusNcrs} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
 
       {(showCreateDialog || selectedNCR) && (
         <NCRDialog
@@ -200,12 +240,6 @@ export default function NCRList() {
             }
           }}
           defaultValues={selectedNCR || undefined}
-          onOpenChange={(open) => {
-            if (!open) {
-              setShowCreateDialog(false);
-              setSelectedNCR(null);
-            }
-          }}
         />
       )}
     </div>
