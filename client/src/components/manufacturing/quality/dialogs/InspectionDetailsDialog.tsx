@@ -16,6 +16,17 @@ interface InspectionDetailsDialogProps {
   onUpdate: (inspection: QualityInspection) => void;
 }
 
+interface InspectionItem {
+  id: string;
+  type: "number" | "text" | "select";
+  label: string;
+  parameter: string;
+  specification: string;
+  measurement?: string | number;
+  status: "pass" | "fail" | "na";
+  notes?: string;
+}
+
 export function InspectionDetailsDialog({ 
   open, 
   onOpenChange, 
@@ -47,7 +58,7 @@ export function InspectionDetailsDialog({
       id: `DEF-${Date.now()}`,
       description: newDefect.description,
       severity: newDefect.severity as "minor" | "major" | "critical",
-      status: "identified",
+      status: "identified" as const,
       timestamp: new Date().toISOString()
     };
 
@@ -97,9 +108,9 @@ export function InspectionDetailsDialog({
         item => item.status === "fail"
       );
 
-      const newStatus = hasDefects || hasFailures ? "failed" : 
-                       allItemsComplete ? "completed" : 
-                       "in_progress";
+      const newStatus = hasDefects || hasFailures ? "failed" as const : 
+                       allItemsComplete ? "completed" as const : 
+                       "in_progress" as const;
 
       const updatedInspection = {
         ...currentInspection,
@@ -119,6 +130,17 @@ export function InspectionDetailsDialog({
         variant: "destructive",
       });
     }
+  };
+
+  const getItemType = (item: InspectionItem): "number" | "text" | "select" => {
+    if (item.parameter.toLowerCase().includes("measurement") || 
+        item.specification.includes("numeric")) {
+      return "number";
+    }
+    if (item.specification.toLowerCase().includes("pass/fail")) {
+      return "select";
+    }
+    return "text";
   };
 
   return (
@@ -141,22 +163,22 @@ export function InspectionDetailsDialog({
               {/* Inspection Fields */}
               {currentInspection.results.checklistItems.map((item) => (
                 <div key={item.id} className="space-y-2">
-                  <label className="text-sm font-medium">{item.label}</label>
-                  {item.type === "number" && (
+                  <label className="text-sm font-medium">{item.parameter}</label>
+                  {getItemType(item) === "number" && (
                     <Input
                       type="number"
                       value={item.measurement || ""}
                       onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
                     />
                   )}
-                  {item.type === "text" && (
+                  {getItemType(item) === "text" && (
                     <Input
                       type="text"
                       value={item.measurement || ""}
                       onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
                     />
                   )}
-                  {item.type === "select" && (
+                  {getItemType(item) === "select" && (
                     <Select
                       value={item.measurement?.toString() || ""}
                       onValueChange={(value) => handleFieldUpdate(item.id, value)}
@@ -171,7 +193,7 @@ export function InspectionDetailsDialog({
                       </SelectContent>
                     </Select>
                   )}
-                  <Badge variant={item.status === "completed" ? "default" : "secondary"} className="mt-1">
+                  <Badge variant={item.status === "pass" ? "default" : "secondary"} className="mt-1">
                     {item.status}
                   </Badge>
                 </div>

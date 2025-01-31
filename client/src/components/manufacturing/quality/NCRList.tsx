@@ -94,7 +94,7 @@ export default function NCRList() {
       case 'open':
         return 'default';
       case 'under_review':
-        return 'warning';
+        return 'destructive';
       case 'pending_disposition':
         return 'default';
       case 'closed':
@@ -239,7 +239,7 @@ export default function NCRList() {
               setSelectedNCR(null);
             }
           }}
-          defaultValues={selectedNCR || undefined}
+          defaultValues={selectedNCR}
         />
       )}
     </div>

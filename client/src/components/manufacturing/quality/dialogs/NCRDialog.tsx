@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QualityInspection } from "@/types/manufacturing";
 import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface NonConformanceReport {
   title: string;
