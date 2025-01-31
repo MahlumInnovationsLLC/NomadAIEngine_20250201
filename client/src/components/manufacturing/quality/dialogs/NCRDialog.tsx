@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QualityInspection } from "@/types/manufacturing";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const ncrFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -52,10 +54,12 @@ interface NCRDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inspection?: QualityInspection;
-  defaultValues?: any; // We'll type this properly once we have the NCR type
+  defaultValues?: any;
 }
 
 export function NCRDialog({ open, onOpenChange, inspection, defaultValues }: NCRDialogProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof ncrFormSchema>>({
     resolver: zodResolver(ncrFormSchema),
     defaultValues: defaultValues || {
@@ -76,11 +80,48 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues }: NCR
     },
   });
 
+  const createNCRMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof ncrFormSchema>) => {
+      const response = await fetch('/api/manufacturing/quality/ncrs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          number: `NCR-${Date.now()}`, // Generate a unique NCR number
+          status: 'draft',
+          reportedBy: "Current User", // This should be replaced with actual user info
+          inspectionId: inspection?.id, // Link to the source inspection
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create NCR');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+      onOpenChange(false);
+      toast({
+        title: 'Success',
+        description: 'NCR has been created successfully.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const onSubmit = async (values: z.infer<typeof ncrFormSchema>) => {
     try {
-      // Implementation for creating NCR
-      console.log("Creating NCR:", values);
-      onOpenChange(false);
+      await createNCRMutation.mutateAsync(values);
     } catch (error) {
       console.error("Error creating NCR:", error);
     }

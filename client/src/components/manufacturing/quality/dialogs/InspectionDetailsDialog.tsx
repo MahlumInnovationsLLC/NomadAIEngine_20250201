@@ -32,7 +32,7 @@ export function InspectionDetailsDialog({
       results: {
         ...prev.results,
         checklistItems: prev.results.checklistItems.map(item => 
-          item.id === itemId ? { ...item, value, status: "completed" } : item
+          item.id === itemId ? { ...item, measurement: value, status: value === "pass" || value === "fail" || value === "na" ? value : "in_progress"} : item
         )
       }
     }));
@@ -45,6 +45,7 @@ export function InspectionDetailsDialog({
       id: `DEF-${Date.now()}`,
       description: newDefect.description,
       severity: newDefect.severity as "minor" | "major" | "critical",
+      status: "identified",
       timestamp: new Date().toISOString()
     };
 
@@ -69,19 +70,22 @@ export function InspectionDetailsDialog({
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
       // Calculate overall status based on defects and completion
       const hasDefects = currentInspection.results.defectsFound.length > 0;
-      const isComplete = currentInspection.results.checklistItems.every(item => item.status === "completed");
+      const isComplete = currentInspection.results.checklistItems.every(item => 
+        item.status === "pass" || item.status === "fail" || item.status === "na"
+      );
 
       const updatedInspection = {
         ...currentInspection,
-        updatedAt: new Date().toISOString(),
-        status: hasDefects ? "failed" : isComplete ? "completed" : "in_progress"
+        status: hasDefects ? "failed" : isComplete ? "completed" : "in_progress",
+        updatedAt: new Date().toISOString()
       };
 
       onUpdate(updatedInspection);
+
       toast({
         title: "Success",
         description: "Inspection details have been updated.",
@@ -115,28 +119,28 @@ export function InspectionDetailsDialog({
               {/* Inspection Fields */}
               {currentInspection.results.checklistItems.map((item) => (
                 <div key={item.id} className="space-y-2">
-                  <label className="text-sm font-medium">{item.label}</label>
-                  {item.type === "number" && (
+                  <label className="text-sm font-medium">{item.parameter}</label>
+                  {item.measurement && typeof item.measurement === 'number' && (
                     <Input
                       type="number"
-                      value={item.value || ""}
-                      onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
+                      value={item.measurement}
+                      onChange={(e) => handleFieldUpdate(item.id, e.target.valueAsNumber)}
                     />
                   )}
-                  {item.type === "text" && (
+                  {item.measurement && typeof item.measurement === 'string' && (
                     <Input
                       type="text"
-                      value={item.value || ""}
+                      value={item.measurement}
                       onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
                     />
                   )}
-                  {item.type === "select" && (
+                  {!item.measurement && (
                     <Select
-                      value={item.value?.toString() || ""}
+                      value={item.status}
                       onValueChange={(value) => handleFieldUpdate(item.id, value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select option" />
+                        <SelectValue placeholder="Select result" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pass">Pass</SelectItem>
@@ -145,7 +149,7 @@ export function InspectionDetailsDialog({
                       </SelectContent>
                     </Select>
                   )}
-                  <Badge variant={item.status === "completed" ? "default" : "secondary"} className="mt-1">
+                  <Badge variant={item.status === "pass" ? "default" : item.status === "fail" ? "destructive" : "secondary"}>
                     {item.status}
                   </Badge>
                 </div>
@@ -223,6 +227,18 @@ export function InspectionDetailsDialog({
           open={showNCRDialog}
           onOpenChange={setShowNCRDialog}
           inspection={currentInspection}
+          defaultValues={{
+            title: `NCR: ${currentInspection.templateType} Inspection - ${currentInspection.productionLineId}`,
+            description: currentInspection.results.defectsFound.map(d => 
+              `${d.severity.toUpperCase()}: ${d.description}`
+            ).join('\n'),
+            type: "product",
+            severity: currentInspection.results.defectsFound.some(d => d.severity === "critical") ? "critical" :
+                     currentInspection.results.defectsFound.some(d => d.severity === "major") ? "major" : "minor",
+            area: currentInspection.productionLineId,
+            productLine: currentInspection.productionLineId,
+            disposition: "pending",
+          }}
         />
       )}
     </>
