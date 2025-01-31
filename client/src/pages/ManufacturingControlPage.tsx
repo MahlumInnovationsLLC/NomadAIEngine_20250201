@@ -4,8 +4,8 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
-import ProductionLinePanel from "@/components/manufacturing/ProductionLinePanel";
-import QualityControlPanel from "@/components/manufacturing/QualityControlPanel";
+import { ProductionLinePanel } from "@/components/manufacturing/ProductionLinePanel";
+import { QualityControlPanel } from "@/components/manufacturing/QualityControlPanel";
 
 export default function ManufacturingControlPage() {
   return (

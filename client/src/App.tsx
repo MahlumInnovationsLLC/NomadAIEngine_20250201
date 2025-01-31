@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import Navbar from "@/components/layout/Navbar";
-import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal } from "@azure/msal-react";
+import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
 
@@ -21,20 +21,19 @@ import { msalConfig } from "@/lib/msal-config";
 const msalInstance = new PublicClientApplication(msalConfig);
 
 // Lazy load route components with error boundaries
-const Home = lazy(() => import("@/pages/Home"));
-const ChatPage = lazy(() => import("@/pages/ChatPage"));
-const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
-const ManufacturingControlPage = lazy(() => import("@/pages/ManufacturingControlPage"));
-const MarketingControl = lazy(() => import("@/pages/MarketingControl"));
-const MaterialHandling = lazy(() => import("@/components/material/MaterialDashboard").then(module => ({ default: module.default })));
-const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const DocManagePage = lazy(() => import("@/pages/DocManage"));
-const DocumentManagementPage = lazy(() => import("@/pages/DocumentManagement"));
-const TrainingModulePage = lazy(() => import("@/pages/TrainingModule"));
-const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
-const TicketDetails = lazy(() => import("@/pages/admin/TicketDetails"));
-const SupportTickets = lazy(() => import("@/pages/admin/SupportTickets"));
-const TicketDetailsPage = lazy(() => import("@/pages/TicketDetailsPage"));
+const Home = lazy(() => import("./pages/Home"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const ManufacturingControlPage = lazy(() => import("./pages/ManufacturingControlPage"));
+const MarketingControl = lazy(() => import("./pages/MarketingControl"));
+const MaterialHandling = lazy(() => import("./components/material/MaterialDashboard"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const DocumentManagementPage = lazy(() => import("./pages/DocumentManagement"));
+const TrainingModulePage = lazy(() => import("./pages/TrainingModule"));
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const TicketDetails = lazy(() => import("./pages/admin/TicketDetails"));
+const SupportTickets = lazy(() => import("./pages/admin/SupportTickets"));
+const TicketDetailsPage = lazy(() => import("./pages/TicketDetailsPage"));
 
 function LoadingFallback() {
   return (
@@ -46,37 +45,18 @@ function LoadingFallback() {
 
 function RedirectToLogin() {
   const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    console.debug("Redirecting to login page");
-    setLocation("/login");
-  }, [setLocation]);
-
+  setLocation("/login");
   return <LoadingFallback />;
 }
 
 function RedirectToDashboard() {
   const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    console.debug("Redirecting to dashboard");
-    setLocation("/dashboard");
-  }, [setLocation]);
-
+  setLocation("/dashboard");
   return <LoadingFallback />;
 }
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
   const isAuthenticated = useIsAuthenticated();
-  const { instance } = useMsal();
-
-  useEffect(() => {
-    // Log authentication state for debugging
-    console.debug("Protected route auth state:", {
-      isAuthenticated,
-      accounts: instance.getAllAccounts()
-    });
-  }, [isAuthenticated, instance]);
 
   return (
     <ErrorBoundary fallback={<div>Something went wrong</div>}>
@@ -128,16 +108,11 @@ function App() {
                   <Route path="/" component={() => <ProtectedRoute component={Home} />} />
                   <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                   <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                  <Route path="/docmanage" component={() => <ProtectedRoute component={DocManagePage} />} />
-                  <Route path="/docmanage/docmanagement" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
-                  <Route path="/docmanage/training" component={() => <ProtectedRoute component={TrainingModulePage} />} />
                   <Route path="/manufacturing-control" component={() => <ProtectedRoute component={ManufacturingControlPage} />} />
                   <Route path="/marketing-control" component={() => <ProtectedRoute component={MarketingControl} />} />
                   <Route path="/material-handling" component={() => <ProtectedRoute component={MaterialHandling} />} />
                   <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
-                  <Route path="/admin/support/:id" component={() => (
-                    <ProtectedRoute component={TicketDetailsPage} />
-                  )} />
+                  <Route path="/admin/support/:id" component={() => <ProtectedRoute component={TicketDetailsPage} />} />
                   <Route component={NotFound} />
                 </Switch>
               </Suspense>
