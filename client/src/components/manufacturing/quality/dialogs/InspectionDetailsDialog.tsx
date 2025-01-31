@@ -26,17 +26,13 @@ export function InspectionDetailsDialog({
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [newDefect, setNewDefect] = useState({ description: "", severity: "minor" });
 
-  const handleFieldUpdate = (itemId: string, value: string | number) => {
+  const handleFieldUpdate = (itemId: string, value: any) => {
     setCurrentInspection(prev => ({
       ...prev,
       results: {
         ...prev.results,
-        checklistItems: prev.results.checklistItems.map(item =>
-          item.id === itemId ? {
-            ...item,
-            measurement: value,
-            status: value === "pass" || value === "fail" || value === "na" ? value : item.status
-          } : item
+        checklistItems: prev.results.checklistItems.map(item => 
+          item.id === itemId ? { ...item, value, status: "completed" } : item
         )
       }
     }));
@@ -49,7 +45,7 @@ export function InspectionDetailsDialog({
       id: `DEF-${Date.now()}`,
       description: newDefect.description,
       severity: newDefect.severity as "minor" | "major" | "critical",
-      status: "identified"
+      timestamp: new Date().toISOString()
     };
 
     setCurrentInspection(prev => ({
@@ -73,20 +69,19 @@ export function InspectionDetailsDialog({
     }));
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     try {
+      // Calculate overall status based on defects and completion
       const hasDefects = currentInspection.results.defectsFound.length > 0;
-      const isComplete = currentInspection.results.checklistItems.every(item =>
-        item.status === "pass" || item.status === "fail" || item.status === "na"
-      );
+      const isComplete = currentInspection.results.checklistItems.every(item => item.status === "completed");
 
       const updatedInspection = {
         ...currentInspection,
-        status: hasDefects ? "failed" : isComplete ? "completed" : "in_progress",
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        status: hasDefects ? "failed" : isComplete ? "completed" : "in_progress"
       };
 
-      await onUpdate(updatedInspection);
+      onUpdate(updatedInspection);
       toast({
         title: "Success",
         description: "Inspection details have been updated.",
@@ -109,7 +104,7 @@ export function InspectionDetailsDialog({
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>ID: {inspection.id}</span>
               <span>•</span>
-              <span>Template: {inspection.templateType}</span>
+              <span>Type: {inspection.templateType}</span>
               <span>•</span>
               <Badge>{inspection.status}</Badge>
             </div>
@@ -117,50 +112,44 @@ export function InspectionDetailsDialog({
 
           <div className="flex-1 overflow-y-auto">
             <div className="space-y-6">
-              <div className="border rounded-lg p-4">
-                <h4 className="font-semibold mb-4">Inspection Checklist</h4>
-                {currentInspection.results.checklistItems.map((item) => (
-                  <div key={item.id} className="space-y-4 mb-6">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-sm font-medium">{item.parameter}</label>
-                      <span className="text-xs text-muted-foreground">{item.specification}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Input
-                          type={typeof item.measurement === 'number' ? 'number' : 'text'}
-                          placeholder="Enter measurement"
-                          value={item.measurement || ""}
-                          onChange={(e) => handleFieldUpdate(item.id, 
-                            typeof item.measurement === 'number' ? 
-                            parseFloat(e.target.value) : e.target.value
-                          )}
-                        />
-                      </div>
-                      <Select
-                        value={item.status}
-                        onValueChange={(value) => handleFieldUpdate(item.id, value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select result" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pass">Pass</SelectItem>
-                          <SelectItem value="fail">Fail</SelectItem>
-                          <SelectItem value="na">N/A</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Badge variant={
-                      item.status === "pass" ? "default" :
-                      item.status === "fail" ? "destructive" :
-                      "secondary"
-                    }>
-                      {item.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+              {/* Inspection Fields */}
+              {currentInspection.results.checklistItems.map((item) => (
+                <div key={item.id} className="space-y-2">
+                  <label className="text-sm font-medium">{item.label}</label>
+                  {item.type === "number" && (
+                    <Input
+                      type="number"
+                      value={item.value || ""}
+                      onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
+                    />
+                  )}
+                  {item.type === "text" && (
+                    <Input
+                      type="text"
+                      value={item.value || ""}
+                      onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
+                    />
+                  )}
+                  {item.type === "select" && (
+                    <Select
+                      value={item.value?.toString() || ""}
+                      onValueChange={(value) => handleFieldUpdate(item.id, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pass">Pass</SelectItem>
+                        <SelectItem value="fail">Fail</SelectItem>
+                        <SelectItem value="na">N/A</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Badge variant={item.status === "completed" ? "default" : "secondary"} className="mt-1">
+                    {item.status}
+                  </Badge>
+                </div>
+              ))}
 
               {/* Defects Section */}
               <div className="space-y-4 border-t pt-4">
@@ -234,18 +223,6 @@ export function InspectionDetailsDialog({
           open={showNCRDialog}
           onOpenChange={setShowNCRDialog}
           inspection={currentInspection}
-          defaultValues={{
-            title: `NCR: ${currentInspection.templateType} Inspection - ${currentInspection.productionLineId}`,
-            description: currentInspection.results.defectsFound.map(d => 
-              `${d.severity.toUpperCase()}: ${d.description}`
-            ).join('\n'),
-            type: "product",
-            severity: currentInspection.results.defectsFound.some(d => d.severity === "critical") ? "critical" :
-                     currentInspection.results.defectsFound.some(d => d.severity === "major") ? "major" : "minor",
-            area: currentInspection.productionLineId,
-            productLine: currentInspection.productionLineId,
-            disposition: "pending",
-          }}
         />
       )}
     </>
