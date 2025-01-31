@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { QualityInspection, Defect } from "@/types/manufacturing";
+import { QualityInspection } from "@/types/manufacturing";
 import { NCRDialog } from "./NCRDialog";
 
 interface InspectionDetailsDialogProps {
@@ -26,28 +26,34 @@ export function InspectionDetailsDialog({
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [newDefect, setNewDefect] = useState({ description: "", severity: "minor" });
 
-  const handleFieldUpdate = (fieldId: string, value: any) => {
+  const handleFieldUpdate = (itemId: string, value: any) => {
     setCurrentInspection(prev => ({
       ...prev,
-      checklist: prev.checklist.map(item => 
-        item.id === fieldId ? { ...item, value, status: "completed" } : item
-      )
+      results: {
+        ...prev.results,
+        checklistItems: prev.results.checklistItems.map(item => 
+          item.id === itemId ? { ...item, value, status: "completed" } : item
+        )
+      }
     }));
   };
 
   const handleAddDefect = () => {
     if (!newDefect.description) return;
 
-    const defect: Defect = {
+    const defectItem = {
       id: `DEF-${Date.now()}`,
       description: newDefect.description,
       severity: newDefect.severity as "minor" | "major" | "critical",
-      createdAt: new Date().toISOString()
+      timestamp: new Date().toISOString()
     };
 
     setCurrentInspection(prev => ({
       ...prev,
-      defects: [...(prev.defects || []), defect]
+      results: {
+        ...prev.results,
+        defectsFound: [...prev.results.defectsFound, defectItem]
+      }
     }));
 
     setNewDefect({ description: "", severity: "minor" });
@@ -56,20 +62,23 @@ export function InspectionDetailsDialog({
   const handleRemoveDefect = (defectId: string) => {
     setCurrentInspection(prev => ({
       ...prev,
-      defects: prev.defects?.filter(d => d.id !== defectId) || []
+      results: {
+        ...prev.results,
+        defectsFound: prev.results.defectsFound.filter(d => d.id !== defectId)
+      }
     }));
   };
 
   const handleSave = () => {
     try {
       // Calculate overall status based on defects and completion
-      const hasDefects = currentInspection.defects && currentInspection.defects.length > 0;
-      const isComplete = currentInspection.checklist.every(item => item.status === "completed");
+      const hasDefects = currentInspection.results.defectsFound.length > 0;
+      const isComplete = currentInspection.results.checklistItems.every(item => item.status === "completed");
 
       const updatedInspection = {
         ...currentInspection,
         updatedAt: new Date().toISOString(),
-        status: hasDefects ? "failed" : isComplete ? "completed" : "in-progress"
+        status: hasDefects ? "failed" : isComplete ? "completed" : "in_progress"
       };
 
       onUpdate(updatedInspection);
@@ -95,7 +104,7 @@ export function InspectionDetailsDialog({
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>ID: {inspection.id}</span>
               <span>•</span>
-              <span>Template: {inspection.templateName}</span>
+              <span>Type: {inspection.templateType}</span>
               <span>•</span>
               <Badge>{inspection.status}</Badge>
             </div>
@@ -104,27 +113,27 @@ export function InspectionDetailsDialog({
           <div className="flex-1 overflow-y-auto">
             <div className="space-y-6">
               {/* Inspection Fields */}
-              {currentInspection.checklist.map((field) => (
-                <div key={field.id} className="space-y-2">
-                  <label className="text-sm font-medium">{field.label}</label>
-                  {field.type === "number" && (
+              {currentInspection.results.checklistItems.map((item) => (
+                <div key={item.id} className="space-y-2">
+                  <label className="text-sm font-medium">{item.label}</label>
+                  {item.type === "number" && (
                     <Input
                       type="number"
-                      value={field.value || ""}
-                      onChange={(e) => handleFieldUpdate(field.id, e.target.value)}
+                      value={item.value || ""}
+                      onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
                     />
                   )}
-                  {field.type === "text" && (
+                  {item.type === "text" && (
                     <Input
                       type="text"
-                      value={field.value || ""}
-                      onChange={(e) => handleFieldUpdate(field.id, e.target.value)}
+                      value={item.value || ""}
+                      onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
                     />
                   )}
-                  {field.type === "select" && (
+                  {item.type === "select" && (
                     <Select
-                      value={field.value || ""}
-                      onValueChange={(value) => handleFieldUpdate(field.id, value)}
+                      value={item.value?.toString() || ""}
+                      onValueChange={(value) => handleFieldUpdate(item.id, value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select option" />
@@ -136,8 +145,8 @@ export function InspectionDetailsDialog({
                       </SelectContent>
                     </Select>
                   )}
-                  <Badge variant={field.status === "completed" ? "default" : "secondary"} className="mt-1">
-                    {field.status}
+                  <Badge variant={item.status === "completed" ? "default" : "secondary"} className="mt-1">
+                    {item.status}
                   </Badge>
                 </div>
               ))}
@@ -169,7 +178,7 @@ export function InspectionDetailsDialog({
 
                 {/* Defects List */}
                 <div className="space-y-2">
-                  {currentInspection.defects?.map((defect) => (
+                  {currentInspection.results.defectsFound.map((defect) => (
                     <div key={defect.id} className="flex items-center justify-between p-2 border rounded-lg">
                       <div className="flex items-center gap-2">
                         <Badge variant={
@@ -187,7 +196,7 @@ export function InspectionDetailsDialog({
                   ))}
                 </div>
 
-                {currentInspection.defects && currentInspection.defects.length > 0 && (
+                {currentInspection.results.defectsFound.length > 0 && (
                   <Button 
                     variant="destructive"
                     onClick={() => setShowNCRDialog(true)}
