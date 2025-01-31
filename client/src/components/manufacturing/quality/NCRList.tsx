@@ -23,6 +23,19 @@ import { useToast } from "@/hooks/use-toast";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { NonConformanceReport } from "@/types/manufacturing";
 
+const fetchNCRs = async (): Promise<NonConformanceReport[]> => {
+  const response = await fetch('/api/manufacturing/quality/ncrs');
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch NCRs');
+    }
+    throw new Error(`Failed to fetch NCRs: ${response.statusText}`);
+  }
+  return response.json();
+};
+
 export default function NCRList() {
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -30,8 +43,16 @@ export default function NCRList() {
 
   const { data: ncrs = [], isLoading, error } = useQuery<NonConformanceReport[]>({
     queryKey: ['/api/manufacturing/quality/ncrs'],
+    queryFn: fetchNCRs,
     staleTime: 5000,
     retry: 2,
+    onError: (error) => {
+      toast({
+        title: "Error loading NCRs",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+    }
   });
 
   const getStatusBadgeVariant = (status: NonConformanceReport['status']) => {
@@ -122,11 +143,27 @@ export default function NCRList() {
   );
 
   if (isLoading) {
-    return <div>Loading NCRs...</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p>Loading NCRs...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div>Error loading NCRs: {error instanceof Error ? error.message : 'Unknown error'}</div>;
+    return (
+      <div className="p-8 text-center">
+        <div className="rounded-lg border border-destructive/50 p-4 max-w-lg mx-auto">
+          <h3 className="font-semibold text-destructive mb-2">Error Loading NCRs</h3>
+          <p className="text-muted-foreground">
+            {error instanceof Error ? error.message : 'An unknown error occurred'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
