@@ -32,7 +32,11 @@ export function InspectionDetailsDialog({
       results: {
         ...prev.results,
         checklistItems: prev.results.checklistItems.map(item => 
-          item.id === itemId ? { ...item, measurement: value, status: value === "pass" || value === "fail" || value === "na" ? value : "in_progress"} : item
+          item.id === itemId ? { 
+            ...item, 
+            measurement: typeof value === 'number' ? value : value,
+            status: item.type === 'select' ? value : item.status 
+          } : item
         )
       }
     }));
@@ -75,7 +79,7 @@ export function InspectionDetailsDialog({
       // Calculate overall status based on defects and completion
       const hasDefects = currentInspection.results.defectsFound.length > 0;
       const isComplete = currentInspection.results.checklistItems.every(item => 
-        item.status === "pass" || item.status === "fail" || item.status === "na"
+        item.type === 'select' ? ['pass', 'fail', 'na'].includes(item.status) : item.measurement !== undefined
       );
 
       const updatedInspection = {
@@ -85,7 +89,6 @@ export function InspectionDetailsDialog({
       };
 
       onUpdate(updatedInspection);
-
       toast({
         title: "Success",
         description: "Inspection details have been updated.",
@@ -120,27 +123,27 @@ export function InspectionDetailsDialog({
               {currentInspection.results.checklistItems.map((item) => (
                 <div key={item.id} className="space-y-2">
                   <label className="text-sm font-medium">{item.parameter}</label>
-                  {item.measurement && typeof item.measurement === 'number' && (
+                  {item.type === "number" && (
                     <Input
                       type="number"
-                      value={item.measurement}
-                      onChange={(e) => handleFieldUpdate(item.id, e.target.valueAsNumber)}
+                      value={item.measurement || ""}
+                      onChange={(e) => handleFieldUpdate(item.id, parseFloat(e.target.value))}
                     />
                   )}
-                  {item.measurement && typeof item.measurement === 'string' && (
+                  {item.type === "text" && (
                     <Input
                       type="text"
-                      value={item.measurement}
+                      value={item.measurement || ""}
                       onChange={(e) => handleFieldUpdate(item.id, e.target.value)}
                     />
                   )}
-                  {!item.measurement && (
+                  {item.type === "select" && (
                     <Select
                       value={item.status}
                       onValueChange={(value) => handleFieldUpdate(item.id, value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select result" />
+                        <SelectValue placeholder="Select option" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pass">Pass</SelectItem>
@@ -149,7 +152,11 @@ export function InspectionDetailsDialog({
                       </SelectContent>
                     </Select>
                   )}
-                  <Badge variant={item.status === "pass" ? "default" : item.status === "fail" ? "destructive" : "secondary"}>
+                  <Badge variant={
+                    item.status === "pass" ? "default" : 
+                    item.status === "fail" ? "destructive" : 
+                    "secondary"
+                  }>
                     {item.status}
                   </Badge>
                 </div>
