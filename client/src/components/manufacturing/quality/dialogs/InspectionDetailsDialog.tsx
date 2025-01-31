@@ -18,8 +18,8 @@ interface InspectionDetailsDialogProps {
 
 interface InspectionItem {
   id: string;
-  type: "number" | "text" | "select";
-  label: string;
+  type?: "number" | "text" | "select";
+  label?: string;
   parameter: string;
   specification: string;
   measurement?: string | number;
@@ -88,7 +88,6 @@ export function InspectionDetailsDialog({
   };
 
   const handleNCRCreated = () => {
-    // Invalidate the NCR query to refresh the NCR list
     queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
     setShowNCRDialog(false);
     toast({
@@ -99,7 +98,6 @@ export function InspectionDetailsDialog({
 
   const handleSave = () => {
     try {
-      // Calculate overall status based on defects and checklist items
       const hasDefects = currentInspection.results.defectsFound.length > 0;
       const allItemsComplete = currentInspection.results.checklistItems.every(
         item => item.status === "pass" || item.status === "fail"
@@ -133,13 +131,30 @@ export function InspectionDetailsDialog({
   };
 
   const getItemType = (item: InspectionItem): "number" | "text" | "select" => {
-    if (item.parameter.toLowerCase().includes("measurement") || 
-        item.specification.includes("numeric")) {
+    // Safely check parameter and specification with null checks
+    const parameterLower = item.parameter?.toLowerCase() || '';
+    const specificationLower = item.specification?.toLowerCase() || '';
+
+    // First check if there's an explicit type set
+    if (item.type) {
+      return item.type;
+    }
+
+    // Then fall back to inferring the type
+    if (parameterLower.includes('measurement') || 
+        specificationLower.includes('numeric') ||
+        parameterLower.includes('dimension') ||
+        parameterLower.includes('weight') ||
+        parameterLower.includes('quantity')) {
       return "number";
     }
-    if (item.specification.toLowerCase().includes("pass/fail")) {
+
+    if (specificationLower.includes('pass/fail') ||
+        specificationLower.includes('yes/no') ||
+        parameterLower.includes('check')) {
       return "select";
     }
+
     return "text";
   };
 
@@ -163,7 +178,9 @@ export function InspectionDetailsDialog({
               {/* Inspection Fields */}
               {currentInspection.results.checklistItems.map((item) => (
                 <div key={item.id} className="space-y-2">
-                  <label className="text-sm font-medium">{item.parameter}</label>
+                  <label className="text-sm font-medium">
+                    {item.label || item.parameter}
+                  </label>
                   {getItemType(item) === "number" && (
                     <Input
                       type="number"
