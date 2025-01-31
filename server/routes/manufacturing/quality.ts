@@ -1,7 +1,17 @@
 import { Router } from 'express';
 import { CosmosClient } from "@azure/cosmos";
+import multer from 'multer';
+import { uploadNCRAttachment, deleteNCRAttachment } from '../../services/azure/ncr_attachment_service';
 
 const router = Router();
+
+// Configure multer for memory storage
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
 
 // Initialize Cosmos DB client
 const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
@@ -67,6 +77,7 @@ router.post('/ncrs', async (req, res) => {
       ...req.body,
       type: 'ncr',
       id: `NCR-${Date.now()}`,
+      attachments: [], // Initialize empty attachments array
       userKey: req.body.userKey || 'default', // Add userKey for partitioning
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -79,6 +90,81 @@ router.post('/ncrs', async (req, res) => {
     console.error('Error creating NCR:', error);
     res.status(500).json({ 
       message: error instanceof Error ? error.message : 'Failed to create NCR' 
+    });
+  }
+});
+
+// Upload attachment to NCR
+router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => {
+  try {
+    if (!container || !req.file) {
+      return res.status(400).json({ message: 'Invalid request' });
+    }
+
+    const { id } = req.params;
+    const userKey = req.body.userKey || 'default';
+
+    // Get the existing NCR
+    const { resource: ncr } = await container.item(id, userKey).read();
+    if (!ncr) {
+      return res.status(404).json({ message: 'NCR not found' });
+    }
+
+    // Upload file to blob storage
+    const attachment = await uploadNCRAttachment(
+      req.file,
+      id,
+      req.body.uploadedBy || 'system'
+    );
+
+    // Update NCR with new attachment
+    ncr.attachments = [...(ncr.attachments || []), {
+      ...attachment,
+      ncrId: id
+    }];
+    ncr.updatedAt = new Date().toISOString();
+
+    // Save updated NCR
+    const { resource: updatedNcr } = await container.item(id, userKey).replace(ncr);
+    res.json(updatedNcr);
+  } catch (error) {
+    console.error('Error uploading attachment:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to upload attachment' 
+    });
+  }
+});
+
+// Delete attachment from NCR
+router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
+  try {
+    if (!container) {
+      return res.status(500).json({ message: 'Service unavailable' });
+    }
+
+    const { ncrId, attachmentId } = req.params;
+    const userKey = req.body.userKey || 'default';
+
+    // Get the existing NCR
+    const { resource: ncr } = await container.item(ncrId, userKey).read();
+    if (!ncr) {
+      return res.status(404).json({ message: 'NCR not found' });
+    }
+
+    // Delete file from blob storage
+    await deleteNCRAttachment(ncrId, attachmentId);
+
+    // Update NCR attachments
+    ncr.attachments = (ncr.attachments || []).filter((a: any) => a.id !== attachmentId);
+    ncr.updatedAt = new Date().toISOString();
+
+    // Save updated NCR
+    const { resource: updatedNcr } = await container.item(ncrId, userKey).replace(ncr);
+    res.json(updatedNcr);
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to delete attachment' 
     });
   }
 });

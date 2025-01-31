@@ -7,6 +7,7 @@ import { NCRDialog } from "./NCRDialog";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { useToast } from "@/hooks/use-toast";
 
 interface NCRDetailsDialogProps {
   open: boolean;
@@ -16,7 +17,9 @@ interface NCRDetailsDialogProps {
 
 export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deletingAttachment, setDeletingAttachment] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString();
@@ -36,6 +39,38 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
   const handleEditSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
     setShowEditDialog(false);
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    try {
+      setDeletingAttachment(attachmentId);
+      const response = await fetch(
+        `/api/manufacturing/quality/ncrs/${ncr.id}/attachments/${attachmentId}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete attachment');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+
+      toast({
+        title: "Success",
+        description: "Attachment deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete attachment",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingAttachment(null);
+    }
   };
 
   return (
@@ -135,6 +170,56 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
                   ))}
                 </div>
               </div>
+
+              {ncr.attachments && ncr.attachments.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Attachments</h3>
+                  <div className="space-y-2">
+                    {ncr.attachments.map((attachment) => (
+                      <Card key={attachment.id}>
+                        <CardContent className="flex items-center justify-between p-4">
+                          <div className="flex items-center gap-2">
+                            <FontAwesomeIcon 
+                              icon={
+                                attachment.fileType.includes('image') ? 'image' :
+                                attachment.fileType.includes('pdf') ? 'file-pdf' :
+                                'file-alt'
+                              }
+                              className="h-4 w-4"
+                            />
+                            <span>{attachment.fileName}</span>
+                            <span className="text-sm text-muted-foreground">
+                              ({Math.round(attachment.fileSize / 1024)} KB)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(attachment.blobUrl, '_blank')}
+                            >
+                              <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteAttachment(attachment.id)}
+                              disabled={deletingAttachment === attachment.id}
+                            >
+                              {deletingAttachment === attachment.id ? (
+                                <FontAwesomeIcon icon="spinner" className="animate-spin h-4 w-4" />
+                              ) : (
+                                <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

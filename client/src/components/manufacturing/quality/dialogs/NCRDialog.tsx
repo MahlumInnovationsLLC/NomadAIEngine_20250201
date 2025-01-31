@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -52,6 +53,12 @@ interface NonConformanceReport {
   createdAt: string;
   updatedAt: string;
   reportedBy: string;
+  attachments?: {
+    id: string;
+    fileName: string;
+    fileSize: number;
+    blobUrl: string;
+  }[];
 }
 
 const ncrFormSchema = z.object({
@@ -93,6 +100,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isEditing = !!defaultValues?.id;
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const form = useForm<z.infer<typeof ncrFormSchema>>({
     resolver: zodResolver(ncrFormSchema),
@@ -117,6 +125,42 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
       ],
     },
   });
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files?.length) return;
+
+    const file = event.target.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadingFile(true);
+      const response = await fetch(`/api/manufacturing/quality/ncrs/${defaultValues?.id}/attachments`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+
+      toast({
+        title: "Success",
+        description: "File uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to upload file",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFile(false);
+    }
+  };
 
   const onSubmit = async (values: z.infer<typeof ncrFormSchema>) => {
     try {
@@ -453,6 +497,56 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                     </div>
                   ))}
                 </div>
+
+                {isEditing && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium">Attachments</h4>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="file"
+                          onChange={handleFileUpload}
+                          disabled={uploadingFile}
+                          className="w-[200px]"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        />
+                        {uploadingFile && (
+                          <div className="animate-spin">
+                            <FontAwesomeIcon icon="spinner" className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {defaultValues?.attachments && defaultValues.attachments.length > 0 && (
+                      <div className="space-y-2">
+                        {defaultValues.attachments.map((attachment) => (
+                          <div
+                            key={attachment.id}
+                            className="flex items-center justify-between p-2 border rounded"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FontAwesomeIcon icon="file" className="h-4 w-4" />
+                              <span>{attachment.fileName}</span>
+                              <span className="text-sm text-muted-foreground">
+                                ({Math.round(attachment.fileSize / 1024)} KB)
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(attachment.blobUrl, '_blank')}
+                              >
+                                <FontAwesomeIcon icon="eye" className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
