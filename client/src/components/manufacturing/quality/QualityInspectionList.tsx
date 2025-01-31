@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CreateInspectionDialog } from "./dialogs/CreateInspectionDialog";
 import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 import { NCRDialog } from "./dialogs/NCRDialog";
+import { InspectionDetailsDialog } from "./dialogs/InspectionDetailsDialog";
 
 export default function QualityInspectionList() {
   const { toast } = useToast();
@@ -33,6 +34,7 @@ export default function QualityInspectionList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showNCRDialog, setShowNCRDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
 
   // Initialize the cache with empty array if not already set
@@ -75,17 +77,17 @@ export default function QualityInspectionList() {
   });
 
   const updateInspectionMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async (inspection: QualityInspection) => {
       const currentInspections = queryClient.getQueryData<QualityInspection[]>(["/api/manufacturing/quality/inspections"]) || [];
-      return currentInspections.map(inspection => 
-        inspection.id === id ? { ...inspection, status, updatedAt: new Date().toISOString() } : inspection
+      return currentInspections.map(item => 
+        item.id === inspection.id ? { ...inspection, updatedAt: new Date().toISOString() } : item
       );
     },
     onSuccess: (updatedInspections) => {
       queryClient.setQueryData(["/api/manufacturing/quality/inspections"], updatedInspections);
       toast({
-        title: 'Status Updated',
-        description: 'Inspection status has been updated successfully.',
+        title: 'Success',
+        description: 'Inspection has been updated successfully.',
       });
     },
     onError: (error: Error) => {
@@ -96,6 +98,32 @@ export default function QualityInspectionList() {
         variant: 'destructive',
       });
     },
+  });
+
+  const handleStatusUpdate = (id: string, newStatus: string) => {
+    const inspection = inspections.find(i => i.id === id);
+    if (inspection) {
+      const updatedInspection = { ...inspection, status: newStatus };
+      updateInspectionMutation.mutate(updatedInspection);
+    }
+  };
+
+  const handleInspectionClick = (inspection: QualityInspection) => {
+    setSelectedInspection(inspection);
+    setShowDetailsDialog(true);
+  };
+
+  const handleCreateNCR = (inspection: QualityInspection) => {
+    setSelectedInspection(inspection);
+    setShowNCRDialog(true);
+  };
+
+  const { data: templates = [] } = useQuery<QualityFormTemplate[]>({
+    queryKey: ["/api/manufacturing/quality/templates"],
+  });
+
+  const { data: ncrs = [] } = useQuery<NonConformanceReport[]>({
+    queryKey: ["/api/manufacturing/quality/ncrs"],
   });
 
   const getStatusColor = (status: string) => {
@@ -114,23 +142,6 @@ export default function QualityInspectionList() {
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString();
   };
-
-  const handleStatusUpdate = (id: string, newStatus: string) => {
-    updateInspectionMutation.mutate({ id, status: newStatus });
-  };
-
-  const handleCreateNCR = (inspection: QualityInspection) => {
-    setSelectedInspection(inspection);
-    setShowNCRDialog(true);
-  };
-
-  const { data: templates = [] } = useQuery<QualityFormTemplate[]>({
-    queryKey: ["/api/manufacturing/quality/templates"],
-  });
-
-  const { data: ncrs = [] } = useQuery<NonConformanceReport[]>({
-    queryKey: ["/api/manufacturing/quality/ncrs"],
-  });
 
   return (
     <div className="space-y-4">
@@ -180,7 +191,7 @@ export default function QualityInspectionList() {
                 </TableHeader>
                 <TableBody>
                   {inspections.map((inspection) => (
-                    <TableRow key={inspection.id}>
+                    <TableRow key={inspection.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleInspectionClick(inspection)}>
                       <TableCell className="font-medium capitalize">
                         {inspection.type.replace('-', ' ')}
                       </TableCell>
@@ -411,6 +422,14 @@ export default function QualityInspectionList() {
           open={showNCRDialog}
           onOpenChange={setShowNCRDialog}
           inspection={selectedInspection}
+        />
+      )}
+      {showDetailsDialog && selectedInspection && (
+        <InspectionDetailsDialog
+          open={showDetailsDialog}
+          onOpenChange={setShowDetailsDialog}
+          inspection={selectedInspection}
+          onUpdate={updateInspectionMutation.mutate}
         />
       )}
     </div>
