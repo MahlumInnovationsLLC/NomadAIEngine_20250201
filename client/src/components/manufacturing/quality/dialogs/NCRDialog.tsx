@@ -71,6 +71,7 @@ const ncrFormSchema = z.object({
     "return_to_supplier",
     "pending",
   ]),
+  status: z.enum(["open", "closed", "under_review", "pending_disposition"]),
   containmentActions: z.array(
     z.object({
       action: z.string(),
@@ -91,6 +92,7 @@ interface NCRDialogProps {
 export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuccess }: NCRDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isEditing = !!defaultValues?.id;
 
   const form = useForm<z.infer<typeof ncrFormSchema>>({
     resolver: zodResolver(ncrFormSchema),
@@ -105,6 +107,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
       area: inspection?.productionLineId || "",
       productLine: inspection?.productionLineId || "",
       disposition: "pending",
+      status: "open",
       containmentActions: [
         {
           action: "",
@@ -119,23 +122,24 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
     try {
       const ncrData = {
         ...values,
-        status: "open" as const,
         inspectionId: inspection?.id,
-        number: `NCR-${Date.now().toString().slice(-6)}`,
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        reportedBy: "Current User", // In a real app, this would come from auth context
+        ...(isEditing ? {} : {
+          number: `NCR-${Date.now().toString().slice(-6)}`,
+          createdAt: new Date().toISOString(),
+          reportedBy: "Current User",
+        })
       };
 
-      const response = await fetch('/api/manufacturing/quality/ncrs', {
-        method: 'POST',
+      const response = await fetch(`/api/manufacturing/quality/ncrs${isEditing ? `/${defaultValues.id}` : ''}`, {
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(ncrData)
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create NCR');
+        throw new Error(errorData.message || `Failed to ${isEditing ? 'update' : 'create'} NCR`);
       }
 
       await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
@@ -145,16 +149,16 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
       } else {
         toast({
           title: "Success",
-          description: "NCR created successfully",
+          description: `NCR ${isEditing ? 'updated' : 'created'} successfully`,
         });
       }
 
       onOpenChange(false);
     } catch (error) {
-      console.error("Error creating NCR:", error);
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} NCR:`, error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create NCR",
+        description: error instanceof Error ? error.message : `Failed to ${isEditing ? 'update' : 'create'} NCR`,
         variant: "destructive",
       });
     }
@@ -184,9 +188,9 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Create Non-Conformance Report</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit' : 'Create'} Non-Conformance Report</DialogTitle>
           <DialogDescription>
-            Create a new NCR based on the inspection findings
+            {isEditing ? 'Modify the NCR details' : 'Create a new NCR based on the inspection findings'}
           </DialogDescription>
         </DialogHeader>
 
@@ -263,6 +267,30 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                         <SelectItem value="minor">Minor</SelectItem>
                         <SelectItem value="major">Major</SelectItem>
                         <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="under_review">Under Review</SelectItem>
+                        <SelectItem value="pending_disposition">Pending Disposition</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -428,7 +456,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Create NCR</Button>
+              <Button type="submit">{isEditing ? 'Update' : 'Create'} NCR</Button>
             </div>
           </form>
         </Form>
