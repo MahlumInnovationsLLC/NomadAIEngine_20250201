@@ -12,7 +12,12 @@ async function initializeContainer() {
   try {
     const { container } = await database.containers.createIfNotExists({
       id: "quality-management",
-      partitionKey: { paths: ["/id"] }
+      partitionKey: { paths: ["/userKey"] },
+      throughput: {
+        autoScale: {
+          maxThroughput: 1000 // Set autoscale max RU/s to 1000
+        }
+      }
     });
     console.log("Successfully initialized quality-management container");
     return container;
@@ -62,6 +67,7 @@ router.post('/ncrs', async (req, res) => {
       ...req.body,
       type: 'ncr',
       id: `NCR-${Date.now()}`,
+      userKey: req.body.userKey || 'default', // Add userKey for partitioning
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -85,12 +91,13 @@ router.put('/ncrs/:id', async (req, res) => {
     }
 
     const { id } = req.params;
+    const userKey = req.body.userKey || 'default'; // Get userKey for partition
     const ncrData = {
       ...req.body,
       updatedAt: new Date().toISOString()
     };
 
-    const { resource: updatedNcr } = await container.item(id, id).replace(ncrData);
+    const { resource: updatedNcr } = await container.item(id, userKey).replace(ncrData);
     res.json(updatedNcr);
   } catch (error) {
     console.error('Error updating NCR:', error);
