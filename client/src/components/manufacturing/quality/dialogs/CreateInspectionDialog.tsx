@@ -42,9 +42,10 @@ const inspectionFormSchema = z.object({
 interface CreateInspectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSubmit: (data: any) => void;
 }
 
-export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionDialogProps) {
+export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateInspectionDialogProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
 
   const allTemplates = [
@@ -70,10 +71,28 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
     }
   };
 
-  const onSubmit = async (values: z.infer<typeof inspectionFormSchema>) => {
+  const handleSubmit = async (values: z.infer<typeof inspectionFormSchema>) => {
     try {
-      console.log("Creating inspection:", values);
-      onOpenChange(false);
+      const template = allTemplates.find((t) => t.id === values.templateId);
+      const inspection = {
+        ...values,
+        status: "pending",
+        templateName: template?.name,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        defects: [],
+        checklist: selectedTemplate?.sections.flatMap(section =>
+          section.fields.map(field => ({
+            id: field.id,
+            label: field.label,
+            type: field.type,
+            value: null,
+            status: "pending"
+          }))
+        ) || [],
+      };
+
+      onSubmit(inspection);
     } catch (error) {
       console.error("Error creating inspection:", error);
     }
@@ -90,7 +109,7 @@ export function CreateInspectionDialog({ open, onOpenChange }: CreateInspectionD
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
             <div className="flex-1 overflow-y-auto">
               <div className="space-y-4 p-1">
                 <div className="grid grid-cols-2 gap-4">

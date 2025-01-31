@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -21,12 +21,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QualityInspection, QualityFormTemplate, NonConformanceReport } from "@/types/manufacturing";
 
-// Import dialog components later
 import { CreateInspectionDialog } from "./dialogs/CreateInspectionDialog";
 import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 import { NCRDialog } from "./dialogs/NCRDialog";
 
 export default function QualityInspectionList() {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("inspections");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
@@ -37,12 +37,24 @@ export default function QualityInspectionList() {
     queryKey: ["/api/manufacturing/quality/inspections"],
   });
 
-  const { data: templates } = useQuery<QualityFormTemplate[]>({
-    queryKey: ["/api/manufacturing/quality/templates"],
-  });
+  const createInspectionMutation = useMutation({
+    mutationFn: async (data: Partial<QualityInspection>) => {
+      const response = await fetch('/api/manufacturing/quality/inspections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-  const { data: ncrs } = useQuery<NonConformanceReport[]>({
-    queryKey: ["/api/manufacturing/quality/ncrs"],
+      if (!response.ok) {
+        throw new Error('Failed to create inspection');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/inspections"] });
+      setShowCreateDialog(false);
+    },
   });
 
   const getStatusColor = (status: string) => {
@@ -308,11 +320,11 @@ export default function QualityInspectionList() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog components will be implemented in separate files */}
       {showCreateDialog && (
         <CreateInspectionDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
+          onSubmit={createInspectionMutation.mutate}
         />
       )}
 
