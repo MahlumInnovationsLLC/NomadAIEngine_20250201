@@ -9,17 +9,18 @@ import QualityMetricsOverview from "./quality/QualityMetricsOverview";
 import QualityInspectionList from "./quality/QualityInspectionList";
 import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
 import DefectAnalytics from "./quality/DefectAnalytics";
-import { QualityInspection } from "@/types/manufacturing";
+import type { QualityInspection, QualityMetrics } from "@/types/manufacturing";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
 
-  const { data: qualityMetrics } = useQuery({
-    queryKey: ["/api/manufacturing/quality/metrics"],
+  const { data: qualityMetrics } = useQuery<QualityMetrics>({
+    queryKey: ['/api/manufacturing/quality/metrics'],
   });
 
   const { data: qualityInspections } = useQuery<QualityInspection[]>({
-    queryKey: ["/api/manufacturing/quality/inspections"],
+    queryKey: ['/api/manufacturing/quality/inspections'],
+    refetchInterval: 30000, // Refresh every 30 seconds to ensure data is current
   });
 
   return (
@@ -102,7 +103,7 @@ export const QualityControlPanel = () => {
         </TabsContent>
 
         <TabsContent value="inspections">
-          <QualityInspectionList />
+          <QualityInspectionList inspections={qualityInspections || []} />
         </TabsContent>
 
         <TabsContent value="suppliers">
@@ -115,4 +116,4 @@ export const QualityControlPanel = () => {
       </Tabs>
     </div>
   );
-}
+};

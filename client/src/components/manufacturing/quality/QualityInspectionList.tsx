@@ -27,7 +27,11 @@ import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { InspectionDetailsDialog } from "./dialogs/InspectionDetailsDialog";
 
-export default function QualityInspectionList() {
+interface QualityInspectionListProps {
+  inspections: QualityInspection[];
+}
+
+export default function QualityInspectionList({ inspections }: QualityInspectionListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("inspections");
@@ -37,29 +41,21 @@ export default function QualityInspectionList() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
 
-  // Initialize the cache with empty array if not already set
-  if (!queryClient.getQueryData(["/api/manufacturing/quality/inspections"])) {
-    queryClient.setQueryData(["/api/manufacturing/quality/inspections"], []);
-  }
-
-  // Get inspections from cache
-  const inspections = queryClient.getQueryData<QualityInspection[]>(["/api/manufacturing/quality/inspections"]) || [];
-
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {
-      const currentInspections = queryClient.getQueryData<QualityInspection[]>(["/api/manufacturing/quality/inspections"]) || [];
-      const newInspection = {
-        ...data,
-        id: `INSP-${Date.now()}`,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } as QualityInspection;
-
-      return [...currentInspections, newInspection];
+      const response = await fetch('/api/manufacturing/quality/inspections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to create inspection');
+      return response.json();
     },
-    onSuccess: (newInspections) => {
-      queryClient.setQueryData(["/api/manufacturing/quality/inspections"], newInspections);
+    onSuccess: (newInspection) => {
+      queryClient.setQueryData<QualityInspection[]>(
+        ['/api/manufacturing/quality/inspections'],
+        (old = []) => [...old, newInspection]
+      );
       setShowCreateDialog(false);
       toast({
         title: 'Success',
@@ -78,13 +74,19 @@ export default function QualityInspectionList() {
 
   const updateInspectionMutation = useMutation({
     mutationFn: async (inspection: QualityInspection) => {
-      const currentInspections = queryClient.getQueryData<QualityInspection[]>(["/api/manufacturing/quality/inspections"]) || [];
-      return currentInspections.map(item => 
-        item.id === inspection.id ? { ...inspection, updatedAt: new Date().toISOString() } : item
-      );
+      const response = await fetch(`/api/manufacturing/quality/inspections/${inspection.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inspection)
+      });
+      if (!response.ok) throw new Error('Failed to update inspection');
+      return response.json();
     },
-    onSuccess: (updatedInspections) => {
-      queryClient.setQueryData(["/api/manufacturing/quality/inspections"], updatedInspections);
+    onSuccess: (updatedInspection) => {
+      queryClient.setQueryData<QualityInspection[]>(
+        ['/api/manufacturing/quality/inspections'],
+        (old = []) => old.map(item => item.id === updatedInspection.id ? updatedInspection : item)
+      );
       toast({
         title: 'Success',
         description: 'Inspection has been updated successfully.',
@@ -100,7 +102,7 @@ export default function QualityInspectionList() {
     },
   });
 
-  const handleStatusUpdate = (id: string, newStatus: string) => {
+  const handleStatusUpdate = (id: string, newStatus: QualityInspection['status']) => {
     const inspection = inspections.find(i => i.id === id);
     if (inspection) {
       const updatedInspection = { ...inspection, status: newStatus };
@@ -119,23 +121,23 @@ export default function QualityInspectionList() {
   };
 
   const { data: templates = [] } = useQuery<QualityFormTemplate[]>({
-    queryKey: ["/api/manufacturing/quality/templates"],
+    queryKey: ['/api/manufacturing/quality/templates'],
   });
 
   const { data: ncrs = [] } = useQuery<NonConformanceReport[]>({
-    queryKey: ["/api/manufacturing/quality/ncrs"],
+    queryKey: ['/api/manufacturing/quality/ncrs'],
   });
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: QualityInspection['status']) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-500';
+        return 'bg-green-500/10 text-green-500';
       case 'failed':
-        return 'bg-red-500';
-      case 'in-progress':
-        return 'bg-yellow-500';
+        return 'bg-red-500/10 text-red-500';
+      case 'in_progress':
+        return 'bg-yellow-500/10 text-yellow-500';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-500/10 text-gray-500';
     }
   };
 
@@ -164,243 +166,86 @@ export default function QualityInspectionList() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="inspections">Inspections</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="ncrs">NCRs</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="inspections">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Inspections</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Assigned To</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Production Line</TableHead>
-                    <TableHead>Findings</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {inspections.map((inspection) => (
-                    <TableRow key={inspection.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleInspectionClick(inspection)}>
-                      <TableCell className="font-medium capitalize">
-                        {inspection.type.replace('-', ' ')}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className={`${getStatusColor(inspection.status)} text-white`}>
-                              {inspection.status}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(inspection.id, 'pending')}>
-                              Pending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(inspection.id, 'in-progress')}>
-                              In Progress
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(inspection.id, 'completed')}>
-                              Completed
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(inspection.id, 'failed')}>
-                              Failed
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                      <TableCell>{inspection.assignedTo}</TableCell>
-                      <TableCell>{formatDate(inspection.dueDate)}</TableCell>
-                      <TableCell>{inspection.productionLine}</TableCell>
-                      <TableCell>
-                        {inspection.defects && inspection.defects.length > 0 && (
-                          <Badge variant="destructive">
-                            {inspection.defects.length} Issues Found
-                          </Badge>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Inspections</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Inspector</TableHead>
+                <TableHead>Production Line</TableHead>
+                <TableHead>Defects</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {inspections.map((inspection) => (
+                <TableRow 
+                  key={inspection.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleInspectionClick(inspection)}
+                >
+                  <TableCell>{formatDate(inspection.inspectionDate)}</TableCell>
+                  <TableCell className="font-medium capitalize">
+                    {inspection.templateType}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(inspection.status)}>
+                      {inspection.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{inspection.inspector}</TableCell>
+                  <TableCell>{inspection.productionLineId}</TableCell>
+                  <TableCell>
+                    {inspection.results.defectsFound.length > 0 && (
+                      <Badge variant="destructive">
+                        {inspection.results.defectsFound.length} Issues Found
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleInspectionClick(inspection)}>
+                          <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedInspection(inspection);
+                          setShowDetailsDialog(true);
+                        }}>
+                          <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        {inspection.results.defectsFound.length > 0 && (
+                          <DropdownMenuItem onClick={() => handleCreateNCR(inspection)}>
+                            <FontAwesomeIcon icon="exclamation-triangle" className="mr-2 h-4 w-4" />
+                            Create NCR
+                          </DropdownMenuItem>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => {}}>
-                              <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {}}>
-                              <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleCreateNCR(inspection)}>
-                              <FontAwesomeIcon icon="exclamation-triangle" className="mr-2 h-4 w-4" />
-                              Create NCR
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {}}>
-                              <FontAwesomeIcon icon="file-pdf" className="mr-2 h-4 w-4" />
-                              Export Report
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="templates">
-          <Card>
-            <CardHeader>
-              <CardTitle>Form Templates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>Created By</TableHead>
-                    <TableHead>Last Updated</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {templates.map((template) => (
-                    <TableRow key={template.id}>
-                      <TableCell className="font-medium">{template.name}</TableCell>
-                      <TableCell className="capitalize">{template.type}</TableCell>
-                      <TableCell>v{template.version}</TableCell>
-                      <TableCell>{template.createdBy}</TableCell>
-                      <TableCell>{formatDate(template.updatedAt)}</TableCell>
-                      <TableCell>
-                        <Badge variant={template.isActive ? "default" : "secondary"}>
-                          {template.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
-                            <FontAwesomeIcon icon="edit" className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <FontAwesomeIcon icon="copy" className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <FontAwesomeIcon icon="trash" className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="ncrs">
-          <Card>
-            <CardHeader>
-              <CardTitle>Non-Conformance Reports</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>NCR Number</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Severity</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Detected Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ncrs.map((ncr) => (
-                    <TableRow key={ncr.id}>
-                      <TableCell className="font-medium">{ncr.number}</TableCell>
-                      <TableCell>{ncr.title}</TableCell>
-                      <TableCell className="capitalize">{ncr.type}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            ncr.severity === 'critical'
-                              ? 'destructive'
-                              : ncr.severity === 'major'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                        >
-                          {ncr.severity}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            ncr.status === 'open'
-                              ? 'default'
-                              : ncr.status === 'closed'
-                              ? 'secondary'
-                              : 'outline'
-                          }
-                        >
-                          {ncr.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatDate(ncr.detectedDate)}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => {}}>
-                              <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {}}>
-                              <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {}}>
-                              <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
-                              Create CAPA
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {}}>
-                              <FontAwesomeIcon icon="file-pdf" className="mr-2 h-4 w-4" />
-                              Export Report
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                        <DropdownMenuItem onClick={() => {}}>
+                          <FontAwesomeIcon icon="file-pdf" className="mr-2 h-4 w-4" />
+                          Export Report
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {showCreateDialog && (
         <CreateInspectionDialog
@@ -424,6 +269,7 @@ export default function QualityInspectionList() {
           inspection={selectedInspection}
         />
       )}
+
       {showDetailsDialog && selectedInspection && (
         <InspectionDetailsDialog
           open={showDetailsDialog}

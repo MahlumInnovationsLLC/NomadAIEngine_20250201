@@ -9,23 +9,10 @@ import {
   Legend,
   ResponsiveContainer
 } from "recharts";
-
-interface QualityMetric {
-  category: string;
-  value: number;
-  target: number;
-  trend: number;
-}
+import type { QualityMetrics } from "@/types/manufacturing";
 
 interface QualityMetricsOverviewProps {
-  metrics?: {
-    defectRate: QualityMetric;
-    firstPassYield: QualityMetric;
-    customerComplaints: QualityMetric;
-    supplierQuality: QualityMetric;
-    processCapability: QualityMetric;
-    qualityTraining: QualityMetric;
-  };
+  metrics?: QualityMetrics;
 }
 
 export default function QualityMetricsOverview({ metrics }: QualityMetricsOverviewProps) {

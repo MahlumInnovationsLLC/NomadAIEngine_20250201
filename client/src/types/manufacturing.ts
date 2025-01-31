@@ -209,28 +209,49 @@ export interface ManufacturingSystem {
   updatedAt: string;
 }
 
+// Add QualityMetric interface
+export interface QualityMetric {
+  value: number;
+  trend: number;
+  target: number;
+  unit: string;
+}
+
+export interface QualityMetrics {
+  defectRate: QualityMetric;
+  firstPassYield: QualityMetric;
+  customerComplaints: QualityMetric;
+  supplierQuality: QualityMetric;
+  processCapability: QualityMetric;
+  qualityTraining: QualityMetric;
+}
+
+// Update QualityInspection interface
 export interface QualityInspection {
   id: string;
-  type: 'incoming' | 'in-process' | 'final' | 'audit';
-  status: 'pending' | 'completed' | 'failed' | 'in-progress';
-  assignedTo: string;
-  dueDate: string;
-  completedDate?: string;
-  productionLine: string;
-  checklist: {
-    item: string;
-    specification: string;
-    measurement?: number;
-    tolerance?: number;
-    status: 'pass' | 'fail' | 'na';
-    notes?: string;
-  }[];
-  defects?: {
-    description: string;
-    severity: 'minor' | 'major' | 'critical';
-    status: 'identified' | 'investigating' | 'resolved';
-    correctiveAction?: string;
-  }[];
+  inspectionDate: string;
+  inspector: string;
+  productionLineId: string;
+  templateType: 'inspection' | 'audit' | 'ncr' | 'capa' | 'scar';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  results: {
+    checklistItems: {
+      id: string;
+      parameter: string;
+      specification: string;
+      measurement?: string | number;
+      status: 'pass' | 'fail' | 'na';
+      notes?: string;
+    }[];
+    defectsFound: {
+      id: string;
+      description: string;
+      severity: 'minor' | 'major' | 'critical';
+      status: 'identified' | 'investigating' | 'resolved';
+      correctiveAction?: string;
+    }[];
+  };
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }

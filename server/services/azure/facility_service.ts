@@ -47,6 +47,72 @@ export interface ProductionLine {
   updatedAt: string;
 }
 
+// Add inspection-specific interfaces and functions
+export interface QualityInspection {
+  id: string;
+  inspectionDate: string;
+  inspector: string;
+  productionLineId: string;
+  results: any; // Replace 'any' with a more specific type if needed
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getQualityInspections(): Promise<QualityInspection[]> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c ORDER BY c.createdAt DESC"
+    };
+
+    const { resources } = await qualityInspectionContainer.items.query<QualityInspection>(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Failed to get quality inspections:", error);
+    throw error;
+  }
+}
+
+export async function saveQualityInspection(inspection: Omit<QualityInspection, 'id'>): Promise<QualityInspection> {
+  try {
+    const now = new Date().toISOString();
+    const newInspection = {
+      id: uuidv4(),
+      ...inspection,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const { resource } = await qualityInspectionContainer.items.create(newInspection);
+    if (!resource) throw new Error("Failed to create quality inspection");
+    return resource;
+  } catch (error) {
+    console.error("Failed to save quality inspection:", error);
+    throw error;
+  }
+}
+
+export async function updateQualityInspection(id: string, updates: Partial<QualityInspection>): Promise<QualityInspection> {
+  try {
+    const existing = await qualityInspectionContainer.item(id, id).read();
+    if (!existing.resource) throw new Error("Inspection not found");
+
+    const updated = {
+      ...existing.resource,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource } = await qualityInspectionContainer.item(id, id).replace(updated);
+    if (!resource) throw new Error("Failed to update quality inspection");
+    return resource;
+  } catch (error) {
+    console.error("Failed to update quality inspection:", error);
+    throw error;
+  }
+}
+
+
 export async function initializeManufacturingDatabase() {
   try {
     await database.containers.createIfNotExists({
