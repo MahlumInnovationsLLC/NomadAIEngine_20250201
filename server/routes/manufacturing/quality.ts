@@ -98,6 +98,12 @@ router.post('/ncrs', async (req, res) => {
 router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => {
   try {
     console.log('Starting NCR attachment upload...');
+    console.log('Request details:', {
+      ncrId: req.params.id,
+      hasFile: !!req.file,
+      contentType: req.get('Content-Type')
+    });
+
     if (!container) {
       console.log('Container not initialized, initializing...');
       container = await initializeContainer();
@@ -142,8 +148,11 @@ router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => 
     res.json(updatedNcr);
   } catch (error) {
     console.error('Error uploading attachment:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to upload attachment';
+    console.error('Detailed error:', errorMessage);
     res.status(500).json({ 
-      message: error instanceof Error ? error.message : 'Failed to upload attachment' 
+      message: errorMessage,
+      details: error instanceof Error ? error.stack : undefined
     });
   }
 });

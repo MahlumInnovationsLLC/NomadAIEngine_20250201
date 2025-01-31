@@ -47,7 +47,15 @@ export async function uploadNCRAttachment(
   ncrId: string,
   uploadedBy: string
 ): Promise<UploadNCRAttachmentResult> {
+  console.log('Starting attachment upload process...');
+  console.log('File details:', {
+    originalName: file.originalname,
+    size: file.size,
+    mimetype: file.mimetype
+  });
+
   if (!containerClient) {
+    console.log('Container client not initialized, initializing...');
     await initializeNCRAttachmentsContainer();
   }
 
@@ -55,7 +63,10 @@ export async function uploadNCRAttachment(
     const fileExtension = file.originalname.split('.').pop();
     const uniqueId = uuidv4();
     const blobName = `${ncrId}/${uniqueId}.${fileExtension}`;
+    console.log('Generated blob name:', blobName);
+
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    console.log('Uploading to blob storage...');
 
     await blockBlobClient.uploadData(file.buffer, {
       blobHTTPHeaders: {
@@ -64,6 +75,7 @@ export async function uploadNCRAttachment(
       }
     });
 
+    console.log('Successfully uploaded to blob storage');
     const result: UploadNCRAttachmentResult = {
       id: uniqueId,
       fileName: file.originalname,
@@ -77,7 +89,11 @@ export async function uploadNCRAttachment(
     return result;
   } catch (error) {
     console.error("Failed to upload NCR attachment:", error);
-    throw new Error(error instanceof Error ? error.message : 'Failed to upload NCR attachment');
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    throw new Error(error instanceof Error ? `Failed to upload attachment: ${error.message}` : 'Failed to upload NCR attachment');
   }
 }
 
