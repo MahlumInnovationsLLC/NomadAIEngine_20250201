@@ -207,30 +207,47 @@ router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => 
 router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
   try {
     if (!container) {
-      return res.status(500).json({ message: 'Service unavailable' });
+      container = await initializeContainer();
     }
 
     const { ncrId, attachmentId } = req.params;
+    console.log(`Deleting attachment ${attachmentId} from NCR ${ncrId}`);
 
-    try {
-        const { resource: ncr } = await container.item(ncrId, 'default').read();
+    // Query for NCR using id
+    const { resources: [ncr] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: ncrId }],
+        partitionKey: 'default'
+      })
+      .fetchAll();
 
-      // Delete file from blob storage
-      await deleteNCRAttachment(ncrId, attachmentId);
-
-      // Update NCR attachments
-      ncr.attachments = (ncr.attachments || []).filter((a: any) => a.id !== attachmentId);
-      ncr.updatedAt = new Date().toISOString();
-
-      // Save updated NCR
-        const { resource: updatedNcr } = await container.items.upsert(ncr);
-      res.json(updatedNcr);
-    } catch (error) {
-      if (error.code === 404) {
-        return res.status(404).json({ message: 'NCR not found' });
-      }
-      throw error;
+    if (!ncr) {
+      console.log(`NCR with ID ${ncrId} not found`);
+      return res.status(404).json({ message: 'NCR not found' });
     }
+
+    // Initialize attachments array if it doesn't exist
+    if (!ncr.attachments) {
+      ncr.attachments = [];
+    }
+
+    // Delete file from blob storage
+    try {
+      await deleteNCRAttachment(ncrId, attachmentId);
+    } catch (error) {
+      console.error('Error deleting from blob storage:', error);
+      throw new Error('Failed to delete attachment from storage');
+    }
+
+    // Update NCR attachments
+    ncr.attachments = ncr.attachments.filter((a: any) => a.id !== attachmentId);
+    ncr.updatedAt = new Date().toISOString();
+
+    // Save updated NCR
+    const { resource: updatedNcr } = await container.items.upsert(ncr);
+    console.log('Successfully deleted attachment and updated NCR');
+    res.json(updatedNcr);
   } catch (error) {
     console.error('Error deleting attachment:', error);
     res.status(500).json({ 
