@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { faEye, faTrash, faSpinner, faFile } from '@fortawesome/free-solid-svg-icons';
+import { faEye, faTrashCan, faSpinner, faFile } from '@fortawesome/pro-light-svg-icons';
 import { useToast } from "@/hooks/use-toast";
 import { QualityInspection, NonConformanceReport } from "@/types/manufacturing";
 import { NCRDialog } from "./NCRDialog";
@@ -372,7 +372,7 @@ export function InspectionDetailsDialog({
                             size="sm"
                             onClick={() => handleDeleteAttachment(attachment.id)}
                           >
-                            <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+                            <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -416,7 +416,7 @@ export function InspectionDetailsDialog({
                         <span>{defect.description}</span>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => handleRemoveDefect(defect.id)}>
-                        <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+                        <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" />
                         Remove
                       </Button>
                     </div>

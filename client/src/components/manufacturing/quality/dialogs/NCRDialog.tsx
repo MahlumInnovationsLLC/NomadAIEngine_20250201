@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { faEye, faTrash, faSpinner, faPlus, faFile } from '@fortawesome/free-solid-svg-icons';
+import { faEye, faTrashCan, faSpinner, faPlus, faFile } from '@fortawesome/pro-light-svg-icons';
 import { QualityInspection } from "@/types/manufacturing";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -524,7 +524,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                           size="icon"
                           onClick={() => removeContainmentAction(index)}
                         >
-                          <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+                          <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -601,7 +601,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                                   }
                                 }}
                               >
-                                <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+                                <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
