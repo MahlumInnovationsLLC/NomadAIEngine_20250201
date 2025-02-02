@@ -74,10 +74,10 @@ router.put('/ncrs/:id', async (req, res) => {
     const { id } = req.params;
     console.log(`Updating NCR with ID: ${id}`);
 
-    // Query for NCR using id and type
+    // Query for NCR using id
     const { resources: [existingNcr] } = await container.items
       .query({
-        query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'ncr'",
+        query: "SELECT * FROM c WHERE c.id = @id",
         parameters: [{ name: "@id", value: id }]
       })
       .fetchAll();
@@ -92,11 +92,9 @@ router.put('/ncrs/:id', async (req, res) => {
     const ncrData = {
       ...existingNcr,
       ...req.body,
-      type: 'ncr', // Preserve the type
       id, // Preserve the ID
       updatedAt: new Date().toISOString(),
-      // Include project number from the request if provided
-      projectNumber: req.body.projectNumber || existingNcr.projectNumber
+      attachments: existingNcr.attachments || [] // Preserve existing attachments
     };
 
     // Use upsert instead of replace to handle any partition key issues
@@ -121,10 +119,8 @@ router.post('/ncrs', async (req, res) => {
     console.log('Creating new NCR:', req.body);
     const ncrData = {
       ...req.body,
-      type: 'ncr',
       id: `NCR-${Date.now()}`,
       attachments: [],
-      projectNumber: req.body.projectNumber, // Include project number if provided
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

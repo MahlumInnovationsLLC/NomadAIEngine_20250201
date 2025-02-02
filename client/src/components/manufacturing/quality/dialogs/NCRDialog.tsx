@@ -106,16 +106,17 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
 
   const form = useForm<z.infer<typeof ncrFormSchema>>({
     resolver: zodResolver(ncrFormSchema),
-    defaultValues: defaultValues || {
-      title: inspection ? `NCR: ${inspection.templateType} - ${inspection.productionLineId}` : "",
+    defaultValues: {
+      title: inspection ? `NCR: ${inspection.templateType} - ${inspection.productionLineId}` : defaultValues?.title || "",
       description: inspection?.results.defectsFound.map(d => 
         `${d.severity.toUpperCase()}: ${d.description}`
-      ).join('\n') || "",
+      ).join('\n') || defaultValues?.description || "",
       type: defaultValues?.type || "product",
-      severity: inspection?.results.defectsFound.some(d => d.severity === 'critical') ? 'critical' :
-               inspection?.results.defectsFound.some(d => d.severity === 'major') ? 'major' : 'minor',
-      area: inspection?.productionLineId || "",
-      productLine: inspection?.productionLineId || "",
+      severity: defaultValues?.severity || 
+               (inspection?.results.defectsFound.some(d => d.severity === 'critical') ? 'critical' :
+               inspection?.results.defectsFound.some(d => d.severity === 'major') ? 'major' : 'minor'),
+      area: defaultValues?.area || inspection?.productionLineId || "",
+      productLine: defaultValues?.productLine || inspection?.productionLineId || "",
       disposition: defaultValues?.disposition || "pending",
       status: defaultValues?.status || "open",
       containmentActions: defaultValues?.containmentActions || [
@@ -175,6 +176,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
       const ncrData = {
         ...values,
         inspectionId: inspection?.id,
+        id: defaultValues?.id, // Preserve ID when editing
         updatedAt: new Date().toISOString(),
         ...(isEditing ? {} : {
           number: `NCR-${Date.now().toString().slice(-6)}`,
@@ -182,31 +184,31 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
           reportedBy: "Current User",
         })
       };
-  
+
       console.log('Submitting NCR data:', ncrData);
-  
+
       const response = await fetch(`/api/manufacturing/quality/ncrs${isEditing ? `/${defaultValues.id}` : ''}`, {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(ncrData)
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Failed to ${isEditing ? 'update' : 'create'} NCR`);
       }
-  
+
+      const updatedData = await response.json();
+      console.log('Server response:', updatedData);
+
+
       await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-  
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        toast({
-          title: "Success",
-          description: `NCR ${isEditing ? 'updated' : 'created'} successfully`,
-        });
-      }
-  
+
+      toast({
+        title: "Success",
+        description: `NCR ${isEditing ? 'updated' : 'created'} successfully`,
+      });
+
       onOpenChange(false);
     } catch (error) {
       console.error(`Error ${isEditing ? 'updating' : 'creating'} NCR:`, error);
@@ -273,7 +275,13 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Type</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select 
+                          onValueChange={(value) => {
+                            console.log('Type changed to:', value);
+                            field.onChange(value);
+                          }} 
+                          value={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select type" />

@@ -110,7 +110,7 @@ export default function NCRList() {
             <TableCell>{ncr.title}</TableCell>
             <TableCell>{ncr.projectNumber || 'N/A'}</TableCell>
             <TableCell>{formatDate(ncr.createdAt)}</TableCell>
-            <TableCell>{ncr.type}</TableCell>
+            <TableCell className="capitalize">{ncr.type?.replace('_', ' ') || 'N/A'}</TableCell>
             <TableCell>
               <Badge variant={getStatusBadgeVariant(ncr.status)}>
                 {ncr.status.replace('_', ' ')}
