@@ -572,6 +572,36 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                               >
                                 <FontAwesomeIcon icon="eye" className="h-4 w-4" />
                               </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  try {
+                                    const response = await fetch(
+                                      `/api/manufacturing/quality/ncrs/${defaultValues?.id}/attachments/${attachment.id}`,
+                                      { method: 'DELETE' }
+                                    );
+                                    if (!response.ok) {
+                                      throw new Error('Failed to delete attachment');
+                                    }
+                                    await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+                                    toast({
+                                      title: "Success",
+                                      description: "Attachment deleted successfully",
+                                    });
+                                  } catch (error) {
+                                    console.error('Error deleting attachment:', error);
+                                    toast({
+                                      title: "Error",
+                                      description: error instanceof Error ? error.message : "Failed to delete attachment",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                              >
+                                <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
                         ))}

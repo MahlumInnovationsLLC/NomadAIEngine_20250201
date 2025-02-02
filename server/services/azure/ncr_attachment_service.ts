@@ -7,10 +7,12 @@ if (!connectionString) {
 }
 
 const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-const containerName = "ncr-attachments";
-let containerClient: ContainerClient;
+const ncrContainerName = "ncr-attachments";
+const inspectionContainerName = "inspection-attachments";
+let ncrContainerClient: ContainerClient;
+let inspectionContainerClient: ContainerClient;
 
-export interface UploadNCRAttachmentResult {
+export interface UploadAttachmentResult {
   id: string;
   fileName: string;
   fileSize: number;
@@ -20,33 +22,43 @@ export interface UploadNCRAttachmentResult {
   uploadedBy: string;
 }
 
-export async function initializeNCRAttachmentsContainer() {
+async function initializeContainer(containerName: string): Promise<ContainerClient> {
   try {
-    containerClient = blobServiceClient.getContainerClient(containerName);
+    const containerClient = blobServiceClient.getContainerClient(containerName);
     const createContainerResponse = await containerClient.createIfNotExists({
       access: 'blob'
     });
 
     if (createContainerResponse.succeeded) {
-      console.log("NCR attachments container created successfully");
+      console.log(`${containerName} container created successfully`);
     } else {
-      console.log("NCR attachments container already exists");
+      console.log(`${containerName} container already exists`);
     }
 
     // Test container access
     await containerClient.getProperties();
-    console.log("Successfully verified NCR attachments container access");
+    console.log(`Successfully verified ${containerName} container access`);
+    return containerClient;
   } catch (error) {
-    console.error("Failed to initialize NCR attachments container:", error);
-    throw new Error('Failed to initialize NCR attachments container. Please check Azure Storage configuration.');
+    console.error(`Failed to initialize ${containerName} container:`, error);
+    throw new Error(`Failed to initialize ${containerName} container. Please check Azure Storage configuration.`);
   }
 }
 
-export async function uploadNCRAttachment(
+export async function initializeNCRAttachmentsContainer() {
+  ncrContainerClient = await initializeContainer(ncrContainerName);
+}
+
+export async function initializeInspectionAttachmentsContainer() {
+  inspectionContainerClient = await initializeContainer(inspectionContainerName);
+}
+
+async function uploadAttachment(
   file: Express.Multer.File,
-  ncrId: string,
-  uploadedBy: string
-): Promise<UploadNCRAttachmentResult> {
+  parentId: string,
+  uploadedBy: string,
+  containerClient: ContainerClient
+): Promise<UploadAttachmentResult> {
   console.log('Starting attachment upload process...');
   console.log('File details:', {
     originalName: file.originalname,
@@ -54,15 +66,10 @@ export async function uploadNCRAttachment(
     mimetype: file.mimetype
   });
 
-  if (!containerClient) {
-    console.log('Container client not initialized, initializing...');
-    await initializeNCRAttachmentsContainer();
-  }
-
   try {
     const fileExtension = file.originalname.split('.').pop();
     const uniqueId = uuidv4();
-    const blobName = `${ncrId}/${uniqueId}.${fileExtension}`;
+    const blobName = `${parentId}/${uniqueId}.${fileExtension}`;
     console.log('Generated blob name:', blobName);
 
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
@@ -76,7 +83,7 @@ export async function uploadNCRAttachment(
     });
 
     console.log('Successfully uploaded to blob storage');
-    const result: UploadNCRAttachmentResult = {
+    return {
       id: uniqueId,
       fileName: file.originalname,
       fileSize: file.size,
@@ -85,26 +92,42 @@ export async function uploadNCRAttachment(
       uploadedAt: new Date().toISOString(),
       uploadedBy
     };
-
-    return result;
   } catch (error) {
-    console.error("Failed to upload NCR attachment:", error);
+    console.error("Failed to upload attachment:", error);
     if (error instanceof Error) {
       console.error('Error details:', error.message);
       console.error('Error stack:', error.stack);
     }
-    throw new Error(error instanceof Error ? `Failed to upload attachment: ${error.message}` : 'Failed to upload NCR attachment');
+    throw new Error(error instanceof Error ? `Failed to upload attachment: ${error.message}` : 'Failed to upload attachment');
   }
 }
 
-export async function deleteNCRAttachment(ncrId: string, attachmentId: string): Promise<void> {
-  if (!containerClient) {
+export async function uploadNCRAttachment(
+  file: Express.Multer.File,
+  ncrId: string,
+  uploadedBy: string
+): Promise<UploadAttachmentResult> {
+  if (!ncrContainerClient) {
     await initializeNCRAttachmentsContainer();
   }
+  return uploadAttachment(file, ncrId, uploadedBy, ncrContainerClient);
+}
 
+export async function uploadInspectionAttachment(
+  file: Express.Multer.File,
+  inspectionId: string,
+  uploadedBy: string
+): Promise<UploadAttachmentResult> {
+  if (!inspectionContainerClient) {
+    await initializeInspectionAttachmentsContainer();
+  }
+  return uploadAttachment(file, inspectionId, uploadedBy, inspectionContainerClient);
+}
+
+async function deleteAttachment(parentId: string, attachmentId: string, containerClient: ContainerClient): Promise<void> {
   try {
     const blobsIter = containerClient.listBlobsFlat({
-      prefix: `${ncrId}/`
+      prefix: `${parentId}/`
     });
 
     for await (const blob of blobsIter) {
@@ -118,10 +141,27 @@ export async function deleteNCRAttachment(ncrId: string, attachmentId: string): 
 
     throw new Error('Attachment not found');
   } catch (error) {
-    console.error("Failed to delete NCR attachment:", error);
-    throw new Error(error instanceof Error ? error.message : 'Failed to delete NCR attachment');
+    console.error("Failed to delete attachment:", error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to delete attachment');
   }
 }
 
-// Initialize the container when the service loads
-initializeNCRAttachmentsContainer().catch(console.error);
+export async function deleteNCRAttachment(ncrId: string, attachmentId: string): Promise<void> {
+  if (!ncrContainerClient) {
+    await initializeNCRAttachmentsContainer();
+  }
+  return deleteAttachment(ncrId, attachmentId, ncrContainerClient);
+}
+
+export async function deleteInspectionAttachment(inspectionId: string, attachmentId: string): Promise<void> {
+  if (!inspectionContainerClient) {
+    await initializeInspectionAttachmentsContainer();
+  }
+  return deleteAttachment(inspectionId, attachmentId, inspectionContainerClient);
+}
+
+// Initialize the containers when the service loads
+Promise.all([
+  initializeNCRAttachmentsContainer(),
+  initializeInspectionAttachmentsContainer()
+]).catch(console.error);

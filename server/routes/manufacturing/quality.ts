@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { CosmosClient } from "@azure/cosmos";
 import multer from 'multer';
-import { uploadNCRAttachment, deleteNCRAttachment } from '../../services/azure/ncr_attachment_service';
+import { uploadNCRAttachment, uploadInspectionAttachment, deleteNCRAttachment, deleteInspectionAttachment } from '../../services/azure/ncr_attachment_service';
 
 const router = Router();
 
@@ -228,6 +228,101 @@ router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
     } catch (error) {
       if (error.code === 404) {
         return res.status(404).json({ message: 'NCR not found' });
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to delete attachment' 
+    });
+  }
+});
+
+// Upload attachment to Inspection
+router.post('/inspections/:id/attachments', upload.single('file'), async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file provided' });
+    }
+
+    const { id } = req.params;
+    console.log(`Looking for Inspection with ID: ${id}`);
+
+    const { resources: [inspection] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: id }],
+        partitionKey: 'default'
+      })
+      .fetchAll();
+
+    if (!inspection) {
+      return res.status(404).json({ message: 'Inspection not found' });
+    }
+
+    console.log('Found Inspection:', inspection);
+
+    // Upload file to blob storage
+    console.log('Uploading file to Azure Blob Storage...');
+    const attachment = await uploadInspectionAttachment(
+      req.file,
+      id,
+      req.body.uploadedBy || 'system'
+    );
+
+    // Initialize attachments array if it doesn't exist
+    if (!inspection.attachments) {
+      inspection.attachments = [];
+    }
+
+    // Update Inspection with new attachment
+    inspection.attachments.push(attachment);
+    inspection.updatedAt = new Date().toISOString();
+
+    // Update the Inspection document
+    console.log('Updating Inspection with new attachment...');
+    const { resource: updatedInspection } = await container.items.upsert(inspection);
+
+    console.log('Inspection updated successfully');
+    res.json(updatedInspection);
+  } catch (error) {
+    console.error('Error uploading attachment:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to upload attachment' 
+    });
+  }
+});
+
+// Delete attachment from Inspection
+router.delete('/inspections/:inspectionId/attachments/:attachmentId', async (req, res) => {
+  try {
+    if (!container) {
+      return res.status(500).json({ message: 'Service unavailable' });
+    }
+
+    const { inspectionId, attachmentId } = req.params;
+
+    try {
+      const { resource: inspection } = await container.item(inspectionId, 'default').read();
+
+      // Delete file from blob storage
+      await deleteInspectionAttachment(inspectionId, attachmentId);
+
+      // Update Inspection attachments
+      inspection.attachments = (inspection.attachments || []).filter((a: any) => a.id !== attachmentId);
+      inspection.updatedAt = new Date().toISOString();
+
+      // Save updated Inspection
+      const { resource: updatedInspection } = await container.items.upsert(inspection);
+      res.json(updatedInspection);
+    } catch (error) {
+      if (error.code === 404) {
+        return res.status(404).json({ message: 'Inspection not found' });
       }
       throw error;
     }
