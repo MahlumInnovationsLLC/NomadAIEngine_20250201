@@ -14,9 +14,10 @@ interface NCRDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   ncr: NCR;
+  onSuccess?: () => void;
 }
 
-export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogProps) {
+export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDetailsDialogProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [deletingAttachment, setDeletingAttachment] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -43,9 +44,10 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    console.log('Attempting to delete attachment:', attachmentId);
     try {
       setDeletingAttachment(attachmentId);
+      console.log('Attempting to delete attachment:', attachmentId);
+
       const response = await fetch(
         `/api/manufacturing/quality/ncrs/${ncr.id}/attachments/${attachmentId}`,
         {
@@ -56,19 +58,23 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
         }
       );
 
-      const responseData = await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        console.error('Delete attachment error response:', responseData);
-        throw new Error(responseData.message || responseData.details || 'Failed to delete attachment');
+        console.error('Delete attachment error response:', data);
+        throw new Error(data.message || data.details || 'Failed to delete attachment');
       }
 
       await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
 
       toast({
         title: "Success",
-        description: "Attachment deleted successfully",
+        description: "Attachment removed successfully",
       });
+
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Error deleting attachment:', error);
       toast({

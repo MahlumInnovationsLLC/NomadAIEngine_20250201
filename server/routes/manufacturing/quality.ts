@@ -203,6 +203,15 @@ router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => 
   }
 });
 
+// Update the types for attachments
+interface Attachment {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  blobUrl: string;
+}
+
 // Delete attachment from NCR
 router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
   try {
@@ -228,19 +237,24 @@ router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
     }
 
     // Verify attachment exists in NCR document
-    if (!ncr.attachments?.some(a => a.id === attachmentId)) {
+    const attachmentExists = ncr.attachments?.some((a: Attachment) => a.id === attachmentId);
+    if (!attachmentExists) {
       console.log(`Attachment ${attachmentId} not found in NCR document`);
       return res.status(404).json({ message: 'Attachment not found in NCR' });
     }
 
-    console.log('Found NCR and attachment in document, proceeding with blob deletion');
+    console.log('Found NCR and attachment in document, proceeding with deletion');
 
-    // Delete file from blob storage
-    await deleteNCRAttachment(ncrId, attachmentId);
-    console.log('Successfully deleted blob from storage');
+    // Delete from blob storage - now returns a boolean indicating success
+    const blobDeleted = await deleteNCRAttachment(ncrId, attachmentId);
+    if (blobDeleted) {
+      console.log('Successfully deleted blob from storage');
+    } else {
+      console.log('Blob not found in storage, proceeding with document update');
+    }
 
     // Update NCR attachments
-    ncr.attachments = ncr.attachments.filter(a => a.id !== attachmentId);
+    ncr.attachments = (ncr.attachments || []).filter((a: Attachment) => a.id !== attachmentId);
     ncr.updatedAt = new Date().toISOString();
 
     // Save updated NCR
@@ -248,11 +262,11 @@ router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
     console.log('Successfully updated NCR document');
 
     res.json(updatedNcr);
-  } catch (error) {
-    console.error('Error deleting attachment:', error);
+  } catch (error: unknown) {
+    console.error('Error in attachment deletion process:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     res.status(500).json({ 
-      message: 'Failed to delete attachment',
+      message: 'Error in attachment deletion process',
       details: errorMessage
     });
   }

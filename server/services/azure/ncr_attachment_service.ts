@@ -90,9 +90,10 @@ async function uploadAttachment(
   }
 }
 
-async function deleteAttachment(parentId: string, attachmentId: string, containerClient: ContainerClient): Promise<void> {
+async function deleteAttachment(parentId: string, attachmentId: string, containerClient: ContainerClient): Promise<boolean> {
   try {
     console.log(`Starting deletion process for attachment ${attachmentId} in parent ${parentId}`);
+    let blobFound = false;
 
     // List all blobs in the parent folder
     const blobsIter = containerClient.listBlobsFlat({
@@ -112,17 +113,22 @@ async function deleteAttachment(parentId: string, attachmentId: string, containe
         const blockBlobClient = containerClient.getBlockBlobClient(blob.name);
         await blockBlobClient.delete();
         console.log(`Successfully deleted blob: ${blob.name}`);
-        return;
+        blobFound = true;
+        break;
       }
     }
 
-    throw new Error(`Attachment ${attachmentId} not found in storage`);
+    // If no blob was found, log it but don't throw an error
+    if (!blobFound) {
+      console.log(`No blob found for attachment ${attachmentId} in parent ${parentId}`);
+      return false;
+    }
+
+    return true;
   } catch (error) {
     console.error("Failed to delete attachment:", error);
-    if (error instanceof Error) {
-      throw new Error(`Failed to delete attachment: ${error.message}`);
-    }
-    throw new Error('Failed to delete attachment: Unknown error');
+    // Return false instead of throwing to handle the error gracefully
+    return false;
   }
 }
 
@@ -148,14 +154,14 @@ export async function uploadInspectionAttachment(
   return uploadAttachment(file, inspectionId, uploadedBy, inspectionContainerClient);
 }
 
-export async function deleteNCRAttachment(ncrId: string, attachmentId: string): Promise<void> {
+export async function deleteNCRAttachment(ncrId: string, attachmentId: string): Promise<boolean> {
   if (!ncrContainerClient) {
     await initializeNCRAttachmentsContainer();
   }
   return deleteAttachment(ncrId, attachmentId, ncrContainerClient);
 }
 
-export async function deleteInspectionAttachment(inspectionId: string, attachmentId: string): Promise<void> {
+export async function deleteInspectionAttachment(inspectionId: string, attachmentId: string): Promise<boolean> {
   if (!inspectionContainerClient) {
     await initializeInspectionAttachmentsContainer();
   }
