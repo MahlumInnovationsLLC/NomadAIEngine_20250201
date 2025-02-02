@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { CosmosClient } from "@azure/cosmos";
 import multer from 'multer';
 import { uploadNCRAttachment, uploadInspectionAttachment, deleteNCRAttachment, deleteInspectionAttachment } from '../../services/azure/ncr_attachment_service';
+import { db } from "@db";
+import { capas, capaActions } from "@db/schema";
+import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
@@ -413,5 +416,135 @@ router.put('/inspections/:id/update-ncrs', async (req, res) => {
   }
 });
 
+// Get all CAPAs
+router.get('/capas', async (req, res) => {
+  try {
+    const allCapas = await db.query.capas.findMany({
+      with: {
+        actions: true
+      },
+      orderBy: (capas, { desc }) => [desc(capas.createdAt)]
+    });
+
+    res.json(allCapas);
+  } catch (error) {
+    console.error('Error fetching CAPAs:', error);
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to fetch CAPAs'
+    });
+  }
+});
+
+// Create new CAPA
+router.post('/capas', async (req, res) => {
+  try {
+    const newCapa = await db.insert(capas).values({
+      ...req.body,
+      id: undefined, // Let the DB generate the UUID
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      number: `CAPA-${Date.now()}`,
+    }).returning();
+
+    // If actions are provided, create them
+    if (req.body.actions?.length) {
+      await db.insert(capaActions).values(
+        req.body.actions.map((action: any) => ({
+          ...action,
+          capaId: newCapa[0].id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }))
+      );
+    }
+
+    res.status(201).json(newCapa[0]);
+  } catch (error) {
+    console.error('Error creating CAPA:', error);
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to create CAPA'
+    });
+  }
+});
+
+// Create CAPA from NCR
+async function createCAPAFromNCR(ncr: any) {
+  try {
+    if (ncr.severity !== 'critical') {
+      return null;
+    }
+
+    console.log('Creating CAPA from critical NCR:', ncr.id);
+
+    const capaData = {
+      title: `CAPA for Critical NCR ${ncr.number}`,
+      description: `Auto-generated CAPA for critical NCR. NCR Details: ${ncr.description}`,
+      status: 'open',
+      priority: 'high',
+      type: 'corrective',
+      rootCause: ncr.rootCause || 'To be determined during investigation',
+      verificationMethod: 'To be determined',
+      department: ncr.department,
+      area: ncr.area,
+      scheduledReviewDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+      createdBy: ncr.createdBy,
+      sourceNcrId: ncr.id,
+      sourceInspectionId: ncr.inspectionId
+    };
+
+    const [newCapa] = await db.insert(capas).values({
+      ...capaData,
+      number: `CAPA-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }).returning();
+
+    console.log('Successfully created CAPA from NCR:', newCapa.id);
+    return newCapa;
+  } catch (error) {
+    console.error('Error creating CAPA from NCR:', error);
+    throw error;
+  }
+}
+
+// Modify the existing NCR creation route to include CAPA generation
+const originalNcrPost = router.post.bind(router);
+router.post('/ncrs', async (req, res) => {
+  try {
+    const ncrData = {
+      ...req.body,
+      id: `NCR-${Date.now()}`,
+      userKey: 'default',
+      attachments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource: createdNcr } = await container.items.create(ncrData);
+
+    // If NCR is critical, auto-generate a CAPA
+    if (createdNcr.severity === 'critical') {
+      try {
+        const capa = await createCAPAFromNCR(createdNcr);
+        if (capa) {
+          createdNcr.linkedCapaId = capa.id;
+          // Update the NCR with the linked CAPA ID
+          await container.item(createdNcr.id, 'default').replace(createdNcr);
+        }
+      } catch (error) {
+        console.error('Error in CAPA auto-generation:', error);
+        // Don't fail the NCR creation if CAPA generation fails
+      }
+    }
+
+    console.log('Created NCR:', createdNcr);
+    res.status(201).json(createdNcr);
+  } catch (error) {
+    console.error('Error creating NCR:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to create NCR' 
+    });
+  }
+});
 
 export default router;

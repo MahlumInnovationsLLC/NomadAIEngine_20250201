@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, decimal, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, decimal, integer, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -597,6 +597,52 @@ export const milestoneCelebrations = pgTable("milestone_celebrations", {
   metadata: jsonb("metadata"),
 });
 
+// Add after existing tables
+export const capas = pgTable("capas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  number: text("number").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  status: text("status", { 
+    enum: ["draft", "open", "in_progress", "completed", "verified", "closed"]
+  }).notNull().default("draft"),
+  priority: text("priority", {
+    enum: ["low", "medium", "high", "critical"]
+  }).notNull(),
+  type: text("type", {
+    enum: ["corrective", "preventive", "improvement"]
+  }).notNull(),
+  rootCause: text("root_cause").notNull(),
+  verificationMethod: text("verification_method").notNull(),
+  effectivenessReview: text("effectiveness_review"),
+  scheduledReviewDate: timestamp("scheduled_review_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: text("created_by").notNull(),
+  department: text("department").notNull(),
+  area: text("area").notNull(),
+  sourceNcrId: text("source_ncr_id"),
+  sourceInspectionId: text("source_inspection_id"),
+});
+
+export const capaActions = pgTable("capa_actions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  capaId: uuid("capa_id").references(() => capas.id),
+  action: text("action").notNull(),
+  type: text("type", {
+    enum: ["corrective", "preventive"]
+  }).notNull(),
+  assignedTo: text("assigned_to").notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  status: text("status", {
+    enum: ["pending", "in_progress", "completed", "verified"]
+  }).notNull().default("pending"),
+  completedDate: timestamp("completed_date"),
+  verifiedBy: text("verified_by"),
+  verificationDate: timestamp("verification_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
 // Relations
 export const documentsRelations = relations(documents, ({ many }) => ({
@@ -626,8 +672,7 @@ export const documentCollaboratorsRelations = relations(documentCollaborators, (
   }),
 }));
 
-export const chatsRelations = relations(chats, ({ many }) => ({
-  messages: many(messages),
+export const chatsRelations = relations(chats, ({ many }) => ({messages: many(messages),
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
@@ -869,6 +914,18 @@ export const facilityNotificationsRelations = relations(facilityNotifications, (
   }),
 }));
 
+// Add to relations section
+export const capasRelations = relations(capas, ({ many }) => ({
+  actions: many(capaActions),
+}));
+
+export const capaActionsRelations = relations(capaActions, ({ one }) => ({
+  capa: one(capas, {
+    fields: [capaActions.capaId],
+    references: [capas.id],
+  }),
+}));
+
 // Schemas
 export const insertMemberSchema = createInsertSchema(members);
 export const selectMemberSchema = createSelectSchema(members);
@@ -1014,5 +1071,9 @@ export type FacilityInspection = typeof facilityInspections.$inferSelect;
 
 // Add types for facility notifications
 export type FacilityNotification = typeof facilityNotifications.$inferSelect;
+
+// Add types for CAPA
+export type Capa = typeof capas.$inferSelect;
+export type CapaAction = typeof capaActions.$inferSelect;
 
 import { integer } from "drizzle-orm/pg-core";
