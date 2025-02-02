@@ -24,6 +24,7 @@ export const NCRSchema = z.object({
   disposition: z.enum(["use_as_is", "rework", "repair", "scrap", "return_to_supplier", "pending"]),
   area: z.string(),
   productLine: z.string(),
+  projectNumber: z.string().optional(),
   lotNumber: z.string().optional(),
   quantityAffected: z.number().optional(),
   containmentActions: z.array(z.object({

@@ -232,6 +232,7 @@ export interface QualityInspection {
   inspectionDate: string;
   inspector: string;
   productionLineId: string;
+  projectNumber?: string; // Added project number field
   templateType: 'inspection' | 'audit' | 'ncr' | 'capa' | 'scar';
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   results: {

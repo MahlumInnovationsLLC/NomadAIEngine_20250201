@@ -64,6 +64,53 @@ router.get('/ncrs', async (req, res) => {
   }
 });
 
+// Update NCR
+router.put('/ncrs/:id', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
+    const { id } = req.params;
+    console.log(`Updating NCR with ID: ${id}`);
+
+    // Query for NCR using id and type
+    const { resources: [existingNcr] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'ncr'",
+        parameters: [{ name: "@id", value: id }]
+      })
+      .fetchAll();
+
+    if (!existingNcr) {
+      console.log(`NCR with ID ${id} not found`);
+      return res.status(404).json({ message: 'NCR not found' });
+    }
+
+    console.log('Found existing NCR:', existingNcr);
+
+    const ncrData = {
+      ...existingNcr,
+      ...req.body,
+      type: 'ncr', // Preserve the type
+      id, // Preserve the ID
+      updatedAt: new Date().toISOString(),
+      // Include project number from the request if provided
+      projectNumber: req.body.projectNumber || existingNcr.projectNumber
+    };
+
+    // Use upsert instead of replace to handle any partition key issues
+    const { resource: updatedNcr } = await container.items.upsert(ncrData);
+    console.log('NCR updated successfully');
+    res.json(updatedNcr);
+  } catch (error) {
+    console.error('Error updating NCR:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to update NCR' 
+    });
+  }
+});
+
 // Create new NCR
 router.post('/ncrs', async (req, res) => {
   try {
@@ -77,6 +124,7 @@ router.post('/ncrs', async (req, res) => {
       type: 'ncr',
       id: `NCR-${Date.now()}`,
       attachments: [],
+      projectNumber: req.body.projectNumber, // Include project number if provided
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -187,51 +235,6 @@ router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
     console.error('Error deleting attachment:', error);
     res.status(500).json({ 
       message: error instanceof Error ? error.message : 'Failed to delete attachment' 
-    });
-  }
-});
-
-// Update NCR
-router.put('/ncrs/:id', async (req, res) => {
-  try {
-    if (!container) {
-      container = await initializeContainer();
-    }
-
-    const { id } = req.params;
-    console.log(`Updating NCR with ID: ${id}`);
-
-    // Query for NCR using id and type
-    const { resources: [existingNcr] } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'ncr'",
-        parameters: [{ name: "@id", value: id }]
-      })
-      .fetchAll();
-
-    if (!existingNcr) {
-      console.log(`NCR with ID ${id} not found`);
-      return res.status(404).json({ message: 'NCR not found' });
-    }
-
-    console.log('Found existing NCR:', existingNcr);
-
-    const ncrData = {
-      ...existingNcr,
-      ...req.body,
-      type: 'ncr', // Preserve the type
-      id, // Preserve the ID
-      updatedAt: new Date().toISOString()
-    };
-
-    // Use upsert instead of replace to handle any partition key issues
-    const { resource: updatedNcr } = await container.items.upsert(ncrData);
-    console.log('NCR updated successfully');
-    res.json(updatedNcr);
-  } catch (error) {
-    console.error('Error updating NCR:', error);
-    res.status(500).json({ 
-      message: error instanceof Error ? error.message : 'Failed to update NCR' 
     });
   }
 });
