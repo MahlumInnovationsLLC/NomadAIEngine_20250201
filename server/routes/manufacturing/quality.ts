@@ -50,7 +50,7 @@ router.get('/ncrs', async (req, res) => {
     console.log('Fetching NCRs from Cosmos DB...');
     const { resources: ncrs } = await container.items
       .query({
-        query: 'SELECT * FROM c WHERE c.type = "ncr" ORDER BY c._ts DESC'
+        query: 'SELECT * FROM c WHERE EXISTS(c.number) AND STARTSWITH(c.id, "NCR-") ORDER BY c._ts DESC'
       })
       .fetchAll();
 
