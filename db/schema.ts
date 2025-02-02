@@ -598,6 +598,19 @@ export const milestoneCelebrations = pgTable("milestone_celebrations", {
 });
 
 // Add after existing tables
+export const capaCategories = pgTable("capa_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  severity: text("severity", { 
+    enum: ["low", "medium", "high", "critical"]
+  }).notNull(),
+  requiresApproval: boolean("requires_approval").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Add category field to capas table
 export const capas = pgTable("capas", {
   id: uuid("id").defaultRandom().primaryKey(),
   number: text("number").notNull(),
@@ -612,6 +625,7 @@ export const capas = pgTable("capas", {
   type: text("type", {
     enum: ["corrective", "preventive", "improvement"]
   }).notNull(),
+  categoryId: integer("category_id").references(() => capaCategories.id),
   rootCause: text("root_cause").notNull(),
   verificationMethod: text("verification_method").notNull(),
   effectivenessReview: text("effectiveness_review"),
@@ -645,7 +659,7 @@ export const capaActions = pgTable("capa_actions", {
 });
 
 // Relations
-export const documentsRelations = relations(documents, ({ many }) => ({
+export const documentsRelations =relations(documents, ({ many }) => ({
   versions: many(documentVersions),
   approvals: many(documentApprovals),
   collaborators: many(documentCollaborators),
@@ -913,9 +927,17 @@ export const facilityNotificationsRelations = relations(facilityNotifications, (
   }),
 }));
 
-// Add relations for CAPA tables
-export const capasRelations = relations(capas, ({ many }) => ({
+// Update the capasRelations
+export const capasRelations = relations(capas, ({ many, one }) => ({
   actions: many(capaActions),
+  category: one(capaCategories, {
+    fields: [capas.categoryId],
+    references: [capaCategories.id],
+  }),
+}));
+
+export const capaCategoriesRelations = relations(capaCategories, ({ many }) => ({
+  capas: many(capas),
 }));
 
 export const capaActionsRelations = relations(capaActions, ({ one }) => ({

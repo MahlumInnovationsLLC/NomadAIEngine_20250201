@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,17 @@ const defaultValues: Partial<CAPA> = {
   verificationMethod: "",
   department: "",
   area: "",
-  correctiveActions: [],
-  preventiveActions: [],
+  categoryId: undefined,
   status: "draft",
   scheduledReviewDate: new Date().toISOString(),
 };
+
+interface CAPACategory {
+  id: number;
+  name: string;
+  description: string | null;
+  severity: string;
+}
 
 interface CAPADialogProps {
   open: boolean;
@@ -47,6 +53,14 @@ interface CAPADialogProps {
   sourceInspectionId?: string;
   onSuccess?: () => void;
 }
+
+const fetchCategories = async (): Promise<CAPACategory[]> => {
+  const response = await fetch('/api/manufacturing/quality/capa-categories');
+  if (!response.ok) {
+    throw new Error('Failed to fetch CAPA categories');
+  }
+  return response.json();
+};
 
 export function CAPADialog({
   open,
@@ -59,6 +73,11 @@ export function CAPADialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: categories = [] } = useQuery<CAPACategory[]>({
+    queryKey: ['/api/manufacturing/quality/capa-categories'],
+    queryFn: fetchCategories,
+  });
 
   const form = useForm<CAPA>({
     resolver: zodResolver(CAPASchema),
@@ -154,6 +173,36 @@ export function CAPADialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
+                name="categoryId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select
+                      value={field.value?.toString()}
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem 
+                            key={category.id} 
+                            value={category.id.toString()}
+                          >
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="priority"
                 render={({ field }) => (
                   <FormItem>
@@ -178,6 +227,8 @@ export function CAPADialog({
                   </FormItem>
                 )}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="type"
@@ -199,6 +250,19 @@ export function CAPADialog({
                         <SelectItem value="improvement">Improvement</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="department"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Department" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -236,34 +300,19 @@ export function CAPADialog({
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Department" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="area"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Area</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Specific area" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="area"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Area</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Specific area" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="flex justify-end gap-2">
               <Button
                 type="button"

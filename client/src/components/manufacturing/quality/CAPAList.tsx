@@ -13,6 +13,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -22,6 +29,13 @@ import { useToast } from "@/hooks/use-toast";
 import type { CAPA } from "@/types/manufacturing/capa";
 import { CAPADialog } from "./dialogs/CAPADialog";
 
+interface CAPACategory {
+  id: number;
+  name: string;
+  description: string | null;
+  severity: string;
+}
+
 const fetchCAPAs = async (): Promise<CAPA[]> => {
   const response = await fetch('/api/manufacturing/quality/capas');
   if (!response.ok) {
@@ -30,14 +44,28 @@ const fetchCAPAs = async (): Promise<CAPA[]> => {
   return response.json();
 };
 
+const fetchCategories = async (): Promise<CAPACategory[]> => {
+  const response = await fetch('/api/manufacturing/quality/capa-categories');
+  if (!response.ok) {
+    throw new Error('Failed to fetch CAPA categories');
+  }
+  return response.json();
+};
+
 export default function CAPAList() {
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedCAPA, setSelectedCAPA] = useState<CAPA | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
 
-  const { data: capas = [], isLoading, error } = useQuery<CAPA[]>({
+  const { data: capas = [], isLoading: isLoadingCAPAs } = useQuery<CAPA[]>({
     queryKey: ['/api/manufacturing/quality/capas'],
     queryFn: fetchCAPAs,
+  });
+
+  const { data: categories = [], isLoading: isLoadingCategories } = useQuery<CAPACategory[]>({
+    queryKey: ['/api/manufacturing/quality/capa-categories'],
+    queryFn: fetchCategories,
   });
 
   const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
@@ -88,25 +116,16 @@ export default function CAPAList() {
     return "Manual Creation";
   };
 
-  if (isLoading) {
+  const filteredCAPAs = selectedCategory
+    ? capas.filter(capa => capa.categoryId?.toString() === selectedCategory)
+    : capas;
+
+  if (isLoadingCAPAs || isLoadingCategories) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p>Loading CAPAs...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center">
-        <div className="rounded-lg border border-destructive/50 p-4 max-w-lg mx-auto">
-          <h3 className="font-semibold text-destructive mb-2">Error Loading CAPAs</h3>
-          <p className="text-muted-foreground">
-            {error instanceof Error ? error.message : 'An unknown error occurred'}
-          </p>
         </div>
       </div>
     );
@@ -121,10 +140,25 @@ export default function CAPAList() {
             Manage and track corrective actions and preventive measures
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-          Create New CAPA
-        </Button>
+        <div className="flex gap-4">
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Categories</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id.toString()}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            Create New CAPA
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -140,6 +174,7 @@ export default function CAPAList() {
                 <TableHead>Type</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Created Date</TableHead>
@@ -148,7 +183,7 @@ export default function CAPAList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {capas.map((capa) => (
+              {filteredCAPAs.map((capa) => (
                 <TableRow key={capa.id}>
                   <TableCell className="font-medium">{capa.number}</TableCell>
                   <TableCell>{capa.title}</TableCell>
@@ -162,6 +197,9 @@ export default function CAPAList() {
                     <Badge variant={getStatusBadgeVariant(capa.status)}>
                       {capa.status.replace('_', ' ')}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {categories.find(c => c.id === capa.categoryId)?.name ?? 'N/A'}
                   </TableCell>
                   <TableCell>{capa.department}</TableCell>
                   <TableCell>{getSourceInfo(capa)}</TableCell>
@@ -198,12 +236,18 @@ export default function CAPAList() {
       </Card>
 
       <CAPADialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
+        open={showCreateDialog || !!selectedCAPA}
+        onOpenChange={(open) => {
+          setShowCreateDialog(open);
+          if (!open) setSelectedCAPA(null);
+        }}
+        initialData={selectedCAPA ?? undefined}
         onSuccess={() => {
           toast({
             title: "Success",
-            description: "CAPA created successfully",
+            description: selectedCAPA 
+              ? "CAPA updated successfully"
+              : "CAPA created successfully",
           });
         }}
       />
