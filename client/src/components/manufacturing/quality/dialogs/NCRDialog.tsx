@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { faEye, faTrash, faSpinner, faPlus, faFile } from '@fortawesome/free-solid-svg-icons';
 import { QualityInspection } from "@/types/manufacturing";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -470,7 +471,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                   <div className="flex justify-between items-center">
                     <h4 className="font-medium">Containment Actions</h4>
                     <Button type="button" variant="outline" onClick={addContainmentAction}>
-                      <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                      <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
                       Add Action
                     </Button>
                   </div>
@@ -523,7 +524,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                           size="icon"
                           onClick={() => removeContainmentAction(index)}
                         >
-                          <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                          <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -544,7 +545,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                         />
                         {uploadingFile && (
                           <div className="animate-spin">
-                            <FontAwesomeIcon icon="spinner" className="h-4 w-4" />
+                            <FontAwesomeIcon icon={faSpinner} className="h-4 w-4" />
                           </div>
                         )}
                       </div>
@@ -558,7 +559,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                             className="flex items-center justify-between p-2 border rounded"
                           >
                             <div className="flex items-center gap-2">
-                              <FontAwesomeIcon icon="file" className="h-4 w-4" />
+                              <FontAwesomeIcon icon={faFile} className="h-4 w-4" />
                               <span>{attachment.fileName}</span>
                               <span className="text-sm text-muted-foreground">
                                 ({Math.round(attachment.fileSize / 1024)} KB)
@@ -570,7 +571,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                                 size="sm"
                                 onClick={() => window.open(attachment.blobUrl, '_blank')}
                               >
-                                <FontAwesomeIcon icon="eye" className="h-4 w-4" />
+                                <FontAwesomeIcon icon={faEye} className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -600,7 +601,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                                   }
                                 }}
                               >
-                                <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                                <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>

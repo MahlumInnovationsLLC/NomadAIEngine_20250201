@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { faEye, faTrash, faSpinner, faFile } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from "@/hooks/use-toast";
 import { QualityInspection, NonConformanceReport } from "@/types/manufacturing";
 import { NCRDialog } from "./NCRDialog";
@@ -38,6 +40,7 @@ export function InspectionDetailsDialog({
   const [currentInspection, setCurrentInspection] = useState<QualityInspection>(inspection);
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [newDefect, setNewDefect] = useState({ description: "", severity: "minor" });
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const updateLinkedNCRs = async (projectNumber: string) => {
     try {
@@ -113,6 +116,74 @@ export function InspectionDetailsDialog({
         defectsFound: prev.results.defectsFound.filter(d => d.id !== defectId)
       }
     }));
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFile(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch(`/api/manufacturing/quality/inspections/${inspection.id}/attachments`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      const updatedInspection = await response.json();
+      setCurrentInspection(updatedInspection);
+
+      toast({
+        title: "Success",
+        description: "File uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to upload file",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFile(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    try {
+      const response = await fetch(
+        `/api/manufacturing/quality/inspections/${inspection.id}/attachments/${attachmentId}`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete attachment');
+      }
+
+      const updatedInspection = await response.json();
+      setCurrentInspection(updatedInspection);
+
+      toast({
+        title: "Success",
+        description: "Attachment deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete attachment",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCreateNCR = async () => {
@@ -204,19 +275,20 @@ export function InspectionDetailsDialog({
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Project Number</label>
-                <Input
-                  type="text"
-                  value={currentInspection.projectNumber || ""}
-                  onChange={(e) => handleProjectNumberChange(e.target.value)}
-                  placeholder="Enter project number"
-                />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Project Number</label>
+                  <Input
+                    type="text"
+                    value={currentInspection.projectNumber || ""}
+                    onChange={(e) => handleProjectNumberChange(e.target.value)}
+                    placeholder="Enter project number"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+
             <div className="space-y-6">
               {currentInspection.results.checklistItems.map((item) => (
                 <div key={item.id} className="space-y-2">
@@ -259,7 +331,56 @@ export function InspectionDetailsDialog({
               ))}
 
               <div className="space-y-4 border-t pt-4">
-                <h3 className="font-semibold">Defects Found</h3>
+                <h4 className="font-medium">Attachments</h4>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      onChange={handleFileUpload}
+                      disabled={uploadingFile}
+                    />
+                    {uploadingFile && (
+                      <div className="animate-spin">
+                        <FontAwesomeIcon icon={faSpinner} className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    {currentInspection.attachments?.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="flex items-center justify-between p-2 border rounded"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FontAwesomeIcon icon={faFile} className="h-4 w-4" />
+                          <span>{attachment.fileName}</span>
+                          <span className="text-sm text-muted-foreground">
+                            ({Math.round(attachment.fileSize / 1024)} KB)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(attachment.blobUrl, '_blank')}
+                          >
+                            <FontAwesomeIcon icon={faEye} className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteAttachment(attachment.id)}
+                          >
+                            <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <h4 className="font-medium">Defects Found</h4>
                 <div className="flex gap-2">
                   <Input
                     placeholder="Enter defect description"
@@ -295,6 +416,7 @@ export function InspectionDetailsDialog({
                         <span>{defect.description}</span>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => handleRemoveDefect(defect.id)}>
+                        <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
                         Remove
                       </Button>
                     </div>
