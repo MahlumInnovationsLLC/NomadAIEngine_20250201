@@ -22,7 +22,7 @@ async function initializeContainer() {
   try {
     const { container } = await database.containers.createIfNotExists({
       id: "quality-management",
-      partitionKey: { paths: ["/type"] },
+      partitionKey: { paths: ["/userKey"] },
       throughput: 400
     });
 
@@ -50,7 +50,8 @@ router.get('/ncrs', async (req, res) => {
     console.log('Fetching NCRs from Cosmos DB...');
     const { resources: ncrs } = await container.items
       .query({
-        query: 'SELECT * FROM c WHERE EXISTS(c.number) AND STARTSWITH(c.id, "NCR-") ORDER BY c._ts DESC'
+        query: 'SELECT * FROM c WHERE c.number != null AND STARTSWITH(c.id, "NCR-") ORDER BY c._ts DESC',
+        partitionKey: 'default'
       })
       .fetchAll();
 
@@ -78,7 +79,8 @@ router.put('/ncrs/:id', async (req, res) => {
     const { resources: [existingNcr] } = await container.items
       .query({
         query: "SELECT * FROM c WHERE c.id = @id",
-        parameters: [{ name: "@id", value: id }]
+        parameters: [{ name: "@id", value: id }],
+        partitionKey: 'default'
       })
       .fetchAll();
 
@@ -92,12 +94,12 @@ router.put('/ncrs/:id', async (req, res) => {
     const ncrData = {
       ...existingNcr,
       ...req.body,
-      id, // Preserve the ID
+      id,
+      userKey: 'default',
       updatedAt: new Date().toISOString(),
-      attachments: existingNcr.attachments || [] // Preserve existing attachments
+      attachments: existingNcr.attachments || []
     };
 
-    // Use upsert instead of replace to handle any partition key issues
     const { resource: updatedNcr } = await container.items.upsert(ncrData);
     console.log('NCR updated successfully');
     res.json(updatedNcr);
@@ -120,6 +122,7 @@ router.post('/ncrs', async (req, res) => {
     const ncrData = {
       ...req.body,
       id: `NCR-${Date.now()}`,
+      userKey: 'default',
       attachments: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -150,11 +153,12 @@ router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => 
     const { id } = req.params;
     console.log(`Looking for NCR with ID: ${id}`);
 
-    // Query for NCR using id and type
+    // Query for NCR using id
     const { resources: [ncr] } = await container.items
       .query({
-        query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'ncr'",
-        parameters: [{ name: "@id", value: id }]
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: id }],
+        partitionKey: 'default'
       })
       .fetchAll();
 
@@ -209,7 +213,7 @@ router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
     const { ncrId, attachmentId } = req.params;
 
     try {
-      const { resource: ncr } = await container.item(ncrId, 'ncr').read();
+        const { resource: ncr } = await container.item(ncrId, 'default').read();
 
       // Delete file from blob storage
       await deleteNCRAttachment(ncrId, attachmentId);
@@ -219,7 +223,7 @@ router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
       ncr.updatedAt = new Date().toISOString();
 
       // Save updated NCR
-      const { resource: updatedNcr } = await container.item(ncrId, 'ncr').replace(ncr);
+        const { resource: updatedNcr } = await container.items.upsert(ncr);
       res.json(updatedNcr);
     } catch (error) {
       if (error.code === 404) {
@@ -250,8 +254,9 @@ router.put('/inspections/:id/update-ncrs', async (req, res) => {
     // First, find all NCRs linked to this inspection
     const { resources: linkedNcrs } = await container.items
       .query({
-        query: "SELECT * FROM c WHERE c.type = 'ncr' AND c.inspectionId = @inspectionId",
-        parameters: [{ name: "@inspectionId", value: id }]
+          query: "SELECT * FROM c WHERE c.inspectionId = @inspectionId",
+          parameters: [{ name: "@inspectionId", value: id }],
+          partitionKey: 'default'
       })
       .fetchAll();
 
