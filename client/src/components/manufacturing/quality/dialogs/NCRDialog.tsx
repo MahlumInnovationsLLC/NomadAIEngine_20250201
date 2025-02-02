@@ -111,20 +111,21 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
       description: inspection?.results.defectsFound.map(d => 
         `${d.severity.toUpperCase()}: ${d.description}`
       ).join('\n') || "",
-      type: "product",
+      type: defaultValues?.type || "product",
       severity: inspection?.results.defectsFound.some(d => d.severity === 'critical') ? 'critical' :
                inspection?.results.defectsFound.some(d => d.severity === 'major') ? 'major' : 'minor',
       area: inspection?.productionLineId || "",
       productLine: inspection?.productionLineId || "",
-      disposition: "pending",
-      status: "open",
-      containmentActions: [
+      disposition: defaultValues?.disposition || "pending",
+      status: defaultValues?.status || "open",
+      containmentActions: defaultValues?.containmentActions || [
         {
           action: "",
           assignedTo: "",
           dueDate: new Date().toISOString().split("T")[0],
         },
       ],
+      projectNumber: defaultValues?.projectNumber || inspection?.projectNumber || "",
     },
   });
 
@@ -272,7 +273,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select type" />
