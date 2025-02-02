@@ -199,27 +199,35 @@ router.put('/ncrs/:id', async (req, res) => {
     }
 
     const { id } = req.params;
+    console.log(`Updating NCR with ID: ${id}`);
 
-    try {
-      // First read the existing NCR
-      const { resource: existingNcr } = await container.item(id, 'ncr').read();
+    // Query for NCR using id and type
+    const { resources: [existingNcr] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'ncr'",
+        parameters: [{ name: "@id", value: id }]
+      })
+      .fetchAll();
 
-      const ncrData = {
-        ...existingNcr,
-        ...req.body,
-        type: 'ncr', // Preserve the type
-        id, // Preserve the ID
-        updatedAt: new Date().toISOString()
-      };
-
-      const { resource: updatedNcr } = await container.item(id, 'ncr').replace(ncrData);
-      res.json(updatedNcr);
-    } catch (error) {
-      if (error.code === 404) {
-        return res.status(404).json({ message: 'NCR not found' });
-      }
-      throw error;
+    if (!existingNcr) {
+      console.log(`NCR with ID ${id} not found`);
+      return res.status(404).json({ message: 'NCR not found' });
     }
+
+    console.log('Found existing NCR:', existingNcr);
+
+    const ncrData = {
+      ...existingNcr,
+      ...req.body,
+      type: 'ncr', // Preserve the type
+      id, // Preserve the ID
+      updatedAt: new Date().toISOString()
+    };
+
+    // Use upsert instead of replace to handle any partition key issues
+    const { resource: updatedNcr } = await container.items.upsert(ncrData);
+    console.log('NCR updated successfully');
+    res.json(updatedNcr);
   } catch (error) {
     console.error('Error updating NCR:', error);
     res.status(500).json({ 
