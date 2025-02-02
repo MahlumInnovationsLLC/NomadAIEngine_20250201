@@ -126,32 +126,33 @@ export async function uploadInspectionAttachment(
 
 async function deleteAttachment(parentId: string, attachmentId: string, containerClient: ContainerClient): Promise<void> {
   try {
-    console.log(`Attempting to delete attachment ${attachmentId} from parent ${parentId}`);
+    console.log(`Starting deletion process for attachment ${attachmentId} in parent ${parentId}`);
+
+    // List all blobs in the parent folder
     const blobsIter = containerClient.listBlobsFlat({
       prefix: `${parentId}/`
     });
 
-    let blobFound = false;
+    let foundBlobs = [];
     for await (const blob of blobsIter) {
-      // The blob name format is parentId/attachmentId.extension
+      foundBlobs.push(blob.name);
       const blobAttachmentId = blob.name.split('/')[1]?.split('.')[0];
+      console.log(`Checking blob: ${blob.name}, extracted ID: ${blobAttachmentId}`);
+
       if (blobAttachmentId === attachmentId) {
         console.log(`Found matching blob: ${blob.name}`);
         const blockBlobClient = containerClient.getBlockBlobClient(blob.name);
         await blockBlobClient.delete();
         console.log(`Successfully deleted blob: ${blob.name}`);
-        blobFound = true;
-        break;
+        return;
       }
     }
 
-    if (!blobFound) {
-      console.log('No matching blob found for deletion');
-      throw new Error('Attachment not found');
-    }
+    console.log('Available blobs in container:', foundBlobs);
+    throw new Error(`Attachment not found. Available blobs: ${foundBlobs.join(', ')}`);
   } catch (error) {
     console.error("Failed to delete attachment:", error);
-    throw new Error(error instanceof Error ? error.message : 'Failed to delete attachment');
+    throw error;
   }
 }
 

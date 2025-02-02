@@ -241,6 +241,41 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
     );
   };
 
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    console.log('Attempting to delete attachment:', attachmentId);
+    try {
+      const response = await fetch(
+        `/api/manufacturing/quality/ncrs/${defaultValues?.id}/attachments/${attachmentId}`,
+        { 
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Delete attachment error:', errorData);
+        throw new Error(errorData.message || errorData.details || 'Failed to delete attachment');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+
+      toast({
+        title: "Success",
+        description: "Attachment deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete attachment",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden p-0">
@@ -576,30 +611,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={async (e) => {
-                                  e.preventDefault();
-                                  try {
-                                    const response = await fetch(
-                                      `/api/manufacturing/quality/ncrs/${defaultValues?.id}/attachments/${attachment.id}`,
-                                      { method: 'DELETE' }
-                                    );
-                                    if (!response.ok) {
-                                      throw new Error('Failed to delete attachment');
-                                    }
-                                    await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-                                    toast({
-                                      title: "Success",
-                                      description: "Attachment deleted successfully",
-                                    });
-                                  } catch (error) {
-                                    console.error('Error deleting attachment:', error);
-                                    toast({
-                                      title: "Error",
-                                      description: error instanceof Error ? error.message : "Failed to delete attachment",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }}
+                                onClick={() => handleDeleteAttachment(attachment.id)}
                               >
                                 <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" />
                               </Button>

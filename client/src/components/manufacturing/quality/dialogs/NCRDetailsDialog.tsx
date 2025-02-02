@@ -6,8 +6,9 @@ import { NCR, NCRAttachment } from "@/types/manufacturing/ncr";
 import { NCRDialog } from "./NCRDialog";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useToast } from "@/hooks/use-toast";
+import { faEdit, faEye, faTrash, faSpinner, faImage, faFilePdf, faFileAlt } from '@fortawesome/pro-light-svg-icons';
 
 interface NCRDetailsDialogProps {
   open: boolean;
@@ -42,17 +43,24 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
+    console.log('Attempting to delete attachment:', attachmentId);
     try {
       setDeletingAttachment(attachmentId);
       const response = await fetch(
         `/api/manufacturing/quality/ncrs/${ncr.id}/attachments/${attachmentId}`,
         {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
       );
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to delete attachment');
+        console.error('Delete attachment error response:', responseData);
+        throw new Error(responseData.message || responseData.details || 'Failed to delete attachment');
       }
 
       await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
@@ -94,7 +102,7 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
                 size="sm" 
                 onClick={() => setShowEditDialog(true)}
               >
-                <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
                 Edit NCR
               </Button>
             </div>
@@ -181,9 +189,9 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
                           <div className="flex items-center gap-2">
                             <FontAwesomeIcon 
                               icon={
-                                attachment.fileType.includes('image') ? 'image' :
-                                attachment.fileType.includes('pdf') ? 'file-pdf' :
-                                'file-alt'
+                                attachment.fileType.includes('image') ? faImage :
+                                attachment.fileType.includes('pdf') ? faFilePdf :
+                                faFileAlt
                               }
                               className="h-4 w-4"
                             />
@@ -198,7 +206,7 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
                               size="sm"
                               onClick={() => window.open(attachment.blobUrl, '_blank')}
                             >
-                              <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                              <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
                               View
                             </Button>
                             <Button
@@ -208,9 +216,9 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr }: NCRDetailsDialogPr
                               disabled={deletingAttachment === attachment.id}
                             >
                               {deletingAttachment === attachment.id ? (
-                                <FontAwesomeIcon icon="spinner" className="animate-spin h-4 w-4" />
+                                <FontAwesomeIcon icon={faSpinner} className="animate-spin h-4 w-4" />
                               ) : (
-                                <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                                <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
                               )}
                             </Button>
                           </div>
