@@ -41,7 +41,7 @@ export default function CAPAList() {
     queryFn: fetchCAPAs,
   });
 
-  const getStatusBadgeVariant = (status: CAPA['status']) => {
+  const getStatusBadgeVariant = (status: CAPA['status']): "default" | "destructive" | "outline" | "secondary" => {
     switch (status) {
       case 'draft':
         return 'secondary';
@@ -50,9 +50,9 @@ export default function CAPAList() {
       case 'in_progress':
         return 'default';
       case 'completed':
-        return 'success';
+        return 'secondary';
       case 'verified':
-        return 'success';
+        return 'default';
       case 'closed':
         return 'outline';
       default:
@@ -60,14 +60,14 @@ export default function CAPAList() {
     }
   };
 
-  const getPriorityBadgeVariant = (priority: CAPA['priority']) => {
+  const getPriorityBadgeVariant = (priority: CAPA['priority']): "default" | "destructive" | "outline" | "secondary" => {
     switch (priority) {
       case 'critical':
         return 'destructive';
       case 'high':
         return 'destructive';
       case 'medium':
-        return 'warning';
+        return 'secondary';
       case 'low':
         return 'default';
       default:
@@ -79,7 +79,7 @@ export default function CAPAList() {
     return new Date(date).toLocaleDateString();
   };
 
-    const getSourceInfo = (capa: CAPA) => {
+  const getSourceInfo = (capa: CAPA) => {
     if (capa.sourceNcrId) {
       return `NCR: ${capa.sourceNcrId}`;
     }
@@ -89,7 +89,7 @@ export default function CAPAList() {
     return "Manual Creation";
   };
 
-    if (isLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center space-y-4">
@@ -113,7 +113,6 @@ export default function CAPAList() {
     );
   }
 
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -125,7 +124,7 @@ export default function CAPAList() {
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-          New CAPA
+          Create New CAPA
         </Button>
       </div>
 
@@ -143,7 +142,7 @@ export default function CAPAList() {
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Department</TableHead>
-                  <TableHead>Source</TableHead>
+                <TableHead>Source</TableHead>
                 <TableHead>Created Date</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Actions</TableHead>
@@ -166,7 +165,7 @@ export default function CAPAList() {
                     </Badge>
                   </TableCell>
                   <TableCell>{capa.department}</TableCell>
-                    <TableCell>{getSourceInfo(capa)}</TableCell>
+                  <TableCell>{getSourceInfo(capa)}</TableCell>
                   <TableCell>{formatDate(capa.createdAt)}</TableCell>
                   <TableCell>{formatDate(capa.scheduledReviewDate)}</TableCell>
                   <TableCell>
