@@ -39,6 +39,38 @@ export function InspectionDetailsDialog({
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [newDefect, setNewDefect] = useState({ description: "", severity: "minor" });
 
+  const updateLinkedNCRs = async (projectNumber: string) => {
+    try {
+      const response = await fetch(`/api/manufacturing/quality/inspections/${inspection.id}/update-ncrs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectNumber })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update linked NCRs');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+    } catch (error) {
+      console.error('Error updating linked NCRs:', error);
+      toast({
+        title: "Warning",
+        description: "Project number updated but failed to sync with linked NCRs",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleProjectNumberChange = async (value: string) => {
+    setCurrentInspection(prev => ({
+      ...prev,
+      projectNumber: value
+    }));
+
+    await updateLinkedNCRs(value);
+  };
+
   const handleFieldUpdate = (itemId: string, measurement: string | number) => {
     setCurrentInspection(prev => ({
       ...prev,
@@ -132,16 +164,13 @@ export function InspectionDetailsDialog({
   };
 
   const getItemType = (item: InspectionItem): "number" | "text" | "select" => {
-    // Safely check parameter and specification with null checks
     const parameterLower = item.parameter?.toLowerCase() || '';
     const specificationLower = item.specification?.toLowerCase() || '';
 
-    // First check if there's an explicit type set
     if (item.type) {
       return item.type;
     }
 
-    // Then fall back to inferring the type
     if (parameterLower.includes('measurement') || 
         specificationLower.includes('numeric') ||
         parameterLower.includes('dimension') ||
@@ -182,17 +211,13 @@ export function InspectionDetailsDialog({
                 <Input
                   type="text"
                   value={currentInspection.projectNumber || ""}
-                  onChange={(e) => setCurrentInspection(prev => ({
-                    ...prev,
-                    projectNumber: e.target.value
-                  }))}
+                  onChange={(e) => handleProjectNumberChange(e.target.value)}
                   placeholder="Enter project number"
                 />
               </div>
             </div>
           </div>
             <div className="space-y-6">
-              {/* Inspection Fields */}
               {currentInspection.results.checklistItems.map((item) => (
                 <div key={item.id} className="space-y-2">
                   <label className="text-sm font-medium">
@@ -233,7 +258,6 @@ export function InspectionDetailsDialog({
                 </div>
               ))}
 
-              {/* Defects Section */}
               <div className="space-y-4 border-t pt-4">
                 <h3 className="font-semibold">Defects Found</h3>
                 <div className="flex gap-2">
@@ -258,7 +282,6 @@ export function InspectionDetailsDialog({
                   <Button onClick={handleAddDefect}>Add Defect</Button>
                 </div>
 
-                {/* Defects List */}
                 <div className="space-y-2">
                   {currentInspection.results.defectsFound.map((defect) => (
                     <div key={defect.id} className="flex items-center justify-between p-2 border rounded-lg">

@@ -239,4 +239,50 @@ router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
   }
 });
 
+// Update linked NCRs when inspection project number changes
+router.put('/inspections/:id/update-ncrs', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
+    const { id } = req.params;
+    const { projectNumber } = req.body;
+
+    console.log(`Updating NCRs linked to inspection ${id} with project number ${projectNumber}`);
+
+    // First, find all NCRs linked to this inspection
+    const { resources: linkedNcrs } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'ncr' AND c.inspectionId = @inspectionId",
+        parameters: [{ name: "@inspectionId", value: id }]
+      })
+      .fetchAll();
+
+    console.log(`Found ${linkedNcrs.length} linked NCRs to update`);
+
+    // Update each linked NCR with the new project number
+    const updatePromises = linkedNcrs.map(async (ncr) => {
+      const updatedNcr = {
+        ...ncr,
+        projectNumber,
+        updatedAt: new Date().toISOString()
+      };
+
+      return container.items.upsert(updatedNcr);
+    });
+
+    await Promise.all(updatePromises);
+
+    console.log('Successfully updated all linked NCRs');
+    res.json({ message: 'Successfully updated linked NCRs', updatedCount: linkedNcrs.length });
+  } catch (error) {
+    console.error('Error updating linked NCRs:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to update linked NCRs' 
+    });
+  }
+});
+
+
 export default router;

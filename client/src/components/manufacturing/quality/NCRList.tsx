@@ -90,6 +90,7 @@ export default function NCRList() {
         <TableRow>
           <TableHead>NCR #</TableHead>
           <TableHead>Title</TableHead>
+          <TableHead>Project #</TableHead>
           <TableHead>Date Created</TableHead>
           <TableHead>Type</TableHead>
           <TableHead>Status</TableHead>
@@ -107,6 +108,7 @@ export default function NCRList() {
           >
             <TableCell className="font-medium">{ncr.number}</TableCell>
             <TableCell>{ncr.title}</TableCell>
+            <TableCell>{ncr.projectNumber || 'N/A'}</TableCell>
             <TableCell>{formatDate(ncr.createdAt)}</TableCell>
             <TableCell>{ncr.type}</TableCell>
             <TableCell>
