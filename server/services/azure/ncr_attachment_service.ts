@@ -35,7 +35,6 @@ async function initializeContainer(containerName: string): Promise<ContainerClie
       console.log(`${containerName} container already exists`);
     }
 
-    // Test container access
     await containerClient.getProperties();
     console.log(`Successfully verified ${containerName} container access`);
     return containerClient;
@@ -59,13 +58,6 @@ async function uploadAttachment(
   uploadedBy: string,
   containerClient: ContainerClient
 ): Promise<UploadAttachmentResult> {
-  console.log('Starting attachment upload process...');
-  console.log('File details:', {
-    originalName: file.originalname,
-    size: file.size,
-    mimetype: file.mimetype
-  });
-
   try {
     const fileExtension = file.originalname.split('.').pop();
     const uniqueId = uuidv4();
@@ -94,11 +86,43 @@ async function uploadAttachment(
     };
   } catch (error) {
     console.error("Failed to upload attachment:", error);
-    if (error instanceof Error) {
-      console.error('Error details:', error.message);
-      console.error('Error stack:', error.stack);
+    throw error;
+  }
+}
+
+async function deleteAttachment(parentId: string, attachmentId: string, containerClient: ContainerClient): Promise<void> {
+  try {
+    console.log(`Starting deletion process for attachment ${attachmentId} in parent ${parentId}`);
+
+    // List all blobs in the parent folder
+    const blobsIter = containerClient.listBlobsFlat({
+      prefix: `${parentId}/`
+    });
+
+    for await (const blob of blobsIter) {
+      // Extract attachment ID from blob name (format: parentId/attachmentId.extension)
+      const blobNameParts = blob.name.split('/');
+      if (blobNameParts.length !== 2) continue;
+
+      const blobAttachmentId = blobNameParts[1].split('.')[0];
+      console.log(`Checking blob: ${blob.name}, attachmentId: ${blobAttachmentId}`);
+
+      if (blobAttachmentId === attachmentId) {
+        console.log(`Found matching blob: ${blob.name}`);
+        const blockBlobClient = containerClient.getBlockBlobClient(blob.name);
+        await blockBlobClient.delete();
+        console.log(`Successfully deleted blob: ${blob.name}`);
+        return;
+      }
     }
-    throw new Error(error instanceof Error ? `Failed to upload attachment: ${error.message}` : 'Failed to upload attachment');
+
+    throw new Error(`Attachment ${attachmentId} not found in storage`);
+  } catch (error) {
+    console.error("Failed to delete attachment:", error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to delete attachment: ${error.message}`);
+    }
+    throw new Error('Failed to delete attachment: Unknown error');
   }
 }
 
@@ -122,38 +146,6 @@ export async function uploadInspectionAttachment(
     await initializeInspectionAttachmentsContainer();
   }
   return uploadAttachment(file, inspectionId, uploadedBy, inspectionContainerClient);
-}
-
-async function deleteAttachment(parentId: string, attachmentId: string, containerClient: ContainerClient): Promise<void> {
-  try {
-    console.log(`Starting deletion process for attachment ${attachmentId} in parent ${parentId}`);
-
-    // List all blobs in the parent folder
-    const blobsIter = containerClient.listBlobsFlat({
-      prefix: `${parentId}/`
-    });
-
-    let foundBlobs = [];
-    for await (const blob of blobsIter) {
-      foundBlobs.push(blob.name);
-      const blobAttachmentId = blob.name.split('/')[1]?.split('.')[0];
-      console.log(`Checking blob: ${blob.name}, extracted ID: ${blobAttachmentId}`);
-
-      if (blobAttachmentId === attachmentId) {
-        console.log(`Found matching blob: ${blob.name}`);
-        const blockBlobClient = containerClient.getBlockBlobClient(blob.name);
-        await blockBlobClient.delete();
-        console.log(`Successfully deleted blob: ${blob.name}`);
-        return;
-      }
-    }
-
-    console.log('Available blobs in container:', foundBlobs);
-    throw new Error(`Attachment not found. Available blobs: ${foundBlobs.join(', ')}`);
-  } catch (error) {
-    console.error("Failed to delete attachment:", error);
-    throw error;
-  }
 }
 
 export async function deleteNCRAttachment(ncrId: string, attachmentId: string): Promise<void> {

@@ -242,8 +242,8 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    console.log('Attempting to delete attachment:', attachmentId);
     try {
+      console.log('Attempting to delete attachment:', attachmentId);
       const response = await fetch(
         `/api/manufacturing/quality/ncrs/${defaultValues?.id}/attachments/${attachmentId}`,
         { 
@@ -253,19 +253,22 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
           }
         }
       );
-
+  
+      const data = await response.json();
+  
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Delete attachment error:', errorData);
-        throw new Error(errorData.message || errorData.details || 'Failed to delete attachment');
+        throw new Error(data.message || data.details || 'Failed to delete attachment');
       }
-
+  
       await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-
+  
       toast({
         title: "Success",
         description: "Attachment deleted successfully",
       });
+  
+      // Force a refresh of the form data
+      if (onSuccess) onSuccess();
     } catch (error) {
       console.error('Error deleting attachment:', error);
       toast({
@@ -453,7 +456,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                       </FormItem>
                     )}
                   />
-
+                  
                     <FormField
                       control={form.control}
                       name="projectNumber"
