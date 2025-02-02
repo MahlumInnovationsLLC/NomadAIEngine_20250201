@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faTrashCan, faSpinner, faPlus, faFile } from '@fortawesome/pro-light-svg-icons';
 import { QualityInspection } from "@/types/manufacturing";
 import { useQueryClient } from "@tanstack/react-query";
