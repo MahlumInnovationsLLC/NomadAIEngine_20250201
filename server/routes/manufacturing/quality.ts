@@ -22,13 +22,10 @@ async function initializeContainer() {
   try {
     const { container } = await database.containers.createIfNotExists({
       id: "quality-management",
-      partitionKey: { paths: ["/type"] }, // Changed from userKey to type
-      throughput: {
-        autoScale: {
-          maxThroughput: 1000
-        }
-      }
+      partitionKey: { paths: ["/type"] },
+      throughput: 400 // Set fixed throughput instead of autoscale
     });
+
     console.log("Successfully initialized quality-management container");
     return container;
   } catch (error) {
@@ -52,7 +49,9 @@ router.get('/ncrs', async (req, res) => {
 
     console.log('Fetching NCRs from Cosmos DB...');
     const { resources: ncrs } = await container.items
-      .query('SELECT * FROM c WHERE c.type = "ncr" ORDER BY c._ts DESC')
+      .query({
+        query: 'SELECT * FROM c WHERE c.type = "ncr" ORDER BY c._ts DESC'
+      })
       .fetchAll();
 
     console.log(`Found ${ncrs.length} NCRs`);
@@ -75,9 +74,9 @@ router.post('/ncrs', async (req, res) => {
     console.log('Creating new NCR:', req.body);
     const ncrData = {
       ...req.body,
-      type: 'ncr', // Use type as partition key
+      type: 'ncr',
       id: `NCR-${Date.now()}`,
-      attachments: [], // Initialize empty attachments array
+      attachments: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -97,12 +96,6 @@ router.post('/ncrs', async (req, res) => {
 router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => {
   try {
     console.log('Starting NCR attachment upload...');
-    console.log('Request details:', {
-      ncrId: req.params.id,
-      hasFile: !!req.file,
-      contentType: req.get('Content-Type')
-    });
-
     if (!container) {
       console.log('Container not initialized, initializing...');
       container = await initializeContainer();
@@ -114,45 +107,35 @@ router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => 
     }
 
     const { id } = req.params;
+    console.log(`Looking for NCR with ID: ${id}`);
 
-    // Query for NCR using id and type as partition key
-    console.log(`Querying for NCR with ID: ${id}`);
-    const querySpec = {
-      query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'ncr'",
-      parameters: [{ name: "@id", value: id }]
-    };
+    // First try to read the NCR directly
+    try {
+      const { resource: ncr } = await container.item(id, 'ncr').read();
+      console.log('Found NCR:', ncr);
 
-    const { resources: [ncr] } = await container.items.query(querySpec).fetchAll();
+      // Upload file to blob storage
+      console.log('Uploading file to Azure Blob Storage...');
+      const attachment = await uploadNCRAttachment(
+        req.file,
+        id,
+        req.body.uploadedBy || 'system'
+      );
 
-    if (!ncr) {
-      console.log(`NCR with ID ${id} not found`);
-      return res.status(404).json({ message: 'NCR not found' });
+      // Update NCR with new attachment
+      ncr.attachments = [...(ncr.attachments || []), attachment];
+      ncr.updatedAt = new Date().toISOString();
+
+      // Update the NCR document
+      const { resource: updatedNcr } = await container.item(id, 'ncr').replace(ncr);
+      console.log('NCR updated successfully');
+      res.json(updatedNcr);
+    } catch (error) {
+      if (error.code === 404) {
+        return res.status(404).json({ message: 'NCR not found' });
+      }
+      throw error;
     }
-
-    console.log('Found NCR:', ncr);
-    console.log('Uploading file to Azure Blob Storage...');
-
-    // Upload file to blob storage
-    const attachment = await uploadNCRAttachment(
-      req.file,
-      id,
-      req.body.uploadedBy || 'system'
-    );
-
-    console.log('File uploaded successfully, updating NCR in Cosmos DB...');
-
-    // Update NCR with new attachment
-    ncr.attachments = [...(ncr.attachments || []), {
-      ...attachment,
-      ncrId: id
-    }];
-    ncr.updatedAt = new Date().toISOString();
-
-    console.log('Saving updated NCR...');
-    // Save updated NCR using type as partition key
-    const { resource: updatedNcr } = await container.item(id, 'ncr').replace(ncr);
-    console.log('NCR updated successfully');
-    res.json(updatedNcr);
   } catch (error) {
     console.error('Error uploading attachment:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to upload attachment';
@@ -173,28 +156,25 @@ router.delete('/ncrs/:ncrId/attachments/:attachmentId', async (req, res) => {
 
     const { ncrId, attachmentId } = req.params;
 
-    // Query for NCR using id and type as partition key
-    const querySpec = {
-      query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'ncr'",
-      parameters: [{ name: "@id", value: ncrId }]
-    };
+    try {
+      const { resource: ncr } = await container.item(ncrId, 'ncr').read();
 
-    const { resources: [ncr] } = await container.items.query(querySpec).fetchAll();
+      // Delete file from blob storage
+      await deleteNCRAttachment(ncrId, attachmentId);
 
-    if (!ncr) {
-      return res.status(404).json({ message: 'NCR not found' });
+      // Update NCR attachments
+      ncr.attachments = (ncr.attachments || []).filter((a: any) => a.id !== attachmentId);
+      ncr.updatedAt = new Date().toISOString();
+
+      // Save updated NCR
+      const { resource: updatedNcr } = await container.item(ncrId, 'ncr').replace(ncr);
+      res.json(updatedNcr);
+    } catch (error) {
+      if (error.code === 404) {
+        return res.status(404).json({ message: 'NCR not found' });
+      }
+      throw error;
     }
-
-    // Delete file from blob storage
-    await deleteNCRAttachment(ncrId, attachmentId);
-
-    // Update NCR attachments
-    ncr.attachments = (ncr.attachments || []).filter((a: any) => a.id !== attachmentId);
-    ncr.updatedAt = new Date().toISOString();
-
-    // Save updated NCR using type as partition key
-    const { resource: updatedNcr } = await container.item(ncrId, 'ncr').replace(ncr);
-    res.json(updatedNcr);
   } catch (error) {
     console.error('Error deleting attachment:', error);
     res.status(500).json({ 
@@ -211,14 +191,27 @@ router.put('/ncrs/:id', async (req, res) => {
     }
 
     const { id } = req.params;
-    const ncrData = {
-      ...req.body,
-      type: 'ncr', // Ensure type is set for partition key
-      updatedAt: new Date().toISOString()
-    };
 
-    const { resource: updatedNcr } = await container.item(id, 'ncr').replace(ncrData);
-    res.json(updatedNcr);
+    try {
+      // First read the existing NCR
+      const { resource: existingNcr } = await container.item(id, 'ncr').read();
+
+      const ncrData = {
+        ...existingNcr,
+        ...req.body,
+        type: 'ncr', // Preserve the type
+        id, // Preserve the ID
+        updatedAt: new Date().toISOString()
+      };
+
+      const { resource: updatedNcr } = await container.item(id, 'ncr').replace(ncrData);
+      res.json(updatedNcr);
+    } catch (error) {
+      if (error.code === 404) {
+        return res.status(404).json({ message: 'NCR not found' });
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('Error updating NCR:', error);
     res.status(500).json({ 
