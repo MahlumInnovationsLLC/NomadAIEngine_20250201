@@ -113,7 +113,8 @@ export function InspectionDetailsDialog({
       const updatedInspection = {
         ...currentInspection,
         updatedAt: new Date().toISOString(),
-        status: newStatus
+        status: newStatus,
+        projectNumber: currentInspection.projectNumber
       };
 
       onUpdate(updatedInspection);
@@ -174,6 +175,22 @@ export function InspectionDetailsDialog({
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Project Number</label>
+                <Input
+                  type="text"
+                  value={currentInspection.projectNumber || ""}
+                  onChange={(e) => setCurrentInspection(prev => ({
+                    ...prev,
+                    projectNumber: e.target.value
+                  }))}
+                  placeholder="Enter project number"
+                />
+              </div>
+            </div>
+          </div>
             <div className="space-y-6">
               {/* Inspection Fields */}
               {currentInspection.results.checklistItems.map((item) => (

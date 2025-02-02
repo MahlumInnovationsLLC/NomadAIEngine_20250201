@@ -59,6 +59,7 @@ interface NonConformanceReport {
     fileSize: number;
     blobUrl: string;
   }[];
+  projectNumber?: string;
 }
 
 const ncrFormSchema = z.object({
@@ -86,6 +87,7 @@ const ncrFormSchema = z.object({
       dueDate: z.string(),
     })
   ),
+  projectNumber: z.string().optional(),
 });
 
 interface NCRDialogProps {
@@ -179,20 +181,22 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
           reportedBy: "Current User",
         })
       };
-
+  
+      console.log('Submitting NCR data:', ncrData);
+  
       const response = await fetch(`/api/manufacturing/quality/ncrs${isEditing ? `/${defaultValues.id}` : ''}`, {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(ncrData)
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Failed to ${isEditing ? 'update' : 'create'} NCR`);
       }
-
+  
       await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-
+  
       if (onSuccess) {
         onSuccess();
       } else {
@@ -201,7 +205,7 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
           description: `NCR ${isEditing ? 'updated' : 'created'} successfully`,
         });
       }
-
+  
       onOpenChange(false);
     } catch (error) {
       console.error(`Error ${isEditing ? 'updating' : 'creating'} NCR:`, error);
@@ -404,6 +408,20 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                       </FormItem>
                     )}
                   />
+
+                    <FormField
+                      control={form.control}
+                      name="projectNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Project Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter project number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                   <FormField
                     control={form.control}
