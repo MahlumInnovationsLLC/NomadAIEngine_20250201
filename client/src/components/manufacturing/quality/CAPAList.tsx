@@ -18,7 +18,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import type { CAPA } from "@/types/manufacturing/capa";
 import { CAPADialog } from "./dialogs/CAPADialog";
@@ -41,7 +40,7 @@ export default function CAPAList() {
     queryFn: fetchCAPAs,
   });
 
-  const getStatusBadgeVariant = (status: CAPA['status']): "default" | "destructive" | "outline" | "secondary" => {
+  const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (status) {
       case 'draft':
         return 'secondary';
@@ -60,7 +59,7 @@ export default function CAPAList() {
     }
   };
 
-  const getPriorityBadgeVariant = (priority: CAPA['priority']): "default" | "destructive" | "outline" | "secondary" => {
+  const getPriorityBadgeVariant = (priority: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (priority) {
       case 'critical':
         return 'destructive';

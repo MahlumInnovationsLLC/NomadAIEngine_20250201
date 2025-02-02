@@ -668,11 +668,10 @@ export const documentApprovalsRelations = relations(documentApprovals, ({ one })
 export const documentCollaboratorsRelations = relations(documentCollaborators, ({ one }) => ({
   document: one(documents, {
     fields: [documentCollaborators.documentId],
-    references: [documents.id],
-  }),
+    references: [documents.id],  }),
 }));
 
-export const chatsRelations = relations(chats, ({ many }) => ({messages: many(messages),
+export const chatsRelations = relations(chats, ({ many }) => ({messages:many(messages),
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
@@ -914,7 +913,7 @@ export const facilityNotificationsRelations = relations(facilityNotifications, (
   }),
 }));
 
-// Add to relations section
+// Add relations for CAPA tables
 export const capasRelations = relations(capas, ({ many }) => ({
   actions: many(capaActions),
 }));
@@ -925,6 +924,7 @@ export const capaActionsRelations = relations(capaActions, ({ one }) => ({
     references: [capas.id],
   }),
 }));
+
 
 // Schemas
 export const insertMemberSchema = createInsertSchema(members);

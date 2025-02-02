@@ -420,10 +420,7 @@ router.put('/inspections/:id/update-ncrs', async (req, res) => {
 router.get('/capas', async (req, res) => {
   try {
     const allCapas = await db.query.capas.findMany({
-      with: {
-        actions: true
-      },
-      orderBy: (capas, { desc }) => [desc(capas.createdAt)]
+      orderBy: [desc(capas.createdAt)]
     });
 
     res.json(allCapas);
@@ -489,15 +486,13 @@ async function createCAPAFromNCR(ncr: any) {
       scheduledReviewDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
       createdBy: ncr.createdBy,
       sourceNcrId: ncr.id,
-      sourceInspectionId: ncr.inspectionId
-    };
-
-    const [newCapa] = await db.insert(capas).values({
-      ...capaData,
+      sourceInspectionId: ncr.inspectionId,
       number: `CAPA-${Date.now()}`,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }).returning();
+      updatedAt: new Date().toISOString()
+    };
+
+    const [newCapa] = await db.insert(capas).values(capaData).returning();
 
     console.log('Successfully created CAPA from NCR:', newCapa.id);
     return newCapa;
@@ -506,6 +501,7 @@ async function createCAPAFromNCR(ncr: any) {
     throw error;
   }
 }
+
 
 // Modify the existing NCR creation route to include CAPA generation
 const originalNcrPost = router.post.bind(router);
