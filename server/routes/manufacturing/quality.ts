@@ -23,7 +23,7 @@ async function initializeContainer() {
     const { container } = await database.containers.createIfNotExists({
       id: "quality-management",
       partitionKey: { paths: ["/type"] },
-      throughput: 400 // Set fixed throughput instead of autoscale
+      throughput: 400
     });
 
     console.log("Successfully initialized quality-management container");
@@ -95,47 +95,55 @@ router.post('/ncrs', async (req, res) => {
 // Upload attachment to NCR
 router.post('/ncrs/:id/attachments', upload.single('file'), async (req, res) => {
   try {
-    console.log('Starting NCR attachment upload...');
     if (!container) {
-      console.log('Container not initialized, initializing...');
       container = await initializeContainer();
     }
 
     if (!req.file) {
-      console.log('No file provided in request');
       return res.status(400).json({ message: 'No file provided' });
     }
 
     const { id } = req.params;
     console.log(`Looking for NCR with ID: ${id}`);
 
-    // First try to read the NCR directly
-    try {
-      const { resource: ncr } = await container.item(id, 'ncr').read();
-      console.log('Found NCR:', ncr);
+    // Query for NCR using id and type
+    const { resources: [ncr] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'ncr'",
+        parameters: [{ name: "@id", value: id }]
+      })
+      .fetchAll();
 
-      // Upload file to blob storage
-      console.log('Uploading file to Azure Blob Storage...');
-      const attachment = await uploadNCRAttachment(
-        req.file,
-        id,
-        req.body.uploadedBy || 'system'
-      );
-
-      // Update NCR with new attachment
-      ncr.attachments = [...(ncr.attachments || []), attachment];
-      ncr.updatedAt = new Date().toISOString();
-
-      // Update the NCR document
-      const { resource: updatedNcr } = await container.item(id, 'ncr').replace(ncr);
-      console.log('NCR updated successfully');
-      res.json(updatedNcr);
-    } catch (error) {
-      if (error.code === 404) {
-        return res.status(404).json({ message: 'NCR not found' });
-      }
-      throw error;
+    if (!ncr) {
+      console.log(`NCR with ID ${id} not found`);
+      return res.status(404).json({ message: 'NCR not found' });
     }
+
+    console.log('Found NCR:', ncr);
+
+    // Upload file to blob storage
+    console.log('Uploading file to Azure Blob Storage...');
+    const attachment = await uploadNCRAttachment(
+      req.file,
+      id,
+      req.body.uploadedBy || 'system'
+    );
+
+    // Initialize attachments array if it doesn't exist
+    if (!ncr.attachments) {
+      ncr.attachments = [];
+    }
+
+    // Update NCR with new attachment
+    ncr.attachments.push(attachment);
+    ncr.updatedAt = new Date().toISOString();
+
+    // Update the NCR document
+    console.log('Updating NCR with new attachment...');
+    const { resource: updatedNcr } = await container.items.upsert(ncr);
+
+    console.log('NCR updated successfully');
+    res.json(updatedNcr);
   } catch (error) {
     console.error('Error uploading attachment:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to upload attachment';
