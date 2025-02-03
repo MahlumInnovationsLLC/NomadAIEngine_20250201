@@ -3,14 +3,14 @@ import { getProductionLineStatus, addProductionMetrics, getQualityInspections, s
 import crypto from 'crypto';
 import qualityRoutes from './manufacturing/quality';
 import projectRoutes from './manufacturing/projects';
+import resourceRoutes from './manufacturing/resources';
 
 const router = Router();
 
-// Register quality routes
+// Register routes
 router.use('/quality', qualityRoutes);
-
-// Register project routes
 router.use('/projects', projectRoutes);
+router.use('/resources', resourceRoutes);
 
 // Quality Inspection Routes
 router.post("/quality/inspections", async (req, res) => {
