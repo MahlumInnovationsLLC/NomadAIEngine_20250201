@@ -14,13 +14,13 @@ import { ProjectCreateDialog } from "./ProjectCreateDialog";
 interface Project {
   id: string;
   projectNumber: string;
-  name: string;
-  description: string;
-  startDate: string;
-  endDate: string;
+  name?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
   status: 'not_started' | 'in_progress' | 'completed' | 'on_hold';
   progress: number;
-  tasks: ProjectTask[];
+  tasks?: ProjectTask[];
 }
 
 interface ProjectTask {
@@ -39,7 +39,6 @@ export function ProjectManagementPanel() {
   const queryClient = useQueryClient();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "resources">("overview");
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -146,10 +145,12 @@ export function ProjectManagementPanel() {
                           className="mr-2 h-4 w-4"
                         />
                         <div className="flex flex-col items-start">
-                          <span>{project.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {project.projectNumber}
-                          </span>
+                          <span>{project.projectNumber}</span>
+                          {project.name && (
+                            <span className="text-xs text-muted-foreground">
+                              {project.name}
+                            </span>
+                          )}
                         </div>
                       </Button>
                     ))}
@@ -164,7 +165,7 @@ export function ProjectManagementPanel() {
                 <CardTitle>
                   {selectedProject ? (
                     <div className="flex justify-between items-center">
-                      <span>{selectedProject.name}</span>
+                      <span>{selectedProject.projectNumber}</span>
                       <Badge variant={selectedProject.status === 'completed' ? 'default' : 'secondary'}>
                         {selectedProject.status.replace('_', ' ')}
                       </Badge>
@@ -182,14 +183,18 @@ export function ProjectManagementPanel() {
                         <label className="text-sm font-medium">Project Number</label>
                         <p>{selectedProject.projectNumber}</p>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Start Date</label>
-                        <p>{new Date(selectedProject.startDate).toLocaleDateString()}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">End Date</label>
-                        <p>{new Date(selectedProject.endDate).toLocaleDateString()}</p>
-                      </div>
+                      {selectedProject.startDate && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Start Date</label>
+                          <p>{new Date(selectedProject.startDate).toLocaleDateString()}</p>
+                        </div>
+                      )}
+                      {selectedProject.endDate && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">End Date</label>
+                          <p>{new Date(selectedProject.endDate).toLocaleDateString()}</p>
+                        </div>
+                      )}
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Progress</label>
                         <div className="flex items-center gap-2">
@@ -199,39 +204,41 @@ export function ProjectManagementPanel() {
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">Tasks</h3>
-                        <Button size="sm" variant="outline">
-                          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                          Add Task
-                        </Button>
-                      </div>
+                    {selectedProject.tasks && selectedProject.tasks.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-semibold">Tasks</h3>
+                          <Button size="sm" variant="outline">
+                            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                            Add Task
+                          </Button>
+                        </div>
 
-                      <div className="divide-y">
-                        {selectedProject.tasks.map((task) => (
-                          <div key={task.id} className="py-3">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <h4 className="font-medium">{task.name}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {new Date(task.startDate).toLocaleDateString()} - {new Date(task.endDate).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <div className="text-sm text-muted-foreground">
-                                  {task.assignee}
+                        <div className="divide-y">
+                          {selectedProject.tasks.map((task) => (
+                            <div key={task.id} className="py-3">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <h4 className="font-medium">{task.name}</h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    {new Date(task.startDate).toLocaleDateString()} - {new Date(task.endDate).toLocaleDateString()}
+                                  </p>
                                 </div>
-                                <Progress value={task.progress} className="w-24" />
-                                <Badge variant="outline">
-                                  {task.status.replace('_', ' ')}
-                                </Badge>
+                                <div className="flex items-center gap-4">
+                                  <div className="text-sm text-muted-foreground">
+                                    {task.assignee}
+                                  </div>
+                                  <Progress value={task.progress} className="w-24" />
+                                  <Badge variant="outline">
+                                    {task.status.replace('_', ' ')}
+                                  </Badge>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center text-muted-foreground">
