@@ -98,11 +98,17 @@ function calculateQCDays(project: Project): number {
 }
 
 function calculateProjectStatus(project: Project): ProjectStatus {
+  // Add logging to debug status calculation
+  console.log('Calculating status for project:', project);
+
   if (project.manualStatus) {
+    console.log('Using manual status:', project.status);
     return project.status;
   }
 
   const today = new Date();
+  console.log('Current date:', today);
+
   const dates = {
     fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
     assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
@@ -112,32 +118,41 @@ function calculateProjectStatus(project: Project): ProjectStatus {
     ship: project.ship ? new Date(project.ship) : null,
   };
 
+  console.log('Project dates:', dates);
+
   // Check if project is completed
   if (dates.ship && today >= dates.ship) {
+    console.log('Project is COMPLETED');
     return "COMPLETED";
   }
 
   // Check current status based on date ranges
   if (dates.qcStart && today >= dates.qcStart) {
+    console.log('Project is IN QC');
     return "IN QC";
   }
 
   if (dates.ntcTesting && today >= dates.ntcTesting) {
+    console.log('Project is IN NTC TESTING');
     return "IN NTC TESTING";
   }
 
   if (dates.wrapGraphics && today >= dates.wrapGraphics) {
+    console.log('Project is IN WRAP');
     return "IN WRAP";
   }
 
   if (dates.assemblyStart && today >= dates.assemblyStart) {
+    console.log('Project is IN ASSEMBLY');
     return "IN ASSEMBLY";
   }
 
   if (dates.fabricationStart && today >= dates.fabricationStart) {
+    console.log('Project is IN FAB');
     return "IN FAB";
   }
 
+  console.log('Project is NOT STARTED');
   return "NOT STARTED";
 }
 
@@ -160,17 +175,28 @@ export function ProjectManagementPanel() {
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }
-      return response.json();
+      const data = await response.json();
+      // Transform the status before returning
+      return data.map((project: Project) => ({
+        ...project,
+        status: calculateProjectStatus(project)
+      }));
     },
     staleTime: 0,
-    refetchInterval: 1000,
+    refetchInterval: 1000, // Poll every second for updates
   });
 
   useEffect(() => {
     if (selectedProject) {
       const updatedProject = projects.find(p => p.id === selectedProject.id);
-      if (updatedProject && JSON.stringify(updatedProject) !== JSON.stringify(selectedProject)) {
-        setSelectedProject(updatedProject);
+      if (updatedProject) {
+        // Always recalculate status when updating selected project
+        const calculatedStatus = calculateProjectStatus(updatedProject);
+        console.log('Updated project status:', calculatedStatus);
+        setSelectedProject({
+          ...updatedProject,
+          status: calculatedStatus
+        });
       }
     }
   }, [projects, selectedProject]);
