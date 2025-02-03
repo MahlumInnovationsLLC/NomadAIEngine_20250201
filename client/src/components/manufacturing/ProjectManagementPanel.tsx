@@ -138,7 +138,6 @@ function calculateProjectStatus(project: Project): ProjectStatus {
     return "IN FAB";
   }
 
-  // Default to NOT STARTED
   return "NOT STARTED";
 }
 
