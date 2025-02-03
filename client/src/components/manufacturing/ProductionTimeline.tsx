@@ -152,12 +152,16 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                     />
                   )}
 
-                  {/* Label container */}
+                  {/* Label container with improved boundary handling */}
                   <div 
-                    className="absolute whitespace-nowrap"
+                    className={`absolute whitespace-nowrap ${
+                      event.position < 10 ? 'origin-left left-0 translate-x-0' :
+                      event.position > 90 ? 'origin-right right-0 translate-x-0' :
+                      'transform -translate-x-1/2'
+                    }`}
                     style={{
                       top: event.needsOffset ? '1.5rem' : '0.75rem',
-                      transform: 'translateX(-50%)'
+                      left: event.position < 10 || event.position > 90 ? 'auto' : `${event.position}%`
                     }}
                   >
                     <div className="text-xs font-medium">
