@@ -41,6 +41,7 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     scarResponse.json()
   ]);
 
+  // Convert NCRs to MRB format
   const ncrMrbs = ncrs.map(ncr => ({
     id: `ncr-${ncr.id}`,
     number: ncr.number,
@@ -56,7 +57,12 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     location: ncr.area || "N/A",
     sourceType: "NCR",
     sourceId: ncr.id,
-    costImpact: ncr.costImpact,
+    costImpact: {
+      materialCost: 0,
+      laborCost: 0,
+      totalCost: 0,
+      currency: "USD"
+    },
     nonconformance: {
       description: ncr.description,
       detectedBy: ncr.reportedBy,
@@ -143,6 +149,9 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
   }));
 
   const allItems = [...mrbs, ...ncrMrbs, ...capaMrbs, ...scarMrbs];
+  console.log('Fetched NCRs:', ncrs);
+  console.log('Converted NCR MRBs:', ncrMrbs);
+  console.log('All MRB items:', allItems);
   return allItems.filter(item => 
     item.status === "disposition_pending" || 
     item.status === "pending_review" || 
@@ -165,6 +174,8 @@ export default function MRBList() {
     if (!mrb.sourceType || !mrb.sourceId) return;
 
     const endpoint = `/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}/${mrb.sourceId}`;
+    console.log('Updating source item:', endpoint, mrb);
+
     const response = await fetch(endpoint, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
