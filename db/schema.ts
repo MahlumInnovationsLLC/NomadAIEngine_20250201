@@ -715,6 +715,56 @@ export const capaActions = pgTable("capa_actions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+// Update the supplier corrective actions table schema
+export const supplierCorrectiveActions = pgTable("supplier_corrective_actions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  number: text("number").notNull(),
+  supplierId: text("supplier_id").notNull(),
+  supplierName: text("supplier_name").notNull(),
+  issueDate: timestamp("issue_date").defaultNow().notNull(),
+  responseRequired: timestamp("response_required").notNull(),
+  status: text("status", {
+    enum: ["draft", "issued", "supplier_response", "review", "closed"]
+  }).notNull().default("draft"),
+
+  // Issue Details
+  issueDescription: text("issue_description").notNull(),
+  issuePartNumbers: text("issue_part_numbers").array(),
+  issueLotNumbers: text("issue_lot_numbers").array(),
+  issueQuantityAffected: integer("issue_quantity_affected"),
+  issueOccurrenceDate: timestamp("issue_occurrence_date").notNull(),
+  issueCategory: text("issue_category", {
+    enum: ["quality", "delivery", "documentation", "other"]
+  }).notNull(),
+  issueSeverity: text("issue_severity", {
+    enum: ["minor", "major", "critical"]
+  }).notNull(),
+
+  // Containment Actions
+  containmentActions: jsonb("containment_actions").notNull(),
+
+  // Root Cause Analysis
+  rootCauseMethod: text("root_cause_method"),
+  rootCauseFindings: text("root_cause_findings"),
+  rootCauseAttachments: text("root_cause_attachments").array(),
+
+  // Corrective Actions
+  correctiveActions: jsonb("corrective_actions").notNull(),
+
+  // Preventive Actions
+  preventiveActions: jsonb("preventive_actions").notNull(),
+
+  // Verification
+  verificationMethod: text("verification_method").notNull(),
+  verificationResults: text("verification_results"),
+  verifiedBy: text("verified_by"),
+  verificationDate: timestamp("verification_date"),
+
+  attachments: text("attachments").array(),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
 // Relations
 export const documentsRelations =relations(documents, ({ many }) => ({
@@ -984,7 +1034,6 @@ export const facilityNotificationsRelations = relations(facilityNotifications, (
     references: [buildingSystems.id],
   }),
 }));
-
 // Add after the capaCategories relations section
 export const capasRelations = relations(capas, ({ one }) => ({
   category: one(capaCategories, {
@@ -1003,7 +1052,6 @@ export const capaActionsRelations = relations(capaActions, ({ one }) => ({
     references: [capas.id],
   }),
 }));
-
 
 // Schemas
 export const insertMemberSchema = createInsertSchema(members);
