@@ -47,7 +47,6 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     typeof event.date === 'string' && event.date !== undefined
   );
 
-  // Calculate days between events
   const calculateDaysBetween = (date1: string, date2: string) => {
     const d1 = new Date(date1);
     const d2 = new Date(date2);
@@ -100,6 +99,12 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
             const nextEvent = timelineEvents[index + 1];
             const daysToNext = nextEvent ? calculateDaysBetween(event.date, nextEvent.date) : null;
 
+            // Calculate the position of the days label
+            const nextPosition = nextEvent
+              ? ((new Date(nextEvent.date).getTime() - startDateTimeline.getTime()) /
+                 (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
+              : position;
+
             return (
               <div key={event.type}>
                 {/* Event dot */}
@@ -145,10 +150,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                   <div 
                     className="absolute text-xs text-gray-500 -mt-6"
                     style={{
-                      left: `${(position + ((timelineEvents[index + 1] ? 
-                        ((new Date(timelineEvents[index + 1].date).getTime() - startDateTimeline.getTime()) / 
-                        (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100 : 
-                        position)) / 2}%`,
+                      left: `${(position + nextPosition) / 2}%`,
                       transform: 'translateX(-50%)'
                     }}
                   >
