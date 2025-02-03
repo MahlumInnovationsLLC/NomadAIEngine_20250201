@@ -88,6 +88,15 @@ function getStatusColor(status: ProjectStatus): string {
   }
 }
 
+function calculateQCDays(project: Project): number {
+  if (!project.qcStart) return 0;
+
+  const endDate = project.executiveReview || project.ship;
+  if (!endDate) return 0;
+
+  return calculateWorkingDays(project.qcStart, endDate);
+}
+
 function calculateProjectStatus(project: Project): ProjectStatus {
   if (project.manualStatus) {
     return project.status;
@@ -104,7 +113,7 @@ function calculateProjectStatus(project: Project): ProjectStatus {
   };
 
   // Check if project is completed
-  if (dates.ship && today > dates.ship) {
+  if (dates.ship && today >= dates.ship) {
     return "COMPLETED";
   }
 
@@ -130,7 +139,7 @@ function calculateProjectStatus(project: Project): ProjectStatus {
   }
 
   // If we have future dates set but haven't reached them yet
-  if (dates.fabricationStart || dates.assemblyStart || dates.wrapGraphics || 
+  if (dates.fabricationStart || dates.assemblyStart || dates.wrapGraphics ||
       dates.ntcTesting || dates.qcStart || dates.ship) {
     return "NOT STARTED";
   }
@@ -393,7 +402,7 @@ export function ProjectManagementPanel() {
                                 <SelectTrigger className="w-[200px]">
                                   <SelectValue>
                                     <div className={`px-3 py-1 rounded-full text-white font-semibold text-lg ${getStatusColor(selectedProject?.status || "NOT STARTED")}`}>
-                                      {selectedProject?.status.replace('_', ' ')}
+                                      {selectedProject?.status}
                                     </div>
                                   </SelectValue>
                                 </SelectTrigger>
@@ -408,7 +417,11 @@ export function ProjectManagementPanel() {
                                 </SelectContent>
                               </Select>
                             </div>
-
+                            {selectedProject?.manualStatus && (
+                              <div className="text-red-500 text-sm font-medium mt-1">
+                                WARNING: Force Edited
+                              </div>
+                            )}
                           </div>
                         </div>
                       ) : (
@@ -526,8 +539,8 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>QC Days:</span>
-                                  <span className={getDaysColor(parseInt(selectedProject.qcDays || "0"))}>
-                                    {selectedProject.qcDays || '-'}
+                                  <span className={getDaysColor(calculateQCDays(selectedProject))}>
+                                    {calculateQCDays(selectedProject) || '-'}
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
