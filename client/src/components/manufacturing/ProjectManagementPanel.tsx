@@ -39,6 +39,54 @@ function formatDate(dateString?: string) {
   });
 }
 
+function calculateWorkingDays(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  let days = 0;
+  const current = new Date(start);
+
+  while (current <= end) {
+    const dayOfWeek = current.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      days++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return days;
+}
+
+function getDaysColor(days: number) {
+  if (days <= 3) {
+    return "text-green-500";
+  } else if (days <= 7) {
+    return "text-yellow-500";
+  } else {
+    return "text-red-500";
+  }
+}
+
+function getStatusColor(status: ProjectStatus): string {
+  switch (status) {
+    case "NOT STARTED":
+      return "bg-gray-500";
+    case "IN FAB":
+      return "bg-blue-500";
+    case "IN ASSEMBLY":
+      return "bg-indigo-500";
+    case "IN WRAP":
+      return "bg-purple-500";
+    case "IN NTC TESTING":
+      return "bg-orange-500";
+    case "IN QC":
+      return "bg-yellow-500";
+    case "COMPLETED":
+      return "bg-green-500";
+    default:
+      return "bg-gray-500";
+  }
+}
+
 function calculateProjectStatus(project: Project): ProjectStatus {
   const today = new Date();
   const dates = {
@@ -183,16 +231,6 @@ export function ProjectManagementPanel() {
     );
   }
 
-  function getQCDaysColor(days: number) {
-    if (days <= 3) {
-      return "text-green-500";
-    } else if (days <= 7) {
-      return "text-yellow-500";
-    } else {
-      return "text-red-500";
-    }
-  }
-
 
   return (
     <div className="space-y-6">
@@ -289,11 +327,11 @@ export function ProjectManagementPanel() {
                                 value={selectedProject?.status}
                                 onValueChange={(value: ProjectStatus) => handleStatusChange(value)}
                               >
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-[200px]">
                                   <SelectValue>
-                                    <Badge variant={selectedProject?.status === 'COMPLETED' ? 'default' : 'secondary'}>
+                                    <div className={`px-3 py-1 rounded-full text-white font-semibold text-lg ${getStatusColor(selectedProject?.status || "NOT STARTED")}`}>
                                       {selectedProject?.status.replace('_', ' ')}
-                                    </Badge>
+                                    </div>
                                   </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -414,8 +452,20 @@ export function ProjectManagementPanel() {
                                   <span>{formatDate(selectedProject.qcStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
+                                  <span>NTC Days:</span>
+                                  <span className={getDaysColor(
+                                    selectedProject.ntcTesting && selectedProject.qcStart
+                                      ? calculateWorkingDays(selectedProject.ntcTesting, selectedProject.qcStart)
+                                      : 0
+                                  )}>
+                                    {selectedProject.ntcTesting && selectedProject.qcStart
+                                      ? calculateWorkingDays(selectedProject.ntcTesting, selectedProject.qcStart)
+                                      : '-'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
                                   <span>QC Days:</span>
-                                  <span className={getQCDaysColor(parseInt(selectedProject.qcDays || "0"))}>
+                                  <span className={getDaysColor(parseInt(selectedProject.qcDays || "0"))}>
                                     {selectedProject.qcDays || '-'}
                                   </span>
                                 </div>
