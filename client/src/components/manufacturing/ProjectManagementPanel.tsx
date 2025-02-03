@@ -134,8 +134,8 @@ export function ProjectManagementPanel() {
   const queryClient = useQueryClient();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [qcDateFilter, setQcDateFilter] = useState<string>("");
-  const [shipDateFilter, setShipDateFilter] = useState<string>("");
+  const [sortField, setSortField] = useState<"qcStart" | "ship" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
@@ -220,20 +220,30 @@ export function ProjectManagementPanel() {
     });
   };
 
-  const filteredProjects = projects.filter(project => {
-    const textMatch = (
+  const handleSort = (field: "qcStart" | "ship") => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  const filteredAndSortedProjects = projects
+    .filter(project => (
       (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
       (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-    );
+    ))
+    .sort((a, b) => {
+      if (!sortField) return 0;
 
-    const qcDateMatch = !qcDateFilter ||
-      (project.qcStart && new Date(project.qcStart).toISOString().split('T')[0] === qcDateFilter);
+      const aDate = a[sortField] ? new Date(a[sortField]).getTime() : 0;
+      const bDate = b[sortField] ? new Date(b[sortField]).getTime() : 0;
 
-    const shipDateMatch = !shipDateFilter ||
-      (project.ship && new Date(project.ship).toISOString().split('T')[0] === shipDateFilter);
-
-    return textMatch && qcDateMatch && shipDateMatch;
-  });
+      return sortDirection === "asc"
+        ? aDate - bDate
+        : bDate - aDate;
+    });
 
   if (isLoading) {
     return (
@@ -293,28 +303,38 @@ export function ProjectManagementPanel() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        <div>
-                          <label className="text-sm text-muted-foreground">QC Date</label>
-                          <Input
-                            type="date"
-                            value={qcDateFilter}
-                            onChange={(e) => setQcDateFilter(e.target.value)}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Ship Date</label>
-                          <Input
-                            type="date"
-                            value={shipDateFilter}
-                            onChange={(e) => setShipDateFilter(e.target.value)}
-                            className="mt-1"
-                          />
-                        </div>
+                      <div className="flex gap-2 mb-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleSort("qcStart")}
+                        >
+                          QC Date
+                          {sortField === "qcStart" && (
+                            <FontAwesomeIcon
+                              icon={sortDirection === "asc" ? "arrow-up" : "arrow-down"}
+                              className="ml-2 h-4 w-4"
+                            />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleSort("ship")}
+                        >
+                          Ship Date
+                          {sortField === "ship" && (
+                            <FontAwesomeIcon
+                              icon={sortDirection === "asc" ? "arrow-up" : "arrow-down"}
+                              className="ml-2 h-4 w-4"
+                            />
+                          )}
+                        </Button>
                       </div>
                       <div className="space-y-2">
-                        {filteredProjects.map((project) => (
+                        {filteredAndSortedProjects.map((project) => (
                           <Button
                             key={project.id}
                             variant={selectedProject?.id === project.id ? "default" : "ghost"}
