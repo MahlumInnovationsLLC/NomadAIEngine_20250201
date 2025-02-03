@@ -602,7 +602,7 @@ export const capaCategories = pgTable("capa_categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  severity: text("severity", { 
+  severity: text("severity", {
     enum: ["low", "medium", "high", "critical"]
   }).notNull(),
   requiresApproval: boolean("requires_approval").default(false).notNull(),
@@ -616,7 +616,7 @@ export const capas = pgTable("capas", {
   number: text("number").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  status: text("status", { 
+  status: text("status", {
     enum: ["draft", "open", "in_progress", "completed", "verified", "closed"]
   }).notNull().default("draft"),
   priority: text("priority", {
@@ -762,6 +762,89 @@ export const supplierCorrectiveActions = pgTable("supplier_corrective_actions", 
 
   attachments: text("attachments").array(),
   createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Add after existing tables and before relations section
+export const materialReviewBoards = pgTable("material_review_boards", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  number: text("number").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  type: text("type", {
+    enum: ["material", "assembly", "component", "finished_product"]
+  }).notNull(),
+  severity: text("severity", {
+    enum: ["minor", "major", "critical"]
+  }).notNull(),
+  status: text("status", {
+    enum: ["pending_review", "in_review", "disposition_pending", "approved", "rejected", "closed"]
+  }).notNull().default("pending_review"),
+
+  // Material/Part Information
+  partNumber: text("part_number").notNull(),
+  lotNumber: text("lot_number"),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  unit: text("unit").notNull(),
+  location: text("location").notNull(),
+
+  // Related Documents
+  ncrNumber: text("ncr_number"),
+  capaNumber: text("capa_number"),
+
+  // Review Details
+  nonconformanceDescription: text("nonconformance_description").notNull(),
+  detectedBy: text("detected_by").notNull(),
+  detectedDate: timestamp("detected_date").notNull(),
+  defectType: text("defect_type").notNull(),
+  rootCause: text("root_cause"),
+
+  // Cost Impact
+  materialCost: decimal("material_cost", { precision: 10, scale: 2 }),
+  laborCost: decimal("labor_cost", { precision: 10, scale: 2 }),
+  reworkCost: decimal("rework_cost", { precision: 10, scale: 2 }),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }),
+  currency: text("currency").default("USD"),
+
+  // Disposition
+  dispositionDecision: text("disposition_decision", {
+    enum: ["use_as_is", "rework", "repair", "return_to_supplier", "scrap", "deviate"]
+  }),
+  dispositionJustification: text("disposition_justification"),
+  dispositionConditions: text("disposition_conditions"),
+  approvedBy: text("approved_by").array(),
+  approvalDate: timestamp("approval_date"),
+
+  // Engineering Review
+  engineeringReviewer: text("engineering_reviewer"),
+  engineeringReviewDate: timestamp("engineering_review_date"),
+  engineeringFindings: text("engineering_findings"),
+  engineeringRecommendations: text("engineering_recommendations"),
+  engineeringApproved: boolean("engineering_approved"),
+
+  // Attachments
+  attachments: jsonb("attachments").default([]),
+
+  // Audit Trail
+  history: jsonb("history").default([]),
+
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const mrbActions = pgTable("mrb_actions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  mrbId: uuid("mrb_id").references(() => materialReviewBoards.id),
+  description: text("description").notNull(),
+  assignedTo: text("assigned_to").notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  completedDate: timestamp("completed_date"),
+  status: text("status", {
+    enum: ["pending", "in_progress", "completed"]
+  }).notNull().default("pending"),
+  comments: text("comments"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1053,6 +1136,18 @@ export const capaActionsRelations = relations(capaActions, ({ one }) => ({
   }),
 }));
 
+// Add to relations section
+export const materialReviewBoardsRelations = relations(materialReviewBoards, ({ many }) => ({
+  actions: many(mrbActions)
+}));
+
+export const mrbActionsRelations = relations(mrbActions, ({ one }) => ({
+  mrb: one(materialReviewBoards, {
+    fields: [mrbActions.mrbId],
+    references: [materialReviewBoards.id],
+  }),
+}));
+
 // Schemas
 export const insertMemberSchema = createInsertSchema(members);
 export const selectMemberSchema = createSelectSchema(members);
@@ -1202,4 +1297,6 @@ export type FacilityNotification = typeof facilityNotifications.$inferSelect;
 // Add types for CAPA
 export type Capa = typeof capas.$inferSelect;
 export type CapaAction = typeof capaActions.$inferSelect;
+export type MaterialReviewBoard = typeof materialReviewBoards.$inferSelect;
+export type MrbAction = typeof mrbActions.$inferSelect;
 import { integer } from "drizzle-orm/pg-core";
