@@ -79,8 +79,8 @@ export function ProjectManagementPanel() {
   });
 
   const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.projectNumber.toLowerCase().includes(searchQuery.toLowerCase())
+    (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
