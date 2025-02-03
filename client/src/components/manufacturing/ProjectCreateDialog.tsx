@@ -104,7 +104,12 @@ function getQCDaysColor(days: number): string {
   return "text-green-500";
 }
 
-export function ProjectCreateDialog() {
+interface ProjectCreateDialogProps {
+  project?: Project;
+  onClose?: () => void;
+}
+
+export function ProjectCreateDialog({ project, onClose }: ProjectCreateDialogProps) {
   const [open, setOpen] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const { toast } = useToast();
@@ -113,13 +118,39 @@ export function ProjectCreateDialog() {
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
-      meCadProgress: 0,
-      eeDesignProgress: 0,
-      itDesignProgress: 0,
-      ntcDesignProgress: 0,
-      stretchShortenGears: "N/A"
+      projectNumber: project?.projectNumber || '',
+      location: project?.location || '',
+      team: project?.team || '',
+      contractDate: project?.contractDate || '',
+      dpasRating: project?.dpasRating || '',
+      chassisEta: project?.chassisEta || '',
+      stretchShortenGears: project?.stretchShortenGears || 'N/A',
+      paymentMilestones: project?.paymentMilestones || '',
+      lltsOrdered: project?.lltsOrdered || '',
+      meAssigned: project?.meAssigned || '',
+      meCadProgress: project?.meCadProgress || 0,
+      eeAssigned: project?.eeAssigned || '',
+      eeDesignProgress: project?.eeDesignProgress || 0,
+      itAssigned: project?.itAssigned || '',
+      itDesignProgress: project?.itDesignProgress || 0,
+      ntcAssigned: project?.ntcAssigned || '',
+      ntcDesignProgress: project?.ntcDesignProgress || 0,
+      fabricationStart: project?.fabricationStart || '',
+      assemblyStart: project?.assemblyStart || '',
+      wrapGraphics: project?.wrapGraphics || '',
+      ntcTesting: project?.ntcTesting || '',
+      qcStart: project?.qcStart || '',
+      qcDays: project?.qcDays || '',
+      executiveReview: project?.executiveReview || '',
+      ship: project?.ship || '',
+      delivery: project?.delivery || ''
     }
   });
+
+    const handleClose = () => {
+    setOpen(false);
+    onClose?.();
+  };
 
   const qcStart = form.watch("qcStart");
   const executiveReview = form.watch("executiveReview");
@@ -134,26 +165,35 @@ export function ProjectCreateDialog() {
     }
   }, [qcStart, executiveReview, form]);
 
-  const createProjectMutation = useMutation({
+    const projectMutation = useMutation({
     mutationFn: async (data: ProjectFormValues) => {
-      const response = await fetch('/api/manufacturing/projects', {
-        method: 'POST',
+      const url = project
+        ? `/api/manufacturing/projects/${project.id}`
+        : '/api/manufacturing/projects';
+      const method = project ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      if (!response.ok) throw new Error('Failed to create project');
+
+      if (!response.ok) throw new Error(`Failed to ${project ? 'update' : 'create'} project`);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
-      toast({ title: "Success", description: "Project created successfully" });
-      setOpen(false);
+      toast({
+        title: "Success",
+        description: `Project ${project ? 'updated' : 'created'} successfully`
+      });
+      handleClose();
       form.reset();
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create project",
+        description: error instanceof Error ? error.message : `Failed to ${project ? 'update' : 'create'} project`,
         variant: "destructive"
       });
     }
@@ -170,22 +210,24 @@ export function ProjectCreateDialog() {
     if (hasEmptyFields(data)) {
       setShowWarning(true);
     } else {
-      createProjectMutation.mutate(data);
+        projectMutation.mutate(data);
     }
   }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-            New Project
-          </Button>
-        </DialogTrigger>
+      <Dialog open={open || !!project} onOpenChange={(value) => value ? setOpen(true) : handleClose()}>
+        {!project && (
+          <DialogTrigger asChild>
+            <Button>
+              <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+              New Project
+            </Button>
+          </DialogTrigger>
+        )}
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
+            <DialogTitle>{project ? 'Edit Project' : 'Create New Project'}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -592,14 +634,14 @@ export function ProjectCreateDialog() {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => setOpen(false)}>
+                <Button variant="outline" type="button" onClick={() => handleClose()}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createProjectMutation.isPending}>
-                  {createProjectMutation.isPending && (
+                <Button type="submit" disabled={projectMutation.isPending}>
+                  {projectMutation.isPending && (
                     <FontAwesomeIcon icon="spinner" className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Create Project
+                  {project ? 'Update Project' : 'Create Project'}
                 </Button>
               </div>
             </form>
@@ -619,7 +661,7 @@ export function ProjectCreateDialog() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               setShowWarning(false);
-              createProjectMutation.mutate(form.getValues());
+                projectMutation.mutate(form.getValues());
             }}>
               Continue
             </AlertDialogAction>

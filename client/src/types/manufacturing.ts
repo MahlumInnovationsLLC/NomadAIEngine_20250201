@@ -318,6 +318,52 @@ export interface ProjectCreationForm {
   totalBudgetedHours: number;
 }
 
+
+export interface Project {
+  id: string;
+  projectNumber: string;
+  name?: string;
+  location?: string;
+  team?: string;
+  contractDate?: string;
+  dpasRating?: string;
+  chassisEta?: string;
+  stretchShortenGears?: 'N/A' | 'Stretch' | 'Shorten' | 'Gears';
+  paymentMilestones?: string;
+  lltsOrdered?: string;
+  meAssigned?: string;
+  meCadProgress?: number;
+  eeAssigned?: string;
+  eeDesignProgress?: number;
+  itAssigned?: string;
+  itDesignProgress?: number;
+  ntcAssigned?: string;
+  ntcDesignProgress?: number;
+  fabricationStart?: string;
+  assemblyStart?: string;
+  wrapGraphics?: string;
+  ntcTesting?: string;
+  qcStart?: string;
+  qcDays?: string;
+  executiveReview?: string;
+  ship?: string;
+  delivery?: string;
+  status: 'not_started' | 'in_progress' | 'completed' | 'on_hold';
+  progress: number;
+  tasks?: ProjectTask[];
+}
+
+export interface ProjectTask {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  progress: number;
+  dependencies: string[];
+  assignee: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+}
+
 export interface QualityFormTemplate {
   id: string;
   name: string;
