@@ -86,10 +86,16 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // Find next upcoming milestone
+  const nextMilestone = timelineEvents.find(event => new Date(event.date) > today);
+  const daysUntilNext = nextMilestone 
+    ? calculateDaysBetween(today.toISOString(), nextMilestone.date)
+    : null;
+
   return (
-    <div className="mt-6">
+    <div className="mx-auto max-w-[95%]"> {/* Container to keep content within boundaries */}
       <h3 className="text-lg font-semibold mb-4">Production Timeline</h3>
-      <div className="relative pt-8 pb-16">
+      <div className="relative pt-12 pb-16"> {/* Increased padding to accommodate all content */}
         {/* Timeline base */}
         <div className="absolute h-2 w-full bg-gray-200 rounded">
           {/* Progress bar */}
@@ -98,14 +104,17 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
             style={{ width: `${progress}%` }}
           />
 
-          {/* Current date indicator */}
-          <div 
-            className="absolute w-4 h-4 bg-red-500 rounded-full -mt-1 animate-pulse"
-            style={{ 
-              left: `${progress}%`,
-              transform: 'translateX(-50%)'
-            }}
-          />
+          {/* Current date indicator with days until next milestone */}
+          <div className="absolute" style={{ left: `${progress}%`, transform: 'translateX(-50%)' }}>
+            {daysUntilNext && (
+              <div className="absolute -top-10 whitespace-nowrap text-center">
+                <div className="text-red-500 text-sm font-medium animate-pulse">
+                  {daysUntilNext} days until {nextMilestone?.label}
+                </div>
+              </div>
+            )}
+            <div className="w-4 h-4 bg-red-500 rounded-full -mt-1 animate-pulse" />
+          </div>
 
           {/* Timeline events */}
           {eventPositions.map((event, index) => {
