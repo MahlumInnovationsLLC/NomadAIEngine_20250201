@@ -29,6 +29,7 @@ import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
 import { Project, ProjectStatus } from "@/types/manufacturing";
 import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit } from "@fortawesome/free-solid-svg-icons";
+import { ProductionTimeline } from './ProductionTimeline'; // Added import
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -98,7 +99,6 @@ function calculateQCDays(project: Project): number {
 }
 
 function calculateProjectStatus(project: Project): ProjectStatus {
-  // Add logging to debug status calculation
   console.log('Calculating status for project:', project);
 
   if (project.manualStatus) {
@@ -120,13 +120,11 @@ function calculateProjectStatus(project: Project): ProjectStatus {
 
   console.log('Project dates:', dates);
 
-  // Check if project is completed
   if (dates.ship && today >= dates.ship) {
     console.log('Project is COMPLETED');
     return "COMPLETED";
   }
 
-  // Check current status based on date ranges
   if (dates.qcStart && today >= dates.qcStart) {
     console.log('Project is IN QC');
     return "IN QC";
@@ -161,7 +159,7 @@ export function ProjectManagementPanel() {
   const queryClient = useQueryClient();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<"qcStart" | "ship" | null>(null);
+  const [sortField, setSortField] = useState<"location" | "qcStart" | "ship" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
@@ -176,21 +174,19 @@ export function ProjectManagementPanel() {
         throw new Error('Failed to fetch projects');
       }
       const data = await response.json();
-      // Transform the status before returning
       return data.map((project: Project) => ({
         ...project,
         status: calculateProjectStatus(project)
       }));
     },
     staleTime: 0,
-    refetchInterval: 1000, // Poll every second for updates
+    refetchInterval: 1000,
   });
 
   useEffect(() => {
     if (selectedProject) {
       const updatedProject = projects.find(p => p.id === selectedProject.id);
       if (updatedProject) {
-        // Always recalculate status when updating selected project
         const calculatedStatus = calculateProjectStatus(updatedProject);
         console.log('Updated project status:', calculatedStatus);
         setSelectedProject({
@@ -258,7 +254,7 @@ export function ProjectManagementPanel() {
     });
   };
 
-  const handleSort = (field: "qcStart" | "ship") => {
+  const handleSort = (field: "location" | "qcStart" | "ship") => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
@@ -275,6 +271,14 @@ export function ProjectManagementPanel() {
     .sort((a, b) => {
       if (!sortField) return 0;
 
+      if (sortField === "location") {
+        const aLocation = (a.location || '').toLowerCase();
+        const bLocation = (b.location || '').toLowerCase();
+        return sortDirection === "asc"
+          ? aLocation.localeCompare(bLocation)
+          : bLocation.localeCompare(aLocation);
+      }
+
       const aDate = a[sortField] ? new Date(a[sortField]).getTime() : 0;
       const bDate = b[sortField] ? new Date(b[sortField]).getTime() : 0;
 
@@ -290,7 +294,6 @@ export function ProjectManagementPanel() {
       </div>
     );
   }
-
 
   return (
     <div className="space-y-6">
@@ -342,6 +345,20 @@ export function ProjectManagementPanel() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                       <div className="flex gap-2 mb-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleSort("location")}
+                        >
+                          Location
+                          {sortField === "location" && (
+                            <FontAwesomeIcon
+                              icon={sortDirection === "asc" ? faArrowUp : faArrowDown}
+                              className="ml-2 h-4 w-4"
+                            />
+                          )}
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -579,6 +596,8 @@ export function ProjectManagementPanel() {
                             </CardContent>
                           </Card>
                         </div>
+
+                        <ProductionTimeline project={selectedProject} /> {/* Added ProductionTimeline component */}
 
                         {selectedProject.tasks && selectedProject.tasks.length > 0 && (
                           <div className="space-y-4">
