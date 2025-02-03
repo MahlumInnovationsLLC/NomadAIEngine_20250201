@@ -28,14 +28,14 @@ import {
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
 import { Project, ProjectStatus } from "@/types/manufacturing";
-import { 
-  faArrowUp, 
-  faArrowDown, 
-  faFolder, 
-  faCheckCircle, 
-  faCircleDot, 
+import {
+  faArrowUp,
+  faArrowDown,
+  faFolder,
+  faCheckCircle,
+  faCircleDot,
   faEdit,
-  faLocationDot 
+  faLocationDot
 } from "@fortawesome/free-solid-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
 
@@ -395,27 +395,29 @@ export function ProjectManagementPanel() {
                           <Button
                             key={project.id}
                             variant={selectedProject?.id === project.id ? "default" : "ghost"}
-                            className="w-full justify-start"
+                            className="w-full justify-start py-4 px-4 h-auto space-y-2" // Increased padding and added vertical spacing
                             onClick={() => setSelectedProject(project)}
                           >
-                            <FontAwesomeIcon
-                              icon={project.status === 'COMPLETED' ? faCheckCircle : faCircleDot}
-                              className="mr-2 h-4 w-4"
-                            />
-                            <div className="flex flex-col items-start flex-grow">
-                              <span>{project.projectNumber}</span>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
-                                <span>{project.location || 'N/A'}</span>
-                              </div>
-                              {project.name && (
-                                <span className="text-xs text-muted-foreground">
-                                  {project.name}
-                                </span>
-                              )}
-                              <div className="flex justify-between w-full text-xs text-muted-foreground mt-1">
-                                <span>QC: {formatDate(project.qcStart)}</span>
-                                <span>Ship: {formatDate(project.ship)}</span>
+                            <div className="flex w-full">
+                              <FontAwesomeIcon
+                                icon={project.status === 'COMPLETED' ? faCheckCircle : faCircleDot}
+                                className="mr-2 h-4 w-4 mt-1 flex-shrink-0"
+                              />
+                              <div className="flex flex-col items-start flex-grow space-y-2 min-w-0">
+                                <span className="font-medium text-sm">{project.projectNumber}</span>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
+                                  <span>{project.location || 'N/A'}</span>
+                                </div>
+                                {project.name && (
+                                  <span className="text-xs text-muted-foreground truncate w-full">
+                                    {project.name}
+                                  </span>
+                                )}
+                                <div className="flex justify-between w-full text-xs text-muted-foreground pt-1">
+                                  <span>QC: {formatDate(project.qcStart)}</span>
+                                  <span>Ship: {formatDate(project.ship)}</span>
+                                </div>
                               </div>
                             </div>
                           </Button>
@@ -503,7 +505,6 @@ export function ProjectManagementPanel() {
                           </div>
                         </div>
 
-                        {/* Production Timeline moved here */}
                         <div className="mx-auto max-w-[95%]">
                           <ProductionTimeline project={selectedProject} />
                         </div>
