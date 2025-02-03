@@ -62,35 +62,25 @@ export default function MRBList() {
   });
 
   const filteredMRBs = mrbItems.filter(mrb => {
+    const status = mrb.status.toLowerCase();
+    console.log('Processing MRB:', mrb.number, 'Status:', status);
+
     if (currentTab === "open") {
-      return ['pending_review', 'in_review', 'pending_disposition'].includes(mrb.status.toLowerCase());
+      return ['pending_review', 'in_review', 'pending_disposition'].includes(status);
     } else {
-      return ['closed'].includes(mrb.status.toLowerCase());
+      return status === 'closed';
     }
   });
 
-  // Add logging to debug the filtering
+  // Debug logging
   console.log('Current tab:', currentTab);
   console.log('All MRB items:', mrbItems);
   console.log('Filtered MRBs:', filteredMRBs);
   console.log('Filtered statuses:', filteredMRBs.map(mrb => mrb.status));
 
-
-  const getSourceBadgeVariant = (sourceType?: string): "default" | "destructive" | "outline" | "secondary" => {
-    switch (sourceType) {
-      case 'NCR':
-        return 'destructive';
-      case 'CAPA':
-        return 'default';
-      case 'SCAR':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
-
   const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
-    switch (status.toLowerCase()) {
+    const normalizedStatus = status.toLowerCase();
+    switch (normalizedStatus) {
       case 'pending_review':
       case 'in_review':
         return 'secondary';
@@ -106,6 +96,19 @@ export default function MRBList() {
     }
   };
 
+  const getSourceBadgeVariant = (sourceType?: string): "default" | "destructive" | "outline" | "secondary" => {
+    switch (sourceType) {
+      case 'NCR':
+        return 'destructive';
+      case 'CAPA':
+        return 'default';
+      case 'SCAR':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+  
 
   const getSeverityBadgeVariant = (severity: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (severity) {
@@ -285,6 +288,7 @@ export default function MRBList() {
         initialData={selectedMRB ?? undefined}
         onSuccess={async (savedMRB) => {
           await refetch();
+          setShowCreateDialog(false);
           if (savedMRB.sourceType && savedMRB.sourceId) {
             try {
               toast({

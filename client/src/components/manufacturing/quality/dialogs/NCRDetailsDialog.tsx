@@ -155,8 +155,38 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDeta
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Disposition</h3>
                 <Badge variant="outline" className="capitalize">
-                  {ncr.disposition.replace('_', ' ')}
+                  {typeof ncr.disposition === 'string' 
+                    ? ncr.disposition.replace('_', ' ')
+                    : ncr.disposition?.decision?.replace('_', ' ') || 'pending'}
                 </Badge>
+                {typeof ncr.disposition === 'object' && ncr.disposition?.justification && (
+                  <div>
+                    <h4 className="font-medium mb-1">Justification</h4>
+                    <p className="text-muted-foreground">{ncr.disposition.justification}</p>
+                  </div>
+                )}
+                {typeof ncr.disposition === 'object' && ncr.disposition?.conditions && (
+                  <div>
+                    <h4 className="font-medium mb-1">Conditions</h4>
+                    <p className="text-muted-foreground">{ncr.disposition.conditions}</p>
+                  </div>
+                )}
+                {typeof ncr.disposition === 'object' && ncr.disposition?.approvedBy && (
+                  <div>
+                    <h4 className="font-medium mb-1">Approvals</h4>
+                    <div className="space-y-2">
+                      {ncr.disposition.approvedBy.map((approval, index) => (
+                        <div key={index} className="text-sm">
+                          <span className="font-medium">{approval.approver}</span>
+                          <span className="text-muted-foreground"> - {new Date(approval.date).toLocaleDateString()}</span>
+                          {approval.comment && (
+                            <p className="text-muted-foreground ml-4">{approval.comment}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">

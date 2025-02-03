@@ -1,0 +1,73 @@
+at NCRDetailsDialog (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/manufacturing/quality/dialogs/NCRDetailsDialog.tsx:28:36)
+    at div
+    at NCRList (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/manufacturing/quality/NCRList.tsx:56:21)
+    at div
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:251:13
+    at Presence (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:481:11)
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:731:13
+    at _c5 (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/tabs.tsx:68:12)
+    at div
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:251:13
+    at Provider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-XSD2Y4RK.js?v=c0883a7f:38:15)
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:609:7
+    at div
+    at _c9 (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/card.tsx:106:12)
+    at div
+    at _c (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:251:13
+    at Presence (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:481:11)
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:731:13
+    at _c5 (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/tabs.tsx:68:12)
+    at div
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:251:13
+    at Provider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-XSD2Y4RK.js?v=c0883a7f:38:15)
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:609:7
+    at div
+    at QualityControlPanel (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/manufacturing/QualityControlPanel.tsx:36:39)
+    at div
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:251:13
+    at Presence (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:481:11)
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:731:13
+    at _c5 (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/tabs.tsx:68:12)
+    at div
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:251:13
+    at Provider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-XSD2Y4RK.js?v=c0883a7f:38:15)
+    at https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=c0883a7f:609:7
+    at div
+    at div
+    at MotionComponent (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=c0883a7f:940:40)
+    at ErrorBoundary (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AnimateTransition (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/AnimateTransition.tsx:48:3)
+    at ManufacturingControlPage
+    at div
+    at MotionComponent (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=c0883a7f:940:40)
+    at ErrorBoundary (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AnimateTransition (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/AnimateTransition.tsx:48:3)
+    at OnboardingProvider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/onboarding/OnboardingProvider.tsx:21:38)
+    at AuthenticatedTemplate (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@azure_msal-react.js?v=c0883a7f:210:34)
+    at Suspense
+    at ErrorBoundary (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at ProtectedRoute (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/App.tsx:102:38)
+    at component
+    at Route (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=c0883a7f:323:16)
+    at Switch (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=c0883a7f:379:17)
+    at Suspense
+    at PresenceChild (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=c0883a7f:118:24)
+    at AnimatePresence (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=c0883a7f:207:26)
+    at ErrorBoundary (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AnimatePresenceWrapper (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/AnimateTransition.tsx:84:3)
+    at div
+    at main
+    at ErrorBoundary (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at div
+    at App
+    at _ (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=c0883a7f:44:25)
+    at J (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=c0883a7f:42:18)
+    at ThemeProvider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/theme-provider.tsx:21:33)
+    at QueryClientProvider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=c0883a7f:2829:3)
+    at MsalProvider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@azure_msal-react.js?v=c0883a7f:127:25)
+    at ErrorBoundary (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/src/components/ui/ErrorBoundary.tsx:9:5)
+    at AppWrapper
+    at LocalizationProvider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-A6LWKRJA.js?v=c0883a7f:60695:17)
+    at QueryClientProvider (https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=c0883a7f:2829:3)
