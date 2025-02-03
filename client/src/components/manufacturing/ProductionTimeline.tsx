@@ -8,11 +8,9 @@ interface ProductionTimelineProps {
 export function ProductionTimeline({ project }: ProductionTimelineProps) {
   const [progress, setProgress] = useState(0);
 
-  // Calculate the total duration and progress
   useEffect(() => {
     if (!project) return;
 
-    // Find the first available start date
     const startDate = project.fabricationStart 
       ? new Date(project.fabricationStart) 
       : project.assemblyStart 
@@ -38,7 +36,6 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
   if (!project) return null;
 
-  // Filter out events with undefined dates
   const timelineEvents = [
     { date: project.fabricationStart, label: 'Fabrication Start', type: 'fab' },
     { date: project.assemblyStart, label: 'Assembly Start', type: 'assembly' },
@@ -50,9 +47,15 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     typeof event.date === 'string' && event.date !== undefined
   );
 
-  const today = new Date();
+  // Calculate days between events
+  const calculateDaysBetween = (date1: string, date2: string) => {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    const diffTime = Math.abs(d2.getTime() - d1.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
 
-  // Find the first and last dates for timeline positioning
+  const today = new Date();
   const startDateTimeline = project.fabricationStart 
     ? new Date(project.fabricationStart)
     : project.assemblyStart 
@@ -61,12 +64,12 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
   const endDateTimeline = project.ship 
     ? new Date(project.ship)
-    : new Date(startDateTimeline.getTime() + 30 * 24 * 60 * 60 * 1000); // Default to 30 days if no ship date
+    : new Date(startDateTimeline.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   return (
     <div className="mt-6">
       <h3 className="text-lg font-semibold mb-4">Production Timeline</h3>
-      <div className="relative pt-8 pb-12">
+      <div className="relative pt-8 pb-24">
         {/* Timeline base */}
         <div className="absolute h-2 w-full bg-gray-200 rounded">
           {/* Progress bar */}
@@ -85,29 +88,73 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
           />
 
           {/* Timeline events */}
-          {timelineEvents.map((event) => {
+          {timelineEvents.map((event, index) => {
             const eventDate = new Date(event.date);
             const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
               (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
 
+            // Alternate between top and bottom positioning for labels
+            const isBottom = index % 2 === 1;
+
+            // Calculate days to next milestone
+            const nextEvent = timelineEvents[index + 1];
+            const daysToNext = nextEvent ? calculateDaysBetween(event.date, nextEvent.date) : null;
+
             return (
-              <div 
-                key={event.type}
-                className="absolute flex flex-col items-center"
-                style={{ 
-                  left: `${position}%`,
-                  transform: 'translateX(-50%)'
-                }}
-              >
-                <div className={`w-3 h-3 rounded-full -mt-0.5 ${
-                  eventDate <= today ? 'bg-green-500' : 'bg-gray-400'
-                }`} />
-                <div className="mt-2 text-xs font-medium whitespace-nowrap">
-                  {event.label}
+              <div key={event.type}>
+                {/* Event dot */}
+                <div 
+                  className={`absolute flex flex-col items-center`}
+                  style={{ 
+                    left: `${position}%`,
+                    transform: 'translateX(-50%)'
+                  }}
+                >
+                  <div className={`w-3 h-3 rounded-full -mt-0.5 ${
+                    eventDate <= today ? 'bg-green-500' : 'bg-gray-400'
+                  }`} />
+
+                  {/* Connecting line */}
+                  <div 
+                    className={`w-px bg-gray-300 ${isBottom ? 'h-16' : 'h-8'}`}
+                    style={{
+                      transform: isBottom ? 'translateY(4px)' : 'translateY(-20px)'
+                    }}
+                  />
+
+                  {/* Label container */}
+                  <div 
+                    className={`absolute whitespace-nowrap ${
+                      isBottom ? 'top-20' : 'bottom-12'
+                    }`}
+                    style={{
+                      transform: 'translateX(-50%)'
+                    }}
+                  >
+                    <div className="text-xs font-medium">
+                      {event.label}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {eventDate.toLocaleDateString()}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {eventDate.toLocaleDateString()}
-                </div>
+
+                {/* Days between milestones */}
+                {daysToNext && (
+                  <div 
+                    className="absolute text-xs text-gray-500 -mt-6"
+                    style={{
+                      left: `${(position + ((timelineEvents[index + 1] ? 
+                        ((new Date(timelineEvents[index + 1].date).getTime() - startDateTimeline.getTime()) / 
+                        (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100 : 
+                        position)) / 2}%`,
+                      transform: 'translateX(-50%)'
+                    }}
+                  >
+                    {daysToNext} days
+                  </div>
+                )}
               </div>
             );
           })}
