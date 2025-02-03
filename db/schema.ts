@@ -625,7 +625,7 @@ export const capas = pgTable("capas", {
   type: text("type", {
     enum: ["corrective", "preventive", "improvement"]
   }).notNull(),
-  categoryId: integer("category_id").references(() => capaCategories.id),
+  category_id: integer("category_id").references(() => capaCategories.id),
   rootCause: text("root_cause").notNull(),
   verificationMethod: text("verification_method").notNull(),
   effectivenessReview: text("effectiveness_review"),
@@ -930,7 +930,7 @@ export const facilityNotificationsRelations = relations(facilityNotifications, (
 // Add after the capaCategories relations section
 export const capasRelations = relations(capas, ({ one }) => ({
   category: one(capaCategories, {
-    fields: [capas.categoryId],
+    fields: [capas.category_id],
     references: [capaCategories.id],
   }),
 }));
@@ -1096,5 +1096,4 @@ export type FacilityNotification = typeof facilityNotifications.$inferSelect;
 // Add types for CAPA
 export type Capa = typeof capas.$inferSelect;
 export type CapaAction = typeof capaActions.$inferSelect;
-
 import { integer } from "drizzle-orm/pg-core";

@@ -33,7 +33,7 @@ const defaultValues: Partial<CAPA> = {
   verificationMethod: "",
   department: "",
   area: "",
-  categoryId: undefined,
+  category_id: undefined,
   status: "draft",
   scheduledReviewDate: new Date().toISOString(),
 };
@@ -96,7 +96,10 @@ export function CAPADialog({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          category_id: data.category_id ? parseInt(data.category_id.toString()) : null
+        }),
       });
 
       if (!response.ok) {
@@ -124,14 +127,6 @@ export function CAPADialog({
     },
   });
 
-  const onSubmit = async (data: CAPA) => {
-    setIsSubmitting(true);
-    try {
-      await createCAPA.mutateAsync(data);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -140,7 +135,7 @@ export function CAPADialog({
           <DialogTitle>{initialData ? "Edit CAPA" : "Create CAPA"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(createCAPA.mutate)} className="space-y-4">
             <FormField
               control={form.control}
               name="title"
@@ -170,16 +165,17 @@ export function CAPADialog({
                 </FormItem>
               )}
             />
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="categoryId"
+                name="category_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category</FormLabel>
                     <Select
-                      value={field.value?.toString()}
-                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString() || ""}
+                      onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -188,8 +184,8 @@ export function CAPADialog({
                       </FormControl>
                       <SelectContent>
                         {categories.map((category) => (
-                          <SelectItem 
-                            key={category.id} 
+                          <SelectItem
+                            key={category.id}
                             value={category.id.toString()}
                           >
                             {category.name}
@@ -208,7 +204,7 @@ export function CAPADialog({
                   <FormItem>
                     <FormLabel>Priority</FormLabel>
                     <Select
-                      value={field.value}
+                      value={field.value || "medium"}
                       onValueChange={field.onChange}
                     >
                       <FormControl>

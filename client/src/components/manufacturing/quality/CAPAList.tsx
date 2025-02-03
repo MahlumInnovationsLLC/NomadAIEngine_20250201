@@ -117,7 +117,7 @@ export default function CAPAList() {
   };
 
   const filteredCAPAs = selectedCategory
-    ? capas.filter(capa => capa.categoryId?.toString() === selectedCategory)
+    ? capas.filter(capa => capa.category_id?.toString() === selectedCategory)
     : capas;
 
   if (isLoadingCAPAs || isLoadingCategories) {
@@ -141,12 +141,15 @@ export default function CAPAList() {
           </p>
         </div>
         <div className="flex gap-4">
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <Select
+            value={selectedCategory || "all"}
+            onValueChange={(value) => setSelectedCategory(value === "all" ? "" : value)}
+          >
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Filter by category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
               {categories.map((category) => (
                 <SelectItem key={category.id} value={category.id.toString()}>
                   {category.name}
@@ -199,7 +202,7 @@ export default function CAPAList() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {categories.find(c => c.id === capa.categoryId)?.name ?? 'N/A'}
+                    {categories.find(c => c.id === capa.category_id)?.name ?? 'N/A'}
                   </TableCell>
                   <TableCell>{capa.department}</TableCell>
                   <TableCell>{getSourceInfo(capa)}</TableCell>
