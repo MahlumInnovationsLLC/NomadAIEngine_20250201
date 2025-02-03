@@ -62,33 +62,9 @@ router.post("/", async (req, res) => {
     const projectId = uuidv4();
     const now = new Date().toISOString();
 
-    // Create a new project with necessary fields
     const project = {
       id: projectId,
-      projectNumber: req.body.projectNumber,
-      location: req.body.location,
-      team: req.body.team,
-      contractDate: req.body.contractDate,
-      dpasRating: req.body.dpasRating,
-      chassisEta: req.body.chassisEta,
-      stretchShortenGears: req.body.stretchShortenGears,
-      paymentMilestones: req.body.paymentMilestones,
-      lltsOrdered: req.body.lltsOrdered,
-      meAssigned: req.body.meAssigned,
-      meCadProgress: req.body.meCadProgress || 0,
-      eeAssigned: req.body.eeAssigned,
-      eeDesignProgress: req.body.eeDesignProgress || 0,
-      itDesignProgress: req.body.itDesignProgress || 0,
-      ntcDesignProgress: req.body.ntcDesignProgress || 0,
-      fabricationStart: req.body.fabricationStart,
-      assemblyStart: req.body.assemblyStart,
-      wrapGraphics: req.body.wrapGraphics,
-      ntcTesting: req.body.ntcTesting,
-      qcStart: req.body.qcStart,
-      qcDays: req.body.qcDays,
-      executiveReview: req.body.executiveReview,
-      ship: req.body.ship,
-      delivery: req.body.delivery,
+      ...req.body,
       status: 'not_started',
       progress: 0,
       createdAt: now,
@@ -96,12 +72,12 @@ router.post("/", async (req, res) => {
     };
 
     const blobClient = containerClient.getBlobClient(`${projectId}.json`);
-    const content = JSON.stringify(project);
-    const buffer = Buffer.from(content);
+    const content = Buffer.from(JSON.stringify(project));
 
-    // Use uploadData instead of upload
-    await blobClient.uploadData(buffer, {
-      blobHTTPHeaders: { blobContentType: "application/json" }
+    await blobClient.upload(content, content.length, {
+      blobHTTPHeaders: {
+        blobContentType: "application/json"
+      }
     });
 
     res.status(201).json(project);
@@ -124,11 +100,12 @@ router.patch("/:id", async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    const content = JSON.stringify(updatedProject);
-    const buffer = Buffer.from(content);
+    const content = Buffer.from(JSON.stringify(updatedProject));
 
-    await blobClient.uploadData(buffer, {
-      blobHTTPHeaders: { blobContentType: "application/json" }
+     await blobClient.upload(content, content.length, {
+      blobHTTPHeaders: {
+        blobContentType: "application/json"
+      }
     });
 
     res.json(updatedProject);
