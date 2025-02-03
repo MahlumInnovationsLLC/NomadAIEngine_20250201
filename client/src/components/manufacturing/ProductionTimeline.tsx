@@ -65,10 +65,25 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     ? new Date(project.ship)
     : new Date(startDateTimeline.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+  // Calculate milestone positions and detect overlaps
+  const eventPositions = timelineEvents.map((event, index) => {
+    const eventDate = new Date(event.date);
+    const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
+      (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
+
+    // Check if this position is too close to the previous milestone
+    const prevPosition = index > 0 ? ((new Date(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) / 
+      (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100 : -20;
+
+    const needsOffset = position - prevPosition < 20; // If milestones are less than 20% apart
+
+    return { ...event, position, needsOffset };
+  });
+
   return (
     <div className="mt-6">
       <h3 className="text-lg font-semibold mb-4">Production Timeline</h3>
-      <div className="relative pt-8 pb-24">
+      <div className="relative pt-8 pb-16">
         {/* Timeline base */}
         <div className="absolute h-2 w-full bg-gray-200 rounded">
           {/* Progress bar */}
@@ -87,52 +102,45 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
           />
 
           {/* Timeline events */}
-          {timelineEvents.map((event, index) => {
-            const eventDate = new Date(event.date);
-            const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
-              (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
-
-            // Alternate between top and bottom positioning for labels
-            const isBottom = index % 2 === 1;
-
+          {eventPositions.map((event, index) => {
             // Calculate days to next milestone
             const nextEvent = timelineEvents[index + 1];
             const daysToNext = nextEvent ? calculateDaysBetween(event.date, nextEvent.date) : null;
-
-            // Calculate the position of the days label
             const nextPosition = nextEvent
               ? ((new Date(nextEvent.date).getTime() - startDateTimeline.getTime()) /
                  (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
-              : position;
+              : event.position;
 
             return (
               <div key={event.type}>
                 {/* Event dot */}
                 <div 
-                  className={`absolute flex flex-col items-center`}
+                  className="absolute flex flex-col items-center"
                   style={{ 
-                    left: `${position}%`,
+                    left: `${event.position}%`,
                     transform: 'translateX(-50%)'
                   }}
                 >
+                  {/* The dot */}
                   <div className={`w-3 h-3 rounded-full -mt-0.5 ${
-                    eventDate <= today ? 'bg-green-500' : 'bg-gray-400'
+                    new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
                   }`} />
 
-                  {/* Connecting line */}
-                  <div 
-                    className={`w-px bg-gray-300 ${isBottom ? 'h-16' : 'h-8'}`}
-                    style={{
-                      transform: isBottom ? 'translateY(4px)' : 'translateY(-20px)'
-                    }}
-                  />
+                  {/* Connecting line for offset labels */}
+                  {event.needsOffset && (
+                    <div 
+                      className="w-px bg-gray-300 h-12"
+                      style={{
+                        transform: 'translateY(4px)'
+                      }}
+                    />
+                  )}
 
                   {/* Label container */}
                   <div 
-                    className={`absolute whitespace-nowrap ${
-                      isBottom ? 'top-20' : 'bottom-12'
-                    }`}
+                    className="absolute whitespace-nowrap"
                     style={{
+                      top: event.needsOffset ? '3rem' : '0.75rem',
                       transform: 'translateX(-50%)'
                     }}
                   >
@@ -140,7 +148,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                       {event.label}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {eventDate.toLocaleDateString()}
+                      {new Date(event.date).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
@@ -150,7 +158,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                   <div 
                     className="absolute text-xs text-gray-500 -mt-6"
                     style={{
-                      left: `${(position + nextPosition) / 2}%`,
+                      left: `${(event.position + nextPosition) / 2}%`,
                       transform: 'translateX(-50%)'
                     }}
                   >
