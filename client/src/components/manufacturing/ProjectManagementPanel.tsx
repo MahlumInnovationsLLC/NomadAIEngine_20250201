@@ -28,7 +28,15 @@ import {
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
 import { Project, ProjectStatus } from "@/types/manufacturing";
-import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit } from "@fortawesome/free-solid-svg-icons";
+import { 
+  faArrowUp, 
+  faArrowDown, 
+  faFolder, 
+  faCheckCircle, 
+  faCircleDot, 
+  faEdit,
+  faLocationDot 
+} from "@fortawesome/free-solid-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
 
 function formatDate(dateString?: string) {
@@ -352,12 +360,10 @@ export function ProjectManagementPanel() {
                           onClick={() => handleSort("location")}
                         >
                           Location
-                          {sortField === "location" && (
-                            <FontAwesomeIcon
-                              icon={sortDirection === "asc" ? faArrowUp : faArrowDown}
-                              className="ml-2 h-4 w-4"
-                            />
-                          )}
+                          <FontAwesomeIcon
+                            icon={sortField === "location" ? (sortDirection === "asc" ? faArrowUp : faArrowDown) : faArrowDown}
+                            className={`ml-2 h-4 w-4 ${sortField === "location" ? 'opacity-100' : 'opacity-40'}`}
+                          />
                         </Button>
                         <Button
                           variant="outline"
@@ -366,12 +372,10 @@ export function ProjectManagementPanel() {
                           onClick={() => handleSort("qcStart")}
                         >
                           QC Date
-                          {sortField === "qcStart" && (
-                            <FontAwesomeIcon
-                              icon={sortDirection === "asc" ? faArrowUp : faArrowDown}
-                              className="ml-2 h-4 w-4"
-                            />
-                          )}
+                          <FontAwesomeIcon
+                            icon={sortField === "qcStart" ? (sortDirection === "asc" ? faArrowUp : faArrowDown) : faArrowDown}
+                            className={`ml-2 h-4 w-4 ${sortField === "qcStart" ? 'opacity-100' : 'opacity-40'}`}
+                          />
                         </Button>
                         <Button
                           variant="outline"
@@ -380,12 +384,10 @@ export function ProjectManagementPanel() {
                           onClick={() => handleSort("ship")}
                         >
                           Ship Date
-                          {sortField === "ship" && (
-                            <FontAwesomeIcon
-                              icon={sortDirection === "asc" ? faArrowUp : faArrowDown}
-                              className="ml-2 h-4 w-4"
-                            />
-                          )}
+                          <FontAwesomeIcon
+                            icon={sortField === "ship" ? (sortDirection === "asc" ? faArrowUp : faArrowDown) : faArrowDown}
+                            className={`ml-2 h-4 w-4 ${sortField === "ship" ? 'opacity-100' : 'opacity-40'}`}
+                          />
                         </Button>
                       </div>
                       <div className="space-y-2">
@@ -402,6 +404,10 @@ export function ProjectManagementPanel() {
                             />
                             <div className="flex flex-col items-start flex-grow">
                               <span>{project.projectNumber}</span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
+                                <span>{project.location || 'N/A'}</span>
+                              </div>
                               {project.name && (
                                 <span className="text-xs text-muted-foreground">
                                   {project.name}
