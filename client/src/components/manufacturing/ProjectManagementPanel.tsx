@@ -134,6 +134,8 @@ export function ProjectManagementPanel() {
   const queryClient = useQueryClient();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [qcDateFilter, setQcDateFilter] = useState<string>("");
+  const [shipDateFilter, setShipDateFilter] = useState<string>("");
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
@@ -218,10 +220,20 @@ export function ProjectManagementPanel() {
     });
   };
 
-  const filteredProjects = projects.filter(project =>
-    (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-  );
+  const filteredProjects = projects.filter(project => {
+    const textMatch = (
+      (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+    );
+
+    const qcDateMatch = !qcDateFilter ||
+      (project.qcStart && new Date(project.qcStart).toISOString().split('T')[0] === qcDateFilter);
+
+    const shipDateMatch = !shipDateFilter ||
+      (project.ship && new Date(project.ship).toISOString().split('T')[0] === shipDateFilter);
+
+    return textMatch && qcDateMatch && shipDateMatch;
+  });
 
   if (isLoading) {
     return (
@@ -266,7 +278,6 @@ export function ProjectManagementPanel() {
 
             <TabsContent value="list">
               <div className="grid grid-cols-12 gap-6">
-                {/* Project List */}
                 <Card className="col-span-3">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -278,10 +289,30 @@ export function ProjectManagementPanel() {
                     <div className="space-y-2">
                       <Input
                         placeholder="Search projects..."
-                        className="mb-4"
+                        className="mb-2"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                          <label className="text-sm text-muted-foreground">QC Date</label>
+                          <Input
+                            type="date"
+                            value={qcDateFilter}
+                            onChange={(e) => setQcDateFilter(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground">Ship Date</label>
+                          <Input
+                            type="date"
+                            value={shipDateFilter}
+                            onChange={(e) => setShipDateFilter(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
                       <div className="space-y-2">
                         {filteredProjects.map((project) => (
                           <Button
@@ -294,13 +325,17 @@ export function ProjectManagementPanel() {
                               icon={project.status === 'COMPLETED' ? 'check-circle' : 'circle-dot'}
                               className="mr-2 h-4 w-4"
                             />
-                            <div className="flex flex-col items-start">
+                            <div className="flex flex-col items-start flex-grow">
                               <span>{project.projectNumber}</span>
                               {project.name && (
                                 <span className="text-xs text-muted-foreground">
                                   {project.name}
                                 </span>
                               )}
+                              <div className="flex justify-between w-full text-xs text-muted-foreground mt-1">
+                                <span>QC: {formatDate(project.qcStart)}</span>
+                                <span>Ship: {formatDate(project.ship)}</span>
+                              </div>
                             </div>
                           </Button>
                         ))}
@@ -309,7 +344,6 @@ export function ProjectManagementPanel() {
                   </CardContent>
                 </Card>
 
-                {/* Project Details */}
                 <Card className="col-span-9">
                   <CardHeader>
                     <CardTitle>
@@ -321,7 +355,7 @@ export function ProjectManagementPanel() {
                               <FontAwesomeIcon icon="edit" className="mr-2" />
                               Edit
                             </Button>
-                            
+
                             <div className="flex gap-2">
                               <Select
                                 value={selectedProject?.status}
@@ -345,7 +379,7 @@ export function ProjectManagementPanel() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            
+
                           </div>
                         </div>
                       ) : (
@@ -356,7 +390,6 @@ export function ProjectManagementPanel() {
                   <CardContent>
                     {selectedProject ? (
                       <div className="space-y-6">
-                        {/* Basic Info */}
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
                             <label className="text-sm font-medium">Project Number</label>
@@ -385,7 +418,6 @@ export function ProjectManagementPanel() {
                           </div>
                         </div>
 
-                        {/* Team Progress */}
                         <div className="grid grid-cols-2 gap-4">
                           <Card>
                             <CardHeader>
@@ -486,7 +518,6 @@ export function ProjectManagementPanel() {
                           </Card>
                         </div>
 
-                        {/* Tasks Section */}
                         {selectedProject.tasks && selectedProject.tasks.length > 0 && (
                           <div className="space-y-4">
                             <div className="flex justify-between items-center">
