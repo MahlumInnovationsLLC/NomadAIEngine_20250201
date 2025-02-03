@@ -28,6 +28,7 @@ import {
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
 import { Project, ProjectStatus } from "@/types/manufacturing";
+import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit } from "@fortawesome/free-solid-svg-icons";
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -88,6 +89,10 @@ function getStatusColor(status: ProjectStatus): string {
 }
 
 function calculateProjectStatus(project: Project): ProjectStatus {
+  if (project.manualStatus) {
+    return project.status;
+  }
+
   const today = new Date();
   const dates = {
     fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
@@ -98,14 +103,12 @@ function calculateProjectStatus(project: Project): ProjectStatus {
     ship: project.ship ? new Date(project.ship) : null,
   };
 
-  if (project.manualStatus) {
-    return project.status;
-  }
-
+  // Check if project is completed
   if (dates.ship && today > dates.ship) {
     return "COMPLETED";
   }
 
+  // Find the current status based on where today falls between milestone dates
   if (dates.qcStart && today >= dates.qcStart) {
     return "IN QC";
   }
@@ -124,6 +127,12 @@ function calculateProjectStatus(project: Project): ProjectStatus {
 
   if (dates.fabricationStart && today >= dates.fabricationStart) {
     return "IN FAB";
+  }
+
+  // If we have future dates set but haven't reached them yet
+  if (dates.fabricationStart || dates.assemblyStart || dates.wrapGraphics || 
+      dates.ntcTesting || dates.qcStart || dates.ship) {
+    return "NOT STARTED";
   }
 
   return "NOT STARTED";
@@ -269,7 +278,7 @@ export function ProjectManagementPanel() {
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">
-            <FontAwesomeIcon icon="list" className="mr-2" />
+            <FontAwesomeIcon icon={faFolder} className="mr-2" />
             Project Overview
           </TabsTrigger>
           <TabsTrigger value="resources">
@@ -291,7 +300,7 @@ export function ProjectManagementPanel() {
                 <Card className="col-span-3">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <FontAwesomeIcon icon="folder" />
+                      <FontAwesomeIcon icon={faFolder} />
                       Projects
                     </CardTitle>
                   </CardHeader>
@@ -313,7 +322,7 @@ export function ProjectManagementPanel() {
                           QC Date
                           {sortField === "qcStart" && (
                             <FontAwesomeIcon
-                              icon={sortDirection === "asc" ? "arrow-up" : "arrow-down"}
+                              icon={sortDirection === "asc" ? faArrowUp : faArrowDown}
                               className="ml-2 h-4 w-4"
                             />
                           )}
@@ -327,7 +336,7 @@ export function ProjectManagementPanel() {
                           Ship Date
                           {sortField === "ship" && (
                             <FontAwesomeIcon
-                              icon={sortDirection === "asc" ? "arrow-up" : "arrow-down"}
+                              icon={sortDirection === "asc" ? faArrowUp : faArrowDown}
                               className="ml-2 h-4 w-4"
                             />
                           )}
@@ -342,7 +351,7 @@ export function ProjectManagementPanel() {
                             onClick={() => setSelectedProject(project)}
                           >
                             <FontAwesomeIcon
-                              icon={project.status === 'COMPLETED' ? 'check-circle' : 'circle-dot'}
+                              icon={project.status === 'COMPLETED' ? faCheckCircle : faCircleDot}
                               className="mr-2 h-4 w-4"
                             />
                             <div className="flex flex-col items-start flex-grow">
@@ -372,7 +381,7 @@ export function ProjectManagementPanel() {
                           <span>{selectedProject.projectNumber}</span>
                           <div className="flex gap-2">
                             <Button variant="outline" onClick={() => setShowEditDialog(true)}>
-                              <FontAwesomeIcon icon="edit" className="mr-2" />
+                              <FontAwesomeIcon icon={faEdit} className="mr-2" />
                               Edit
                             </Button>
 
