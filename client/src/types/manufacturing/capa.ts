@@ -1,6 +1,16 @@
 import { z } from "zod";
 import { NCRSchema } from "./ncr";
 
+// Define schema for each 8D step
+const EightDStepSchema = z.object({
+  description: z.string(),
+  owner: z.string(),
+  dueDate: z.string(),
+  completedDate: z.string().optional(),
+  status: z.enum(["pending", "in_progress", "completed", "verified"]),
+  comments: z.string().optional(),
+});
+
 export const CAPASchema = z.object({
   id: z.string(),
   number: z.string(),
@@ -9,25 +19,20 @@ export const CAPASchema = z.object({
   status: z.enum(["draft", "open", "in_progress", "completed", "verified", "closed"]),
   priority: z.enum(["low", "medium", "high", "critical"]),
   type: z.enum(["corrective", "preventive", "improvement"]),
-  rootCause: z.string(),
-  correctiveActions: z.array(z.object({
-    action: z.string(),
-    assignedTo: z.string(),
-    dueDate: z.string(),
-    status: z.enum(["pending", "in_progress", "completed", "verified"]),
-    completedDate: z.string().optional(),
-    verifiedBy: z.string().optional(),
-    verificationDate: z.string().optional(),
-  })),
-  preventiveActions: z.array(z.object({
-    action: z.string(),
-    assignedTo: z.string(),
-    dueDate: z.string(),
-    status: z.enum(["pending", "in_progress", "completed", "verified"]),
-    completedDate: z.string().optional(),
-    verifiedBy: z.string().optional(),
-    verificationDate: z.string().optional(),
-  })),
+  category_id: z.number().optional().nullable(),
+
+  // 8D Methodology steps
+  d1_team: EightDStepSchema.extend({
+    teamMembers: z.array(z.string()),
+  }),
+  d2_problem: EightDStepSchema,
+  d3_containment: EightDStepSchema,
+  d4_root_cause: EightDStepSchema,
+  d5_corrective: EightDStepSchema,
+  d6_implementation: EightDStepSchema,
+  d7_preventive: EightDStepSchema,
+  d8_recognition: EightDStepSchema,
+
   verificationMethod: z.string(),
   effectivenessReview: z.string().optional(),
   relatedNCRs: z.array(NCRSchema),
@@ -42,13 +47,12 @@ export const CAPASchema = z.object({
 });
 
 export type CAPA = z.infer<typeof CAPASchema>;
+export type EightDStep = z.infer<typeof EightDStepSchema>;
 
-export type CAPAAction = {
-  action: string;
-  assignedTo: string;
-  dueDate: string;
-  status: "pending" | "in_progress" | "completed" | "verified";
-  completedDate?: string;
-  verifiedBy?: string;
-  verificationDate?: string;
+export const defaultEightDStep = {
+  description: "",
+  owner: "",
+  dueDate: new Date().toISOString(),
+  status: "pending" as const,
+  comments: "",
 };
