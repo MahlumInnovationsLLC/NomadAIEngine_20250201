@@ -93,6 +93,13 @@ router.get('/mrb', async (req, res) => {
       partNumber: ncr.partNumber || "N/A",
       lotNumber: ncr.lotNumber || "N/A",
       quantity: ncr.quantityAffected || 0,
+      location: ncr.area || "Unknown",
+      disposition: {
+        decision: "use_as_is",  // Default initial decision
+        justification: "",      // Empty until MRB review
+        conditions: "",         // Empty until MRB review
+        approvedBy: [],        // Will be populated during review
+      },
       costImpact: {
         materialCost: 0,
         laborCost: 0,
@@ -100,8 +107,18 @@ router.get('/mrb', async (req, res) => {
         totalCost: 0,
         currency: "USD"
       },
+      nonconformance: {
+        description: ncr.description || "",
+        detectedBy: ncr.reportedBy || "",
+        detectedDate: ncr.createdAt || new Date().toISOString(),
+        defectType: ncr.type || "unknown",
+        rootCause: ncr.rootCause || ""
+      },
+      attachments: [],
+      history: [],
       createdAt: ncr.createdAt || new Date().toISOString(),
       updatedAt: ncr.updatedAt || new Date().toISOString(),
+      createdBy: ncr.reportedBy || "system"
     }));
 
     // Combine and return both sets
