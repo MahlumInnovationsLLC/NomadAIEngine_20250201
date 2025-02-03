@@ -25,18 +25,22 @@ export const MRBSchema = z.object({
     "rejected",
     "closed"
   ]),
-  
+
+  // Source Information
+  sourceType: z.enum(["MRB", "NCR", "CAPA", "SCAR"]).optional(),
+  sourceId: z.string().optional(),
+
   // Material/Part Information
   partNumber: z.string(),
   lotNumber: z.string().optional(),
   quantity: z.number(),
   unit: z.string(),
   location: z.string(),
-  
+
   // Related Documents
   ncrNumber: z.string().optional(),
   capaNumber: z.string().optional(),
-  
+
   // Review Details
   nonconformance: z.object({
     description: z.string(),
@@ -45,7 +49,7 @@ export const MRBSchema = z.object({
     defectType: z.string(),
     rootCause: z.string().optional(),
   }),
-  
+
   // Cost Impact
   costImpact: z.object({
     materialCost: z.number(),
@@ -54,7 +58,7 @@ export const MRBSchema = z.object({
     totalCost: z.number(),
     currency: z.string().default("USD"),
   }).optional(),
-  
+
   // Disposition
   disposition: z.object({
     decision: z.enum([
@@ -70,10 +74,7 @@ export const MRBSchema = z.object({
     approvedBy: z.array(z.string()),
     approvalDate: z.string().optional(),
   }),
-  
-  // Required Actions
-  actions: z.array(MRBActionSchema),
-  
+
   // Quality Engineering Review
   engineeringReview: z.object({
     reviewer: z.string(),
@@ -82,7 +83,7 @@ export const MRBSchema = z.object({
     recommendations: z.string(),
     approved: z.boolean(),
   }).optional(),
-  
+
   // Attachments and Documentation
   attachments: z.array(z.object({
     id: z.string(),
@@ -92,7 +93,7 @@ export const MRBSchema = z.object({
     uploadedBy: z.string(),
     uploadedAt: z.string(),
   })),
-  
+
   // Audit Trail
   history: z.array(z.object({
     action: z.string(),
@@ -100,7 +101,7 @@ export const MRBSchema = z.object({
     timestamp: z.string(),
     notes: z.string().optional(),
   })),
-  
+
   createdBy: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),

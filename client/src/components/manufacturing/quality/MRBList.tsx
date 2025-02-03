@@ -22,12 +22,86 @@ import { useToast } from "@/hooks/use-toast";
 import type { MRB } from "@/types/manufacturing/mrb";
 import { MRBDialog } from "./dialogs/MRBDialog";
 
-const fetchMRBs = async (): Promise<MRB[]> => {
-  const response = await fetch('/api/manufacturing/quality/mrb');
-  if (!response.ok) {
-    throw new Error('Failed to fetch MRBs');
+// Extend the fetch function to include pending disposition items
+const fetchMRBItems = async (): Promise<MRB[]> => {
+  const [mrbResponse, ncrResponse, capaResponse, scarResponse] = await Promise.all([
+    fetch('/api/manufacturing/quality/mrb'),
+    fetch('/api/manufacturing/quality/ncr?status=pending_disposition'),
+    fetch('/api/manufacturing/quality/capa?status=pending_disposition'),
+    fetch('/api/manufacturing/quality/scar?status=pending_disposition')
+  ]);
+
+  if (!mrbResponse.ok || !ncrResponse.ok || !capaResponse.ok || !scarResponse.ok) {
+    throw new Error('Failed to fetch MRB items');
   }
-  return response.json();
+
+  const [mrbs, ncrs, capas, scars] = await Promise.all([
+    mrbResponse.json(),
+    ncrResponse.json(),
+    capaResponse.json(),
+    scarResponse.json()
+  ]);
+
+  // Convert NCRs, CAPAs, and SCARs to MRB format
+  const ncrMrbs = ncrs.map(ncr => ({
+    id: `ncr-${ncr.id}`,
+    number: ncr.number,
+    title: `NCR: ${ncr.title}`,
+    description: ncr.description,
+    type: "material",
+    severity: ncr.severity,
+    status: "pending_review",
+    partNumber: ncr.partNumber,
+    quantity: ncr.quantity,
+    unit: ncr.unit,
+    location: ncr.location || "N/A",
+    sourceType: "NCR",
+    sourceId: ncr.id,
+    costImpact: ncr.costImpact,
+    createdAt: ncr.createdAt,
+    createdBy: ncr.createdBy,
+  }));
+
+  const capaMrbs = capas.map(capa => ({
+    id: `capa-${capa.id}`,
+    number: capa.number,
+    title: `CAPA: ${capa.title}`,
+    description: capa.description,
+    type: "material",
+    severity: capa.priority,
+    status: "pending_review",
+    partNumber: capa.partNumber || "N/A",
+    quantity: 0,
+    unit: "N/A",
+    location: capa.department,
+    sourceType: "CAPA",
+    sourceId: capa.id,
+    costImpact: null,
+    createdAt: capa.createdAt,
+    createdBy: capa.createdBy,
+  }));
+
+  const scarMrbs = scars.map(scar => ({
+    id: `scar-${scar.id}`,
+    number: scar.number,
+    title: `SCAR: ${scar.title}`,
+    description: scar.description,
+    type: "material",
+    severity: scar.severity,
+    status: "pending_review",
+    partNumber: scar.partNumber || "N/A",
+    quantity: scar.quantity || 0,
+    unit: scar.unit || "N/A",
+    location: "Supplier",
+    sourceType: "SCAR",
+    sourceId: scar.id,
+    costImpact: null,
+    createdAt: scar.createdAt,
+    createdBy: scar.createdBy,
+  }));
+
+  // Combine all items
+  return [...mrbs, ...ncrMrbs, ...capaMrbs, ...scarMrbs];
 };
 
 export default function MRBList() {
@@ -37,8 +111,21 @@ export default function MRBList() {
 
   const { data: mrbs = [], isLoading } = useQuery<MRB[]>({
     queryKey: ['/api/manufacturing/quality/mrb'],
-    queryFn: fetchMRBs,
+    queryFn: fetchMRBItems,
   });
+
+  const getSourceBadgeVariant = (sourceType: string): "default" | "destructive" | "outline" | "secondary" => {
+    switch (sourceType) {
+      case 'NCR':
+        return 'destructive';
+      case 'CAPA':
+        return 'default';
+      case 'SCAR':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
 
   const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (status) {
@@ -116,7 +203,8 @@ export default function MRBList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>MRB #</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Reference #</TableHead>
                 <TableHead>Part Number</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Severity</TableHead>
@@ -129,6 +217,11 @@ export default function MRBList() {
             <TableBody>
               {mrbs.map((mrb) => (
                 <TableRow key={mrb.id}>
+                  <TableCell>
+                    <Badge variant={getSourceBadgeVariant(mrb.sourceType || 'MRB')}>
+                      {mrb.sourceType || 'MRB'}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="font-medium">{mrb.number}</TableCell>
                   <TableCell>{mrb.partNumber}</TableCell>
                   <TableCell className="capitalize">{mrb.type.replace('_', ' ')}</TableCell>
