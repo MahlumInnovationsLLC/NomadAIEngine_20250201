@@ -240,15 +240,8 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
     }
 
     console.log('Found NCR:', ncr);
+    console.log('Current NCR status:', ncr.status);
     console.log('Current NCR disposition:', ncr.disposition);
-
-    // Create a new disposition object
-    const dispositionObj = {
-      decision: typeof ncr.disposition === 'string' ? 'use_as_is' : (ncr.disposition?.decision || 'use_as_is'),
-      justification: typeof ncr.disposition === 'object' ? ncr.disposition?.justification || '' : '',
-      conditions: typeof ncr.disposition === 'object' ? ncr.disposition?.conditions || '' : '',
-      approvedBy: Array.isArray(ncr.disposition?.approvedBy) ? [...ncr.disposition.approvedBy] : []
-    };
 
     // Create approval entry
     const approvalEntry = {
@@ -258,11 +251,21 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
       comment: comment || ""
     };
 
-    // Add new approval
-    dispositionObj.approvedBy.push(approvalEntry);
+    // Update NCR disposition
+    if (!ncr.disposition || typeof ncr.disposition === 'string') {
+      ncr.disposition = {
+        decision: 'use_as_is',
+        justification: '',
+        conditions: '',
+        approvedBy: []
+      };
+    }
 
-    // Update the NCR with the new disposition
-    ncr.disposition = dispositionObj;
+    // Add new approval to existing approvals
+    if (!Array.isArray(ncr.disposition.approvedBy)) {
+      ncr.disposition.approvedBy = [];
+    }
+    ncr.disposition.approvedBy.push(approvalEntry);
 
     // Initialize history array if it doesn't exist
     if (!Array.isArray(ncr.history)) {
@@ -279,12 +282,13 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
       notes: approvalEntry.comment
     });
 
-    // Update status if all required approvals are received
-    if (dispositionObj.approvedBy.length >= 2) {
-      ncr.status = 'closed';  // Change from 'disposition_complete' to 'closed'
-      dispositionObj.approvalDate = new Date().toISOString();
+    // Update status if all required approvals are received (requiring 2 approvals)
+    if (ncr.disposition.approvedBy.length >= 2) {
+      console.log('Required approvals received, updating status to closed');
+      ncr.status = 'closed';
+      ncr.disposition.approvalDate = new Date().toISOString();
 
-      // Also update the corresponding MRB record if it exists
+      // Also update the corresponding MRB record
       const mrbId = `mrb-${ncrId}`;
       const { resources: [mrbRecord] } = await container.items
         .query({
@@ -295,8 +299,9 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
         .fetchAll();
 
       if (mrbRecord) {
-        mrbRecord.status = 'closed';  // Change from 'disposition_complete' to 'closed'
-        mrbRecord.disposition = dispositionObj;
+        console.log('Updating MRB record status to closed');
+        mrbRecord.status = 'closed';
+        mrbRecord.disposition = ncr.disposition;
         mrbRecord.updatedAt = new Date().toISOString();
         await container.items.upsert(mrbRecord);
         console.log('Successfully updated MRB record status to closed');
@@ -304,12 +309,12 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
     }
 
     ncr.updatedAt = new Date().toISOString();
-
-    console.log('Updating NCR with new disposition data:', dispositionObj);
+    console.log('Final NCR status before update:', ncr.status);
 
     // Update the NCR document
     const { resource: updatedNcr } = await container.items.upsert(ncr);
     console.log('Successfully updated NCR with disposition approval');
+    console.log('Final updated NCR status:', updatedNcr.status);
 
     res.json(updatedNcr);
   } catch (error) {
@@ -886,7 +891,7 @@ router.post('/ncrs', async (req, res) => {
     res.status(500).json({ 
       message: error instanceof Error ? error.message : 'Failed to create NCR' 
     });
-  }
+}
 });
 
 export default router;

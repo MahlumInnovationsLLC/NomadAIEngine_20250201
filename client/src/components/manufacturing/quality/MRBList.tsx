@@ -63,9 +63,9 @@ export default function MRBList() {
 
   const filteredMRBs = mrbItems.filter(mrb => {
     if (currentTab === "open") {
-      return ['pending_review', 'in_review', 'pending_disposition'].includes(mrb.status);
+      return ['pending_review', 'in_review', 'pending_disposition'].includes(mrb.status.toLowerCase());
     } else {
-      return ['closed'].includes(mrb.status);  // Only show items with 'closed' status in Closed tab
+      return ['closed'].includes(mrb.status.toLowerCase());
     }
   });
 
@@ -73,6 +73,7 @@ export default function MRBList() {
   console.log('Current tab:', currentTab);
   console.log('All MRB items:', mrbItems);
   console.log('Filtered MRBs:', filteredMRBs);
+  console.log('Filtered statuses:', filteredMRBs.map(mrb => mrb.status));
 
 
   const getSourceBadgeVariant = (sourceType?: string): "default" | "destructive" | "outline" | "secondary" => {
