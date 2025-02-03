@@ -2,11 +2,15 @@ import { Router } from "express";
 import { getProductionLineStatus, addProductionMetrics, getQualityInspections, saveQualityInspection, updateQualityInspection } from "../services/azure/facility_service";
 import crypto from 'crypto';
 import qualityRoutes from './manufacturing/quality';
+import projectRoutes from './manufacturing/projects';
 
 const router = Router();
 
 // Register quality routes
 router.use('/quality', qualityRoutes);
+
+// Register project routes
+router.use('/projects', projectRoutes);
 
 // Quality Inspection Routes
 router.post("/quality/inspections", async (req, res) => {

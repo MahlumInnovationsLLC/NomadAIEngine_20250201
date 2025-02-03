@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
 import { ProductionLinePanel } from "../components/manufacturing/ProductionLinePanel";
 import { QualityControlPanel } from "../components/manufacturing/QualityControlPanel";
+import { ProjectManagementPanel } from "../components/manufacturing/ProjectManagementPanel";
 
 export default function ManufacturingControlPage() {
   return (
@@ -19,7 +20,7 @@ export default function ManufacturingControlPage() {
         </div>
 
         <Tabs defaultValue="production" className="mt-8">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="production">
               <FontAwesomeIcon icon="industry" className="mr-2" />
               Production Line
@@ -27,6 +28,10 @@ export default function ManufacturingControlPage() {
             <TabsTrigger value="quality">
               <FontAwesomeIcon icon="check-circle" className="mr-2" />
               Quality Control
+            </TabsTrigger>
+             <TabsTrigger value="projects">
+              <FontAwesomeIcon icon="tasks" className="mr-2" />
+              Project Management
             </TabsTrigger>
             <TabsTrigger value="maintenance">
               <FontAwesomeIcon icon="wrench" className="mr-2" />
@@ -44,6 +49,10 @@ export default function ManufacturingControlPage() {
 
           <TabsContent value="quality" className="space-y-6">
             <QualityControlPanel />
+          </TabsContent>
+
+          <TabsContent value="projects" className="space-y-6">
+            <ProjectManagementPanel />
           </TabsContent>
 
           <TabsContent value="maintenance" className="space-y-6">
