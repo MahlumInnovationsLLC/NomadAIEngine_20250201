@@ -29,7 +29,7 @@ import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
 import { Project, ProjectStatus } from "@/types/manufacturing";
 import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit } from "@fortawesome/free-solid-svg-icons";
-import { ProductionTimeline } from './ProductionTimeline'; // Added import
+import { ProductionTimeline } from './ProductionTimeline';
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -497,6 +497,11 @@ export function ProjectManagementPanel() {
                           </div>
                         </div>
 
+                        {/* Production Timeline moved here */}
+                        <div className="mx-auto max-w-[95%]">
+                          <ProductionTimeline project={selectedProject} />
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                           <Card>
                             <CardHeader>
@@ -596,8 +601,6 @@ export function ProjectManagementPanel() {
                             </CardContent>
                           </Card>
                         </div>
-
-                        <ProductionTimeline project={selectedProject} /> {/* Added ProductionTimeline component */}
 
                         {selectedProject.tasks && selectedProject.tasks.length > 0 && (
                           <div className="space-y-4">
