@@ -40,6 +40,10 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
       ncrResponse.json(),
     ]);
 
+    // Log fetched data for debugging
+    console.log('Fetched MRBs:', mrbs);
+    console.log('Fetched NCRs:', ncrs);
+
     return mrbs;
   } catch (error) {
     console.error('Error in fetchMRBItems:', error);
@@ -63,13 +67,19 @@ export default function MRBList() {
 
   const filteredMRBs = mrbItems.filter(mrb => {
     const status = mrb.status.toLowerCase();
-    console.log('Processing MRB:', mrb.number, 'Status:', status);
+    console.log('Processing MRB:', mrb.number, 'Status:', status, 'Current tab:', currentTab);
 
-    if (currentTab === "open") {
-      return ['pending_review', 'in_review', 'pending_disposition'].includes(status);
-    } else {
-      return status === 'closed';
+    // Specifically check for the 'closed' status in the closed tab
+    if (currentTab === "closed") {
+      const isClosed = status === 'closed';
+      console.log(`MRB ${mrb.number} is${isClosed ? '' : ' not'} closed`);
+      return isClosed;
     }
+
+    // For open tab, show all non-closed items
+    const isOpen = !['closed'].includes(status);
+    console.log(`MRB ${mrb.number} is${isOpen ? '' : ' not'} open`);
+    return isOpen;
   });
 
   // Debug logging

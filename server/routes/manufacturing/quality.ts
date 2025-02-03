@@ -891,7 +891,7 @@ router.post('/ncrs', async (req, res) => {
     res.status(500).json({ 
       message: error instanceof Error ? error.message : 'Failed to create NCR' 
     });
-}
+  }
 });
 
 export default router;
