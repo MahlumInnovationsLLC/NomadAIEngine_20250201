@@ -390,13 +390,13 @@ export function ProjectManagementPanel() {
 
                             <div className="flex gap-2">
                               <Select
-                                value={selectedProject?.status}
+                                value={selectedProject?.status || "NOT STARTED"}
                                 onValueChange={(value: ProjectStatus) => handleStatusChange(value)}
                               >
                                 <SelectTrigger className="w-[200px]">
                                   <SelectValue>
-                                    <div className={`px-3 py-1 rounded-full text-white font-semibold text-lg ${getStatusColor(selectedProject?.status)}`}>
-                                      {selectedProject?.status}
+                                    <div className={`px-3 py-1 rounded-full text-white font-semibold text-lg ${getStatusColor(selectedProject?.status || "NOT STARTED")}`}>
+                                      {selectedProject?.status || "NOT STARTED"}
                                     </div>
                                   </SelectValue>
                                 </SelectTrigger>
