@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -42,24 +42,38 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     scarResponse.json()
   ]);
 
-  // Convert NCRs, CAPAs, and SCARs to MRB format
+  // Convert NCRs to MRB format
   const ncrMrbs = ncrs.map(ncr => ({
     id: `ncr-${ncr.id}`,
     number: ncr.number,
     title: `NCR: ${ncr.title}`,
     description: ncr.description,
-    type: "material",
+    type: ncr.type || "material",
     severity: ncr.severity,
     status: "pending_review",
-    partNumber: ncr.partNumber,
-    quantity: ncr.quantity,
-    unit: ncr.unit,
-    location: ncr.location || "N/A",
+    partNumber: ncr.partNumber || "N/A",
+    quantity: ncr.quantityAffected || 0,
+    unit: ncr.unit || "pcs",
+    location: ncr.area || "N/A",
     sourceType: "NCR",
     sourceId: ncr.id,
     costImpact: ncr.costImpact,
+    nonconformance: {
+      description: ncr.description,
+      detectedBy: ncr.reportedBy,
+      detectedDate: ncr.createdAt,
+      defectType: ncr.type || "unknown",
+    },
+    disposition: {
+      decision: "pending",
+      justification: "",
+      approvedBy: [],
+    },
     createdAt: ncr.createdAt,
-    createdBy: ncr.createdBy,
+    createdBy: ncr.reportedBy,
+    updatedAt: ncr.updatedAt,
+    attachments: ncr.attachments || [],
+    history: [],
   }));
 
   const capaMrbs = capas.map(capa => ({
@@ -77,8 +91,22 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     sourceType: "CAPA",
     sourceId: capa.id,
     costImpact: null,
+    nonconformance: {
+      description: capa.description,
+      detectedBy: capa.createdBy,
+      detectedDate: capa.createdAt,
+      defectType: "process",
+    },
+    disposition: {
+      decision: "pending",
+      justification: "",
+      approvedBy: [],
+    },
     createdAt: capa.createdAt,
     createdBy: capa.createdBy,
+    updatedAt: capa.updatedAt,
+    attachments: [],
+    history: [],
   }));
 
   const scarMrbs = scars.map(scar => ({
@@ -96,8 +124,22 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     sourceType: "SCAR",
     sourceId: scar.id,
     costImpact: null,
+    nonconformance: {
+      description: scar.description,
+      detectedBy: scar.createdBy,
+      detectedDate: scar.createdAt,
+      defectType: "supplier",
+    },
+    disposition: {
+      decision: "pending",
+      justification: "",
+      approvedBy: [],
+    },
     createdAt: scar.createdAt,
     createdBy: scar.createdBy,
+    updatedAt: scar.updatedAt,
+    attachments: [],
+    history: [],
   }));
 
   // Combine all items
@@ -106,6 +148,7 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
 
 export default function MRBList() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedMRB, setSelectedMRB] = useState<MRB | null>(null);
 
@@ -113,6 +156,30 @@ export default function MRBList() {
     queryKey: ['/api/manufacturing/quality/mrb'],
     queryFn: fetchMRBItems,
   });
+
+  const updateSourceItemDisposition = async (mrb: MRB) => {
+    if (!mrb.sourceType || !mrb.sourceId) return;
+
+    const endpoint = `/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}/${mrb.sourceId}`;
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        disposition: mrb.disposition.decision,
+        dispositionJustification: mrb.disposition.justification,
+        status: 'disposition_complete',
+        updatedAt: new Date().toISOString(),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update ${mrb.sourceType} disposition`);
+    }
+
+    // Invalidate queries to refresh the data
+    queryClient.invalidateQueries(['/api/manufacturing/quality/mrb']);
+    queryClient.invalidateQueries([`/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}`]);
+  };
 
   const getSourceBadgeVariant = (sourceType: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (sourceType) {
@@ -280,13 +347,30 @@ export default function MRBList() {
           if (!open) setSelectedMRB(null);
         }}
         initialData={selectedMRB ?? undefined}
-        onSuccess={() => {
-          toast({
-            title: "Success",
-            description: selectedMRB 
-              ? "MRB updated successfully"
-              : "MRB created successfully",
-          });
+        onSuccess={async (savedMRB) => {
+          if (savedMRB.sourceType && savedMRB.sourceId) {
+            try {
+              await updateSourceItemDisposition(savedMRB);
+              toast({
+                title: "Success",
+                description: `MRB and ${savedMRB.sourceType} updated successfully`,
+              });
+            } catch (error) {
+              console.error('Error updating source item:', error);
+              toast({
+                title: "Warning",
+                description: `MRB saved but failed to update ${savedMRB.sourceType} status`,
+                variant: "destructive",
+              });
+            }
+          } else {
+            toast({
+              title: "Success",
+              description: selectedMRB 
+                ? "MRB updated successfully"
+                : "MRB created successfully",
+            });
+          }
         }}
       />
     </div>

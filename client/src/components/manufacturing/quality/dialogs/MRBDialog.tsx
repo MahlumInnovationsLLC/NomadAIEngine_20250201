@@ -31,7 +31,7 @@ interface MRBDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialData?: MRB;
-  onSuccess: () => void;
+  onSuccess: (savedMRB: MRB) => void;
 }
 
 export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDialogProps) {
@@ -77,7 +77,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
       const url = isEditing
         ? `/api/manufacturing/quality/mrb/${data.id}`
         : '/api/manufacturing/quality/mrb';
-      
+
       const response = await fetch(url, {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,7 +88,8 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
         throw new Error('Failed to save MRB');
       }
 
-      onSuccess();
+      const savedMRB = await response.json();
+      onSuccess(savedMRB);
       onOpenChange(false);
     } catch (error) {
       console.error('Error saving MRB:', error);
