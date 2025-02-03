@@ -20,6 +20,7 @@ export const MRBSchema = z.object({
   status: z.enum([
     "pending_review",
     "in_review",
+    "pending_disposition",
     "disposition_pending",
     "approved",
     "rejected",
@@ -27,14 +28,14 @@ export const MRBSchema = z.object({
   ]),
 
   // Source Information
-  sourceType: z.enum(["MRB", "NCR", "CAPA", "SCAR"]).optional(),
+  sourceType: z.enum(["NCR", "CAPA", "SCAR"]).optional(),
   sourceId: z.string().optional(),
 
   // Material/Part Information
   partNumber: z.string(),
   lotNumber: z.string().optional(),
   quantity: z.number(),
-  unit: z.string(),
+  unit: z.string().default("pcs"),
   location: z.string(),
 
   // Related Documents
@@ -48,13 +49,13 @@ export const MRBSchema = z.object({
     detectedDate: z.string(),
     defectType: z.string(),
     rootCause: z.string().optional(),
-  }),
+  }).optional(),
 
   // Cost Impact
   costImpact: z.object({
     materialCost: z.number(),
     laborCost: z.number(),
-    reworkCost: z.number().optional(),
+    reworkCost: z.number(),
     totalCost: z.number(),
     currency: z.string().default("USD"),
   }).optional(),
@@ -71,18 +72,14 @@ export const MRBSchema = z.object({
     ]),
     justification: z.string(),
     conditions: z.string().optional(),
-    approvedBy: z.array(z.string()),
+    approvedBy: z.array(z.object({
+      name: z.string(),
+      role: z.string(),
+      date: z.string(),
+      comment: z.string().optional(),
+    })),
     approvalDate: z.string().optional(),
   }),
-
-  // Quality Engineering Review
-  engineeringReview: z.object({
-    reviewer: z.string(),
-    reviewDate: z.string().optional(),
-    findings: z.string(),
-    recommendations: z.string(),
-    approved: z.boolean(),
-  }).optional(),
 
   // Attachments and Documentation
   attachments: z.array(z.object({
@@ -97,10 +94,12 @@ export const MRBSchema = z.object({
   // Audit Trail
   history: z.array(z.object({
     action: z.string(),
-    performedBy: z.string(),
+    type: z.string(),
+    description: z.string(),
+    user: z.string(),
     timestamp: z.string(),
     notes: z.string().optional(),
-  })),
+  })).optional(),
 
   createdBy: z.string(),
   createdAt: z.string(),

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -19,8 +19,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import type { MRB } from "@/types/manufacturing/mrb";
+import { MRB } from "@/types/manufacturing/mrb";
 import { MRBDialog } from "./dialogs/MRBDialog";
+import { MRBDetailsDialog } from "./dialogs/MRBDetailsDialog";
 
 const fetchMRBItems = async (): Promise<MRB[]> => {
   console.log('Starting fetchMRBItems...');
@@ -57,69 +58,7 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
 
     console.log('Raw NCRs response:', ncrs);
 
-    // Convert NCRs with pending_disposition status to MRB format
-    const ncrMrbs = ncrs
-      .filter(ncr => {
-        const status = String(ncr.status || '').toLowerCase().trim();
-        console.log(`NCR ${ncr.number || 'unknown'} status: "${status}"`);
-        const isPendingDisposition = status === 'pending_disposition';
-        console.log(`Is pending disposition? ${isPendingDisposition}`);
-        return isPendingDisposition;
-      })
-      .map(ncr => {
-        console.log('Converting NCR to MRB:', ncr);
-        const mrbItem: MRB = {
-          id: `ncr-${ncr.id}`,
-          number: `MRB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
-          title: `NCR: ${ncr.title || 'Untitled'}`,
-          description: ncr.description || '',
-          type: ncr.type || "material",
-          severity: ncr.severity || "minor",
-          status: "pending_disposition", // Match NCR status exactly
-          partNumber: ncr.partNumber || "N/A",
-          lotNumber: ncr.lotNumber,
-          quantity: ncr.quantityAffected || 0,
-          unit: ncr.unit || "pcs",
-          location: ncr.area || "N/A",
-          sourceType: "NCR",
-          sourceId: ncr.id,
-          ncrNumber: ncr.number,
-          nonconformance: {
-            description: ncr.description || '',
-            detectedBy: ncr.reportedBy || '',
-            detectedDate: ncr.createdAt || new Date().toISOString(),
-            defectType: ncr.type || "unknown",
-            rootCause: ncr.rootCause,
-          },
-          disposition: {
-            decision: "use_as_is",
-            justification: "",
-            approvedBy: [],
-          },
-          costImpact: {
-            materialCost: 0,
-            laborCost: 0,
-            reworkCost: 0,
-            totalCost: 0,
-            currency: "USD"
-          },
-          attachments: ncr.attachments || [],
-          history: [],
-          createdBy: ncr.reportedBy || '',
-          createdAt: ncr.createdAt || new Date().toISOString(),
-          updatedAt: ncr.updatedAt || new Date().toISOString(),
-        };
-        console.log('Created MRB item:', mrbItem);
-        return mrbItem;
-      });
-
-    console.log('Converted NCR MRBs:', ncrMrbs);
-    console.log('Original MRBs:', mrbs);
-
-    // Combine MRBs and converted NCRs
-    const allItems = [...mrbs, ...ncrMrbs];
-    console.log('All MRB items:', allItems);
-    return allItems;
+    return mrbs;
   } catch (error) {
     console.error('Error in fetchMRBItems:', error);
     throw error;
@@ -128,9 +67,9 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
 
 export default function MRBList() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedMRB, setSelectedMRB] = useState<MRB | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   const { data: mrbItems = [], isLoading, error } = useQuery<MRB[]>({
     queryKey: ['/api/manufacturing/quality/mrb'],
@@ -138,34 +77,6 @@ export default function MRBList() {
     staleTime: 5000,
     retry: 2,
   });
-
-  const updateSourceItemDisposition = async (mrb: MRB) => {
-    if (!mrb.sourceType || !mrb.sourceId) return;
-
-    const endpoint = `/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}s/${mrb.sourceId}`; // Fixed endpoint to match server route
-    console.log('Updating source item:', endpoint, mrb);
-
-    const response = await fetch(endpoint, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        disposition: mrb.disposition.decision,
-        dispositionJustification: mrb.disposition.justification,
-        status: 'disposition_complete',
-        updatedAt: new Date().toISOString(),
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to update ${mrb.sourceType} disposition`);
-    }
-
-    // Invalidate both MRB and source type queries to refresh the data
-    queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
-    queryClient.invalidateQueries({ 
-      queryKey: [`/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}s`] 
-    });
-  };
 
   const getSourceBadgeVariant = (sourceType?: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (sourceType) {
@@ -212,6 +123,8 @@ export default function MRBList() {
     }
   };
 
+  console.log('Rendering MRB items:', mrbItems);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -235,8 +148,6 @@ export default function MRBList() {
       </div>
     );
   }
-
-  console.log('Rendering MRB items:', mrbItems);
 
   return (
     <div className="space-y-4">
@@ -274,7 +185,14 @@ export default function MRBList() {
             </TableHeader>
             <TableBody>
               {mrbItems.map((mrb) => (
-                <TableRow key={mrb.id}>
+                <TableRow 
+                  key={mrb.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => {
+                    setSelectedMRB(mrb);
+                    setShowDetailsDialog(true);
+                  }}
+                >
                   <TableCell>
                     <Badge variant={getSourceBadgeVariant(mrb.sourceType)}>
                       {mrb.sourceType || 'MRB'}
@@ -304,17 +222,25 @@ export default function MRBList() {
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="icon">
                           <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setSelectedMRB(mrb)}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedMRB(mrb);
+                          setShowDetailsDialog(true);
+                        }}>
                           <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSelectedMRB(mrb)}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedMRB(mrb);
+                          setShowCreateDialog(true);
+                        }}>
                           <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
@@ -328,8 +254,23 @@ export default function MRBList() {
         </CardContent>
       </Card>
 
+      {selectedMRB && showDetailsDialog && (
+        <MRBDetailsDialog
+          open={showDetailsDialog}
+          onOpenChange={(open) => {
+            setShowDetailsDialog(open);
+            if (!open) setSelectedMRB(null);
+          }}
+          mrb={selectedMRB}
+          onSuccess={() => {
+            setShowDetailsDialog(false);
+            setSelectedMRB(null);
+          }}
+        />
+      )}
+
       <MRBDialog
-        open={showCreateDialog || !!selectedMRB}
+        open={showCreateDialog}
         onOpenChange={(open) => {
           setShowCreateDialog(open);
           if (!open) setSelectedMRB(null);

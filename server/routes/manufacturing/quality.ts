@@ -193,6 +193,97 @@ router.put('/mrb/:id', async (req, res) => {
   }
 });
 
+// Approve MRB Disposition
+router.post('/mrb/:id/disposition/approve', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
+    const { id } = req.params;
+    const { comment, approvedBy, approvedAt } = req.body;
+
+    // Query for MRB using id
+    const { resources: [mrb] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: id }],
+        partitionKey: 'default'
+      })
+      .fetchAll();
+
+    if (!mrb) {
+      return res.status(404).json({ message: 'MRB not found' });
+    }
+
+    // Update MRB with new approval
+    const approvalEntry = {
+      name: approvedBy,
+      role: "MRB Member",
+      date: approvedAt,
+      comment
+    };
+
+    if (!mrb.disposition.approvedBy) {
+      mrb.disposition.approvedBy = [];
+    }
+
+    mrb.disposition.approvedBy.push(approvalEntry);
+
+    // Update status if all required approvals are received
+    if (mrb.disposition.approvedBy.length >= 2) { // Requiring at least 2 approvals
+      mrb.status = 'approved';
+      mrb.disposition.approvalDate = new Date().toISOString();
+    }
+
+    // Add to history
+    if (!mrb.history) {
+      mrb.history = [];
+    }
+
+    mrb.history.push({
+      action: 'disposition_approval',
+      type: 'Disposition',
+      description: `Disposition approved by ${approvedBy}`,
+      user: approvedBy,
+      timestamp: approvedAt,
+      notes: comment
+    });
+
+    mrb.updatedAt = new Date().toISOString();
+
+    // Update the MRB document
+    const { resource: updatedMrb } = await container.items.upsert(mrb);
+
+    // If this was sourced from an NCR and is now fully approved, update the NCR
+    if (mrb.sourceType === 'NCR' && mrb.sourceId && mrb.status === 'approved') {
+      const { resources: [ncr] } = await container.items
+        .query({
+          query: "SELECT * FROM c WHERE c.id = @id",
+          parameters: [{ name: "@id", value: mrb.sourceId }],
+          partitionKey: 'default'
+        })
+        .fetchAll();
+
+      if (ncr) {
+        ncr.status = 'disposition_complete';
+        ncr.disposition = mrb.disposition.decision;
+        ncr.dispositionJustification = mrb.disposition.justification;
+        ncr.updatedAt = new Date().toISOString();
+        await container.items.upsert(ncr);
+      }
+    }
+
+    res.json(updatedMrb);
+  } catch (error) {
+    console.error('Error approving MRB disposition:', error);
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to approve disposition',
+      details: error instanceof Error ? error.stack : undefined
+    });
+  }
+});
+
 // Get all NCRs
 router.get('/ncrs', async (req, res) => {
   try {
