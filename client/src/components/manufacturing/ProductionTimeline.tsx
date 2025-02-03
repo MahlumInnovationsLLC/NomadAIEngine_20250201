@@ -36,6 +36,13 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
   if (!project) return null;
 
+  const isValidDate = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    return date instanceof Date && !isNaN(date.getTime());
+  };
+
+  // Only include events with valid dates
   const timelineEvents = [
     { date: project.fabricationStart, label: 'Fabrication Start', type: 'fab' },
     { date: project.assemblyStart, label: 'Assembly Start', type: 'assembly' },
@@ -43,26 +50,18 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     { date: project.ntcTesting, label: 'NTC Testing', type: 'ntc' },
     { date: project.qcStart, label: 'QC Start', type: 'qc' },
     { date: project.ship, label: 'Ship', type: 'ship' },
-  ].filter((event): event is { date: string; label: string; type: string } => 
-    typeof event.date === 'string' && event.date !== undefined
-  );
+  ].filter(event => isValidDate(event.date));
 
-  const calculateDaysBetween = (date1: string, date2: string) => {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
-    const diffTime = Math.abs(d2.getTime() - d1.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+  // If no valid events, don't render timeline
+  if (timelineEvents.length === 0) return null;
 
   const today = new Date();
-  const startDateTimeline = project.fabricationStart 
-    ? new Date(project.fabricationStart)
-    : project.assemblyStart 
-    ? new Date(project.assemblyStart)
+  const startDateTimeline = timelineEvents[0]?.date 
+    ? new Date(timelineEvents[0].date)
     : new Date();
 
-  const endDateTimeline = project.ship 
-    ? new Date(project.ship)
+  const endDateTimeline = timelineEvents[timelineEvents.length - 1]?.date
+    ? new Date(timelineEvents[timelineEvents.length - 1].date)
     : new Date(startDateTimeline.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   // Calculate milestone positions and detect overlaps
@@ -75,10 +74,17 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     const prevPosition = index > 0 ? ((new Date(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) / 
       (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100 : -20;
 
-    const needsOffset = position - prevPosition < 20; // If milestones are less than 20% apart
+    const needsOffset = position - prevPosition < 15; // If milestones are less than 15% apart
 
     return { ...event, position, needsOffset };
   });
+
+  const calculateDaysBetween = (date1: string, date2: string) => {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    const diffTime = Math.abs(d2.getTime() - d1.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
 
   return (
     <div className="mt-6">
@@ -129,9 +135,10 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                   {/* Connecting line for offset labels */}
                   {event.needsOffset && (
                     <div 
-                      className="w-px bg-gray-300 h-12"
+                      className="w-px bg-gray-300"
                       style={{
-                        transform: 'translateY(4px)'
+                        height: '1rem',
+                        transform: 'translateY(2px)'
                       }}
                     />
                   )}
@@ -140,7 +147,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                   <div 
                     className="absolute whitespace-nowrap"
                     style={{
-                      top: event.needsOffset ? '3rem' : '0.75rem',
+                      top: event.needsOffset ? '1.5rem' : '0.75rem',
                       transform: 'translateX(-50%)'
                     }}
                   >
@@ -156,10 +163,11 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                 {/* Days between milestones */}
                 {daysToNext && (
                   <div 
-                    className="absolute text-xs text-gray-500 -mt-6"
+                    className="absolute text-xs text-gray-500"
                     style={{
                       left: `${(event.position + nextPosition) / 2}%`,
-                      transform: 'translateX(-50%)'
+                      transform: 'translateX(-50%)',
+                      marginTop: '-1rem'
                     }}
                   >
                     {daysToNext} days
