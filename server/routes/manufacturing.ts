@@ -12,6 +12,39 @@ router.use('/quality', qualityRoutes);
 router.use('/projects', projectRoutes);
 router.use('/resources', resourceRoutes);
 
+// Reset project status to automatic
+router.post("/projects/:id/reset-status", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get the current project from database
+    const response = await fetch(`/api/manufacturing/projects/${id}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch project');
+    }
+    const project = await response.json();
+
+    // Update project to disable manual status
+    const updateResponse = await fetch(`/api/manufacturing/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        manualStatus: false
+      })
+    });
+
+    if (!updateResponse.ok) {
+      throw new Error('Failed to update project');
+    }
+
+    const updatedProject = await updateResponse.json();
+    res.json(updatedProject);
+  } catch (error) {
+    console.error("Failed to reset project status:", error);
+    res.status(500).json({ error: "Failed to reset project status" });
+  }
+});
+
 // Quality Inspection Routes
 router.post("/quality/inspections", async (req, res) => {
   try {
