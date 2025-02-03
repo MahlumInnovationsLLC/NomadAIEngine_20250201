@@ -56,6 +56,7 @@ const projectSchema = z.object({
   eeDesignProgress: z.number().min(0).max(100).optional(),
   itAssigned: z.string().optional(),
   itDesignProgress: z.number().min(0).max(100).optional(),
+  ntcAssigned: z.string().optional(),
   ntcDesignProgress: z.number().min(0).max(100).optional(),
   fabricationStart: z.string().optional(),
   assemblyStart: z.string().optional(),
@@ -424,6 +425,19 @@ export function ProjectCreateDialog() {
                           {...field}
                           onChange={e => field.onChange(parseFloat(e.target.value))}
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="ntcAssigned"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>NTC Assigned</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

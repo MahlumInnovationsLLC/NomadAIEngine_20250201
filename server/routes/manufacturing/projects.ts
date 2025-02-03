@@ -27,7 +27,7 @@ router.get("/", async (req, res) => {
   try {
     const projects = [];
     for await (const blob of containerClient.listBlobsFlat()) {
-      const blobClient = containerClient.getBlobClient(blob.name);
+      const blobClient = containerClient.getBlockBlobClient(blob.name);
       const downloadResponse = await blobClient.download();
       const projectData = await streamToString(downloadResponse.readableStreamBody);
       projects.push(JSON.parse(projectData));
@@ -42,7 +42,7 @@ router.get("/", async (req, res) => {
 // Get single project
 router.get("/:id", async (req, res) => {
   try {
-    const blobClient = containerClient.getBlobClient(`${req.params.id}.json`);
+    const blobClient = containerClient.getBlockBlobClient(`${req.params.id}.json`);
     const downloadResponse = await blobClient.download();
     const projectData = await streamToString(downloadResponse.readableStreamBody);
     res.json(JSON.parse(projectData));
@@ -71,10 +71,10 @@ router.post("/", async (req, res) => {
       updatedAt: now
     };
 
-    const blobClient = containerClient.getBlobClient(`${projectId}.json`);
-    const content = Buffer.from(JSON.stringify(project));
+    const blockBlobClient = containerClient.getBlockBlobClient(`${projectId}.json`);
+    const content = JSON.stringify(project);
 
-    await blobClient.upload(content, content.length, {
+    await blockBlobClient.upload(content, content.length, {
       blobHTTPHeaders: {
         blobContentType: "application/json"
       }
@@ -90,8 +90,8 @@ router.post("/", async (req, res) => {
 // Update project
 router.patch("/:id", async (req, res) => {
   try {
-    const blobClient = containerClient.getBlobClient(`${req.params.id}.json`);
-    const downloadResponse = await blobClient.download();
+    const blockBlobClient = containerClient.getBlockBlobClient(`${req.params.id}.json`);
+    const downloadResponse = await blockBlobClient.download();
     const existingData = JSON.parse(await streamToString(downloadResponse.readableStreamBody));
 
     const updatedProject = {
@@ -100,9 +100,9 @@ router.patch("/:id", async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    const content = Buffer.from(JSON.stringify(updatedProject));
+    const content = JSON.stringify(updatedProject);
 
-     await blobClient.upload(content, content.length, {
+    await blockBlobClient.upload(content, content.length, {
       blobHTTPHeaders: {
         blobContentType: "application/json"
       }
