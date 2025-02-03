@@ -138,12 +138,7 @@ function calculateProjectStatus(project: Project): ProjectStatus {
     return "IN FAB";
   }
 
-  // If we have future dates set but haven't reached them yet
-  if (dates.fabricationStart || dates.assemblyStart || dates.wrapGraphics ||
-      dates.ntcTesting || dates.qcStart || dates.ship) {
-    return "NOT STARTED";
-  }
-
+  // If no dates are set, default to NOT STARTED
   return "NOT STARTED";
 }
 
