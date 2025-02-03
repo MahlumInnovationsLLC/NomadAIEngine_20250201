@@ -3,7 +3,7 @@ import { CosmosClient } from "@azure/cosmos";
 import multer from 'multer';
 import { uploadNCRAttachment, uploadInspectionAttachment, deleteNCRAttachment, deleteInspectionAttachment } from '../../services/azure/ncr_attachment_service';
 import { db } from "@db";
-import { capas, capaActions } from "@db/schema";
+import { capas, capaActions, capaCategories } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 
 const router = Router();
@@ -416,11 +416,49 @@ router.put('/inspections/:id/update-ncrs', async (req, res) => {
   }
 });
 
+// Get all CAPA categories
+router.get('/capa-categories', async (req, res) => {
+  try {
+    const allCategories = await db.query.capaCategories.findMany({
+      orderBy: [desc(capaCategories.name)]
+    });
+
+    res.json(allCategories);
+  } catch (error) {
+    console.error('Error fetching CAPA categories:', error);
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to fetch CAPA categories'
+    });
+  }
+});
+
+// Create CAPA category
+router.post('/capa-categories', async (req, res) => {
+  try {
+    const newCategory = await db.insert(capaCategories).values({
+      name: req.body.name,
+      description: req.body.description,
+      severity: req.body.severity,
+      requiresApproval: req.body.requiresApproval ?? false,
+    }).returning();
+
+    res.status(201).json(newCategory[0]);
+  } catch (error) {
+    console.error('Error creating CAPA category:', error);
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to create CAPA category'
+    });
+  }
+});
+
 // Get all CAPAs
 router.get('/capas', async (req, res) => {
   try {
     const allCapas = await db.query.capas.findMany({
-      orderBy: [desc(capas.createdAt)]
+      orderBy: [desc(capas.createdAt)],
+      with: {
+        category: true,
+      },
     });
 
     res.json(allCapas);
