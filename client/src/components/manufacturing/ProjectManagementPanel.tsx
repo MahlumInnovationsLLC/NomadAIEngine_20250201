@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
+import { ProjectCreateDialog } from "./ProjectCreateDialog";
 
 interface Project {
   id: string;
@@ -99,10 +100,7 @@ export function ProjectManagementPanel() {
             Manage and track manufacturing projects
           </p>
         </div>
-        <Button>
-          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-          New Project
-        </Button>
+        <ProjectCreateDialog />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
