@@ -318,6 +318,14 @@ export interface ProjectCreationForm {
   totalBudgetedHours: number;
 }
 
+export type ProjectStatus = 
+  | "NOT STARTED"
+  | "IN FAB" 
+  | "IN ASSEMBLY"
+  | "IN WRAP"
+  | "IN NTC TESTING"
+  | "IN QC"
+  | "COMPLETED";
 
 export interface Project {
   id: string;
@@ -348,7 +356,8 @@ export interface Project {
   executiveReview?: string;
   ship?: string;
   delivery?: string;
-  status: 'not_started' | 'in_progress' | 'completed' | 'on_hold';
+  status: ProjectStatus;
+  manualStatus?: boolean;
   progress: number;
   tasks?: ProjectTask[];
 }

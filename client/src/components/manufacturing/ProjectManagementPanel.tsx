@@ -8,57 +8,67 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
+import { Project, ProjectStatus } from "@/types/manufacturing";
 
-interface Project {
-  id: string;
-  projectNumber: string;
-  name?: string;
-  location?: string;
-  team?: string;
-  contractDate?: string;
-  dpasRating?: string;
-  chassisEta?: string;
-  stretchShortenGears?: 'N/A' | 'Stretch' | 'Shorten' | 'Gears';
-  paymentMilestones?: string;
-  lltsOrdered?: string;
-  meAssigned?: string;
-  meCadProgress?: number;
-  eeAssigned?: string;
-  eeDesignProgress?: number;
-  itAssigned?: string;
-  itDesignProgress?: number;
-  ntcAssigned?: string;
-  ntcDesignProgress?: number;
-  fabricationStart?: string;
-  assemblyStart?: string;
-  wrapGraphics?: string;
-  ntcTesting?: string;
-  qcStart?: string;
-  qcDays?: string;
-  executiveReview?: string;
-  ship?: string;
-  delivery?: string;
-  status: 'not_started' | 'in_progress' | 'completed' | 'on_hold';
-  progress: number;
-  tasks?: ProjectTask[];
-}
+function calculateProjectStatus(project: Project): ProjectStatus {
+  const today = new Date();
+  const dates = {
+    fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
+    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
+    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
+    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
+    qcStart: project.qcStart ? new Date(project.qcStart) : null,
+    ship: project.ship ? new Date(project.ship) : null,
+  };
 
-interface ProjectTask {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  progress: number;
-  dependencies: string[];
-  assignee: string;
-  status: 'not_started' | 'in_progress' | 'completed';
-}
+  if (project.manualStatus) {
+    return project.status;
+  }
 
-function formatDate(dateString?: string) {
-  if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString();
+  if (dates.ship && today > dates.ship) {
+    return "COMPLETED";
+  }
+
+  if (dates.qcStart && today >= dates.qcStart) {
+    return "IN QC";
+  }
+
+  if (dates.ntcTesting && today >= dates.ntcTesting) {
+    return "IN NTC TESTING";
+  }
+
+  if (dates.wrapGraphics && today >= dates.wrapGraphics) {
+    return "IN WRAP";
+  }
+
+  if (dates.assemblyStart && today >= dates.assemblyStart) {
+    return "IN ASSEMBLY";
+  }
+
+  if (dates.fabricationStart && today >= dates.fabricationStart) {
+    return "IN FAB";
+  }
+
+  return "NOT STARTED";
 }
 
 export function ProjectManagementPanel() {
@@ -67,6 +77,8 @@ export function ProjectManagementPanel() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
   const [activeView, setActiveView] = useState<"list" | "map" | "table">("list");
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
@@ -92,30 +104,61 @@ export function ProjectManagementPanel() {
   }, [projects, selectedProject]);
 
   const updateProjectMutation = useMutation({
-    mutationFn: async (project: Project) => {
-      const response = await fetch(`/api/manufacturing/projects/${project.id}`, {
+    mutationFn: async (data: { id: string; status: ProjectStatus; manualStatus: boolean }) => {
+      const response = await fetch(`/api/manufacturing/projects/${data.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(project),
+        body: JSON.stringify(data)
       });
-      if (!response.ok) throw new Error('Failed to update project');
+      if (!response.ok) throw new Error('Failed to update project status');
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+    onSuccess: (updatedProject) => {
+      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+        if (!oldData) return [updatedProject];
+        return oldData.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p);
+      });
       toast({
         title: "Success",
-        description: "Project updated successfully",
+        description: "Project status updated successfully"
       });
+      setShowStatusDialog(false);
+      setPendingStatus(null);
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update project",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to update project status",
+        variant: "destructive"
       });
-    },
+    }
   });
+
+  const handleStatusChange = (status: ProjectStatus) => {
+    if (!selectedProject) return;
+
+    if (status === "COMPLETED" && (!selectedProject.ship || new Date() <= new Date(selectedProject.ship))) {
+      toast({
+        title: "Invalid Status",
+        description: "Project can only be marked as completed after the ship date",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setPendingStatus(status);
+    setShowStatusDialog(true);
+  };
+
+  const confirmStatusChange = () => {
+    if (!selectedProject || !pendingStatus) return;
+
+    updateProjectMutation.mutate({
+      id: selectedProject.id,
+      status: pendingStatus,
+      manualStatus: true
+    });
+  };
 
   const filteredProjects = projects.filter(project =>
     (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
@@ -131,13 +174,13 @@ export function ProjectManagementPanel() {
   }
 
   function getQCDaysColor(days: number) {
-      if (days <= 3) {
-          return "text-green-500";
-      } else if (days <= 7) {
-          return "text-yellow-500";
-      } else {
-          return "text-red-500";
-      }
+    if (days <= 3) {
+      return "text-green-500";
+    } else if (days <= 7) {
+      return "text-yellow-500";
+    } else {
+      return "text-red-500";
+    }
   }
 
 
@@ -200,7 +243,7 @@ export function ProjectManagementPanel() {
                             onClick={() => setSelectedProject(project)}
                           >
                             <FontAwesomeIcon
-                              icon={project.status === 'completed' ? 'check-circle' : 'circle-dot'}
+                              icon={project.status === 'COMPLETED' ? 'check-circle' : 'circle-dot'}
                               className="mr-2 h-4 w-4"
                             />
                             <div className="flex flex-col items-start">
@@ -230,9 +273,31 @@ export function ProjectManagementPanel() {
                               <FontAwesomeIcon icon="edit" className="mr-2" />
                               Edit
                             </Button>
-                            <Badge variant={selectedProject.status === 'completed' ? 'default' : 'secondary'}>
-                              {selectedProject.status.replace('_', ' ')}
-                            </Badge>
+                            
+                            <div className="flex gap-2">
+                              <Select
+                                value={selectedProject?.status}
+                                onValueChange={(value: ProjectStatus) => handleStatusChange(value)}
+                              >
+                                <SelectTrigger className="w-[180px]">
+                                  <SelectValue>
+                                    <Badge variant={selectedProject?.status === 'COMPLETED' ? 'default' : 'secondary'}>
+                                      {selectedProject?.status.replace('_', ' ')}
+                                    </Badge>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="NOT STARTED">NOT STARTED</SelectItem>
+                                  <SelectItem value="IN FAB">IN FAB</SelectItem>
+                                  <SelectItem value="IN ASSEMBLY">IN ASSEMBLY</SelectItem>
+                                  <SelectItem value="IN WRAP">IN WRAP</SelectItem>
+                                  <SelectItem value="IN NTC TESTING">IN NTC TESTING</SelectItem>
+                                  <SelectItem value="IN QC">IN QC</SelectItem>
+                                  <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
                           </div>
                         </div>
                       ) : (
@@ -426,6 +491,29 @@ export function ProjectManagementPanel() {
           <ResourceManagementPanel />
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Manually changing the status will prevent automatic updates based on dates.
+              Are you sure you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowStatusDialog(false);
+              setPendingStatus(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmStatusChange}>
+              Confirm Change
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {selectedProject && showEditDialog && (
         <ProjectCreateDialog
