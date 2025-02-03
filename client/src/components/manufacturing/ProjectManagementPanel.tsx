@@ -117,7 +117,7 @@ function calculateProjectStatus(project: Project): ProjectStatus {
     return "COMPLETED";
   }
 
-  // Find the current status based on where today falls between milestone dates
+  // Check current status based on date ranges
   if (dates.qcStart && today >= dates.qcStart) {
     return "IN QC";
   }
@@ -138,7 +138,7 @@ function calculateProjectStatus(project: Project): ProjectStatus {
     return "IN FAB";
   }
 
-  // If no dates are set, default to NOT STARTED
+  // Default to NOT STARTED
   return "NOT STARTED";
 }
 
@@ -396,7 +396,7 @@ export function ProjectManagementPanel() {
                               >
                                 <SelectTrigger className="w-[200px]">
                                   <SelectValue>
-                                    <div className={`px-3 py-1 rounded-full text-white font-semibold text-lg ${getStatusColor(selectedProject?.status || "NOT STARTED")}`}>
+                                    <div className={`px-3 py-1 rounded-full text-white font-semibold text-lg ${getStatusColor(selectedProject?.status)}`}>
                                       {selectedProject?.status}
                                     </div>
                                   </SelectValue>
