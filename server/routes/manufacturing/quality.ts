@@ -281,6 +281,24 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
     if (dispositionObj.approvedBy.length >= 2) {
       ncr.status = 'disposition_complete';
       dispositionObj.approvalDate = new Date().toISOString();
+
+      // Also update the corresponding MRB record if it exists
+      const mrbId = `mrb-${ncrId}`;
+      const { resources: [mrbRecord] } = await container.items
+        .query({
+          query: "SELECT * FROM c WHERE c.type = 'mrb' AND c.sourceId = @sourceId",
+          parameters: [{ name: "@sourceId", value: ncrId }],
+          partitionKey: 'default'
+        })
+        .fetchAll();
+
+      if (mrbRecord) {
+        mrbRecord.status = 'disposition_complete';
+        mrbRecord.disposition = dispositionObj;
+        mrbRecord.updatedAt = new Date().toISOString();
+        await container.items.upsert(mrbRecord);
+        console.log('Successfully updated MRB record status');
+      }
     }
 
     ncr.updatedAt = new Date().toISOString();
