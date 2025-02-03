@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Gantt } from "@dhtmlx/trial-gantt-react";
-import "@dhtmlx/gantt/codebase/dhtmlxgantt.css";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 interface Project {
   id: string;
@@ -35,12 +35,7 @@ export function ProjectManagementPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [ganttConfig, setGanttConfig] = useState({
-    data: { tasks: [], links: [] },
-    scales: [
-      { unit: "day", step: 1, format: "%d %M" }
-    ]
-  });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -50,7 +45,7 @@ export function ProjectManagementPanel() {
         throw new Error('Failed to fetch projects');
       }
       return response.json();
-    },
+    }
   });
 
   const updateProjectMutation = useMutation({
@@ -79,60 +74,10 @@ export function ProjectManagementPanel() {
     },
   });
 
-  useEffect(() => {
-    if (selectedProject) {
-      const ganttTasks = selectedProject.tasks.map(task => ({
-        id: task.id,
-        text: task.name,
-        start_date: new Date(task.startDate),
-        end_date: new Date(task.endDate),
-        progress: task.progress / 100,
-        assignee: task.assignee,
-        status: task.status,
-      }));
-
-      const ganttLinks = selectedProject.tasks
-        .filter(task => task.dependencies?.length > 0)
-        .flatMap(task => 
-          task.dependencies.map(depId => ({
-            id: `${depId}-${task.id}`,
-            source: depId,
-            target: task.id,
-            type: "0"
-          }))
-        );
-
-      setGanttConfig({
-        ...ganttConfig,
-        data: { tasks: ganttTasks, links: ganttLinks }
-      });
-    }
-  }, [selectedProject]);
-
-  const handleGanttTaskUpdate = async (taskId: string, updates: any) => {
-    if (!selectedProject) return;
-
-    const updatedTasks = selectedProject.tasks.map(task =>
-      task.id === taskId
-        ? {
-            ...task,
-            startDate: updates.start_date.toISOString(),
-            endDate: updates.end_date.toISOString(),
-            progress: Math.round(updates.progress * 100),
-          }
-        : task
-    );
-
-    const updatedProject = {
-      ...selectedProject,
-      tasks: updatedTasks,
-      progress: Math.round(
-        updatedTasks.reduce((acc, task) => acc + task.progress, 0) / updatedTasks.length
-      )
-    };
-
-    updateProjectMutation.mutate(updatedProject);
-  };
+  const filteredProjects = projects.filter(project =>
+    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    project.projectNumber.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (isLoading) {
     return (
@@ -171,9 +116,11 @@ export function ProjectManagementPanel() {
               <Input
                 placeholder="Search projects..."
                 className="mb-4"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
               <div className="space-y-2">
-                {projects.map((project) => (
+                {filteredProjects.map((project) => (
                   <Button
                     key={project.id}
                     variant={selectedProject?.id === project.id ? "default" : "ghost"}
@@ -184,7 +131,12 @@ export function ProjectManagementPanel() {
                       icon={project.status === 'completed' ? 'check-circle' : 'circle-dot'} 
                       className="mr-2 h-4 w-4"
                     />
-                    {project.name}
+                    <div className="flex flex-col items-start">
+                      <span>{project.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {project.projectNumber}
+                      </span>
+                    </div>
                   </Button>
                 ))}
               </div>
@@ -192,11 +144,20 @@ export function ProjectManagementPanel() {
           </CardContent>
         </Card>
 
-        {/* Project Details and Gantt Chart */}
+        {/* Project Details */}
         <Card className="col-span-9">
           <CardHeader>
             <CardTitle>
-              {selectedProject ? selectedProject.name : "Select a Project"}
+              {selectedProject ? (
+                <div className="flex justify-between items-center">
+                  <span>{selectedProject.name}</span>
+                  <Badge variant={selectedProject.status === 'completed' ? 'default' : 'secondary'}>
+                    {selectedProject.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+              ) : (
+                "Select a Project"
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -216,21 +177,45 @@ export function ProjectManagementPanel() {
                     <p>{new Date(selectedProject.endDate).toLocaleDateString()}</p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Status</label>
-                    <p className="capitalize">{selectedProject.status.replace('_', ' ')}</p>
+                    <label className="text-sm font-medium">Progress</label>
+                    <div className="flex items-center gap-2">
+                      <Progress value={selectedProject.progress} className="w-full" />
+                      <span className="text-sm">{selectedProject.progress}%</span>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Project Timeline</h3>
-                  <div className="h-[400px] border rounded-lg">
-                    <Gantt
-                      tasks={ganttConfig.data.tasks}
-                      links={ganttConfig.data.links}
-                      scales={ganttConfig.scales}
-                      onTaskUpdated={(id, task) => handleGanttTaskUpdate(id, task)}
-                      className="h-full w-full"
-                    />
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">Tasks</h3>
+                    <Button size="sm" variant="outline">
+                      <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                      Add Task
+                    </Button>
+                  </div>
+
+                  <div className="divide-y">
+                    {selectedProject.tasks.map((task) => (
+                      <div key={task.id} className="py-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="font-medium">{task.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(task.startDate).toLocaleDateString()} - {new Date(task.endDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-sm text-muted-foreground">
+                              {task.assignee}
+                            </div>
+                            <Progress value={task.progress} className="w-24" />
+                            <Badge variant="outline">
+                              {task.status.replace('_', ' ')}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
