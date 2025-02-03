@@ -23,82 +23,99 @@ import type { MRB } from "@/types/manufacturing/mrb";
 import { MRBDialog } from "./dialogs/MRBDialog";
 
 const fetchMRBItems = async (): Promise<MRB[]> => {
-  // Fetch existing MRBs and NCRs
-  const [mrbResponse, ncrResponse] = await Promise.all([
-    fetch('/api/manufacturing/quality/mrb'),
-    fetch('/api/manufacturing/quality/ncr'),
-  ]);
+  console.log('Starting fetchMRBItems...');
 
-  if (!mrbResponse.ok || !ncrResponse.ok) {
-    throw new Error('Failed to fetch MRB items');
+  try {
+    // Fetch existing MRBs and NCRs
+    const [mrbResponse, ncrResponse] = await Promise.all([
+      fetch('/api/manufacturing/quality/mrb'),
+      fetch('/api/manufacturing/quality/ncrs'), // Fixed endpoint to match server route
+    ]);
+
+    if (!mrbResponse.ok) {
+      console.error('Failed to fetch MRBs:', await mrbResponse.text());
+      throw new Error('Failed to fetch MRB items');
+    }
+
+    if (!ncrResponse.ok) {
+      console.error('Failed to fetch NCRs:', await ncrResponse.text());
+      throw new Error('Failed to fetch NCR items');
+    }
+
+    const [mrbs, ncrs] = await Promise.all([
+      mrbResponse.json(),
+      ncrResponse.json(),
+    ]);
+
+    console.log('Raw NCRs response:', ncrs);
+
+    // Convert NCRs with pending_disposition status to MRB format
+    const ncrMrbs = ncrs
+      .filter(ncr => {
+        const status = String(ncr.status || '').toLowerCase().trim();
+        console.log(`NCR ${ncr.number || 'unknown'} status: "${status}"`);
+        const isPendingDisposition = status === 'pending_disposition';
+        console.log(`Is pending disposition? ${isPendingDisposition}`);
+        return isPendingDisposition;
+      })
+      .map(ncr => {
+        console.log('Converting NCR to MRB:', ncr);
+        const mrbItem: MRB = {
+          id: `ncr-${ncr.id}`,
+          number: `MRB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
+          title: `NCR: ${ncr.title || 'Untitled'}`,
+          description: ncr.description || '',
+          type: ncr.type || "material",
+          severity: ncr.severity || "minor",
+          status: "pending_disposition", // Match NCR status exactly
+          partNumber: ncr.partNumber || "N/A",
+          lotNumber: ncr.lotNumber,
+          quantity: ncr.quantityAffected || 0,
+          unit: ncr.unit || "pcs",
+          location: ncr.area || "N/A",
+          sourceType: "NCR",
+          sourceId: ncr.id,
+          ncrNumber: ncr.number,
+          nonconformance: {
+            description: ncr.description || '',
+            detectedBy: ncr.reportedBy || '',
+            detectedDate: ncr.createdAt || new Date().toISOString(),
+            defectType: ncr.type || "unknown",
+            rootCause: ncr.rootCause,
+          },
+          disposition: {
+            decision: "use_as_is",
+            justification: "",
+            approvedBy: [],
+          },
+          costImpact: {
+            materialCost: 0,
+            laborCost: 0,
+            reworkCost: 0,
+            totalCost: 0,
+            currency: "USD"
+          },
+          attachments: ncr.attachments || [],
+          history: [],
+          createdBy: ncr.reportedBy || '',
+          createdAt: ncr.createdAt || new Date().toISOString(),
+          updatedAt: ncr.updatedAt || new Date().toISOString(),
+        };
+        console.log('Created MRB item:', mrbItem);
+        return mrbItem;
+      });
+
+    console.log('Converted NCR MRBs:', ncrMrbs);
+    console.log('Original MRBs:', mrbs);
+
+    // Combine MRBs and converted NCRs
+    const allItems = [...mrbs, ...ncrMrbs];
+    console.log('All MRB items:', allItems);
+    return allItems;
+  } catch (error) {
+    console.error('Error in fetchMRBItems:', error);
+    throw error;
   }
-
-  const [mrbs, ncrs] = await Promise.all([
-    mrbResponse.json(),
-    ncrResponse.json(),
-  ]);
-
-  console.log('Fetched NCRs:', ncrs);
-
-  // Convert NCRs with pending_disposition status to MRB format
-  const ncrMrbs = ncrs
-    .filter(ncr => {
-      const status = (ncr.status || '').toLowerCase();
-      console.log(`NCR ${ncr.number} status: ${status}`);
-      return status === 'pending_disposition';
-    })
-    .map(ncr => {
-      console.log(`Converting NCR to MRB:`, ncr);
-      const mrbItem: MRB = {
-        id: `ncr-${ncr.id}`,
-        number: ncr.number,
-        title: `NCR: ${ncr.title}`,
-        description: ncr.description,
-        type: ncr.type || "material",
-        severity: ncr.severity || "minor",
-        status: "pending_disposition",
-        partNumber: ncr.partNumber || "N/A",
-        lotNumber: ncr.lotNumber,
-        quantity: ncr.quantityAffected || 0,
-        unit: ncr.unit || "pcs",
-        location: ncr.area || "N/A",
-        sourceType: "NCR",
-        sourceId: ncr.id,
-        ncrNumber: ncr.number,
-        costImpact: {
-          materialCost: 0,
-          laborCost: 0,
-          reworkCost: 0,
-          totalCost: 0,
-          currency: "USD"
-        },
-        nonconformance: {
-          description: ncr.description,
-          detectedBy: ncr.reportedBy,
-          detectedDate: ncr.createdAt,
-          defectType: ncr.type || "unknown",
-          rootCause: ncr.rootCause,
-        },
-        disposition: {
-          decision: "use_as_is",
-          justification: "",
-          approvedBy: [],
-        },
-        createdBy: ncr.reportedBy,
-        createdAt: ncr.createdAt,
-        updatedAt: ncr.updatedAt,
-        attachments: ncr.attachments || [],
-        history: [],
-      };
-      console.log('Created MRB item from NCR:', mrbItem);
-      return mrbItem;
-    });
-
-  console.log('Converted NCR MRBs:', ncrMrbs);
-  console.log('Original MRBs:', mrbs);
-
-  // Combine MRBs and converted NCRs
-  return [...mrbs, ...ncrMrbs];
 };
 
 export default function MRBList() {
@@ -107,15 +124,17 @@ export default function MRBList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedMRB, setSelectedMRB] = useState<MRB | null>(null);
 
-  const { data: mrbItems = [], isLoading } = useQuery<MRB[]>({
+  const { data: mrbItems = [], isLoading, error } = useQuery<MRB[]>({
     queryKey: ['/api/manufacturing/quality/mrb'],
     queryFn: fetchMRBItems,
+    staleTime: 5000,
+    retry: 2,
   });
 
   const updateSourceItemDisposition = async (mrb: MRB) => {
     if (!mrb.sourceType || !mrb.sourceId) return;
 
-    const endpoint = `/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}/${mrb.sourceId}`;
+    const endpoint = `/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}s/${mrb.sourceId}`; // Fixed endpoint to match server route
     console.log('Updating source item:', endpoint, mrb);
 
     const response = await fetch(endpoint, {
@@ -136,7 +155,7 @@ export default function MRBList() {
     // Invalidate both MRB and source type queries to refresh the data
     queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
     queryClient.invalidateQueries({ 
-      queryKey: [`/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}`] 
+      queryKey: [`/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}s`] 
     });
   };
 
@@ -196,6 +215,19 @@ export default function MRBList() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <div className="rounded-lg border border-destructive/50 p-4 max-w-lg mx-auto">
+          <h3 className="font-semibold text-destructive mb-2">Error Loading MRBs</h3>
+          <p className="text-muted-foreground">
+            {error instanceof Error ? error.message : 'An unknown error occurred'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   console.log('Rendering MRB items:', mrbItems);
 
   return (
@@ -233,59 +265,56 @@ export default function MRBList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mrbItems.map((mrb) => {
-                console.log('Rendering MRB row:', mrb);
-                return (
-                  <TableRow key={mrb.id}>
-                    <TableCell>
-                      <Badge variant={getSourceBadgeVariant(mrb.sourceType)}>
-                        {mrb.sourceType || 'MRB'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{mrb.number}</TableCell>
-                    <TableCell>{mrb.partNumber}</TableCell>
-                    <TableCell className="capitalize">{mrb.type.replace('_', ' ')}</TableCell>
-                    <TableCell>
-                      <Badge variant={getSeverityBadgeVariant(mrb.severity)}>
-                        {mrb.severity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(mrb.status)}>
-                        {mrb.status.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {mrb.costImpact ? new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency: mrb.costImpact.currency,
-                      }).format(mrb.costImpact.totalCost) : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(mrb.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setSelectedMRB(mrb)}>
-                            <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSelectedMRB(mrb)}>
-                            <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {mrbItems.map((mrb) => (
+                <TableRow key={mrb.id}>
+                  <TableCell>
+                    <Badge variant={getSourceBadgeVariant(mrb.sourceType)}>
+                      {mrb.sourceType || 'MRB'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-medium">{mrb.number}</TableCell>
+                  <TableCell>{mrb.partNumber}</TableCell>
+                  <TableCell className="capitalize">{mrb.type.replace('_', ' ')}</TableCell>
+                  <TableCell>
+                    <Badge variant={getSeverityBadgeVariant(mrb.severity)}>
+                      {mrb.severity}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusBadgeVariant(mrb.status)}>
+                      {mrb.status.replace('_', ' ')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {mrb.costImpact ? new Intl.NumberFormat('en-US', {
+                      style: 'currency',
+                      currency: mrb.costImpact.currency,
+                    }).format(mrb.costImpact.totalCost) : 'N/A'}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(mrb.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSelectedMRB(mrb)}>
+                          <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSelectedMRB(mrb)}>
+                          <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
@@ -316,7 +345,7 @@ export default function MRBList() {
             }
           } else {
             toast({
-              title: "Success", 
+              title: "Success",
               description: selectedMRB
                 ? "MRB updated successfully"
                 : "MRB created successfully",

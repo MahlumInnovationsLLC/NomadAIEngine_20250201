@@ -20,7 +20,7 @@ export const NCRSchema = z.object({
   description: z.string(),
   type: z.enum(["product", "process", "material", "documentation"]),
   severity: z.enum(["minor", "major", "critical"]),
-  status: z.enum(["open", "under_review", "pending_disposition", "closed"]),
+  status: z.enum(["open", "under_review", "pending_disposition", "disposition_complete", "closed"]),
   disposition: z.enum(["use_as_is", "rework", "repair", "scrap", "return_to_supplier", "pending"]),
   area: z.string(),
   productLine: z.string(),
