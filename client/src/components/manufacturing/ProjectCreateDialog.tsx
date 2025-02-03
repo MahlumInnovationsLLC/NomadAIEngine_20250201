@@ -181,8 +181,18 @@ export function ProjectCreateDialog({ project, onClose }: ProjectCreateDialogPro
       if (!response.ok) throw new Error(`Failed to ${project ? 'update' : 'create'} project`);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (newProject) => {
+      // Invalidate and refetch projects query
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+
+      // Optimistically update the cache
+      if (project) {
+        queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+          if (!oldData) return [newProject];
+          return oldData.map(p => p.id === project.id ? { ...p, ...newProject } : p);
+        });
+      }
+
       toast({
         title: "Success",
         description: `Project ${project ? 'updated' : 'created'} successfully`

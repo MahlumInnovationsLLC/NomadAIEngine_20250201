@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
@@ -77,8 +77,19 @@ export function ProjectManagementPanel() {
         throw new Error('Failed to fetch projects');
       }
       return response.json();
-    }
+    },
+    staleTime: 0,
+    refetchInterval: 1000,
   });
+
+  useEffect(() => {
+    if (selectedProject) {
+      const updatedProject = projects.find(p => p.id === selectedProject.id);
+      if (updatedProject && JSON.stringify(updatedProject) !== JSON.stringify(selectedProject)) {
+        setSelectedProject(updatedProject);
+      }
+    }
+  }, [projects, selectedProject]);
 
   const updateProjectMutation = useMutation({
     mutationFn: async (project: Project) => {
