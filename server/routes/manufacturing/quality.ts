@@ -237,49 +237,55 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
       return res.status(404).json({ message: 'NCR not found' });
     }
 
-    // Update NCR with new approval
-    const approvalEntry = {
-      name: approvedBy,
-      role: "MRB Member",
-      date: approvedAt,
-      comment
+    console.log('Found NCR:', ncr);
+    console.log('Current NCR disposition:', ncr.disposition);
+
+    // Create a new disposition object
+    const dispositionObj = {
+      decision: typeof ncr.disposition === 'string' ? 'use_as_is' : (ncr.disposition?.decision || 'use_as_is'),
+      justification: typeof ncr.disposition === 'object' ? ncr.disposition?.justification || '' : '',
+      conditions: typeof ncr.disposition === 'object' ? ncr.disposition?.conditions || '' : '',
+      approvedBy: Array.isArray(ncr.disposition?.approvedBy) ? [...ncr.disposition.approvedBy] : []
     };
 
-    // Initialize arrays if they don't exist
-    if (!ncr.disposition) {
-      ncr.disposition = {
-        decision: "use_as_is",
-        justification: "",
-        conditions: "",
-        approvedBy: []
-      };
-    }
-    if (!ncr.disposition.approvedBy) {
-      ncr.disposition.approvedBy = [];
-    }
-    if (!ncr.history) {
+    // Create approval entry
+    const approvalEntry = {
+      name: approvedBy || "Current User",
+      role: "MRB Member",
+      date: approvedAt || new Date().toISOString(),
+      comment: comment || ""
+    };
+
+    // Add new approval
+    dispositionObj.approvedBy.push(approvalEntry);
+
+    // Update the NCR with the new disposition
+    ncr.disposition = dispositionObj;
+
+    // Initialize history array if it doesn't exist
+    if (!Array.isArray(ncr.history)) {
       ncr.history = [];
     }
 
-    ncr.disposition.approvedBy.push(approvalEntry);
-
-    // Update status if all required approvals are received
-    if (ncr.disposition.approvedBy.length >= 2) { // Requiring at least 2 approvals
-      ncr.status = 'disposition_complete';
-      ncr.disposition.approvalDate = new Date().toISOString();
-    }
-
-    // Add to history
+    // Add history entry
     ncr.history.push({
-      action: 'disposition_approval',
       type: 'Disposition',
-      description: `Disposition approved by ${approvedBy}`,
-      user: approvedBy,
-      timestamp: approvedAt,
-      notes: comment
+      action: 'disposition_approval',
+      description: `Disposition approved by ${approvalEntry.name}`,
+      user: approvalEntry.name,
+      timestamp: approvalEntry.date,
+      notes: approvalEntry.comment
     });
 
+    // Update status if all required approvals are received
+    if (dispositionObj.approvedBy.length >= 2) {
+      ncr.status = 'disposition_complete';
+      dispositionObj.approvalDate = new Date().toISOString();
+    }
+
     ncr.updatedAt = new Date().toISOString();
+
+    console.log('Updating NCR with new disposition data:', dispositionObj);
 
     // Update the NCR document
     const { resource: updatedNcr } = await container.items.upsert(ncr);
@@ -380,6 +386,12 @@ router.post('/ncrs', async (req, res) => {
       id: `NCR-${Date.now()}`,
       userKey: 'default',
       attachments: [],
+      disposition: {
+        decision: "use_as_is",
+        justification: "",
+        conditions: "",
+        approvedBy: []
+      },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -820,6 +832,12 @@ router.post('/ncrs', async (req, res) => {
       id: `NCR-${Date.now()}`,
       userKey: 'default',
       attachments: [],
+      disposition: {
+        decision: "use_as_is",
+        justification: "",
+        conditions: "",
+        approvedBy: []
+      },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
