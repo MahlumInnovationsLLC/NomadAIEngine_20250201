@@ -220,20 +220,24 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
     const { id } = req.params;
     const { comment, approvedBy, approvedAt } = req.body;
 
-    // Query for MRB using id
-    const { resources: [mrb] } = await container.items
+    // Extract the NCR ID if this is an MRB created from an NCR
+    const ncrId = id.startsWith('mrb-') ? id.substring(4) : id;
+    console.log(`Looking for NCR with ID: ${ncrId}`);
+
+    // Query for NCR using the extracted ID
+    const { resources: [ncr] } = await container.items
       .query({
         query: "SELECT * FROM c WHERE c.id = @id",
-        parameters: [{ name: "@id", value: id }],
+        parameters: [{ name: "@id", value: ncrId }],
         partitionKey: 'default'
       })
       .fetchAll();
 
-    if (!mrb) {
-      return res.status(404).json({ message: 'MRB not found' });
+    if (!ncr) {
+      return res.status(404).json({ message: 'NCR not found' });
     }
 
-    // Update MRB with new approval
+    // Update NCR with new approval
     const approvalEntry = {
       name: approvedBy,
       role: "MRB Member",
@@ -241,24 +245,32 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
       comment
     };
 
-    if (!mrb.disposition.approvedBy) {
-      mrb.disposition.approvedBy = [];
+    // Initialize arrays if they don't exist
+    if (!ncr.disposition) {
+      ncr.disposition = {
+        decision: "use_as_is",
+        justification: "",
+        conditions: "",
+        approvedBy: []
+      };
+    }
+    if (!ncr.disposition.approvedBy) {
+      ncr.disposition.approvedBy = [];
+    }
+    if (!ncr.history) {
+      ncr.history = [];
     }
 
-    mrb.disposition.approvedBy.push(approvalEntry);
+    ncr.disposition.approvedBy.push(approvalEntry);
 
     // Update status if all required approvals are received
-    if (mrb.disposition.approvedBy.length >= 2) { // Requiring at least 2 approvals
-      mrb.status = 'approved';
-      mrb.disposition.approvalDate = new Date().toISOString();
+    if (ncr.disposition.approvedBy.length >= 2) { // Requiring at least 2 approvals
+      ncr.status = 'disposition_complete';
+      ncr.disposition.approvalDate = new Date().toISOString();
     }
 
     // Add to history
-    if (!mrb.history) {
-      mrb.history = [];
-    }
-
-    mrb.history.push({
+    ncr.history.push({
       action: 'disposition_approval',
       type: 'Disposition',
       description: `Disposition approved by ${approvedBy}`,
@@ -267,33 +279,15 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
       notes: comment
     });
 
-    mrb.updatedAt = new Date().toISOString();
+    ncr.updatedAt = new Date().toISOString();
 
-    // Update the MRB document
-    const { resource: updatedMrb } = await container.items.upsert(mrb);
+    // Update the NCR document
+    const { resource: updatedNcr } = await container.items.upsert(ncr);
+    console.log('Successfully updated NCR with disposition approval');
 
-    // If this was sourced from an NCR and is now fully approved, update the NCR
-    if (mrb.sourceType === 'NCR' && mrb.sourceId && mrb.status === 'approved') {
-      const { resources: [ncr] } = await container.items
-        .query({
-          query: "SELECT * FROM c WHERE c.id = @id",
-          parameters: [{ name: "@id", value: mrb.sourceId }],
-          partitionKey: 'default'
-        })
-        .fetchAll();
-
-      if (ncr) {
-        ncr.status = 'disposition_complete';
-        ncr.disposition = mrb.disposition.decision;
-        ncr.dispositionJustification = mrb.disposition.justification;
-        ncr.updatedAt = new Date().toISOString();
-        await container.items.upsert(ncr);
-      }
-    }
-
-    res.json(updatedMrb);
+    res.json(updatedNcr);
   } catch (error) {
-    console.error('Error approving MRB disposition:', error);
+    console.error('Error approving disposition:', error);
     res.status(500).json({
       message: error instanceof Error ? error.message : 'Failed to approve disposition',
       details: error instanceof Error ? error.stack : undefined
