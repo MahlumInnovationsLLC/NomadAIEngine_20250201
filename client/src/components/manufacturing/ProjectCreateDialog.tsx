@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -37,7 +37,7 @@ const projectSchema = z.object({
   contractDate: z.string().min(1, "Contract date is required"),
   dpasRating: z.string(),
   chassisEta: z.string(),
-  stretchShortenGears: z.enum(["Stretch", "Shorten", "Gears"]),
+  stretchShortenGears: z.enum(["N/A", "Stretch", "Shorten", "Gears"]),
   paymentMilestones: z.string(),
   lltsOrdered: z.string(),
   meAssigned: z.string(),
@@ -59,6 +59,34 @@ const projectSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
+function getBusinessDays(startDate: Date, endDate: Date): number {
+  const holidays = [
+    '2025-01-01',
+    '2025-01-20',
+    '2025-02-17',
+    '2025-05-26',
+    '2025-07-04',
+    '2025-09-01',
+    '2025-11-27',
+    '2025-11-28',
+    '2025-12-25',
+  ];
+
+  let count = 0;
+  const curDate = new Date(startDate.getTime());
+  while (curDate <= endDate) {
+    const dayOfWeek = curDate.getDay();
+    const dateString = curDate.toISOString().split('T')[0];
+
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.includes(dateString)) {
+      count++;
+    }
+    curDate.setDate(curDate.getDate() + 1);
+  }
+  return count;
+}
+
+
 export function ProjectCreateDialog() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -71,9 +99,22 @@ export function ProjectCreateDialog() {
       eeDesignProgress: 0,
       itDesignProgress: 0,
       ntcDesignProgress: 0,
-      stretchShortenGears: "Gears"
+      stretchShortenGears: "N/A"
     }
   });
+
+
+  const qcStart = form.watch("qcStart");
+  const executiveReview = form.watch("executiveReview");
+
+  useEffect(() => {
+    if (qcStart && executiveReview) {
+      const startDate = new Date(qcStart);
+      const endDate = new Date(executiveReview.split('T')[0]);
+      const days = getBusinessDays(startDate, endDate);
+      form.setValue("qcDays", days.toString());
+    }
+  }, [qcStart, executiveReview, form]);
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: ProjectFormValues) => {
@@ -120,7 +161,7 @@ export function ProjectCreateDialog() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-3 gap-4">
               {/* Basic Info */}
-              <FormField
+               <FormField
                 control={form.control}
                 name="projectNumber"
                 render={({ field }) => (
@@ -146,6 +187,7 @@ export function ProjectCreateDialog() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="N/A">N/A</SelectItem>
                         <SelectItem value="Libby">Libby</SelectItem>
                         <SelectItem value="CFalls">CFalls</SelectItem>
                         <SelectItem value="FSW">FSW</SelectItem>
@@ -222,6 +264,7 @@ export function ProjectCreateDialog() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                      <SelectItem value="N/A">N/A</SelectItem>
                         <SelectItem value="Stretch">Stretch</SelectItem>
                         <SelectItem value="Shorten">Shorten</SelectItem>
                         <SelectItem value="Gears">Gears</SelectItem>
@@ -419,7 +462,7 @@ export function ProjectCreateDialog() {
                   </FormItem>
                 )}
               />
-              <FormField
+             <FormField
                 control={form.control}
                 name="qcStart"
                 render={({ field }) => (
@@ -435,11 +478,11 @@ export function ProjectCreateDialog() {
               <FormField
                 control={form.control}
                 name="qcDays"
-                render={({ field }) => (
+                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>QC Days</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} disabled />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -453,8 +496,8 @@ export function ProjectCreateDialog() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Executive Review</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
+                     <FormControl>
+                      <Input type="datetime-local" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

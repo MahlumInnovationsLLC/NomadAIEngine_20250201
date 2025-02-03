@@ -46,7 +46,7 @@ router.get("/:id", async (req, res) => {
     const downloadResponse = await blobClient.download();
     const projectData = await streamToString(downloadResponse.readableStreamBody);
     res.json(JSON.parse(projectData));
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404) {
       res.status(404).json({ error: "Project not found" });
     } else {
@@ -62,47 +62,47 @@ router.post("/", async (req, res) => {
     const projectId = uuidv4();
     const now = new Date().toISOString();
 
-    // Create a new project with necessary fields for Gantt chart
+    // Create a new project with necessary fields
     const project = {
       id: projectId,
-      projectNumber: `PRJ-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-      name: req.body.name,
-      description: req.body.description,
-      startDate: req.body.startDate || now,
-      endDate: req.body.endDate,
-      status: req.body.status || 'not_started',
+      projectNumber: req.body.projectNumber,
+      location: req.body.location,
+      team: req.body.team,
+      contractDate: req.body.contractDate,
+      dpasRating: req.body.dpasRating,
+      chassisEta: req.body.chassisEta,
+      stretchShortenGears: req.body.stretchShortenGears,
+      paymentMilestones: req.body.paymentMilestones,
+      lltsOrdered: req.body.lltsOrdered,
+      meAssigned: req.body.meAssigned,
+      meCadProgress: req.body.meCadProgress || 0,
+      eeAssigned: req.body.eeAssigned,
+      eeDesignProgress: req.body.eeDesignProgress || 0,
+      itDesignProgress: req.body.itDesignProgress || 0,
+      ntcDesignProgress: req.body.ntcDesignProgress || 0,
+      fabricationStart: req.body.fabricationStart,
+      assemblyStart: req.body.assemblyStart,
+      wrapGraphics: req.body.wrapGraphics,
+      ntcTesting: req.body.ntcTesting,
+      qcStart: req.body.qcStart,
+      qcDays: req.body.qcDays,
+      executiveReview: req.body.executiveReview,
+      ship: req.body.ship,
+      delivery: req.body.delivery,
+      status: 'not_started',
       progress: 0,
-      tasks: (req.body.tasks || []).map(task => ({
-        id: uuidv4(),
-        name: task.name,
-        description: task.description || '',
-        startDate: task.startDate,
-        endDate: task.endDate,
-        progress: task.progress || 0,
-        dependencies: task.dependencies || [],
-        assignee: task.assignee || '',
-        status: task.status || 'not_started'
-      })),
-      team: req.body.team || [],
-      milestones: req.body.milestones || [],
-      risks: req.body.risks || [],
-      budget: {
-        planned: req.body.budget?.planned || 0,
-        actual: 0,
-        currency: req.body.budget?.currency || 'USD'
-      },
-      metadata: {
-        department: req.body.metadata?.department,
-        priority: req.body.metadata?.priority || 'medium',
-        tags: req.body.metadata?.tags || []
-      },
       createdAt: now,
-      updatedAt: now,
-      createdBy: req.body.createdBy || 'system'
+      updatedAt: now
     };
 
     const blobClient = containerClient.getBlobClient(`${projectId}.json`);
-    await blobClient.upload(JSON.stringify(project), JSON.stringify(project).length);
+    const content = JSON.stringify(project);
+    const buffer = Buffer.from(content);
+
+    // Use uploadData instead of upload
+    await blobClient.uploadData(buffer, {
+      blobHTTPHeaders: { blobContentType: "application/json" }
+    });
 
     res.status(201).json(project);
   } catch (error) {
@@ -118,57 +118,23 @@ router.patch("/:id", async (req, res) => {
     const downloadResponse = await blobClient.download();
     const existingData = JSON.parse(await streamToString(downloadResponse.readableStreamBody));
 
-    // Update project data while maintaining structure
     const updatedProject = {
       ...existingData,
       ...req.body,
-      tasks: req.body.tasks ? req.body.tasks.map(task => ({
-        ...task,
-        id: task.id || uuidv4()
-      })) : existingData.tasks,
       updatedAt: new Date().toISOString()
     };
 
-    await blobClient.upload(JSON.stringify(updatedProject), JSON.stringify(updatedProject).length);
+    const content = JSON.stringify(updatedProject);
+    const buffer = Buffer.from(content);
+
+    await blobClient.uploadData(buffer, {
+      blobHTTPHeaders: { blobContentType: "application/json" }
+    });
 
     res.json(updatedProject);
   } catch (error) {
     console.error("Error updating project:", error);
     res.status(500).json({ error: "Failed to update project" });
-  }
-});
-
-// Update project task
-router.patch("/:projectId/tasks/:taskId", async (req, res) => {
-  try {
-    const blobClient = containerClient.getBlobClient(`${req.params.projectId}.json`);
-    const downloadResponse = await blobClient.download();
-    const projectData = JSON.parse(await streamToString(downloadResponse.readableStreamBody));
-
-    const taskIndex = projectData.tasks.findIndex(t => t.id === req.params.taskId);
-    if (taskIndex === -1) {
-      return res.status(404).json({ error: "Task not found" });
-    }
-
-    projectData.tasks[taskIndex] = {
-      ...projectData.tasks[taskIndex],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-
-    // Recalculate project progress based on tasks
-    if (projectData.tasks.length > 0) {
-      projectData.progress = Math.round(
-        projectData.tasks.reduce((acc, task) => acc + (task.progress || 0), 0) / projectData.tasks.length
-      );
-    }
-
-    await blobClient.upload(JSON.stringify(projectData), JSON.stringify(projectData).length);
-
-    res.json(projectData);
-  } catch (error) {
-    console.error("Error updating project task:", error);
-    res.status(500).json({ error: "Failed to update project task" });
   }
 });
 
