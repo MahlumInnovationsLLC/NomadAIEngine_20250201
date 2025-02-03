@@ -19,16 +19,25 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 const projectSchema = z.object({
   projectNumber: z.string().min(1, "Project number is required"),
+  location: z.string().min(1, "Location is required"),
+  team: z.string(),
   contractDate: z.string().min(1, "Contract date is required"),
   dpasRating: z.string(),
   chassisEta: z.string(),
-  stretchShortenGears: z.string(),
+  stretchShortenGears: z.enum(["Stretch", "Shorten", "Gears"]),
   paymentMilestones: z.string(),
   lltsOrdered: z.string(),
   meAssigned: z.string(),
@@ -61,7 +70,8 @@ export function ProjectCreateDialog() {
       meCadProgress: 0,
       eeDesignProgress: 0,
       itDesignProgress: 0,
-      ntcDesignProgress: 0
+      ntcDesignProgress: 0,
+      stretchShortenGears: "Gears"
     }
   });
 
@@ -117,12 +127,48 @@ export function ProjectCreateDialog() {
                   <FormItem>
                     <FormLabel>Project #</FormLabel>
                     <FormControl>
-                      <Input placeholder="PRJ-001" {...field} />
+                      <Input placeholder="8XXXXX" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Libby">Libby</SelectItem>
+                        <SelectItem value="CFalls">CFalls</SelectItem>
+                        <SelectItem value="FSW">FSW</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="team"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Team</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="contractDate"
@@ -149,8 +195,6 @@ export function ProjectCreateDialog() {
                   </FormItem>
                 )}
               />
-
-              {/* Additional Fields */}
               <FormField
                 control={form.control}
                 name="chassisEta"
@@ -164,15 +208,25 @@ export function ProjectCreateDialog() {
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
                 name="stretchShortenGears"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Stretch/Shorten/Gears</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select option" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Stretch">Stretch</SelectItem>
+                        <SelectItem value="Shorten">Shorten</SelectItem>
+                        <SelectItem value="Gears">Gears</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -183,6 +237,19 @@ export function ProjectCreateDialog() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Payment Milestones</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lltsOrdered"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>LLTs Ordered</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -400,7 +467,7 @@ export function ProjectCreateDialog() {
                   <FormItem>
                     <FormLabel>Ship</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -413,7 +480,7 @@ export function ProjectCreateDialog() {
                   <FormItem>
                     <FormLabel>Delivery</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
