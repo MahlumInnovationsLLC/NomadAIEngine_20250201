@@ -927,9 +927,8 @@ export const facilityNotificationsRelations = relations(facilityNotifications, (
   }),
 }));
 
-// Update the capasRelations
-export const capasRelations = relations(capas, ({ many, one }) => ({
-  actions: many(capaActions),
+// Add after the capaCategories relations section
+export const capasRelations = relations(capas, ({ one }) => ({
   category: one(capaCategories, {
     fields: [capas.categoryId],
     references: [capaCategories.id],

@@ -474,19 +474,35 @@ router.get('/capas', async (req, res) => {
 router.post('/capas', async (req, res) => {
   try {
     const newCapa = await db.insert(capas).values({
-      ...req.body,
-      id: undefined, // Let the DB generate the UUID
+      number: `CAPA-${Date.now()}`,
+      title: req.body.title,
+      description: req.body.description,
+      status: req.body.status || 'draft',
+      priority: req.body.priority,
+      type: req.body.type,
+      categoryId: req.body.categoryId,
+      rootCause: req.body.rootCause,
+      verificationMethod: req.body.verificationMethod,
+      scheduledReviewDate: req.body.scheduledReviewDate,
+      createdBy: req.body.createdBy,
+      department: req.body.department,
+      area: req.body.area,
+      sourceNcrId: req.body.sourceNcrId,
+      sourceInspectionId: req.body.sourceInspectionId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      number: `CAPA-${Date.now()}`,
     }).returning();
 
     // If actions are provided, create them
     if (req.body.actions?.length) {
       await db.insert(capaActions).values(
         req.body.actions.map((action: any) => ({
-          ...action,
           capaId: newCapa[0].id,
+          action: action.action,
+          type: action.type,
+          assignedTo: action.assignedTo,
+          dueDate: action.dueDate,
+          status: 'pending',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }))
@@ -501,6 +517,7 @@ router.post('/capas', async (req, res) => {
     });
   }
 });
+
 
 // Create CAPA from NCR
 async function createCAPAFromNCR(ncr: any) {
