@@ -60,35 +60,35 @@ router.get('/mrb', async (req, res) => {
 
     console.log('Fetching MRBs and pending disposition NCRs from Cosmos DB...');
 
-    // First, get the native MRB records, now including closed ones
+    // First, get all MRB records, including closed ones
     const { resources: mrbs } = await container.items
       .query({
-        query: 'SELECT * FROM c WHERE c.type = "mrb" OR (c.id LIKE "mrb-%" AND c.status = "closed") ORDER BY c._ts DESC',
+        query: 'SELECT * FROM c WHERE c.type = "mrb" ORDER BY c._ts DESC',
         partitionKey: 'default'
       })
       .fetchAll();
 
-    // Then, get NCRs with pending_disposition status
-    const { resources: pendingNcrs } = await container.items
+    // Then, get all relevant NCRs (both pending_disposition and closed)
+    const { resources: relevantNcrs } = await container.items
       .query({
         query: 'SELECT * FROM c WHERE (c.status = "pending_disposition" OR c.status = "closed") AND STARTSWITH(c.id, "NCR-")',
         partitionKey: 'default'
       })
       .fetchAll();
 
-    console.log(`Found ${mrbs.length} raw MRBs, including closed ones`);
-    console.log(`Found ${pendingNcrs.length} NCRs (pending and closed)`);
+    console.log(`Found ${mrbs.length} raw MRBs`);
+    console.log(`Found ${relevantNcrs.length} NCRs (pending and closed)`);
     console.log('MRB statuses:', mrbs.map(m => m.status));
-    console.log('NCR statuses:', pendingNcrs.map(n => n.status));
+    console.log('NCR statuses:', relevantNcrs.map(n => n.status));
 
-    // Convert NCRs to MRB format with preserved status
-    const ncrMrbs = pendingNcrs.map(ncr => ({
+    // Convert NCRs to MRB format
+    const ncrMrbs = relevantNcrs.map(ncr => ({
       id: `mrb-${ncr.id}`,
       number: ncr.mrbNumber || `MRB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
       title: `NCR: ${ncr.title || 'Untitled'}`,
       type: ncr.type || "material",
       severity: ncr.severity || "minor",
-      status: ncr.status, // Preserve the NCR status
+      status: ncr.status,
       sourceType: "NCR",
       sourceId: ncr.id,
       ncrNumber: ncr.number,
@@ -102,7 +102,7 @@ router.get('/mrb', async (req, res) => {
         conditions: "",
         approvedBy: [],
       },
-      costImpact: {
+      costImpact: ncr.costImpact || {
         materialCost: 0,
         laborCost: 0,
         reworkCost: 0,
@@ -116,8 +116,8 @@ router.get('/mrb', async (req, res) => {
         defectType: ncr.type || "unknown",
         rootCause: ncr.rootCause || ""
       },
-      attachments: [],
-      history: [],
+      attachments: ncr.attachments || [],
+      history: ncr.history || [],
       createdAt: ncr.createdAt || new Date().toISOString(),
       updatedAt: ncr.updatedAt || new Date().toISOString(),
       createdBy: ncr.reportedBy || "system"
@@ -128,7 +128,6 @@ router.get('/mrb', async (req, res) => {
     console.log(`Sending combined results (${combinedResults.length} total items)`);
     console.log('Combined MRB statuses:', combinedResults.map(m => m.status));
 
-    // Explicitly set content type and send response
     res.setHeader('Content-Type', 'application/json');
     return res.json(combinedResults);
   } catch (error) {

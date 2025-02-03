@@ -80,7 +80,8 @@ export function MRBDetailsDialog({ open, onOpenChange, mrb, onSuccess }: MRBDeta
     }
   };
 
-  const formatDispositionDecision = (decision: string) => {
+  const formatDispositionDecision = (decision: string | undefined) => {
+    if (!decision) return 'Pending';
     return decision.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
@@ -143,7 +144,7 @@ export function MRBDetailsDialog({ open, onOpenChange, mrb, onSuccess }: MRBDeta
           <DialogHeader>
             <div className="flex justify-between items-start">
               <div>
-                <DialogTitle className="text-xl font-semibold">{mrb.title}</DialogTitle>
+                <DialogTitle className="text-xl font-semibold">{mrb.title || `MRB #${mrb.number}`}</DialogTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>MRB #{mrb.number}</span>
                   <span>•</span>
@@ -256,11 +257,11 @@ export function MRBDetailsDialog({ open, onOpenChange, mrb, onSuccess }: MRBDeta
                     <div>
                       <h4 className="font-medium mb-2">Decision</h4>
                       <Badge variant="outline" className="capitalize">
-                        {formatDispositionDecision(mrb.disposition.decision)}
+                        {formatDispositionDecision(mrb.disposition?.decision)}
                       </Badge>
                     </div>
 
-                    {mrb.disposition.justification && (
+                    {mrb.disposition?.justification && (
                       <div>
                         <h4 className="font-medium mb-2">Justification</h4>
                         <p className="text-muted-foreground whitespace-pre-wrap">
