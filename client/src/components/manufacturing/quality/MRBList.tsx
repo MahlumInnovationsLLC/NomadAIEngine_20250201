@@ -22,7 +22,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { MRB } from "@/types/manufacturing/mrb";
 import { MRBDialog } from "./dialogs/MRBDialog";
 
-// Extend the fetch function to include pending disposition items
 const fetchMRBItems = async (): Promise<MRB[]> => {
   const [mrbResponse, ncrResponse, capaResponse, scarResponse] = await Promise.all([
     fetch('/api/manufacturing/quality/mrb'),
@@ -42,7 +41,6 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     scarResponse.json()
   ]);
 
-  // Convert NCRs to MRB format
   const ncrMrbs = ncrs.map(ncr => ({
     id: `ncr-${ncr.id}`,
     number: ncr.number,
@@ -50,8 +48,9 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     description: ncr.description,
     type: ncr.type || "material",
     severity: ncr.severity,
-    status: "pending_review",
+    status: "disposition_pending",
     partNumber: ncr.partNumber || "N/A",
+     lotNumber: ncr.lotNumber,
     quantity: ncr.quantityAffected || 0,
     unit: ncr.unit || "pcs",
     location: ncr.area || "N/A",
@@ -63,10 +62,11 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
       detectedBy: ncr.reportedBy,
       detectedDate: ncr.createdAt,
       defectType: ncr.type || "unknown",
+      rootCause: ncr.rootCause,
     },
     disposition: {
-      decision: "pending",
-      justification: "",
+      decision: ncr.disposition || "pending",
+      justification: ncr.dispositionJustification || "",
       approvedBy: [],
     },
     createdAt: ncr.createdAt,
@@ -142,8 +142,12 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     history: [],
   }));
 
-  // Combine all items
-  return [...mrbs, ...ncrMrbs, ...capaMrbs, ...scarMrbs];
+  const allItems = [...mrbs, ...ncrMrbs, ...capaMrbs, ...scarMrbs];
+  return allItems.filter(item => 
+    item.status === "disposition_pending" || 
+    item.status === "pending_review" || 
+    item.status === "in_review"
+  );
 };
 
 export default function MRBList() {
@@ -176,7 +180,6 @@ export default function MRBList() {
       throw new Error(`Failed to update ${mrb.sourceType} disposition`);
     }
 
-    // Invalidate queries to refresh the data
     queryClient.invalidateQueries(['/api/manufacturing/quality/mrb']);
     queryClient.invalidateQueries([`/api/manufacturing/quality/${mrb.sourceType.toLowerCase()}`]);
   };
@@ -366,7 +369,7 @@ export default function MRBList() {
           } else {
             toast({
               title: "Success",
-              description: selectedMRB 
+              description: selectedMRB
                 ? "MRB updated successfully"
                 : "MRB created successfully",
             });
