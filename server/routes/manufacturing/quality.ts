@@ -42,6 +42,157 @@ initializeContainer().then(c => {
   container = c;
 }).catch(console.error);
 
+// Get all MRBs
+router.get('/mrb', async (req, res) => {
+  try {
+    if (!container) {
+      console.log('Container not initialized, attempting to initialize...');
+      try {
+        container = await initializeContainer();
+      } catch (error) {
+        console.error('Failed to initialize container:', error);
+        return res.status(500).json({
+          message: 'Failed to initialize database connection',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    console.log('Fetching MRBs and pending disposition NCRs from Cosmos DB...');
+
+    // First, get the native MRB records
+    const { resources: mrbs } = await container.items
+      .query({
+        query: 'SELECT * FROM c WHERE c.type = "mrb" ORDER BY c._ts DESC',
+        partitionKey: 'default'
+      })
+      .fetchAll();
+
+    // Then, get NCRs with pending_disposition status
+    const { resources: pendingNcrs } = await container.items
+      .query({
+        query: 'SELECT * FROM c WHERE c.status = "pending_disposition" AND STARTSWITH(c.id, "NCR-")',
+        partitionKey: 'default'
+      })
+      .fetchAll();
+
+    console.log(`Found raw MRBs:`, mrbs);
+    console.log(`Found pending NCRs:`, pendingNcrs);
+
+    // Convert NCRs to MRB format
+    const ncrMrbs = pendingNcrs.map(ncr => ({
+      id: `mrb-${ncr.id}`,
+      number: `MRB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
+      title: `NCR: ${ncr.title || 'Untitled'}`,
+      type: ncr.type || "material",
+      severity: ncr.severity || "minor",
+      status: "pending_disposition",
+      sourceType: "NCR",
+      sourceId: ncr.id,
+      ncrNumber: ncr.number,
+      partNumber: ncr.partNumber || "N/A",
+      lotNumber: ncr.lotNumber || "N/A",
+      quantity: ncr.quantityAffected || 0,
+      costImpact: {
+        materialCost: 0,
+        laborCost: 0,
+        reworkCost: 0,
+        totalCost: 0,
+        currency: "USD"
+      },
+      createdAt: ncr.createdAt || new Date().toISOString(),
+      updatedAt: ncr.updatedAt || new Date().toISOString(),
+    }));
+
+    // Combine and return both sets
+    const combinedResults = [...mrbs, ...ncrMrbs];
+    console.log(`Sending combined results (${combinedResults.length} total items)`);
+
+    // Explicitly set content type and send response
+    res.setHeader('Content-Type', 'application/json');
+    return res.json(combinedResults);
+  } catch (error) {
+    console.error('Error fetching MRBs:', error);
+    // Set proper error response with JSON content type
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to fetch MRBs',
+      details: error instanceof Error ? error.stack : undefined
+    });
+  }
+});
+
+// Create new MRB
+router.post('/mrb', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
+    console.log('Creating new MRB:', req.body);
+    const mrbData = {
+      ...req.body,
+      type: "mrb",
+      id: `MRB-${Date.now()}`,
+      userKey: 'default',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource: createdMrb } = await container.items.create(mrbData);
+    console.log('Created MRB:', createdMrb);
+    res.status(201).json(createdMrb);
+  } catch (error) {
+    console.error('Error creating MRB:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to create MRB' 
+    });
+  }
+});
+
+// Update MRB
+router.put('/mrb/:id', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
+    const { id } = req.params;
+    console.log(`Updating MRB with ID: ${id}`);
+
+    // Query for MRB using id
+    const { resources: [existingMrb] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: id }],
+        partitionKey: 'default'
+      })
+      .fetchAll();
+
+    if (!existingMrb) {
+      console.log(`MRB with ID ${id} not found`);
+      return res.status(404).json({ message: 'MRB not found' });
+    }
+
+    const mrbData = {
+      ...existingMrb,
+      ...req.body,
+      id,
+      userKey: 'default',
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource: updatedMrb } = await container.items.upsert(mrbData);
+    console.log('MRB updated successfully');
+    res.json(updatedMrb);
+  } catch (error) {
+    console.error('Error updating MRB:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to update MRB' 
+    });
+  }
+});
+
 // Get all NCRs
 router.get('/ncrs', async (req, res) => {
   try {

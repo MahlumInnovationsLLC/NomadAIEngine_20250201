@@ -33,13 +33,21 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
     ]);
 
     if (!mrbResponse.ok) {
-      console.error('Failed to fetch MRBs:', await mrbResponse.text());
-      throw new Error('Failed to fetch MRB items');
+      const contentType = mrbResponse.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await mrbResponse.json();
+        throw new Error(errorData.message || 'Failed to fetch MRBs');
+      }
+      throw new Error(`Failed to fetch MRBs: ${mrbResponse.statusText}`);
     }
 
     if (!ncrResponse.ok) {
-      console.error('Failed to fetch NCRs:', await ncrResponse.text());
-      throw new Error('Failed to fetch NCR items');
+      const contentType = ncrResponse.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await ncrResponse.json();
+        throw new Error(errorData.message || 'Failed to fetch NCRs');
+      }
+      throw new Error(`Failed to fetch NCR items: ${ncrResponse.statusText}`);
     }
 
     const [mrbs, ncrs] = await Promise.all([
