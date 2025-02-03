@@ -35,7 +35,8 @@ import {
   faCheckCircle,
   faCircleDot,
   faEdit,
-  faLocationDot
+  faLocationDot,
+  faRotateLeft
 } from "@fortawesome/free-solid-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
 
@@ -236,6 +237,38 @@ export function ProjectManagementPanel() {
     }
   });
 
+  const resetStatusMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/manufacturing/projects/${id}/reset-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Failed to reset project status');
+      return response.json();
+    },
+    onSuccess: (updatedProject) => {
+      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+        if (!oldData) return [updatedProject];
+        return oldData.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p);
+      });
+      toast({
+        title: "Success",
+        description: "Project status reset to automatic updates"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to reset project status",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleResetStatus = (projectId: string) => {
+    resetStatusMutation.mutate(projectId);
+  };
+
   const handleStatusChange = (status: ProjectStatus) => {
     if (!selectedProject) return;
 
@@ -395,7 +428,7 @@ export function ProjectManagementPanel() {
                           <Button
                             key={project.id}
                             variant={selectedProject?.id === project.id ? "default" : "ghost"}
-                            className="w-full justify-start py-4 px-4 h-auto space-y-2" // Increased padding and added vertical spacing
+                            className="w-full justify-start py-4 px-4 h-auto space-y-2"
                             onClick={() => setSelectedProject(project)}
                           >
                             <div className="flex w-full">
@@ -438,7 +471,6 @@ export function ProjectManagementPanel() {
                               <FontAwesomeIcon icon={faEdit} className="mr-2" />
                               Edit
                             </Button>
-
                             <div className="flex gap-2">
                               <Select
                                 value={selectedProject?.status || "NOT STARTED"}
@@ -463,8 +495,19 @@ export function ProjectManagementPanel() {
                               </Select>
                             </div>
                             {selectedProject?.manualStatus && (
-                              <div className="text-red-500 text-sm font-medium mt-1">
-                                WARNING: Force Edited
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="text-red-500 text-sm font-medium">
+                                  WARNING: Force Edited
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-muted-foreground hover:text-primary"
+                                  onClick={() => handleResetStatus(selectedProject.id)}
+                                >
+                                  <FontAwesomeIcon icon={faRotateLeft} className="mr-2 h-3 w-3" />
+                                  Reset to Automatic
+                                </Button>
                               </div>
                             )}
                           </div>
