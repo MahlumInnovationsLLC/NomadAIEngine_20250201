@@ -22,28 +22,30 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const projectSchema = z.object({
-  name: z.string().min(1, "Project name is required"),
   projectNumber: z.string().min(1, "Project number is required"),
-  department: z.string().min(1, "Department is required"),
-  startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
-  description: z.string().optional(),
-  status: z.enum(["not_started", "in_progress", "completed", "on_hold"]),
-  priority: z.enum(["low", "medium", "high", "critical"]),
-  budget: z.object({
-    planned: z.number().min(0),
-    currency: z.string().default("USD")
-  })
+  contractDate: z.string().min(1, "Contract date is required"),
+  dpasRating: z.string(),
+  chassisEta: z.string(),
+  stretchShortenGears: z.string(),
+  paymentMilestones: z.string(),
+  lltsOrdered: z.string(),
+  meAssigned: z.string(),
+  meCadProgress: z.number().min(0).max(100),
+  eeAssigned: z.string(),
+  eeDesignProgress: z.number().min(0).max(100),
+  itDesignProgress: z.number().min(0).max(100),
+  ntcDesignProgress: z.number().min(0).max(100),
+  fabricationStart: z.string().min(1, "Fabrication start date is required"),
+  assemblyStart: z.string().min(1, "Assembly start date is required"),
+  wrapGraphics: z.string(),
+  ntcTesting: z.string(),
+  qcStart: z.string(),
+  qcDays: z.string(),
+  executiveReview: z.string(),
+  ship: z.string(),
+  delivery: z.string()
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -56,12 +58,10 @@ export function ProjectCreateDialog() {
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
-      status: "not_started",
-      priority: "medium",
-      budget: {
-        planned: 0,
-        currency: "USD"
-      }
+      meCadProgress: 0,
+      eeDesignProgress: 0,
+      itDesignProgress: 0,
+      ntcDesignProgress: 0
     }
   });
 
@@ -102,21 +102,22 @@ export function ProjectCreateDialog() {
           New Project
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              {/* Basic Info */}
               <FormField
                 control={form.control}
                 name="projectNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Project Number</FormLabel>
+                    <FormLabel>Project #</FormLabel>
                     <FormControl>
-                      <Input placeholder="PRJ-0001" {...field} />
+                      <Input placeholder="PRJ-001" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -124,40 +125,10 @@ export function ProjectCreateDialog() {
               />
               <FormField
                 control={form.control}
-                name="department"
+                name="contractDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Manufacturing" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Project Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="New Manufacturing Line Setup" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Date</FormLabel>
+                    <FormLabel>Contract Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -167,83 +138,86 @@ export function ProjectCreateDialog() {
               />
               <FormField
                 control={form.control}
-                name="endDate"
+                name="dpasRating"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End Date</FormLabel>
+                    <FormLabel>DPAS Rating</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
+              {/* Additional Fields */}
               <FormField
                 control={form.control}
-                name="status"
+                name="chassisEta"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="not_started">Not Started</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="on_hold">On Hold</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priority</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select priority" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="critical">Critical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="budget.planned"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Budget</FormLabel>
+                    <FormLabel>Chassis ETA</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="stretchShortenGears"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Stretch/Shorten/Gears</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="paymentMilestones"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Milestones</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Team Assignments */}
+              <FormField
+                control={form.control}
+                name="meAssigned"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ME Assigned</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="meCadProgress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ME CAD %</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        max="100" 
                         {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        onChange={e => field.onChange(parseFloat(e.target.value))}
                       />
                     </FormControl>
                     <FormMessage />
@@ -252,45 +226,200 @@ export function ProjectCreateDialog() {
               />
               <FormField
                 control={form.control}
-                name="budget.currency"
+                name="eeAssigned"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Currency</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select currency" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                        <SelectItem value="GBP">GBP</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>EE Assigned</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Progress Percentages */}
+              <FormField
+                control={form.control}
+                name="eeDesignProgress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>EE Design/Orders %</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        max="100" 
+                        {...field}
+                        onChange={e => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="itDesignProgress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>IT Design/Orders %</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        max="100" 
+                        {...field}
+                        onChange={e => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="ntcDesignProgress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>NTC Design/Orders %</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        max="100" 
+                        {...field}
+                        onChange={e => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Dates */}
+              <FormField
+                control={form.control}
+                name="fabricationStart"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fabrication Start</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="assemblyStart"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assembly Start</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="wrapGraphics"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Wrap/Graphics</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Final Stages */}
+              <FormField
+                control={form.control}
+                name="ntcTesting"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>NTC Testing</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="qcStart"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>QC Start</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="qcDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>QC Days</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Final Fields */}
+              <FormField
+                control={form.control}
+                name="executiveReview"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Executive Review</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="ship"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ship</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="delivery"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Delivery</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Project description..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" type="button" onClick={() => setOpen(false)}>
