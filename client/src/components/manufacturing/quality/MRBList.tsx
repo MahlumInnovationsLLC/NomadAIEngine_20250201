@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -24,39 +25,20 @@ import { MRBDialog } from "./dialogs/MRBDialog";
 import { MRBDetailsDialog } from "./dialogs/MRBDetailsDialog";
 
 const fetchMRBItems = async (): Promise<MRB[]> => {
-  console.log('Starting fetchMRBItems...');
-
   try {
-    // Fetch existing MRBs and NCRs
     const [mrbResponse, ncrResponse] = await Promise.all([
       fetch('/api/manufacturing/quality/mrb'),
-      fetch('/api/manufacturing/quality/ncrs'), // Fixed endpoint to match server route
+      fetch('/api/manufacturing/quality/ncrs'),
     ]);
 
-    if (!mrbResponse.ok) {
-      const contentType = mrbResponse.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await mrbResponse.json();
-        throw new Error(errorData.message || 'Failed to fetch MRBs');
-      }
-      throw new Error(`Failed to fetch MRBs: ${mrbResponse.statusText}`);
-    }
-
-    if (!ncrResponse.ok) {
-      const contentType = ncrResponse.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await ncrResponse.json();
-        throw new Error(errorData.message || 'Failed to fetch NCRs');
-      }
-      throw new Error(`Failed to fetch NCR items: ${ncrResponse.statusText}`);
+    if (!mrbResponse.ok || !ncrResponse.ok) {
+      throw new Error('Failed to fetch MRB or NCR data');
     }
 
     const [mrbs, ncrs] = await Promise.all([
       mrbResponse.json(),
       ncrResponse.json(),
     ]);
-
-    console.log('Raw NCRs response:', ncrs);
 
     return mrbs;
   } catch (error) {
@@ -70,12 +52,21 @@ export default function MRBList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedMRB, setSelectedMRB] = useState<MRB | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [currentTab, setCurrentTab] = useState<"open" | "closed">("open");
 
-  const { data: mrbItems = [], isLoading, error } = useQuery<MRB[]>({
+  const { data: mrbItems = [], isLoading, error, refetch } = useQuery<MRB[]>({
     queryKey: ['/api/manufacturing/quality/mrb'],
     queryFn: fetchMRBItems,
-    staleTime: 5000,
+    refetchInterval: 5000,
     retry: 2,
+  });
+
+  const filteredMRBs = mrbItems.filter(mrb => {
+    if (currentTab === "open") {
+      return ['pending_review', 'in_review', 'pending_disposition'].includes(mrb.status);
+    } else {
+      return ['disposition_complete', 'closed'].includes(mrb.status);
+    }
   });
 
   const getSourceBadgeVariant = (sourceType?: string): "default" | "destructive" | "outline" | "secondary" => {
@@ -99,7 +90,7 @@ export default function MRBList() {
       case 'disposition_pending':
       case 'pending_disposition':
         return 'default';
-      case 'approved':
+      case 'disposition_complete':
         return 'default';
       case 'rejected':
         return 'destructive';
@@ -122,8 +113,6 @@ export default function MRBList() {
         return 'secondary';
     }
   };
-
-  console.log('Rendering MRB items:', mrbItems);
 
   if (isLoading) {
     return (
@@ -164,95 +153,106 @@ export default function MRBList() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>MRB Records</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Source</TableHead>
-                <TableHead>Reference #</TableHead>
-                <TableHead>Part Number</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Cost Impact</TableHead>
-                <TableHead>Created Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mrbItems.map((mrb) => (
-                <TableRow 
-                  key={mrb.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => {
-                    setSelectedMRB(mrb);
-                    setShowDetailsDialog(true);
-                  }}
-                >
-                  <TableCell>
-                    <Badge variant={getSourceBadgeVariant(mrb.sourceType)}>
-                      {mrb.sourceType || 'MRB'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">{mrb.number}</TableCell>
-                  <TableCell>{mrb.partNumber}</TableCell>
-                  <TableCell className="capitalize">{mrb.type.replace('_', ' ')}</TableCell>
-                  <TableCell>
-                    <Badge variant={getSeverityBadgeVariant(mrb.severity)}>
-                      {mrb.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(mrb.status)}>
-                      {mrb.status.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {mrb.costImpact ? new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency: mrb.costImpact.currency,
-                    }).format(mrb.costImpact.totalCost) : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(mrb.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon">
-                          <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedMRB(mrb);
-                          setShowDetailsDialog(true);
-                        }}>
-                          <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedMRB(mrb);
-                          setShowCreateDialog(true);
-                        }}>
-                          <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Tabs value={currentTab} onValueChange={(value) => setCurrentTab(value as "open" | "closed")}>
+        <TabsList>
+          <TabsTrigger value="open">Open MRBs</TabsTrigger>
+          <TabsTrigger value="closed">Closed MRBs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={currentTab}>
+          <Card>
+            <CardHeader>
+              <CardTitle>{currentTab === "open" ? "Open MRB Records" : "Closed MRB Records"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Reference #</TableHead>
+                    <TableHead>Part Number</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Cost Impact</TableHead>
+                    <TableHead>Created Date</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMRBs.map((mrb) => (
+                    <TableRow 
+                      key={mrb.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => {
+                        setSelectedMRB(mrb);
+                        setShowDetailsDialog(true);
+                      }}
+                    >
+                      <TableCell>
+                        <Badge variant={getSourceBadgeVariant(mrb.sourceType)}>
+                          {mrb.sourceType || 'MRB'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{mrb.number}</TableCell>
+                      <TableCell>{mrb.partNumber}</TableCell>
+                      <TableCell className="capitalize">{mrb.type.replace('_', ' ')}</TableCell>
+                      <TableCell>
+                        <Badge variant={getSeverityBadgeVariant(mrb.severity)}>
+                          {mrb.severity}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(mrb.status)}>
+                          {mrb.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {mrb.costImpact ? new Intl.NumberFormat('en-US', {
+                          style: 'currency',
+                          currency: mrb.costImpact.currency,
+                        }).format(mrb.costImpact.totalCost) : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(mrb.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon">
+                              <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedMRB(mrb);
+                              setShowDetailsDialog(true);
+                            }}>
+                              <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            {currentTab === "open" && (
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMRB(mrb);
+                                setShowCreateDialog(true);
+                              }}>
+                                <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {selectedMRB && showDetailsDialog && (
         <MRBDetailsDialog
@@ -262,7 +262,8 @@ export default function MRBList() {
             if (!open) setSelectedMRB(null);
           }}
           mrb={selectedMRB}
-          onSuccess={() => {
+          onSuccess={async () => {
+            await refetch();
             setShowDetailsDialog(false);
             setSelectedMRB(null);
           }}
@@ -277,9 +278,9 @@ export default function MRBList() {
         }}
         initialData={selectedMRB ?? undefined}
         onSuccess={async (savedMRB) => {
+          await refetch();
           if (savedMRB.sourceType && savedMRB.sourceId) {
             try {
-              await updateSourceItemDisposition(savedMRB);
               toast({
                 title: "Success",
                 description: `MRB and ${savedMRB.sourceType} updated successfully`,
