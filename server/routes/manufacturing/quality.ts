@@ -60,10 +60,10 @@ router.get('/mrb', async (req, res) => {
 
     console.log('Fetching MRBs and pending disposition NCRs from Cosmos DB...');
 
-    // First, get the native MRB records
+    // First, get the native MRB records, now including closed ones
     const { resources: mrbs } = await container.items
       .query({
-        query: 'SELECT * FROM c WHERE c.type = "mrb" ORDER BY c._ts DESC',
+        query: 'SELECT * FROM c WHERE c.type = "mrb" OR (c.id LIKE "mrb-%" AND c.status = "closed") ORDER BY c._ts DESC',
         partitionKey: 'default'
       })
       .fetchAll();
@@ -71,22 +71,24 @@ router.get('/mrb', async (req, res) => {
     // Then, get NCRs with pending_disposition status
     const { resources: pendingNcrs } = await container.items
       .query({
-        query: 'SELECT * FROM c WHERE c.status = "pending_disposition" AND STARTSWITH(c.id, "NCR-")',
+        query: 'SELECT * FROM c WHERE (c.status = "pending_disposition" OR c.status = "closed") AND STARTSWITH(c.id, "NCR-")',
         partitionKey: 'default'
       })
       .fetchAll();
 
-    console.log(`Found raw MRBs:`, mrbs);
-    console.log(`Found pending NCRs:`, pendingNcrs);
+    console.log(`Found ${mrbs.length} raw MRBs, including closed ones`);
+    console.log(`Found ${pendingNcrs.length} NCRs (pending and closed)`);
+    console.log('MRB statuses:', mrbs.map(m => m.status));
+    console.log('NCR statuses:', pendingNcrs.map(n => n.status));
 
-    // Convert NCRs to MRB format
+    // Convert NCRs to MRB format with preserved status
     const ncrMrbs = pendingNcrs.map(ncr => ({
       id: `mrb-${ncr.id}`,
-      number: `MRB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
+      number: ncr.mrbNumber || `MRB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
       title: `NCR: ${ncr.title || 'Untitled'}`,
       type: ncr.type || "material",
       severity: ncr.severity || "minor",
-      status: "pending_disposition",
+      status: ncr.status, // Preserve the NCR status
       sourceType: "NCR",
       sourceId: ncr.id,
       ncrNumber: ncr.number,
@@ -94,11 +96,11 @@ router.get('/mrb', async (req, res) => {
       lotNumber: ncr.lotNumber || "N/A",
       quantity: ncr.quantityAffected || 0,
       location: ncr.area || "Unknown",
-      disposition: {
-        decision: "use_as_is",  // Default initial decision
-        justification: "",      // Empty until MRB review
-        conditions: "",         // Empty until MRB review
-        approvedBy: [],        // Will be populated during review
+      disposition: ncr.disposition || {
+        decision: "use_as_is",
+        justification: "",
+        conditions: "",
+        approvedBy: [],
       },
       costImpact: {
         materialCost: 0,
@@ -124,13 +126,13 @@ router.get('/mrb', async (req, res) => {
     // Combine and return both sets
     const combinedResults = [...mrbs, ...ncrMrbs];
     console.log(`Sending combined results (${combinedResults.length} total items)`);
+    console.log('Combined MRB statuses:', combinedResults.map(m => m.status));
 
     // Explicitly set content type and send response
     res.setHeader('Content-Type', 'application/json');
     return res.json(combinedResults);
   } catch (error) {
     console.error('Error fetching MRBs:', error);
-    // Set proper error response with JSON content type
     res.setHeader('Content-Type', 'application/json');
     return res.status(500).json({ 
       message: error instanceof Error ? error.message : 'Failed to fetch MRBs',
@@ -210,7 +212,7 @@ router.put('/mrb/:id', async (req, res) => {
   }
 });
 
-// Approve MRB Disposition
+// Update the disposition approval endpoint to properly close both NCR and MRB
 router.post('/mrb/:id/disposition/approve', async (req, res) => {
   try {
     if (!container) {
@@ -279,7 +281,7 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
 
     // Update status if all required approvals are received
     if (dispositionObj.approvedBy.length >= 2) {
-      ncr.status = 'disposition_complete';
+      ncr.status = 'closed';  // Change from 'disposition_complete' to 'closed'
       dispositionObj.approvalDate = new Date().toISOString();
 
       // Also update the corresponding MRB record if it exists
@@ -293,11 +295,11 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
         .fetchAll();
 
       if (mrbRecord) {
-        mrbRecord.status = 'disposition_complete';
+        mrbRecord.status = 'closed';  // Change from 'disposition_complete' to 'closed'
         mrbRecord.disposition = dispositionObj;
         mrbRecord.updatedAt = new Date().toISOString();
         await container.items.upsert(mrbRecord);
-        console.log('Successfully updated MRB record status');
+        console.log('Successfully updated MRB record status to closed');
       }
     }
 

@@ -65,9 +65,15 @@ export default function MRBList() {
     if (currentTab === "open") {
       return ['pending_review', 'in_review', 'pending_disposition'].includes(mrb.status);
     } else {
-      return ['disposition_complete', 'closed'].includes(mrb.status);
+      return ['closed'].includes(mrb.status);  // Only show items with 'closed' status in Closed tab
     }
   });
+
+  // Add logging to debug the filtering
+  console.log('Current tab:', currentTab);
+  console.log('All MRB items:', mrbItems);
+  console.log('Filtered MRBs:', filteredMRBs);
+
 
   const getSourceBadgeVariant = (sourceType?: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (sourceType) {
@@ -90,16 +96,15 @@ export default function MRBList() {
       case 'disposition_pending':
       case 'pending_disposition':
         return 'default';
-      case 'disposition_complete':
-        return 'default';
-      case 'rejected':
-        return 'destructive';
       case 'closed':
         return 'outline';
+      case 'rejected':
+        return 'destructive';
       default:
         return 'secondary';
     }
   };
+
 
   const getSeverityBadgeVariant = (severity: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (severity) {
