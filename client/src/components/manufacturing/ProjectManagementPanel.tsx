@@ -878,14 +878,14 @@ export function ProjectManagementPanel() {
                                         {formatDate(task.startDate)} - {formatDate(task.endDate)}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap-4">                                      <div className="text-sm text-muted-foreground">
-                                          {task.assignee}
-                                        </div>
-                                        <Progress value={task.progress} className="w-24" />
-                                        <Badge variant="outline">
-                                          {task.status.replace('_', ' ')}
-                                        </Badge>
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-sm text-muted-foreground">
+                                        {task.assignee}
                                       </div>
+                                      <Progress value={task.progress} className="w-24" />
+                                      <Badge variant="outline">
+                                        {task.status.replace('_', ' ')}
+                                      </Badge>
                                     </div>
                                   </div>
                                 </div>
