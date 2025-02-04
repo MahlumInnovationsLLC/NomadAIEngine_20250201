@@ -18,6 +18,9 @@ const projectsContainer = database.container("manufacturing-projects");
 export async function getProject(id: string) {
   try {
     const { resource } = await projectsContainer.item(id, id).read();
+    if (!resource) {
+      throw new Error(`Project with id ${id} not found`);
+    }
     return resource;
   } catch (error) {
     console.error("Failed to get project:", error);
@@ -27,10 +30,14 @@ export async function getProject(id: string) {
 
 export async function updateProject(id: string, updates: any) {
   try {
+    console.log('Updating project:', id, 'with updates:', updates);
     const { resource: existingProject } = await projectsContainer.item(id, id).read();
+
     if (!existingProject) {
-      throw new Error("Project not found");
+      throw new Error(`Project with id ${id} not found`);
     }
+
+    console.log('Found existing project:', existingProject);
 
     const updatedProject = {
       ...existingProject,
@@ -38,7 +45,14 @@ export async function updateProject(id: string, updates: any) {
       updatedAt: new Date().toISOString()
     };
 
+    console.log('Attempting to update with:', updatedProject);
+
     const { resource } = await projectsContainer.item(id, id).replace(updatedProject);
+    if (!resource) {
+      throw new Error('Failed to update project - no resource returned');
+    }
+
+    console.log('Successfully updated project:', resource);
     return resource;
   } catch (error) {
     console.error("Failed to update project:", error);
@@ -47,6 +61,11 @@ export async function updateProject(id: string, updates: any) {
 }
 
 export function calculateProjectStatus(project: any): ProjectStatus {
+  if (project.manualStatus) {
+    console.log('Using manual status:', project.status);
+    return project.status;
+  }
+
   console.log('Calculating status for project:', project);
 
   const today = new Date();
@@ -94,7 +113,7 @@ export function calculateProjectStatus(project: any): ProjectStatus {
   }
 
   console.log('Project is NOT STARTED');
-  return "NOT STARTED";
+  return "NOT_STARTED";
 }
 
 export interface ProductionMetrics {
