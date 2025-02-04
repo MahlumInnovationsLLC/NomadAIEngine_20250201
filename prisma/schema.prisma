@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ManufacturingProject {
+  id               String        @id @default(uuid())
+  projectNumber    String
+  name            String?
+  location        String?
+  status          String        @default("NOT_STARTED")
+  manualStatus    Boolean       @default(false)
+  team            String?
+  contractDate    DateTime?
+  dpasRating      String?
+  chassisEta      String?
+  fabricationStart DateTime?
+  assemblyStart   DateTime?
+  wrapGraphics    DateTime?
+  ntcTesting      DateTime?
+  qcStart         DateTime?
+  ship            DateTime?
+  delivery        DateTime?
+  executiveReview DateTime?
+  meAssigned      String?
+  eeAssigned      String?
+  itAssigned      String?
+  ntcAssigned     String?
+  meCadProgress   Int           @default(0)
+  eeDesignProgress Int          @default(0)
+  itDesignProgress Int          @default(0)
+  ntcDesignProgress Int         @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}

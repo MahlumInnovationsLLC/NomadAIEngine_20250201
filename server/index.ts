@@ -6,7 +6,17 @@ import { initializeManufacturingDatabase } from "./services/azure/facility_servi
 import { initializeOpenAI } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
 import manufacturingRoutes from "./routes/manufacturing";
-import inventoryRoutes from "./routes/inventory"; // Add this import
+import inventoryRoutes from "./routes/inventory";
+import { PrismaClient } from '@prisma/client';
+
+// Initialize Prisma Client
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  }
+});
 
 const app = express();
 app.use(express.json());
@@ -41,7 +51,7 @@ app.use((req, res, next) => {
 
 // Register routes
 app.use('/api/manufacturing', manufacturingRoutes);
-app.use('/api/inventory', inventoryRoutes); // Add this line
+app.use('/api/inventory', inventoryRoutes);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -75,6 +85,10 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    // Initialize Prisma
+    await prisma.$connect();
+    log("Database connection established successfully");
+
     // Kill any existing process on port 5000
     try {
       const server = app.listen(5000);
@@ -140,7 +154,8 @@ app.use((req, res, next) => {
     });
 
     // Handle cleanup on shutdown
-    process.on('SIGTERM', () => {
+    process.on('SIGTERM', async () => {
+      await prisma.$disconnect();
       server.close(() => {
         log('Server shutting down');
         process.exit(0);
@@ -148,6 +163,7 @@ app.use((req, res, next) => {
     });
   } catch (error) {
     console.error("Failed to start server:", error);
+    await prisma.$disconnect();
     process.exit(1);
   }
 })();
