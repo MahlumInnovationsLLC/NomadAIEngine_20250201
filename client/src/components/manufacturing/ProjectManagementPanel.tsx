@@ -838,7 +838,7 @@ export function ProjectManagementPanel() {
 
                                     queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
                                       if (!oldData) return [];
-                                      return oldData.map(p=>
+                                      return oldData.map(p =>
                                         p.id === selectedProject.id
                                           ? { ...p, notes: content }
                                           : p
@@ -868,28 +868,28 @@ export function ProjectManagementPanel() {
                               </Button>
                             </div>
 
-                            <div className="divide-y">
-                              {selectedProject.tasks.map((task) => (
-                                <div key={task.id} className="py-3">
-                                  <div className="flex justify-between items-center">
+                            <div className="space-y-4">
+                              {selectedProject.tasks?.map((task) => (
+                                <div key={task.id} className="bg-muted/50 rounded-lg p-4">
+                                  <div className="flex justify-between items-start">
                                     <div>
                                       <h4 className="font-medium">{task.name}</h4>
                                       <p className="text-sm text-muted-foreground">
                                         {formatDate(task.startDate)} - {formatDate(task.endDate)}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap-4">                                      <div className="text-sm text-muted-foreground">
-                                          {task.assignee}
-                                        </div>
-                                        <Progress value={task.progress} className="w-24" />
-                                        <Badge variant="outline">
-                                          {task.status.replace('_', ' ')}
-                                        </Badge>
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-sm text-muted-foreground">
+                                        {task.assignee}
                                       </div>
+                                      <Progress value={task.progress} className="w-24" />
+                                      <Badge variant="outline">
+                                        {task.status.replace('_', ' ')}
+                                      </Badge>
                                     </div>
                                   </div>
-                                ))}
-                              </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
@@ -905,15 +905,31 @@ export function ProjectManagementPanel() {
             </TabsContent>
 
             <TabsContent value="map">
-              <div className="text-center p-8 text-muted-foreground">
-                Map View coming soon...
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Project Locations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Map view implementation */}
+                  <div className="h-[600px] bg-muted rounded-lg flex items-center justify-center">
+                    Map View Coming Soon
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="table">
-              <div className="text-center p-8 text-muted-foreground">
-                Table View coming soon...
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Projects Table</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Table view implementation */}
+                  <div className="h-[600px] bg-muted rounded-lg flex items-center justify-center">
+                    Table View Coming Soon
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </TabsContent>
@@ -928,7 +944,7 @@ export function ProjectManagementPanel() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to manually override the project status? 
+              Are you sure you want to manually override the project status?
               This will disable automatic status updates based on dates.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -951,7 +967,7 @@ export function ProjectManagementPanel() {
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
-          <ProjectCreateDialog project={selectedProject} onClose={() => setShowEditDialog(false)}/>
+          <ProjectCreateDialog project={selectedProject} onClose={() => setShowEditDialog(false)} />
         </DialogContent>
       </Dialog>
     </div>
