@@ -146,6 +146,7 @@ router.post("/preview", upload.single('file'), async (req, res) => {
         delivery: parseExcelDate(getValueFromRow(row, headers, 'delivery'))
       };
 
+
       return project;
     });
 
@@ -278,22 +279,6 @@ router.get("/:id", async (req, res) => {
     } else {
       console.error("Error fetching project:", error);
       res.status(500).json({ error: "Failed to fetch project" });
-    }
-  }
-});
-
-// Delete project
-router.delete("/:id", async (req, res) => {
-  try {
-    const blobClient = containerClient.getBlockBlobClient(`${req.params.id}.json`);
-    await blobClient.delete();
-    res.status(200).json({ message: "Project deleted successfully" });
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      res.status(404).json({ error: "Project not found" });
-    } else {
-      console.error("Error deleting project:", error);
-      res.status(500).json({ error: "Failed to delete project" });
     }
   }
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
@@ -9,27 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,31 +25,40 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
 import { Project, ProjectStatus } from "@/types/manufacturing";
-import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faTrashCan } from "@fortawesome/pro-light-svg-icons";
+import {
+  faArrowUp,
+  faArrowDown,
+  faFolder,
+  faCheckCircle,
+  faCircleDot,
+  faEdit,
+  faLocationDot,
+  faRotateLeft,
+  faFileImport
+} from "@fortawesome/free-solid-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
-// Move these utility functions outside component to prevent recreation
-const formatDate = (dateString?: string) => {
+
+function formatDate(dateString?: string) {
   if (!dateString) return '-';
   const date = new Date(dateString);
+  // Add timezone offset to preserve the exact date
   const userTimezoneOffset = date.getTimezoneOffset() * 60000;
   const adjustedDate = new Date(date.getTime() + userTimezoneOffset);
   return adjustedDate.toLocaleDateString('en-US', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    timeZone: 'UTC'
+    timeZone: 'UTC'  // Force UTC to prevent timezone shifts
   });
-};
+}
 
-const calculateWorkingDays = (startDate: string, endDate: string): number => {
+function calculateWorkingDays(startDate: string, endDate: string): number {
   const start = new Date(startDate);
   const end = new Date(endDate);
   let days = 0;
@@ -79,77 +73,103 @@ const calculateWorkingDays = (startDate: string, endDate: string): number => {
   }
 
   return days;
-};
+}
 
-const getDaysColor = (days: number) => {
-  if (days <= 3) return "text-green-500";
-  if (days <= 7) return "text-yellow-500";
-  return "text-red-500";
-};
-
-const getStatusColor = (status: ProjectStatus): string => {
-  switch (status) {
-    case "NOT STARTED": return "bg-gray-500";
-    case "IN FAB": return "bg-blue-500";
-    case "IN ASSEMBLY": return "bg-indigo-500";
-    case "IN WRAP": return "bg-purple-500";
-    case "IN NTC TESTING": return "bg-orange-500";
-    case "IN QC": return "bg-yellow-500";
-    case "COMPLETED": return "bg-green-500";
-    default: return "bg-gray-500";
+function getDaysColor(days: number) {
+  if (days <= 3) {
+    return "text-green-500";
+  } else if (days <= 7) {
+    return "text-yellow-500";
+  } else {
+    return "text-red-500";
   }
-};
+}
 
-const calculateQCDays = (project: Project): number => {
+function getStatusColor(status: ProjectStatus): string {
+  switch (status) {
+    case "NOT STARTED":
+      return "bg-gray-500";
+    case "IN FAB":
+      return "bg-blue-500";
+    case "IN ASSEMBLY":
+      return "bg-indigo-500";
+    case "IN WRAP":
+      return "bg-purple-500";
+    case "IN NTC TESTING":
+      return "bg-orange-500";
+    case "IN QC":
+      return "bg-yellow-500";
+    case "COMPLETED":
+      return "bg-green-500";
+    default:
+      return "bg-gray-500";
+  }
+}
+
+function calculateQCDays(project: Project): number {
   if (!project.qcStart) return 0;
+
   const endDate = project.executiveReview || project.ship;
   if (!endDate) return 0;
-  return calculateWorkingDays(project.qcStart, endDate);
-};
 
-const calculateProjectStatus = (project: Project): ProjectStatus => {
+  return calculateWorkingDays(project.qcStart, endDate);
+}
+
+function calculateProjectStatus(project: Project): ProjectStatus {
+  console.log('Calculating status for project:', project);
+
   if (project.manualStatus) {
+    console.log('Using manual status:', project.status);
     return project.status;
   }
 
   const today = new Date();
+  console.log('Current date:', today);
+
   const dates = {
-    ship: project.ship ? new Date(project.ship) : null,
-    qcStart: project.qcStart ? new Date(project.qcStart) : null,
-    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
-    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
-    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
     fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
+    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
+    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
+    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
+    qcStart: project.qcStart ? new Date(project.qcStart) : null,
+    ship: project.ship ? new Date(project.ship) : null,
   };
 
-  if (dates.ship && today >= dates.ship) return "COMPLETED";
-  if (dates.qcStart && today >= dates.qcStart) return "IN QC";
-  if (dates.ntcTesting && today >= dates.ntcTesting) return "IN NTC TESTING";
-  if (dates.wrapGraphics && today >= dates.wrapGraphics) return "IN WRAP";
-  if (dates.assemblyStart && today >= dates.assemblyStart) return "IN ASSEMBLY";
-  if (dates.fabricationStart && today >= dates.fabricationStart) return "IN FAB";
+  console.log('Project dates:', dates);
 
+  if (dates.ship && today >= dates.ship) {
+    console.log('Project is COMPLETED');
+    return "COMPLETED";
+  }
+
+  if (dates.qcStart && today >= dates.qcStart) {
+    console.log('Project is IN QC');
+    return "IN QC";
+  }
+
+  if (dates.ntcTesting && today >= dates.ntcTesting) {
+    console.log('Project is IN NTC TESTING');
+    return "IN NTC TESTING";
+  }
+
+  if (dates.wrapGraphics && today >= dates.wrapGraphics) {
+    console.log('Project is IN WRAP');
+    return "IN WRAP";
+  }
+
+  if (dates.assemblyStart && today >= dates.assemblyStart) {
+    console.log('Project is IN ASSEMBLY');
+    return "IN ASSEMBLY";
+  }
+
+  if (dates.fabricationStart && today >= dates.fabricationStart) {
+    console.log('Project is IN FAB');
+    return "IN FAB";
+  }
+
+  console.log('Project is NOT STARTED');
   return "NOT STARTED";
-};
-
-const editProjectSchema = z.object({
-  projectNumber: z.string().min(1, "Project number is required"),
-  name: z.string().optional(),
-  location: z.string().optional(),
-  team: z.string().optional(),
-  contractDate: z.string().optional(),
-  dpasRating: z.string().optional(),
-  chassisEta: z.string().optional(),
-  fabricationStart: z.string().optional(),
-  assemblyStart: z.string().optional(),
-  wrapGraphics: z.string().optional(),
-  ntcTesting: z.string().optional(),
-  qcStart: z.string().optional(),
-  executiveReview: z.string().optional(),
-  ship: z.string().optional(),
-});
-
-type EditProjectFormValues = z.infer<typeof editProjectSchema>;
+}
 
 export function ProjectManagementPanel() {
   const { toast } = useToast();
@@ -161,8 +181,6 @@ export function ProjectManagementPanel() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [activeView, setActiveView] = useState<"list" | "map" | "table">("list");
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -183,87 +201,23 @@ export function ProjectManagementPanel() {
         status: calculateProjectStatus(project)
       }));
     },
-    staleTime: 5000, // Increase stale time to reduce refetches
-    refetchInterval: 5000, // Reduce refetch frequency
+    staleTime: 0,
+    refetchInterval: 1000,
   });
 
-  // Memoize filtered and sorted projects
-  const filteredAndSortedProjects = useMemo(() => {
-    return projects
-      .filter(project => (
-        (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-        (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-      ))
-      .sort((a, b) => {
-        if (!sortField) return 0;
-
-        if (sortField === "location") {
-          const aLocation = (a.location || '').toLowerCase();
-          const bLocation = (b.location || '').toLowerCase();
-          return sortDirection === "asc"
-            ? aLocation.localeCompare(bLocation)
-            : bLocation.localeCompare(aLocation);
-        }
-
-        const aDate = a[sortField];
-        const bDate = b[sortField];
-
-        if (!aDate && !bDate) return 0;
-        if (!aDate) return 1;
-        if (!bDate) return -1;
-
-        const aTimestamp = new Date(aDate).getTime();
-        const bTimestamp = new Date(bDate).getTime();
-
-        return sortDirection === "asc"
-          ? aTimestamp - bTimestamp
-          : bTimestamp - aTimestamp;
-      });
-  }, [projects, searchQuery, sortField, sortDirection]);
-
-  // Memoize event handlers
-  const handleSort = useCallback((field: "location" | "qcStart" | "ship") => {
-    setSortField(current => {
-      if (current === field) {
-        setSortDirection(prev => prev === "asc" ? "desc" : "asc");
-        return field;
-      }
-      setSortDirection("desc");
-      return field;
-    });
-  }, []);
-
-  const handleStatusChange = useCallback((status: ProjectStatus) => {
-    if (!selectedProject) return;
-
-    if (status === "COMPLETED" && (!selectedProject.ship || new Date() <= new Date(selectedProject.ship))) {
-      toast({
-        title: "Invalid Status",
-        description: "Project can only be marked as completed after the ship date",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setPendingStatus(status);
-    setShowStatusDialog(true);
-  }, [selectedProject, toast]);
-
-  // Optimize useEffect to reduce unnecessary updates
   useEffect(() => {
-    if (!selectedProject) return;
-
-    const updatedProject = projects.find(p => p.id === selectedProject.id);
-    if (!updatedProject) return;
-
-    const calculatedStatus = calculateProjectStatus(updatedProject);
-    if (selectedProject.status !== calculatedStatus || selectedProject.manualStatus !== updatedProject.manualStatus) {
-      setSelectedProject({
-        ...updatedProject,
-        status: calculatedStatus
-      });
+    if (selectedProject) {
+      const updatedProject = projects.find(p => p.id === selectedProject.id);
+      if (updatedProject) {
+        const calculatedStatus = calculateProjectStatus(updatedProject);
+        console.log('Updated project status:', calculatedStatus);
+        setSelectedProject({
+          ...updatedProject,
+          status: calculatedStatus
+        });
+      }
     }
-  }, [projects, selectedProject?.id, calculateProjectStatus]);
+  }, [projects, selectedProject]);
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data: { id: string; status: ProjectStatus; manualStatus: boolean }) => {
@@ -324,40 +278,43 @@ export function ProjectManagementPanel() {
     }
   });
 
-  const deleteProjectMutation = useMutation({
-    mutationFn: async (projectId: string) => {
-      const response = await fetch(`/api/manufacturing/projects/${projectId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete project');
-      return projectId;
-    },
-    onSuccess: (deletedProjectId) => {
-      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-        if (!oldData) return [];
-        return oldData.filter(p => p.id !== deletedProjectId);
-      });
-      toast({
-        title: "Success",
-        description: "Project deleted successfully"
-      });
-      if (selectedProject?.id === deletedProjectId) {
-        setSelectedProject(null);
-      }
-      setShowDeleteDialog(false);
-      setProjectToDelete(null);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete project",
-        variant: "destructive"
-      });
-    }
-  });
-
   const handleResetStatus = (projectId: string) => {
     resetStatusMutation.mutate(projectId);
+  };
+
+  const handleStatusChange = (status: ProjectStatus) => {
+    if (!selectedProject) return;
+
+    if (status === "COMPLETED" && (!selectedProject.ship || new Date() <= new Date(selectedProject.ship))) {
+      toast({
+        title: "Invalid Status",
+        description: "Project can only be marked as completed after the ship date",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setPendingStatus(status);
+    setShowStatusDialog(true);
+  };
+
+  const confirmStatusChange = () => {
+    if (!selectedProject || !pendingStatus) return;
+
+    updateProjectMutation.mutate({
+      id: selectedProject.id,
+      status: pendingStatus,
+      manualStatus: true
+    });
+  };
+
+  const handleSort = (field: "location" | "qcStart" | "ship") => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -414,6 +371,7 @@ export function ProjectManagementPanel() {
         description: `Successfully imported ${result.count} projects`
       });
 
+      // Refresh projects list
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
       setShowImportDialog(false);
       setImportFile(null);
@@ -430,146 +388,29 @@ export function ProjectManagementPanel() {
     }
   };
 
-  const handleDeleteClick = (project: Project, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setProjectToDelete(project);
-    setShowDeleteDialog(true);
-  };
+  const filteredAndSortedProjects = projects
+    .filter(project => (
+      (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+    ))
+    .sort((a, b) => {
+      if (!sortField) return 0;
 
-  const confirmDelete = () => {
-    if (projectToDelete) {
-      deleteProjectMutation.mutate(projectToDelete.id);
-    }
-  };
-
-  const handleNotesChange = async (content: string) => {
-    try {
-      const response = await fetch(`/api/manufacturing/projects/${selectedProject?.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: content })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to save notes: ${errorData.message || response.statusText}`);
+      if (sortField === "location") {
+        const aLocation = (a.location || '').toLowerCase();
+        const bLocation = (b.location || '').toLowerCase();
+        return sortDirection === "asc"
+          ? aLocation.localeCompare(bLocation)
+          : bLocation.localeCompare(aLocation);
       }
 
-      const updatedProject = await response.json();
+      const aDate = a[sortField] ? new Date(a[sortField]).getTime() : 0;
+      const bDate = b[sortField] ? new Date(b[sortField]).getTime() : 0;
 
-      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-        if (!oldData) return [];
-        return oldData.map(p =>
-          p.id === selectedProject?.id
-            ? { ...p, notes: content }
-            : p
-        );
-      });
-
-      toast({
-        title: "Success",
-        description: "Notes updated successfully"
-      });
-    } catch (error) {
-      console.error('Error saving notes:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save notes",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const confirmStatusChange = () => {
-    if (!selectedProject || !pendingStatus) return;
-
-    updateProjectMutation.mutate({
-      id: selectedProject.id,
-      status: pendingStatus,
-      manualStatus: true
+      return sortDirection === "asc"
+        ? aDate - bDate
+        : bDate - aDate;
     });
-  };
-
-  const editProjectMutation = useMutation({
-    mutationFn: async (data: EditProjectFormValues) => {
-      if (!selectedProject) throw new Error('No project selected');
-
-      const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update project');
-      }
-
-      return response.json();
-    },
-    onSuccess: (updatedProject) => {
-      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-        if (!oldData) return [updatedProject];
-        return oldData.map(p => p.id === updatedProject.id ? updatedProject : p);
-      });
-      setShowEditDialog(false);
-      toast({
-        title: "Success",
-        description: "Project updated successfully"
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update project",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const form = useForm<EditProjectFormValues>({
-    resolver: zodResolver(editProjectSchema),
-    defaultValues: {
-      projectNumber: selectedProject?.projectNumber || '',
-      name: selectedProject?.name || '',
-      location: selectedProject?.location || '',
-      team: selectedProject?.team || '',
-      contractDate: selectedProject?.contractDate || '',
-      dpasRating: selectedProject?.dpasRating || '',
-      chassisEta: selectedProject?.chassisEta || '',
-      fabricationStart: selectedProject?.fabricationStart || '',
-      assemblyStart: selectedProject?.assemblyStart || '',
-      wrapGraphics: selectedProject?.wrapGraphics || '',
-      ntcTesting: selectedProject?.ntcTesting || '',
-      qcStart: selectedProject?.qcStart || '',
-      executiveReview: selectedProject?.executiveReview || '',
-      ship: selectedProject?.ship || '',
-    }
-  });
-
-  useEffect(() => {
-    if (selectedProject && showEditDialog) {
-      form.reset({
-        projectNumber: selectedProject.projectNumber || '',
-        name: selectedProject.name || '',
-        location: selectedProject.location || '',
-        team: selectedProject.team || '',
-        contractDate: selectedProject.contractDate || '',
-        dpasRating: selectedProject.dpasRating || '',
-        chassisEta: selectedProject.chassisEta || '',
-        fabricationStart: selectedProject.fabricationStart || '',
-        assemblyStart: selectedProject.assemblyStart || '',
-        wrapGraphics: selectedProject.wrapGraphics || '',
-        ntcTesting: selectedProject.ntcTesting || '',
-        qcStart: selectedProject.qcStart || '',
-        executiveReview: selectedProject.executiveReview || '',
-        ship: selectedProject.ship || '',
-      });
-    }
-  }, [selectedProject, showEditDialog, form]);
-
-  const onSubmit = (data: EditProjectFormValues) => {
-    editProjectMutation.mutate(data);
-  };
 
   if (isLoading) {
     return (
@@ -784,19 +625,9 @@ export function ProjectManagementPanel() {
                               />
                               <div className="flex flex-col items-start flex-grow space-y-2 min-w-0">
                                 <span className="font-medium text-sm">{project.projectNumber}</span>
-                                <div className="flex items-center justify-between w-full">
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
-                                    <span>{project.location || 'N/A'}</span>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:text-red-500"
-                                    onClick={(e) => handleDeleteClick(project, e)}
-                                  >
-                                    <FontAwesomeIcon icon={faTrashCan} className="h-3 w-3 text-red-500" />
-                                  </Button>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
+                                  <span>{project.location || 'N/A'}</span>
                                 </div>
                                 {project.name && (
                                   <span className="text-xs text-muted-foreground truncate w-full">
@@ -830,7 +661,7 @@ export function ProjectManagementPanel() {
                             <div className="flex gap-2">
                               <Select
                                 value={selectedProject?.status || "NOT STARTED"}
-                                onValueChange={handleStatusChange}
+                                onValueChange={(value: ProjectStatus) => handleStatusChange(value)}
                               >
                                 <SelectTrigger className="w-[200px]">
                                   <SelectValue>
@@ -862,7 +693,8 @@ export function ProjectManagementPanel() {
                                   onClick={() => handleResetStatus(selectedProject.id)}
                                 >
                                   <FontAwesomeIcon icon={faRotateLeft} className="mr-2 h-3 w-3" />
-                                  Reset to Automatic                                </Button>
+                                  Reset to Automatic
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -874,8 +706,7 @@ export function ProjectManagementPanel() {
                   </CardHeader>
                   <CardContent>
                     {selectedProject ? (
-                      <div className="space-y6">
-
+                      <div className="space-y-6">
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
                             <label className="text-sm font-medium">Project Number</label>
@@ -974,11 +805,7 @@ export function ProjectManagementPanel() {
                                   <span>{formatDate(selectedProject.qcStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>Executive Review:</span>
-                                  <span>{formatDate(selectedProject.executiveReview)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Ship Date:</span>
+                                  <span>Ship:</span>
                                   <span>{formatDate(selectedProject.ship)}</span>
                                 </div>
                                 <div className="flex justify-between">
@@ -988,8 +815,10 @@ export function ProjectManagementPanel() {
                               </div>
                             </CardContent>
                           </Card>
+                        </div>
 
-                          <Card>
+                        {selectedProject && (
+                          <Card className="mt-6">
                             <CardHeader>
                               <CardTitle>Notes</CardTitle>
                             </CardHeader>
@@ -997,19 +826,93 @@ export function ProjectManagementPanel() {
                               <RichTextEditor
                                 key={selectedProject.id}
                                 content={selectedProject.notes || ''}
-                                onChange={handleNotesChange}
+                                onChange={async (content) => {
+                                  try {
+                                    const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ notes: content })
+                                    });
+
+                                    if (!response.ok) throw new Error('Failed to save notes');
+
+                                    queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+                                      if (!oldData) return [];
+                                      return oldData.map(p=>
+                                        p.id === selectedProject.id
+                                          ? { ...p, notes: content }
+                                          : p
+                                      );
+                                    });
+                                  } catch (error) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to save notes",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
                               />
                             </CardContent>
                           </Card>
-                        </div>
+                        )}
+
+
+                        {selectedProject.tasks && selectedProject.tasks.length > 0 && (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <h3 className="text-lg font-semibold">Tasks</h3>
+                              <Button size="sm" variant="outline">
+                                <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                                Add Task
+                              </Button>
+                            </div>
+
+                            <div className="divide-y">
+                              {selectedProject.tasks.map((task) => (
+                                <div key={task.id} className="py-3">
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <h4 className="font-medium">{task.name}</h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        {formatDate(task.startDate)} - {formatDate(task.endDate)}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-4">                                      <div className="text-sm text-muted-foreground">
+                                          {task.assignee}
+                                        </div>
+                                        <Progress value={task.progress} className="w-24" />
+                                        <Badge variant="outline">
+                                          {task.status.replace('_', ' ')}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-center text-muted-foreground">
-                        Select a project to view details
+                        Select a project from the list to view details
                       </div>
                     )}
                   </CardContent>
                 </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="map">
+              <div className="text-center p-8 text-muted-foreground">
+                Map View coming soon...
+              </div>
+            </TabsContent>
+
+            <TabsContent value="table">
+              <div className="text-center p-8 text-muted-foreground">
+                Table View coming soon...
               </div>
             </TabsContent>
           </Tabs>
@@ -1023,14 +926,17 @@ export function ProjectManagementPanel() {
       <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Update Project Status</AlertDialogTitle>
+            <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to manually set the project status?
-              This will override automatic status updates.
+              Are you sure you want to manually override the project status? 
+              This will disable automatic status updates based on dates.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowStatusDialog(false)}>
+            <AlertDialogCancel onClick={() => {
+              setShowStatusDialog(false);
+              setPendingStatus(null);
+            }}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction onClick={confirmStatusChange}>
@@ -1040,228 +946,14 @@ export function ProjectManagementPanel() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this project?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-    <DialogContent className="sm:max-w-[600px]">
-      <DialogHeader>
-        <DialogTitle>Edit Project</DialogTitle>
-      </DialogHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="projectNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Project Number</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="location"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Location</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="team"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Team</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="contractDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contract Date</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="chassisEta"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Chassis ETA</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="fabricationStart"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fabrication Start</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="assemblyStart"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Assembly Start</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="wrapGraphics"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Wrap Graphics</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="ntcTesting"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>NTC Testing</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="qcStart"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>QC Start</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="executiveReview"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Executive Review</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <FormField
-            control={form.control}
-            name="ship"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Ship Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowEditDialog(false)}
-              type="button"
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit"
-              disabled={editProjectMutation.isPending}
-            >
-              {editProjectMutation.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </Form>
-    </DialogContent>
-  </Dialog>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          <ProjectCreateDialog project={selectedProject} onClose={() => setShowEditDialog(false)}/>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
