@@ -870,7 +870,7 @@ export function ProjectManagementPanel() {
                                   <span>Delivery:</span>
                                   <span>{formatDate(selectedProject.delivery)}</span>
                                 </div>
-                              </                              </div>
+                              </div>
                             </CardContent>
                           </Card>
                         </div>
