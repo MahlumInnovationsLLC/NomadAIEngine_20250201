@@ -217,6 +217,7 @@ export function ProjectManagementPanel() {
 
   const updateProjectMutation = useMutation({
     mutationFn: async (project: Partial<Project>) => {
+      console.log('Starting mutation with project data:', project);
       try {
         const cleanedData = {
           ...project,
@@ -231,6 +232,8 @@ export function ProjectManagementPanel() {
           ...(project.delivery && { delivery: new Date(project.delivery).toISOString() })
         };
 
+        console.log('Cleaned data for API call:', cleanedData);
+
         const response = await fetch(`/api/manufacturing/projects/${project.id}`, {
           method: 'PATCH',
           headers: {
@@ -239,17 +242,24 @@ export function ProjectManagementPanel() {
           body: JSON.stringify(cleanedData)
         });
 
+        console.log('API response status:', response.status);
+
         if (!response.ok) {
-          throw new Error('Failed to update project');
+          const errorText = await response.text();
+          console.error('API error response:', errorText);
+          throw new Error(`Failed to update project: ${errorText}`);
         }
 
-        return await response.json();
+        const result = await response.json();
+        console.log('API success response:', result);
+        return result;
       } catch (error) {
-        console.error('Update error:', error);
+        console.error('Mutation error:', error);
         throw error;
       }
     },
     onSuccess: (updatedProject) => {
+      console.log('Mutation succeeded:', updatedProject);
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
       toast({
         title: "Success",
@@ -259,6 +269,7 @@ export function ProjectManagementPanel() {
       setSelectedProject(prev => prev ? { ...prev, ...updatedProject } : null);
     },
     onError: (error) => {
+      console.error('Mutation error handler:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update project",
@@ -859,7 +870,7 @@ export function ProjectManagementPanel() {
                                   <span>{formatDate(selectedProject.ship)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>Delivery:</span>
+                                  <<span>Delivery:</span>
                                   <span>{formatDate(selectedProject.delivery)}</span>
                                 </div>
                               </div>
@@ -1009,6 +1020,7 @@ export function ProjectManagementPanel() {
               key={formKey}
               onSubmit={async (event) => {
                 event.preventDefault();
+                console.log('Form submission started');
 
                 const form = event.currentTarget;
                 const formData = new FormData(form);
@@ -1016,10 +1028,15 @@ export function ProjectManagementPanel() {
                   id: selectedProject.id
                 };
 
+                console.log('Initial form data:', Object.fromEntries(formData));
+
                 // Process form data
                 for (const [key, value] of formData.entries()) {
                   // Skip empty values
-                  if (value === '') continue;
+                  if (value === '') {
+                    console.log(`Skipping empty value for ${key}`);
+                    continue;
+                  }
 
                   // Convert number fields
                   if (['meCadProgress', 'eeDesignProgress', 'itDesignProgress', 'ntcDesignProgress'].includes(key)) {
@@ -1029,8 +1046,11 @@ export function ProjectManagementPanel() {
                   }
                 }
 
+                console.log('Processed form data:', data);
+
                 // Handle executive review time
                 if (data.executiveReview && data.executiveReviewTime) {
+                  console.log('Processing executive review time');
                   const date = new Date(data.executiveReview);
                   const [hours, minutes] = (data.executiveReviewTime as string).split(':');
                   date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
@@ -1039,9 +1059,11 @@ export function ProjectManagementPanel() {
                 }
 
                 try {
+                  console.log('Calling mutation with data:', data);
                   await updateProjectMutation.mutateAsync(data);
+                  console.log('Mutation completed successfully');
                 } catch (error) {
-                  console.error('Failed to update project:', error);
+                  console.error('Form submission error:', error);
                 }
               }}
             >
