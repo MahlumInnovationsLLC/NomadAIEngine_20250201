@@ -404,8 +404,9 @@ export function ProjectManagementPanel() {
           : bLocation.localeCompare(aLocation);
       }
 
-      const aDate = a[sortField] ? new Date(a[sortField]).getTime() : 0;
-      const bDate = b[sortField] ? new Date(b[sortField]).getTime() : 0;
+      // Handle cases where either date is missing
+      const aDate = a[sortField] ? new Date(a[sortField]).getTime() : sortDirection === "asc" ? Infinity : -Infinity;
+      const bDate = b[sortField] ? new Date(b[sortField]).getTime() : sortDirection === "asc" ? Infinity : -Infinity;
 
       return sortDirection === "asc"
         ? aDate - bDate
@@ -876,6 +877,8 @@ export function ProjectManagementPanel() {
                                       <h4 className="font-medium">{task.name}</h4>
                                       <p className="text-sm text-muted-foreground">
                                         {formatDate(task.startDate)} - {formatDate(task.endDate)}
+                                      </p>
+                                        {task.assignee}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-4">
