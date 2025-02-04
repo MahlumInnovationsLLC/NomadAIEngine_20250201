@@ -892,7 +892,7 @@ export function ProjectManagementPanel() {
                                   <span>{formatDate(selectedProject.fabricationStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span                                  <span>Assembly Start:</span>
+                                  <span>Assembly Start:</span>
                                   <span>{formatDate(selectedProject.assemblyStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
@@ -922,10 +922,8 @@ export function ProjectManagementPanel() {
                               </div>
                             </CardContent>
                           </Card>
-                        </div>
 
-                        {selectedProject && (
-                          <Card className="mt-6">
+                          <Card>
                             <CardHeader>
                               <CardTitle>Notes</CardTitle>
                             </CardHeader>
@@ -937,81 +935,16 @@ export function ProjectManagementPanel() {
                               />
                             </CardContent>
                           </Card>
-                        )}
-
-
-                        {selectedProject.tasks && selectedProject.tasks.length > 0 && (
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <h3 className="text-lg font-semibold">Tasks</h3>
-                              <Button size="sm" variant="outline">
-                                <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                                Add Task
-                              </Button>
-                            </div>
-
-                            <div className="space-y-4">
-                              {selectedProject.tasks?.map((task) => (
-                                <div key={task.id} className="bg-muted/50 rounded-lg p-4">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <h4 className="font-medium">{task.name}</h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        {formatDate(task.startDate)} - {formatDate(task.endDate)}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                      <div className="text-sm text-muted-foreground">
-                                        {task.assignee}
-                                      </div>
-                                      <Progress value={task.progress} className="w-24" />
-                                      <Badge variant="outline">
-                                        {task.status.replace('_', ' ')}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center text-muted-foreground">
-                        Select a project from the list to view details
+                        Select a project to view details
                       </div>
                     )}
                   </CardContent>
                 </Card>
               </div>
-            </TabsContent>
-
-            <TabsContent value="map">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Project Locations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* Map view implementation */}
-                  <div className="h-[600px] bg-muted rounded-lg flex items-center justify-center">
-                    Map View Coming Soon
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="table">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Projects Table</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* Table view implementation */}
-                  <div className="h-[600px] bg-muted rounded-lg flex items-center justify-center">
-                    Table View Coming Soon
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
         </TabsContent>
@@ -1026,17 +959,12 @@ export function ProjectManagementPanel() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to manually override the project status?
-              This will disable automatic status updates based on dates.
+              Are you sure you want to manually override the project status? 
+              This will prevent automatic status updates based on project dates.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowStatusDialog(false);
-              setPendingStatus(null);
-            }}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmStatusChange}>
               Confirm
             </AlertDialogAction>
@@ -1044,34 +972,17 @@ export function ProjectManagementPanel() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-          </DialogHeader>
-          <ProjectCreateDialog project={selectedProject} onClose={() => setShowEditDialog(false)} />
-        </DialogContent>
-      </Dialog>
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Project</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete this project?
-              This action cannot be undone.
+              Are you sure you want to delete this project? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowDeleteDialog(false);
-              setProjectToDelete(null);
-            }}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-500 hover:bg-red-600"
-              onClick={confirmDelete}
-            >
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
