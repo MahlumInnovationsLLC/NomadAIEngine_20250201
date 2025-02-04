@@ -439,7 +439,7 @@ export function ProjectManagementPanel() {
       </div>
 
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-[95vw] w-[1200px]">
           <DialogHeader>
             <DialogTitle>Import Projects from Excel</DialogTitle>
           </DialogHeader>
@@ -456,81 +456,81 @@ export function ProjectManagementPanel() {
               />
             </div>
             {showPreview && previewData.length > 0 && (
-                <div className="space-y-4">
-                  <div className="text-sm font-medium">Preview (First 3 Projects)</div>
-                  <div className="border rounded-lg">
-                    <div className="max-h-[400px] overflow-auto">
-                      <div className="min-w-max">
-                        <table className="w-full">
-                          <thead className="sticky top-0 bg-background border-b">
-                            <tr className="bg-muted/50">
-                              <th className="p-2 text-left min-w-[150px]">Project Number</th>
-                              <th className="p-2 text-left min-w-[100px]">Location</th>
-                              <th className="p-2 text-left min-w-[100px]">Status</th>
-                              <th className="p-2 text-left min-w-[100px]">Team</th>
-                              <th className="p-2 text-left min-w-[120px]">Contract Date</th>
-                              <th className="p-2 text-left min-w-[120px]">Chassis ETA</th>
-                              <th className="p-2 text-left min-w-[150px]">Payment Milestones</th>
-                              <th className="p-2 text-left min-w-[120px]">LLTs Ordered</th>
-                              <th className="p-2 text-left min-w-[150px]">ME Assigned</th>
-                              <th className="p-2 text-left min-w-[100px]">ME CAD %</th>
-                              <th className="p-2 text-left min-w-[150px]">EE Assigned</th>
-                              <th className="p-2 text-left min-w-[100px]">EE Design %</th>
-                              <th className="p-2 text-left min-w-[100px]">IT Design %</th>
-                              <th className="p-2 text-left min-w-[100px]">NTC Design %</th>
-                              <th className="p-2 text-left min-w-[120px]">NTC Testing</th>
-                              <th className="p-2 text-left min-w-[120px]">QC Start</th>
-                              <th className="p-2 text-left min-w-[150px]">Executive Review</th>
-                              <th className="p-2 text-left min-w-[120px]">Ship</th>
-                              <th className="p-2 text-left min-w-[120px]">Delivery</th>
-                              <th className="p-2 text-left min-w-[200px]">Notes</th>
+              <div className="space-y-4">
+                <div className="text-sm font-medium">Preview (First 3 Projects)</div>
+                <div className="border rounded-lg">
+                  <div className="max-h-[400px] overflow-auto">
+                    <div className="min-w-max">
+                      <table className="w-full">
+                        <thead className="sticky top-0 bg-background border-b">
+                          <tr className="bg-muted/50">
+                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">Project Number</th>
+                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">Location</th>
+                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">Status</th>
+                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">Team</th>
+                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">Contract Date</th>
+                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">Chassis ETA</th>
+                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">Payment Milestones</th>
+                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">LLTs Ordered</th>
+                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">ME Assigned</th>
+                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">ME CAD %</th>
+                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">EE Assigned</th>
+                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">EE Design %</th>
+                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">IT Design %</th>
+                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">NTC Design %</th>
+                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">NTC Testing</th>
+                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">QC Start</th>
+                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">Executive Review</th>
+                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">Ship</th>
+                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">Delivery</th>
+                            <th className="p-2 text-left min-w-[200px] whitespace-nowrap">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewData.slice(0, 3).map((project, index) => (
+                            <tr key={index} className="border-b last:border-0">
+                              <td className="p-2 whitespace-nowrap">{project.projectNumber || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.location || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.status || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.team || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.contractDate ? formatDate(project.contractDate) : '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.chassisEta || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.paymentMilestones || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.lltsOrdered || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.meAssigned || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.meCadProgress || '0'}%</td>
+                              <td className="p-2 whitespace-nowrap">{project.eeAssigned || '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.eeDesignProgress || '0'}%</td>
+                              <td className="p-2 whitespace-nowrap">{project.itDesignProgress || '0'}%</td>
+                              <td className="p-2 whitespace-nowrap">{project.ntcDesignProgress || '0'}%</td>
+                              <td className="p-2 whitespace-nowrap">{project.ntcTesting ? formatDate(project.ntcTesting) : '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.qcStart ? formatDate(project.qcStart) : '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.executiveReview ? formatDate(project.executiveReview) : '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.ship ? formatDate(project.ship) : '-'}</td>
+                              <td className="p-2 whitespace-nowrap">{project.delivery ? formatDate(project.delivery) : '-'}</td>
+                              <td className="p-2">
+                                <div className="max-w-[200px] truncate">
+                                  {project.notes || '-'}
+                                </div>
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {previewData.slice(0, 3).map((project, index) => (
-                              <tr key={index} className="border-b last:border-0">
-                                <td className="p-2">{project.projectNumber || '-'}</td>
-                                <td className="p-2">{project.location || '-'}</td>
-                                <td className="p-2">{project.status || '-'}</td>
-                                <td className="p-2">{project.team || '-'}</td>
-                                <td className="p-2">{project.contractDate ? formatDate(project.contractDate) : '-'}</td>
-                                <td className="p-2">{project.chassisEta || '-'}</td>
-                                <td className="p-2">{project.paymentMilestones || '-'}</td>
-                                <td className="p-2">{project.lltsOrdered || '-'}</td>
-                                <td className="p-2">{project.meAssigned || '-'}</td>
-                                <td className="p-2">{project.meCadProgress || '0'}%</td>
-                                <td className="p-2">{project.eeAssigned || '-'}</td>
-                                <td className="p-2">{project.eeDesignProgress || '0'}%</td>
-                                <td className="p-2">{project.itDesignProgress || '0'}%</td>
-                                <td className="p-2">{project.ntcDesignProgress || '0'}%</td>
-                                <td className="p-2">{project.ntcTesting ? formatDate(project.ntcTesting) : '-'}</td>
-                                <td className="p-2">{project.qcStart ? formatDate(project.qcStart) : '-'}</td>
-                                <td className="p-2">{project.executiveReview ? formatDate(project.executiveReview) : '-'}</td>
-                                <td className="p-2">{project.ship ? formatDate(project.ship) : '-'}</td>
-                                <td className="p-2">{project.delivery ? formatDate(project.delivery) : '-'}</td>
-                                <td className="p-2">
-                                  <div className="max-w-[200px] truncate">
-                                    {project.notes || '-'}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  </div>
-                  {previewData.length > 3 && (
-                    <div className="text-sm text-muted-foreground">
-                      ...and {previewData.length - 3} more projects
-                    </div>
-                  )}
-                  <div className="text-sm text-muted-foreground">
-                    Note: The import will map all available columns from your Excel sheet to the corresponding project fields.
-                    Make sure your Excel sheet includes column headers that match the project fields.
                   </div>
                 </div>
-              )}
+                {previewData.length > 3 && (
+                  <div className="text-sm text-muted-foreground">
+                    ...and {previewData.length - 3} more projects
+                  </div>
+                )}
+                <div className="text-sm text-muted-foreground">
+                  Note: The import will map all available columns from your Excel sheet to the corresponding project fields.
+                  Make sure your Excel sheet includes column headers that match the project fields.
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
@@ -824,7 +824,7 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>NTC Testing:</span>
-                                  <span>{formatDate(selectedProject.ntcTesting)}</span>
+                                  <span>{formatDate(selectedProject.ntcTesting</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>QC Start:</span>
