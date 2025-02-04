@@ -32,6 +32,42 @@ async function ensureContainer() {
 
 ensureContainer();
 
+// Column mapping configuration
+const columnMappings: { [key: string]: string[] } = {
+  projectNumber: ['Project Number', 'ProjectNumber', '__EMPTY_2'],
+  location: ['Location', '__EMPTY'],
+  team: ['Team', '__EMPTY_1'],
+  status: ['Tier IV Project Status', 'Status'],
+  meAssigned: ['ME Assigned', '__EMPTY_8'],
+  eeAssigned: ['EE Assigned', '__EMPTY_10'],
+  itAssigned: ['IT Assigned', '__EMPTY_11'],
+  ntcAssigned: ['NTC Assigned', '__EMPTY_12'],
+  fabricationStart: ['Fabrication Start', '__EMPTY_14'],
+  assemblyStart: ['Assembly Start', '__EMPTY_15'],
+  wrapGraphics: ['Wrap Graphics', '__EMPTY_16'],
+  ntcTesting: ['NTC Testing', '__EMPTY_17'],
+  qcStart: ['QC Start', '__EMPTY_18'],
+  ship: ['Ship', '__EMPTY_21'],
+  delivery: ['Delivery', '__EMPTY_22'],
+  notes: ['Notes', '__EMPTY_23']
+};
+
+// Helper function to find matching column
+function findMatchingColumn(headers: string[], possibleNames: string[]): string | undefined {
+  return headers.find(header => 
+    possibleNames.some(name => 
+      header.toLowerCase().trim() === name.toLowerCase().trim()
+    )
+  );
+}
+
+// Helper function to get value from row using column mapping
+function getValueFromRow(row: any, headers: string[], fieldName: string): any {
+  const possibleNames = columnMappings[fieldName];
+  const matchingColumn = findMatchingColumn(headers, possibleNames);
+  return matchingColumn ? row[matchingColumn] : undefined;
+}
+
 // Import projects from Excel
 router.post("/import", upload.single('file'), async (req, res) => {
   try {
@@ -42,45 +78,57 @@ router.post("/import", upload.single('file'), async (req, res) => {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet);
+    const rawData = XLSX.utils.sheet_to_json(worksheet);
 
-    console.log('Parsed Excel data:', data);
+    console.log('Parsing Excel data...');
+
+    // Get headers from first row
+    const headers = Object.keys(rawData[0]);
+    console.log('Found headers:', headers);
 
     const importedProjects = [];
     const now = new Date().toISOString();
 
-    for (const row of data) {
+    for (const row of rawData) {
       const projectId = uuidv4();
 
-      // Convert Excel date numbers to ISO strings where applicable
-      const dateFields = ['contractDate', 'fabricationStart', 'assemblyStart', 'wrapGraphics', 
-                         'ntcTesting', 'qcStart', 'ship', 'delivery', 'executiveReview'];
+      // Map fields using column mappings
+      const project = {
+        id: projectId,
+        projectNumber: getValueFromRow(row, headers, 'projectNumber'),
+        location: getValueFromRow(row, headers, 'location'),
+        team: getValueFromRow(row, headers, 'team'),
+        status: 'NOT_STARTED',
+        manualStatus: false,
+        meAssigned: getValueFromRow(row, headers, 'meAssigned'),
+        eeAssigned: getValueFromRow(row, headers, 'eeAssigned'),
+        itAssigned: getValueFromRow(row, headers, 'itAssigned'),
+        ntcAssigned: getValueFromRow(row, headers, 'ntcAssigned'),
+        notes: getValueFromRow(row, headers, 'notes') || '',
+        createdAt: now,
+        updatedAt: now
+      };
 
-      const processedRow = { ...row };
+      // Process dates
+      const dateFields = ['fabricationStart', 'assemblyStart', 'wrapGraphics', 
+                         'ntcTesting', 'qcStart', 'ship', 'delivery'];
+
       for (const field of dateFields) {
-        if (row[field]) {
-          // Check if it's an Excel date number
-          if (typeof row[field] === 'number') {
-            const date = XLSX.SSF.parse_date_code(row[field]);
-            processedRow[field] = new Date(date.y, date.m - 1, date.d).toISOString();
-          } else if (typeof row[field] === 'string') {
-            // Try to parse the string date
-            const date = new Date(row[field]);
+        const value = getValueFromRow(row, headers, field);
+        if (value) {
+          if (typeof value === 'number') {
+            // Handle Excel date number
+            const date = XLSX.SSF.parse_date_code(value);
+            project[field] = new Date(date.y, date.m - 1, date.d).toISOString();
+          } else if (typeof value === 'string') {
+            // Try to parse string date
+            const date = new Date(value);
             if (!isNaN(date.getTime())) {
-              processedRow[field] = date.toISOString();
+              project[field] = date.toISOString();
             }
           }
         }
       }
-
-      const project = {
-        id: projectId,
-        ...processedRow,
-        status: 'NOT_STARTED',
-        manualStatus: false,
-        createdAt: now,
-        updatedAt: now
-      };
 
       // Save to Azure Blob Storage
       const blockBlobClient = containerClient.getBlockBlobClient(`${projectId}.json`);
@@ -120,31 +168,47 @@ router.post("/preview", upload.single('file'), async (req, res) => {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet);
+    const rawData = XLSX.utils.sheet_to_json(worksheet);
 
-    console.log('Preview Excel data:', data);
+    console.log('Processing preview data...');
 
-    // Process dates in the preview data
-    const processedData = data.map(row => {
-      const dateFields = ['contractDate', 'fabricationStart', 'assemblyStart', 'wrapGraphics', 
-                         'ntcTesting', 'qcStart', 'ship', 'delivery', 'executiveReview'];
+    // Get headers from first row
+    const headers = Object.keys(rawData[0]);
+    console.log('Found headers:', headers);
 
-      const processedRow = { ...row };
+    // Process preview data
+    const processedData = rawData.map(row => {
+      const project: any = {
+        projectNumber: getValueFromRow(row, headers, 'projectNumber'),
+        location: getValueFromRow(row, headers, 'location'),
+        team: getValueFromRow(row, headers, 'team'),
+        meAssigned: getValueFromRow(row, headers, 'meAssigned'),
+        eeAssigned: getValueFromRow(row, headers, 'eeAssigned'),
+        itAssigned: getValueFromRow(row, headers, 'itAssigned'),
+        ntcAssigned: getValueFromRow(row, headers, 'ntcAssigned'),
+        notes: getValueFromRow(row, headers, 'notes') || ''
+      };
+
+      // Process dates
+      const dateFields = ['fabricationStart', 'assemblyStart', 'wrapGraphics', 
+                         'ntcTesting', 'qcStart', 'ship', 'delivery'];
+
       for (const field of dateFields) {
-        if (row[field]) {
-          if (typeof row[field] === 'number') {
-            const date = XLSX.SSF.parse_date_code(row[field]);
-            processedRow[field] = new Date(date.y, date.m - 1, date.d).toISOString();
-          } else if (typeof row[field] === 'string') {
-            const date = new Date(row[field]);
+        const value = getValueFromRow(row, headers, field);
+        if (value) {
+          if (typeof value === 'number') {
+            const date = XLSX.SSF.parse_date_code(value);
+            project[field] = new Date(date.y, date.m - 1, date.d).toISOString();
+          } else if (typeof value === 'string') {
+            const date = new Date(value);
             if (!isNaN(date.getTime())) {
-              processedRow[field] = date.toISOString();
+              project[field] = date.toISOString();
             }
           }
         }
       }
 
-      return processedRow;
+      return project;
     });
 
     res.status(200).json({ 

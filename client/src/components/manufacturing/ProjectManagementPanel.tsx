@@ -458,24 +458,34 @@ export function ProjectManagementPanel() {
             {showPreview && previewData.length > 0 && (
               <div className="space-y-4">
                 <div className="text-sm font-medium">Preview (First 3 Projects)</div>
-                <div className="border rounded-lg">
+                <div className="border rounded-lg overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="p-2 text-left">Project Number</th>
-                        <th className="p-2 text-left">Name</th>
                         <th className="p-2 text-left">Location</th>
+                        <th className="p-2 text-left">Status</th>
                         <th className="p-2 text-left">Team</th>
+                        <th className="p-2 text-left">ME Assigned</th>
+                        <th className="p-2 text-left">EE Assigned</th>
+                        <th className="p-2 text-left">IT Assigned</th>
+                        <th className="p-2 text-left">NTC Assigned</th>
+                        <th className="p-2 text-left">Start Date</th>
                         <th className="p-2 text-left">Notes</th>
                       </tr>
                     </thead>
                     <tbody>
                       {previewData.slice(0, 3).map((project, index) => (
                         <tr key={index} className="border-b last:border-0">
-                          <td className="p-2">{project.projectNumber}</td>
-                          <td className="p-2">{project.name || '-'}</td>
+                          <td className="p-2">{project.projectNumber || '-'}</td>
                           <td className="p-2">{project.location || '-'}</td>
+                          <td className="p-2">{project.status || '-'}</td>
                           <td className="p-2">{project.team || '-'}</td>
+                          <td className="p-2">{project.meAssigned || '-'}</td>
+                          <td className="p-2">{project.eeAssigned || '-'}</td>
+                          <td className="p-2">{project.itAssigned || '-'}</td>
+                          <td className="p-2">{project.ntcAssigned || '-'}</td>
+                          <td className="p-2">{project.fabricationStart ? formatDate(project.fabricationStart) : '-'}</td>
                           <td className="p-2">
                             <div className="max-w-[200px] truncate">
                               {project.notes || '-'}
@@ -491,12 +501,12 @@ export function ProjectManagementPanel() {
                     <p>...and {previewData.length - 3} more projects</p>
                   )}
                 </div>
+                <div className="text-sm text-muted-foreground">
+                  Note: The import will map all available columns from your Excel sheet to the corresponding project fields.
+                  Make sure your Excel sheet includes column headers that match the project fields.
+                </div>
               </div>
             )}
-            <div className="text-sm text-muted-foreground">
-              Note: Excel columns should match project fields:
-              projectNumber, name, location, team, etc.
-            </div>
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
@@ -870,7 +880,7 @@ export function ProjectManagementPanel() {
                                         {formatDate(task.startDate)} - {formatDate(task.endDate)}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap4">
                                       <div className="text-sm text-muted-foreground">
                                         {task.assignee}
                                       </div>
