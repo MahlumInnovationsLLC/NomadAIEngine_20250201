@@ -75,21 +75,27 @@ export async function updateProject(id: string, updates: any) {
 
     console.log('Found existing project:', existingProject);
 
-    // Ensure manualStatus is explicitly set in updates
-    const finalUpdates = {
-      ...updates,
-      manualStatus: 'manualStatus' in updates ? updates.manualStatus : existingProject.manualStatus
-    };
+    // Ensure manualStatus and status are handled correctly
+    let finalUpdates = { ...updates };
 
-    // If we're explicitly setting manualStatus to false, ensure it stays false
-    if (finalUpdates.manualStatus === false) {
-      finalUpdates.status = calculateProjectStatus({
+    // If we're explicitly setting manualStatus to false, force automatic status calculation
+    if ('manualStatus' in updates && updates.manualStatus === false) {
+      const calculatedStatus = calculateProjectStatus({
         ...existingProject,
         ...finalUpdates
       });
+
+      finalUpdates = {
+        ...finalUpdates,
+        status: calculatedStatus,
+        manualStatus: false  // Ensure this stays false
+      };
+    } else if (!('manualStatus' in updates)) {
+      // Preserve existing manualStatus if not explicitly changed
+      finalUpdates.manualStatus = existingProject.manualStatus;
     }
 
-    // Prepare the update with the manual status preserved
+    // Prepare the final update
     const updatedProject = {
       ...existingProject,
       ...finalUpdates,
@@ -126,8 +132,8 @@ export function calculateProjectStatus(project: any): ProjectStatus {
     return "NOT_STARTED";
   }
 
-  // Only use manual status if explicitly set to true
-  if (project.manualStatus === true) {
+  // Only use manual status if explicitly set to true and manualStatus flag exists
+  if ('manualStatus' in project && project.manualStatus === true) {
     console.log('Using manual status:', project.status);
     return project.status;
   }
@@ -148,6 +154,7 @@ export function calculateProjectStatus(project: any): ProjectStatus {
 
   console.log('Project dates:', dates);
 
+  // Return appropriate status based on dates
   if (dates.ship && today >= dates.ship) {
     console.log('Project is COMPLETED');
     return "COMPLETED";
