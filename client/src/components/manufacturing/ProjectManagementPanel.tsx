@@ -220,12 +220,27 @@ export function ProjectManagementPanel() {
   }, [projects, selectedProject]);
 
   const updateProjectMutation = useMutation({
-    mutationFn: async (data: { id: string; status: ProjectStatus; manualStatus: boolean }) => {
+    mutationFn: async (project: Partial<Project>) => {
       try {
-        const response = await fetch(`/api/manufacturing/projects/${data.id}`, {
+        const response = await fetch(`/api/manufacturing/projects/${project.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            ...project,
+            // Ensure dates are properly formatted
+            contractDate: project.contractDate ? new Date(project.contractDate).toISOString() : undefined,
+            fabricationStart: project.fabricationStart ? new Date(project.fabricationStart).toISOString() : undefined,
+            assemblyStart: project.assemblyStart ? new Date(project.assemblyStart).toISOString() : undefined,
+            wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics).toISOString() : undefined,
+            ntcTesting: project.ntcTesting ? new Date(project.ntcTesting).toISOString() : undefined,
+            qcStart: project.qcStart ? new Date(project.qcStart).toISOString() : undefined,
+            executiveReview: project.executiveReview ? new Date(project.executiveReview).toISOString() : undefined,
+            ship: project.ship ? new Date(project.ship).toISOString() : undefined,
+            delivery: project.delivery ? new Date(project.delivery).toISOString() : undefined
+          })
         });
 
         if (!response.ok) {
@@ -236,6 +251,7 @@ export function ProjectManagementPanel() {
 
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
+          console.error('Invalid content type:', contentType);
           throw new Error("Invalid response format from server");
         }
 
@@ -250,13 +266,18 @@ export function ProjectManagementPanel() {
         if (!oldData) return [updatedProject];
         return oldData.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p);
       });
+
       toast({
         title: "Success",
         description: "Project updated successfully"
       });
+
+      // Close edit dialog and reset selected project with updated data
       setShowEditDialog(false);
+      setSelectedProject(prev => prev ? { ...prev, ...updatedProject } : null);
     },
     onError: (error) => {
+      console.error('Mutation error:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update project",
