@@ -66,7 +66,7 @@ function calculateWorkingDays(startDate: string, endDate: string): number {
 
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip weekends (0 = Sunday, 6 = Saturday)
       days++;
     }
     current.setDate(current.getDate() + 1);
@@ -231,57 +231,34 @@ export function ProjectManagementPanel() {
           ...(project.delivery && { delivery: new Date(project.delivery).toISOString() })
         };
 
-        console.log('Sending update with data:', cleanedData);
-
         const response = await fetch(`/api/manufacturing/projects/${project.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
           },
           body: JSON.stringify(cleanedData)
         });
 
-        const responseText = await response.text();
-        console.log('Raw response:', responseText);
-
         if (!response.ok) {
-          try {
-            const errorJson = JSON.parse(responseText);
-            throw new Error(errorJson.message || 'Failed to update project');
-          } catch (e) {
-            throw new Error(`Failed to update project: ${responseText}`);
-          }
+          throw new Error('Failed to update project');
         }
 
-        try {
-          const data = JSON.parse(responseText);
-          return data;
-        } catch (e) {
-          console.error('Failed to parse response as JSON:', e);
-          throw new Error('Invalid JSON response from server');
-        }
+        return await response.json();
       } catch (error) {
         console.error('Update error:', error);
         throw error;
       }
     },
     onSuccess: (updatedProject) => {
-      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-        if (!oldData) return [updatedProject];
-        return oldData.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p);
-      });
-
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
       toast({
         title: "Success",
         description: "Project updated successfully"
       });
-
       setShowEditDialog(false);
       setSelectedProject(prev => prev ? { ...prev, ...updatedProject } : null);
     },
     onError: (error) => {
-      console.error('Mutation error:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update project",
@@ -1033,28 +1010,29 @@ export function ProjectManagementPanel() {
               onSubmit={(event) => {
                 event.preventDefault();
                 const formData = new FormData(event.currentTarget);
-                const data = Object.fromEntries(formData.entries());
+                const data: Record<string, any> = {};
 
-                const numberFields = ['meCadProgress', 'eeDesignProgress', 'itDesignProgress', 'ntcDesignProgress'];
-                numberFields.forEach(field => {
-                  if (data[field]) {
-                    data[field] = Number(data[field]);
+                for (const [key, value] of formData.entries()) {
+                  if (value === '') continue;
+
+                  if (['meCadProgress', 'eeDesignProgress', 'itDesignProgress', 'ntcDesignProgress'].includes(key)) {
+                    data[key] = Number(value) || 0;
+                  } else {
+                    data[key] = value;
                   }
-                });
-
-                let executiveReview = data.executiveReview as string;
-                if (executiveReview && data.executiveReviewTime) {
-                  const date = new Date(executiveReview);
-                  const [hours, minutes] = (data.executiveReviewTime as string).split(':');
-                  date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
-                  executiveReview = date.toISOString();
                 }
 
-                updateProjectMutation.mutate({
-                  id: selectedProject.id,
-                  ...data,
-                  executiveReview
-                });
+                if (data.executiveReview && data.executiveReviewTime) {
+                  const date = new Date(data.executiveReview);
+                  const [hours, minutes] = data.executiveReviewTime.split(':');
+                  date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+                  data.executiveReview = date.toISOString();
+                }
+
+                data.id = selectedProject?.id;
+
+                console.log('Submitting data:', data);
+                updateProjectMutation.mutate(data);
               }}
             >
               <div className="grid grid-cols-2 gap-4">
@@ -1205,7 +1183,8 @@ export function ProjectManagementPanel() {
                       defaultValue={formatDateForInput(selectedProject?.ntcTesting)}
                       onChange={(e) => {
                         const ntcTesting = e.target.value;
-                        const qcStart = selectedProject?.qcStart;
+                        const qcStart = (document.querySelector('input[name="qcStart"]') as HTMLInputElement)?.value;
+
                         if (ntcTesting && qcStart) {
                           const days = calculateWorkingDays(ntcTesting, qcStart);
                           const ntcDaysInput = document.querySelector('input[name="ntcDays"]') as HTMLInputElement;
@@ -1222,7 +1201,8 @@ export function ProjectManagementPanel() {
                       <Input
                         type="number"
                         name="ntcDays"
-                        defaultValue={calculateNTCDays(selectedProject)}
+                        defaultValue={selectedProject?.ntcTesting && selectedProject?.qcStart ? 
+                          calculateWorkingDays(selectedProject.ntcTesting, selectedProject.qcStart) : 0}
                         readOnly
                       />
                       <span className="text-sm text-muted-foreground">
@@ -1237,9 +1217,8 @@ export function ProjectManagementPanel() {
                       name="qcStart"
                       defaultValue={formatDateForInput(selectedProject?.qcStart)}
                       onChange={(e) => {
+                        const ntcTesting = (document.querySelector('input[name="ntcTesting"]') as HTMLInputElement)?.value;
                         const qcStart = e.target.value;
-                        const ntcTesting = selectedProject?.ntcTesting;
-                        const endDate = selectedProject?.executiveReview || selectedProject?.ship;
 
                         if (ntcTesting && qcStart) {
                           const ntcDays = calculateWorkingDays(ntcTesting, qcStart);
@@ -1249,6 +1228,7 @@ export function ProjectManagementPanel() {
                           }
                         }
 
+                        const endDate = selectedProject?.executiveReview || selectedProject?.ship;
                         if (qcStart && endDate) {
                           const qcDays = calculateWorkingDays(qcStart, endDate);
                           const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
@@ -1343,7 +1323,10 @@ export function ProjectManagementPanel() {
                 <Button variant="outline" onClick={() => setShowEditDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updateProjectMutation.isPending}>
+                <Button 
+                  type="submit" 
+                  disabled={updateProjectMutation.isPending}
+                >
                   {updateProjectMutation.isPending ? "Updating..." : "Update Project"}
                 </Button>
               </div>
