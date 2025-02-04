@@ -865,7 +865,7 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Ship:</span>
-                                  <span>{formatDate(selectedProject.ship</span>
+                                  <span>{formatDate(selectedProject.ship)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Delivery:</span>
