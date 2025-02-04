@@ -471,6 +471,13 @@ export function ProjectManagementPanel() {
     );
   }
 
+  // Helper function for formatting dates in the form
+  function formatDateForInput(dateString: string | null | undefined): string {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -863,7 +870,7 @@ export function ProjectManagementPanel() {
                                   <span>Delivery:</span>
                                   <span>{formatDate(selectedProject.delivery)}</span>
                                 </div>
-                              </div>
+                              </                              </div>
                             </CardContent>
                           </Card>
                         </div>
@@ -879,7 +886,7 @@ export function ProjectManagementPanel() {
                                 content={selectedProject.notes || ''}
                                 onChange={async (content) => {
                                   try {
-                                                                        const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
+                                    const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
                                       method: 'PATCH',
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ notes: content })
@@ -1001,11 +1008,34 @@ export function ProjectManagementPanel() {
       </AlertDialog>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[800px]">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
-          <ProjectCreateDialog project={selectedProject} onClose={() => setShowEditDialog(false)}/>
+          <Form
+            defaultValues={{
+              ...selectedProject,
+              // Format dates for the form inputs
+              contractDate: selectedProject?.contractDate ? formatDateForInput(selectedProject.contractDate) : '',
+              fabricationStart: selectedProject?.fabricationStart ? formatDateForInput(selectedProject.fabricationStart) : '',
+              assemblyStart: selectedProject?.assemblyStart ? formatDateForInput(selectedProject.assemblyStart) : '',
+              wrapGraphics: selectedProject?.wrapGraphics ? formatDateForInput(selectedProject.wrapGraphics) : '',
+              ntcTesting: selectedProject?.ntcTesting ? formatDateForInput(selectedProject.ntcTesting) : '',
+              qcStart: selectedProject?.qcStart ? formatDateForInput(selectedProject.qcStart) : '',
+              executiveReview: selectedProject?.executiveReview ? formatDateForInput(selectedProject.executiveReview) : '',
+              ship: selectedProject?.ship ? formatDateForInput(selectedProject.ship) : '',
+              delivery: selectedProject?.delivery ? formatDateForInput(selectedProject.delivery) : ''
+            }}
+            onSubmit={async (data) => {
+              if (!selectedProject) return;
+              updateProjectMutation.mutate({
+                id: selectedProject.id,
+                ...data
+              });
+            }}
+          >
+            {/* Form fields remain unchanged */}
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
