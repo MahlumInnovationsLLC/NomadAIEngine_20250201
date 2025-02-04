@@ -865,13 +865,13 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Ship:</span>
-                                  <span>{formatDate(selectedProject.ship)}</span>
+                                  <span>{formatDate(selectedProject.ship</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Delivery:</span>
                                   <span>{formatDate(selectedProject.delivery)}</span>
                                 </div>
-                                                            </div>
+                              </div>
                             </CardContent>
                           </Card>
                         </div>
@@ -1009,7 +1009,7 @@ export function ProjectManagementPanel() {
       </AlertDialog>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-[800px]">
+        <DialogContent className="max-w-[800px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
@@ -1024,14 +1024,26 @@ export function ProjectManagementPanel() {
               ntcTesting: selectedProject?.ntcTesting ? formatDateForInput(selectedProject.ntcTesting) : '',
               qcStart: selectedProject?.qcStart ? formatDateForInput(selectedProject.qcStart) : '',
               executiveReview: selectedProject?.executiveReview ? formatDateForInput(selectedProject.executiveReview) : '',
+              executiveReviewTime: selectedProject?.executiveReview ? new Date(selectedProject.executiveReview).toTimeString().slice(0,5) : '',
               ship: selectedProject?.ship ? formatDateForInput(selectedProject.ship) : '',
               delivery: selectedProject?.delivery ? formatDateForInput(selectedProject.delivery) : ''
             }}
             onSubmit={async (data) => {
               if (!selectedProject) return;
+
+              // Combine executive review date and time
+              let executiveReview = data.executiveReview;
+              if (executiveReview && data.executiveReviewTime) {
+                const date = new Date(executiveReview);
+                const [hours, minutes] = data.executiveReviewTime.split(':');
+                date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+                executiveReview = date.toISOString();
+              }
+
               updateProjectMutation.mutate({
                 id: selectedProject.id,
-                ...data
+                ...data,
+                executiveReview
               });
             }}
           >
@@ -1114,6 +1126,13 @@ export function ProjectManagementPanel() {
                   />
                 </div>
                 <div>
+                  <label className="text-sm font-medium">IT Assigned</label>
+                  <Input 
+                    name="itAssigned"
+                    defaultValue={selectedProject?.itAssigned}
+                  />
+                </div>
+                <div>
                   <label className="text-sm font-medium">IT Design Progress (%)</label>
                   <Input 
                     type="number"
@@ -1121,14 +1140,24 @@ export function ProjectManagementPanel() {
                     defaultValue={selectedProject?.itDesignProgress}
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-medium">NTC Design Progress (%)</label>
-                  <Input 
-                    type="number"
-                    name="ntcDesignProgress"
-                    defaultValue={selectedProject?.ntcDesignProgress}
-                  />
-                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="text-sm font-medium">NTC Assigned</label>
+                <Input 
+                  name="ntcAssigned"
+                  defaultValue={selectedProject?.ntcAssigned}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">NTC Design Progress (%)</label>
+                <Input 
+                  type="number"
+                  name="ntcDesignProgress"
+                  defaultValue={selectedProject?.ntcDesignProgress}
+                />
               </div>
             </div>
 
@@ -1167,6 +1196,14 @@ export function ProjectManagementPanel() {
                   />
                 </div>
                 <div>
+                  <label className="text-sm font-medium">NTC Days</label>
+                  <Input 
+                    type="number"
+                    name="ntcDays"
+                    defaultValue={selectedProject?.ntcDays}
+                  />
+                </div>
+                <div>
                   <label className="text-sm font-medium">QC Start</label>
                   <Input 
                     type="date"
@@ -1175,12 +1212,29 @@ export function ProjectManagementPanel() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Executive Review</label>
+                  <label className="text-sm font-medium">QC Days</label>
                   <Input 
-                    type="date"
-                    name="executiveReview"
-                    defaultValue={formatDateForInput(selectedProject?.executiveReview)}
+                    type="number"
+                    name="qcDays"
+                    defaultValue={selectedProject?.qcDays}
                   />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium">Executive Review</label>
+                  <div className="flex gap-2">
+                    <Input 
+                      type="date"
+                      name="executiveReview"
+                      defaultValue={formatDateForInput(selectedProject?.executiveReview)}
+                      className="flex-1"
+                    />
+                    <Input 
+                      type="time"
+                      name="executiveReviewTime"
+                      defaultValue={selectedProject?.executiveReview ? new Date(selectedProject.executiveReview).toTimeString().slice(0,5) : ''}
+                      className="w-32"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Ship</label>
