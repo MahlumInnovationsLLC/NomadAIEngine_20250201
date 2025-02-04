@@ -900,7 +900,9 @@ export function ProjectManagementPanel() {
               <div className="text-center p-8 text-muted-foreground">
                 Map View coming soon...
               </div>
-            </<TabsContent>
+            </TabsContent>
+
+            <TabsContent value="table">
               <div className="text-center p-8 text-muted-foreground">
                 Table View coming soon...
               </div>
@@ -918,8 +920,8 @@ export function ProjectManagementPanel() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
             <AlertDialogDescription>
-              Manually changing thestatus will prevent automatic updates based on dates.
-              Are you sure you want to proceed?
+              Are you sure you want to manually override the project status? 
+              This will disable automatic status updates based on dates.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -930,18 +932,20 @@ export function ProjectManagementPanel() {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction onClick={confirmStatusChange}>
-              Confirm Change
+              Confirm
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {selectedProject && showEditDialog && (
-        <ProjectCreateDialog
-          project={selectedProject}
-          onClose={() => setShowEditDialog(false)}
-        />
-      )}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          <ProjectCreateDialog project={selectedProject} onClose={() => setShowEditDialog(false)}/>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
