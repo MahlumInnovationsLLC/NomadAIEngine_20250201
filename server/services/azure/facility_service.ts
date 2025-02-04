@@ -55,7 +55,6 @@ export async function updateProject(id: string, updates: any) {
   try {
     console.log('Updating project:', id, 'with updates:', updates);
 
-    // First verify the project exists
     let existingProject;
     try {
       const { resource } = await projectsContainer.item(id, id).read();
@@ -81,6 +80,14 @@ export async function updateProject(id: string, updates: any) {
       ...updates,
       manualStatus: 'manualStatus' in updates ? updates.manualStatus : existingProject.manualStatus
     };
+
+    // If we're explicitly setting manualStatus to false, ensure it stays false
+    if (finalUpdates.manualStatus === false) {
+      finalUpdates.status = calculateProjectStatus({
+        ...existingProject,
+        ...finalUpdates
+      });
+    }
 
     // Prepare the update with the manual status preserved
     const updatedProject = {
