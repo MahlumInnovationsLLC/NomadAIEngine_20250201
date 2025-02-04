@@ -17,13 +17,19 @@ const projectsContainer = database.container("manufacturing-projects");
 // Project Management Functions
 export async function getProject(id: string) {
   try {
+    console.log(`Attempting to read project with id: ${id}`);
     const { resource } = await projectsContainer.item(id, id).read();
     if (!resource) {
+      console.log(`Project with id ${id} not found in Cosmos DB`);
       throw new Error(`Project with id ${id} not found`);
     }
+    console.log('Successfully retrieved project:', resource);
     return resource;
   } catch (error) {
     console.error("Failed to get project:", error);
+    if (error.code === 404) {
+      throw new Error(`Project with id ${id} not found`);
+    }
     throw error;
   }
 }
@@ -31,14 +37,18 @@ export async function getProject(id: string) {
 export async function updateProject(id: string, updates: any) {
   try {
     console.log('Updating project:', id, 'with updates:', updates);
+
+    // First verify the project exists
     const { resource: existingProject } = await projectsContainer.item(id, id).read();
 
     if (!existingProject) {
+      console.error(`Project with id ${id} not found for update`);
       throw new Error(`Project with id ${id} not found`);
     }
 
     console.log('Found existing project:', existingProject);
 
+    // Prepare the update
     const updatedProject = {
       ...existingProject,
       ...updates,
@@ -47,8 +57,11 @@ export async function updateProject(id: string, updates: any) {
 
     console.log('Attempting to update with:', updatedProject);
 
+    // Perform the update
     const { resource } = await projectsContainer.item(id, id).replace(updatedProject);
+
     if (!resource) {
+      console.error('No resource returned from update operation');
       throw new Error('Failed to update project - no resource returned');
     }
 
@@ -56,11 +69,23 @@ export async function updateProject(id: string, updates: any) {
     return resource;
   } catch (error) {
     console.error("Failed to update project:", error);
+    // Enhance error details for debugging
+    if (error.code) {
+      console.error("Cosmos DB Error Code:", error.code);
+    }
+    if (error.body) {
+      console.error("Cosmos DB Error Body:", error.body);
+    }
     throw error;
   }
 }
 
 export function calculateProjectStatus(project: any): ProjectStatus {
+  if (!project) {
+    console.error('Cannot calculate status: project is null or undefined');
+    return "NOT_STARTED";
+  }
+
   if (project.manualStatus) {
     console.log('Using manual status:', project.status);
     return project.status;
@@ -112,7 +137,7 @@ export function calculateProjectStatus(project: any): ProjectStatus {
     return "IN FAB";
   }
 
-  console.log('Project is NOT STARTED');
+  console.log('Project is NOT_STARTED');
   return "NOT_STARTED";
 }
 
@@ -217,64 +242,53 @@ export async function updateQualityInspection(id: string, updates: Partial<Quali
   }
 }
 
-
 export async function initializeManufacturingDatabase() {
   try {
-    await database.containers.createIfNotExists({
-      id: "production-lines",
-      partitionKey: { paths: ["/id"] }
-    });
+    console.log("Starting manufacturing database initialization...");
 
-    await database.containers.createIfNotExists({
-      id: "manufacturing-systems",
-      partitionKey: { paths: ["/id"] }
+    // Verify database exists or create it
+    const { database: dbResponse } = await client.databases.createIfNotExists({
+      id: "NomadAIEngineDB"
     });
+    console.log("Database verified/created:", dbResponse.id);
 
-    await database.containers.createIfNotExists({
-      id: "maintenance-records",
-      partitionKey: { paths: ["/id"] }
-    });
+    // Create containers if they don't exist
+    const containersToCreate = [
+      {
+        id: "production-lines",
+        partitionKey: { paths: ["/id"] }
+      },
+      {
+        id: "manufacturing-systems",
+        partitionKey: { paths: ["/id"] }
+      },
+      {
+        id: "maintenance-records",
+        partitionKey: { paths: ["/id"] }
+      },
+      {
+        id: "quality-inspections",
+        partitionKey: { paths: ["/id"] }
+      },
+      {
+        id: "manufacturing-projects",
+        partitionKey: { paths: ["/id"] }
+      }
+    ];
 
-    await database.containers.createIfNotExists({
-      id: "quality-inspections",
-      partitionKey: { paths: ["/id"] }
-    });
-    await database.containers.createIfNotExists({
-      id: "manufacturing-projects",
-      partitionKey: { paths: ["/id"] }
-    });
+    for (const containerDef of containersToCreate) {
+      console.log(`Verifying container ${containerDef.id}...`);
+      const { container } = await database.containers.createIfNotExists(containerDef);
+      console.log(`Container ${container.id} verified/created`);
 
-    // Create a default production line if none exists
-    const { resources } = await productionContainer.items.query("SELECT TOP 1 * FROM c").fetchAll();
-    if (resources.length === 0) {
-      const now = new Date().toISOString();
-      const defaultProductionLine: ProductionLine = {
-        id: uuidv4(),
-        name: "Main Assembly Line",
-        description: "Primary vehicle assembly line",
-        type: "assembly",
-        metrics: [],
-        buildStages: [],
-        allocatedInventory: [],
-        lastMaintenance: now,
-        nextMaintenance: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "operational",
-        capacity: {
-          planned: 100,
-          actual: 85,
-          unit: "units/day"
-        },
-        performance: {
-          efficiency: 98.5,
-          quality: 99.2,
-          availability: 97.8,
-          oee: 95.6
-        },
-        notes: "Initial production line setup",
-        createdAt: now,
-        updatedAt: now
-      };
-      await productionContainer.items.create(defaultProductionLine);
+      // Verify container is accessible
+      try {
+        await container.items.query("SELECT TOP 1 * FROM c").fetchAll();
+        console.log(`Container ${container.id} is accessible`);
+      } catch (error) {
+        console.error(`Error accessing container ${container.id}:`, error);
+        throw error;
+      }
     }
 
     console.log("Manufacturing database containers initialized successfully");
