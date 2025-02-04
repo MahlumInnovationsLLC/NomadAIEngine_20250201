@@ -34,6 +34,7 @@ model ManufacturingProject {
   eeDesignProgress Int          @default(0)
   itDesignProgress Int          @default(0)
   ntcDesignProgress Int         @default(0)
+  notes           String?       @db.Text
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 }

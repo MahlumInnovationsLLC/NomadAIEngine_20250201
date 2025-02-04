@@ -41,6 +41,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 
 function formatDate(dateString?: string) {
@@ -724,6 +725,44 @@ export function ProjectManagementPanel() {
                           <ProductionTimeline project={selectedProject} />
                         </div>
 
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Notes</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <RichTextEditor
+                              content={selectedProject.notes || ''}
+                              onChange={async (content) => {
+                                if (!selectedProject) return;
+
+                                try {
+                                  const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ notes: content })
+                                  });
+
+                                  if (!response.ok) throw new Error('Failed to save notes');
+
+                                  queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+                                    if (!oldData) return [];
+                                    return oldData.map(p =>
+                                      p.id === selectedProject.id
+                                        ? { ...p, notes: content }
+                                        : p
+                                    );
+                                  });
+                                } catch (error) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to save notes",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                            />
+                          </CardContent>
+                        </Card>
                         <div className="grid grid-cols-2 gap-4">
                           <Card>
                             <CardHeader>
@@ -844,7 +883,7 @@ export function ProjectManagementPanel() {
                                         {formatDate(task.startDate)} - {formatDate(task.endDate)}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap-4">
+                                                                        <div className="flex items-center gap-4">
                                       <div className="text-sm text-muted-foreground">
                                         {task.assignee}
                                       </div>
