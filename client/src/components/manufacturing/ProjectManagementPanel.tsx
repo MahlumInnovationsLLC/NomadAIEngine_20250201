@@ -1007,32 +1007,42 @@ export function ProjectManagementPanel() {
           {selectedProject && (
             <Form
               key={formKey}
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
-                const formData = new FormData(event.currentTarget);
-                const data: Record<string, any> = {};
 
+                const form = event.currentTarget;
+                const formData = new FormData(form);
+                const data: Record<string, any> = {
+                  id: selectedProject.id
+                };
+
+                // Process form data
                 for (const [key, value] of formData.entries()) {
+                  // Skip empty values
                   if (value === '') continue;
 
+                  // Convert number fields
                   if (['meCadProgress', 'eeDesignProgress', 'itDesignProgress', 'ntcDesignProgress'].includes(key)) {
-                    data[key] = Number(value) || 0;
+                    data[key] = parseFloat(value as string) || 0;
                   } else {
                     data[key] = value;
                   }
                 }
 
+                // Handle executive review time
                 if (data.executiveReview && data.executiveReviewTime) {
                   const date = new Date(data.executiveReview);
-                  const [hours, minutes] = data.executiveReviewTime.split(':');
+                  const [hours, minutes] = (data.executiveReviewTime as string).split(':');
                   date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
                   data.executiveReview = date.toISOString();
+                  delete data.executiveReviewTime;
                 }
 
-                data.id = selectedProject?.id;
-
-                console.log('Submitting data:', data);
-                updateProjectMutation.mutate(data);
+                try {
+                  await updateProjectMutation.mutateAsync(data);
+                } catch (error) {
+                  console.error('Failed to update project:', error);
+                }
               }}
             >
               <div className="grid grid-cols-2 gap-4">
