@@ -466,6 +466,7 @@ export function ProjectManagementPanel() {
                         <th className="p-2 text-left">Name</th>
                         <th className="p-2 text-left">Location</th>
                         <th className="p-2 text-left">Team</th>
+                        <th className="p-2 text-left">Notes</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -475,6 +476,11 @@ export function ProjectManagementPanel() {
                           <td className="p-2">{project.name || '-'}</td>
                           <td className="p-2">{project.location || '-'}</td>
                           <td className="p-2">{project.team || '-'}</td>
+                          <td className="p-2">
+                            <div className="max-w-[200px] truncate">
+                              {project.notes || '-'}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -725,47 +731,6 @@ export function ProjectManagementPanel() {
                           <ProductionTimeline project={selectedProject} />
                         </div>
 
-                        {selectedProject && (
-                          <Card>
-                            <CardHeader>
-                              <CardTitle>Notes</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <RichTextEditor
-                                key={selectedProject.id}
-                                content={selectedProject.notes || ''}
-                                onChange={async (content) => {
-                                  try {
-                                    const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ notes: content })
-                                    });
-
-                                    if (!response.ok) throw new Error('Failed to save notes');
-
-                                    queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-                                      if (!oldData) return [];
-                                      return oldData.map(p =>
-                                        p.id === selectedProject.id
-                                          ? { ...p, notes: content }
-                                          : p
-                                      );
-                                    });
-                                  } catch (error) {
-                                    toast({
-                                      title: "Error",
-                                      description: "Failed to save notes",
-                                      variant: "destructive"
-                                    });
-                                  }
-                                }}
-                              />
-                            </CardContent>
-                          </Card>
-                        )}
-
-
                         <div className="grid grid-cols-2 gap-4">
                           <Card>
                             <CardHeader>
@@ -832,28 +797,6 @@ export function ProjectManagementPanel() {
                                   <span>{formatDate(selectedProject.qcStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>NTC Days:</span>
-                                  <span className={getDaysColor(
-                                    selectedProject.ntcTesting && selectedProject.qcStart
-                                      ? calculateWorkingDays(selectedProject.ntcTesting, selectedProject.qcStart)
-                                      : 0
-                                  )}>
-                                    {selectedProject.ntcTesting && selectedProject.qcStart
-                                      ? calculateWorkingDays(selectedProject.ntcTesting, selectedProject.qcStart)
-                                      : '-'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>QC Days:</span>
-                                  <span className={getDaysColor(calculateQCDays(selectedProject))}>
-                                    {calculateQCDays(selectedProject) || '-'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Executive Review:</span>
-                                  <span>{selectedProject.executiveReview ? new Date(selectedProject.executiveReview).toLocaleString() : '-'}</span>
-                                </div>
-                                <div className="flex justify-between">
                                   <span>Ship:</span>
                                   <span>{formatDate(selectedProject.ship)}</span>
                                 </div>
@@ -865,6 +808,47 @@ export function ProjectManagementPanel() {
                             </CardContent>
                           </Card>
                         </div>
+
+                        {selectedProject && (
+                          <Card className="mt-6">
+                            <CardHeader>
+                              <CardTitle>Notes</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <RichTextEditor
+                                key={selectedProject.id}
+                                content={selectedProject.notes || ''}
+                                onChange={async (content) => {
+                                  try {
+                                    const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ notes: content })
+                                    });
+
+                                    if (!response.ok) throw new Error('Failed to save notes');
+
+                                    queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+                                      if (!oldData) return [];
+                                      return oldData.map(p =>
+                                        p.id === selectedProject.id
+                                          ? { ...p, notes: content }
+                                          : p
+                                      );
+                                    });
+                                  } catch (error) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to save notes",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                              />
+                            </CardContent>
+                          </Card>
+                        )}
+
 
                         {selectedProject.tasks && selectedProject.tasks.length > 0 && (
                           <div className="space-y-4">
@@ -916,9 +900,7 @@ export function ProjectManagementPanel() {
               <div className="text-center p-8 text-muted-foreground">
                 Map View coming soon...
               </div>
-            </TabsContent>
-
-            <TabsContent value="table">
+            </<TabsContent>
               <div className="text-center p-8 text-muted-foreground">
                 Table View coming soon...
               </div>
