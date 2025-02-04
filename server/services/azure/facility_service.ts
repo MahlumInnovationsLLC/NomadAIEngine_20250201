@@ -1,7 +1,7 @@
 import { CosmosClient } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
 import { ProjectStatus } from "@/types/manufacturing";
-import { startOfDay } from "date-fns";
+import { startOfDay, parseISO } from "date-fns";
 
 if (!process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING) {
   throw new Error("Azure Cosmos DB connection string not found");
@@ -141,58 +141,67 @@ export function calculateProjectStatus(project: any): ProjectStatus {
 
   console.log('Calculating status for project:', project);
 
-  // Use startOfDay to normalize dates for comparison
-  const today = startOfDay(new Date());
-  console.log('Current date:', today);
+  // Get current date in EST/EDT (America/New_York timezone)
+  const today = new Date();
+  const userDate = new Date(today.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const normalizedToday = startOfDay(userDate);
+
+  console.log('Raw current date:', today);
+  console.log('User timezone date:', userDate);
+  console.log('Normalized date for comparison:', normalizedToday);
 
   const dates = {
-    fabricationStart: project.fabricationStart ? startOfDay(new Date(project.fabricationStart)) : null,
-    assemblyStart: project.assemblyStart ? startOfDay(new Date(project.assemblyStart)) : null,
-    wrapGraphics: project.wrapGraphics ? startOfDay(new Date(project.wrapGraphics)) : null,
-    ntcTesting: project.ntcTesting ? startOfDay(new Date(project.ntcTesting)) : null,
-    qcStart: project.qcStart ? startOfDay(new Date(project.qcStart)) : null,
-    ship: project.ship ? startOfDay(new Date(project.ship)) : null,
+    fabricationStart: project.fabricationStart ? startOfDay(parseISO(project.fabricationStart)) : null,
+    assemblyStart: project.assemblyStart ? startOfDay(parseISO(project.assemblyStart)) : null,
+    wrapGraphics: project.wrapGraphics ? startOfDay(parseISO(project.wrapGraphics)) : null,
+    ntcTesting: project.ntcTesting ? startOfDay(parseISO(project.ntcTesting)) : null,
+    qcStart: project.qcStart ? startOfDay(parseISO(project.qcStart)) : null,
+    ship: project.ship ? startOfDay(parseISO(project.ship)) : null,
   };
 
   console.log('Project dates:', dates);
+  if (dates.ship) {
+    console.log('Days until ship:', (dates.ship.getTime() - normalizedToday.getTime()) / (1000 * 60 * 60 * 24));
+  }
 
   // Return appropriate status based on dates
-  if (dates.ship && today.getTime() === dates.ship.getTime()) {
+  if (dates.ship && normalizedToday.getTime() === dates.ship.getTime()) {
     console.log('Project is SHIPPING TODAY');
     return "SHIPPING";
   }
 
-  if (dates.ship && today > dates.ship) {
+  if (dates.ship && normalizedToday > dates.ship) {
     console.log('Project is COMPLETED');
     return "COMPLETED";
   }
 
-  if (dates.qcStart && today >= dates.qcStart) {
+  // Rest of the status checks remain unchanged
+  if (dates.qcStart && normalizedToday >= dates.qcStart) {
     console.log('Project is IN QC');
     return "IN QC";
   }
 
-  if (dates.ntcTesting && today >= dates.ntcTesting) {
+  if (dates.ntcTesting && normalizedToday >= dates.ntcTesting) {
     console.log('Project is IN NTC TESTING');
     return "IN NTC TESTING";
   }
 
-  if (dates.wrapGraphics && today >= dates.wrapGraphics) {
+  if (dates.wrapGraphics && normalizedToday >= dates.wrapGraphics) {
     console.log('Project is IN WRAP');
     return "IN WRAP";
   }
 
-  if (dates.assemblyStart && today >= dates.assemblyStart) {
+  if (dates.assemblyStart && normalizedToday >= dates.assemblyStart) {
     console.log('Project is IN ASSEMBLY');
     return "IN ASSEMBLY";
   }
 
-  if (dates.fabricationStart && today >= dates.fabricationStart) {
+  if (dates.fabricationStart && normalizedToday >= dates.fabricationStart) {
     console.log('Project is IN FAB');
     return "IN FAB";
   }
 
-  console.log('Project is NOT_STARTED');
+  console.log('Project is NOT STARTED');
   return "NOT_STARTED";
 }
 
