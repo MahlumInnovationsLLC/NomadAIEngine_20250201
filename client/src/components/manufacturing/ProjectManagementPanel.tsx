@@ -475,6 +475,44 @@ export function ProjectManagementPanel() {
     );
   }
 
+  const handleNotesChange = async (content: string) => {
+    try {
+      const response = await fetch(`/api/manufacturing/projects/${selectedProject?.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: content })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Failed to save notes: ${errorData.message || response.statusText}`);
+      }
+
+      const updatedProject = await response.json();
+
+      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+        if (!oldData) return [];
+        return oldData.map(p =>
+          p.id === selectedProject?.id
+            ? { ...p, notes: content }
+            : p
+        );
+      });
+
+      toast({
+        title: "Success",
+        description: "Notes updated successfully"
+      });
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save notes",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -854,8 +892,7 @@ export function ProjectManagementPanel() {
                                   <span>{formatDate(selectedProject.fabricationStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>Assembly Start:</span>
-                                  <span>{formatDate(selectedProject.assemblyStart)}</span>
+                                  <span>Assembly Start:</span                                  <span>{formatDate(selectedProject.assemblyStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Wrap/Graphics:</span>
@@ -891,32 +928,7 @@ export function ProjectManagementPanel() {
                               <RichTextEditor
                                 key={selectedProject.id}
                                 content={selectedProject.notes || ''}
-                                onChange={async (content) => {
-                                  try {
-                                    const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ notes: content })
-                                    });
-
-                                    if (!response.ok) throw new Error('Failed to save notes');
-
-                                    queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-                                      if (!oldData) return [];
-                                      return oldData.map(p =>
-                                        p.id === selectedProject.id
-                                          ? { ...p, notes: content }
-                                          : p
-                                      );
-                                    });
-                                  } catch (error) {
-                                    toast({
-                                      title: "Error",
-                                      description: "Failed to save notes",
-                                      variant: "destructive"
-                                    });
-                                  }
-                                }}
+                                onChange={handleNotesChange}
                               />
                             </CardContent>
                           </Card>
