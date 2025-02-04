@@ -1,5 +1,6 @@
 import { CosmosClient } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
+import { ProjectStatus } from "@/types/manufacturing";
 
 if (!process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING) {
   throw new Error("Azure Cosmos DB connection string not found");
@@ -11,6 +12,90 @@ const productionContainer = database.container("production-lines");
 const manufacturingSystemsContainer = database.container("manufacturing-systems");
 const maintenanceContainer = database.container("maintenance-records");
 const qualityInspectionContainer = database.container("quality-inspections");
+const projectsContainer = database.container("manufacturing-projects");
+
+// Project Management Functions
+export async function getProject(id: string) {
+  try {
+    const { resource } = await projectsContainer.item(id, id).read();
+    return resource;
+  } catch (error) {
+    console.error("Failed to get project:", error);
+    throw error;
+  }
+}
+
+export async function updateProject(id: string, updates: any) {
+  try {
+    const { resource: existingProject } = await projectsContainer.item(id, id).read();
+    if (!existingProject) {
+      throw new Error("Project not found");
+    }
+
+    const updatedProject = {
+      ...existingProject,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource } = await projectsContainer.item(id, id).replace(updatedProject);
+    return resource;
+  } catch (error) {
+    console.error("Failed to update project:", error);
+    throw error;
+  }
+}
+
+export function calculateProjectStatus(project: any): ProjectStatus {
+  console.log('Calculating status for project:', project);
+
+  const today = new Date();
+  console.log('Current date:', today);
+
+  const dates = {
+    fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
+    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
+    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
+    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
+    qcStart: project.qcStart ? new Date(project.qcStart) : null,
+    ship: project.ship ? new Date(project.ship) : null,
+  };
+
+  console.log('Project dates:', dates);
+
+  if (dates.ship && today >= dates.ship) {
+    console.log('Project is COMPLETED');
+    return "COMPLETED";
+  }
+
+  if (dates.qcStart && today >= dates.qcStart) {
+    console.log('Project is IN QC');
+    return "IN QC";
+  }
+
+  if (dates.ntcTesting && today >= dates.ntcTesting) {
+    console.log('Project is IN NTC TESTING');
+    return "IN NTC TESTING";
+  }
+
+  if (dates.wrapGraphics && today >= dates.wrapGraphics) {
+    console.log('Project is IN WRAP');
+    return "IN WRAP";
+  }
+
+  if (dates.assemblyStart && today >= dates.assemblyStart) {
+    console.log('Project is IN ASSEMBLY');
+    return "IN ASSEMBLY";
+  }
+
+  if (dates.fabricationStart && today >= dates.fabricationStart) {
+    console.log('Project is IN FAB');
+    return "IN FAB";
+  }
+
+  console.log('Project is NOT STARTED');
+  return "NOT STARTED";
+}
 
 export interface ProductionMetrics {
   type: string;
@@ -46,6 +131,7 @@ export interface ProductionLine {
   createdAt: string;
   updatedAt: string;
 }
+
 
 // Add inspection-specific interfaces and functions
 export interface QualityInspection {
@@ -132,6 +218,10 @@ export async function initializeManufacturingDatabase() {
 
     await database.containers.createIfNotExists({
       id: "quality-inspections",
+      partitionKey: { paths: ["/id"] }
+    });
+    await database.containers.createIfNotExists({
+      id: "manufacturing-projects",
       partitionKey: { paths: ["/id"] }
     });
 

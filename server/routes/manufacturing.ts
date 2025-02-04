@@ -1,20 +1,19 @@
 import { Router } from "express";
-import { getProductionLineStatus, addProductionMetrics, getQualityInspections, saveQualityInspection, updateQualityInspection } from "../services/azure/facility_service";
+import { 
+  getProductionLineStatus, 
+  addProductionMetrics, 
+  getQualityInspections, 
+  saveQualityInspection, 
+  updateQualityInspection,
+  getProject,
+  updateProject,
+  calculateProjectStatus
+} from "../services/azure/facility_service";
 import crypto from 'crypto';
 import qualityRoutes from './manufacturing/quality';
 import projectRoutes from './manufacturing/projects';
 import resourceRoutes from './manufacturing/resources';
-import { PrismaClient } from '@prisma/client';
 import { ProjectStatus } from "@/types/manufacturing";
-
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
-  },
-  log: ['query', 'error', 'warn']
-});
 
 const router = Router();
 
@@ -23,67 +22,14 @@ router.use('/quality', qualityRoutes);
 router.use('/projects', projectRoutes);
 router.use('/resources', resourceRoutes);
 
-function calculateProjectStatus(project: any): ProjectStatus {
-  console.log('Calculating status for project:', project);
-
-  const today = new Date();
-  console.log('Current date:', today);
-
-  const dates = {
-    fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
-    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
-    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
-    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
-    qcStart: project.qcStart ? new Date(project.qcStart) : null,
-    ship: project.ship ? new Date(project.ship) : null,
-  };
-
-  console.log('Project dates:', dates);
-
-  if (dates.ship && today >= dates.ship) {
-    console.log('Project is COMPLETED');
-    return "COMPLETED";
-  }
-
-  if (dates.qcStart && today >= dates.qcStart) {
-    console.log('Project is IN QC');
-    return "IN QC";
-  }
-
-  if (dates.ntcTesting && today >= dates.ntcTesting) {
-    console.log('Project is IN NTC TESTING');
-    return "IN NTC TESTING";
-  }
-
-  if (dates.wrapGraphics && today >= dates.wrapGraphics) {
-    console.log('Project is IN WRAP');
-    return "IN WRAP";
-  }
-
-  if (dates.assemblyStart && today >= dates.assemblyStart) {
-    console.log('Project is IN ASSEMBLY');
-    return "IN ASSEMBLY";
-  }
-
-  if (dates.fabricationStart && today >= dates.fabricationStart) {
-    console.log('Project is IN FAB');
-    return "IN FAB";
-  }
-
-  console.log('Project is NOT STARTED');
-  return "NOT STARTED";
-}
-
 // Reset project status to automatic
 router.post("/projects/:id/reset-status", async (req, res) => {
   try {
     const { id } = req.params;
     console.log('Attempting to reset status for project:', id);
 
-    // Get current project from database
-    const project = await prisma.manufacturingProject.findUnique({
-      where: { id }
-    });
+    // Get current project from Cosmos DB
+    const project = await getProject(id);
 
     if (!project) {
       console.log('Project not found:', id);
@@ -96,13 +42,10 @@ router.post("/projects/:id/reset-status", async (req, res) => {
     const calculatedStatus = calculateProjectStatus(project);
     console.log('Calculated new status:', calculatedStatus);
 
-    // Update project in database
-    const updatedProject = await prisma.manufacturingProject.update({
-      where: { id },
-      data: {
-        manualStatus: false,
-        status: calculatedStatus
-      }
+    // Update project in Cosmos DB
+    const updatedProject = await updateProject(id, {
+      manualStatus: false,
+      status: calculatedStatus
     });
 
     console.log('Successfully updated project:', updatedProject);
