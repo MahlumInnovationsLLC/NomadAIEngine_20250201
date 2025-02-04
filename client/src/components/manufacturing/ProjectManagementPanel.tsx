@@ -30,24 +30,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
 import { Project, ProjectStatus } from "@/types/manufacturing";
-import {
-  faArrowUp,
-  faArrowDown,
-  faFolder,
-  faCheckCircle,
-  faCircleDot,
-  faEdit,
-  faLocationDot,
-  faRotateLeft,
-  faFileImport,
-  faTrashCan
-} from "@fortawesome/pro-light-svg-icons";
+import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faTrashCan } from "@fortawesome/pro-light-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
@@ -863,8 +862,7 @@ export function ProjectManagementPanel() {
                                   onClick={() => handleResetStatus(selectedProject.id)}
                                 >
                                   <FontAwesomeIcon icon={faRotateLeft} className="mr-2 h-3 w-3" />
-                                  Reset to Automatic
-                                </Button>
+                                  Reset to Automatic                                </Button>
                               </div>
                             )}
                           </div>
@@ -1025,14 +1023,16 @@ export function ProjectManagementPanel() {
       <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
+            <AlertDialogTitle>Update Project Status</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to manually override the project status? 
-              This will prevent automatic status updates based on project dates.
+              Are you sure you want to manually set the project status?
+              This will override automatic status updates.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setShowStatusDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction onClick={confirmStatusChange}>
               Confirm
             </AlertDialogAction>
@@ -1045,11 +1045,14 @@ export function ProjectManagementPanel() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Project</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this project? This action cannot be undone.
+              Are you sure you want to delete this project?
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>
               Delete
             </AlertDialogAction>
