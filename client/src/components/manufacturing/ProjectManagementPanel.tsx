@@ -9,6 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -16,15 +24,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { ProjectCreateDialog } from "./ProjectCreateDialog";
 import { Project, ProjectStatus } from "@/types/manufacturing";
@@ -41,7 +49,6 @@ import {
   faTrashCan
 } from "@fortawesome/pro-light-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 // Move these utility functions outside component to prevent recreation
@@ -125,6 +132,25 @@ const calculateProjectStatus = (project: Project): ProjectStatus => {
 
   return "NOT STARTED";
 };
+
+const editProjectSchema = z.object({
+  projectNumber: z.string().min(1, "Project number is required"),
+  name: z.string().optional(),
+  location: z.string().optional(),
+  team: z.string().optional(),
+  contractDate: z.string().optional(),
+  dpasRating: z.string().optional(),
+  chassisEta: z.string().optional(),
+  fabricationStart: z.string().optional(),
+  assemblyStart: z.string().optional(),
+  wrapGraphics: z.string().optional(),
+  ntcTesting: z.string().optional(),
+  qcStart: z.string().optional(),
+  executiveReview: z.string().optional(),
+  ship: z.string().optional(),
+});
+
+type EditProjectFormValues = z.infer<typeof editProjectSchema>;
 
 export function ProjectManagementPanel() {
   const { toast } = useToast();
@@ -465,6 +491,86 @@ export function ProjectManagementPanel() {
     });
   };
 
+  const editProjectMutation = useMutation({
+    mutationFn: async (data: EditProjectFormValues) => {
+      if (!selectedProject) throw new Error('No project selected');
+
+      const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update project');
+      }
+
+      return response.json();
+    },
+    onSuccess: (updatedProject) => {
+      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+        if (!oldData) return [updatedProject];
+        return oldData.map(p => p.id === updatedProject.id ? updatedProject : p);
+      });
+      setShowEditDialog(false);
+      toast({
+        title: "Success",
+        description: "Project updated successfully"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update project",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const form = useForm<EditProjectFormValues>({
+    resolver: zodResolver(editProjectSchema),
+    defaultValues: {
+      projectNumber: selectedProject?.projectNumber || '',
+      name: selectedProject?.name || '',
+      location: selectedProject?.location || '',
+      team: selectedProject?.team || '',
+      contractDate: selectedProject?.contractDate || '',
+      dpasRating: selectedProject?.dpasRating || '',
+      chassisEta: selectedProject?.chassisEta || '',
+      fabricationStart: selectedProject?.fabricationStart || '',
+      assemblyStart: selectedProject?.assemblyStart || '',
+      wrapGraphics: selectedProject?.wrapGraphics || '',
+      ntcTesting: selectedProject?.ntcTesting || '',
+      qcStart: selectedProject?.qcStart || '',
+      executiveReview: selectedProject?.executiveReview || '',
+      ship: selectedProject?.ship || '',
+    }
+  });
+
+  useEffect(() => {
+    if (selectedProject && showEditDialog) {
+      form.reset({
+        projectNumber: selectedProject.projectNumber || '',
+        name: selectedProject.name || '',
+        location: selectedProject.location || '',
+        team: selectedProject.team || '',
+        contractDate: selectedProject.contractDate || '',
+        dpasRating: selectedProject.dpasRating || '',
+        chassisEta: selectedProject.chassisEta || '',
+        fabricationStart: selectedProject.fabricationStart || '',
+        assemblyStart: selectedProject.assemblyStart || '',
+        wrapGraphics: selectedProject.wrapGraphics || '',
+        ntcTesting: selectedProject.ntcTesting || '',
+        qcStart: selectedProject.qcStart || '',
+        executiveReview: selectedProject.executiveReview || '',
+        ship: selectedProject.ship || '',
+      });
+    }
+  }, [selectedProject, showEditDialog, form]);
+
+  const onSubmit = (data: EditProjectFormValues) => {
+    editProjectMutation.mutate(data);
+  };
 
   if (isLoading) {
     return (
@@ -767,7 +873,7 @@ export function ProjectManagementPanel() {
                         "Select a Project"
                       )}
                     </CardTitle>
-                  </CardHeader>
+                  </                  </CardHeader>
                   <CardContent>
                     {selectedProject ? (
                       <div className="space-y-6">
@@ -866,7 +972,7 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>QC Start:</span>
-                                                                 <span>{formatDate(selectedProject.qcStart)}</span>
+                                  <span>{formatDate(selectedProject.qcStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Executive Review:</span>
@@ -949,6 +1055,209 @@ export function ProjectManagementPanel() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+    <DialogContent className="sm:max-w-[600px]">
+      <DialogHeader>
+        <DialogTitle>Edit Project</DialogTitle>
+      </DialogHeader>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="projectNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Project Number</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Location</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="team"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Team</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="contractDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contract Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="chassisEta"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Chassis ETA</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="fabricationStart"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fabrication Start</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="assemblyStart"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Assembly Start</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="wrapGraphics"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Wrap Graphics</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="ntcTesting"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>NTC Testing</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="qcStart"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>QC Start</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="executiveReview"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Executive Review</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <FormField
+            control={form.control}
+            name="ship"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ship Date</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditDialog(false)}
+              type="button"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit"
+              disabled={editProjectMutation.isPending}
+            >
+              {editProjectMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Form>
+    </DialogContent>
+  </Dialog>
     </div>
   );
 }
