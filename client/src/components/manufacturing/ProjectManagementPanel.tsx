@@ -182,6 +182,7 @@ export function ProjectManagementPanel() {
   const [importing, setImporting] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -464,7 +465,6 @@ export function ProjectManagementPanel() {
     return date.toISOString().split('T')[0];
   };
 
-  // Add form schema
   const formSchema = z.object({
     projectNumber: z.string(),
     location: z.string().optional(),
@@ -873,7 +873,7 @@ export function ProjectManagementPanel() {
                                   <span>NTC Testing:</span>
                                   <span>{formatDate(selectedProject.ntcTesting)}</span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className<div className="flex justify-between">
                                   <span>QC Start:</span>
                                   <span>{formatDate(selectedProject.qcStart)}</span>
                                 </div>
@@ -1029,10 +1029,18 @@ export function ProjectManagementPanel() {
           </DialogHeader>
           {selectedProject && (
             <Form
+              key={formKey}
               onSubmit={(event) => {
                 event.preventDefault();
                 const formData = new FormData(event.currentTarget);
                 const data = Object.fromEntries(formData.entries());
+
+                const numberFields = ['meCadProgress', 'eeDesignProgress', 'itDesignProgress', 'ntcDesignProgress'];
+                numberFields.forEach(field => {
+                  if (data[field]) {
+                    data[field] = Number(data[field]);
+                  }
+                });
 
                 let executiveReview = data.executiveReview as string;
                 if (executiveReview && data.executiveReviewTime) {
@@ -1195,6 +1203,17 @@ export function ProjectManagementPanel() {
                       type="date"
                       name="ntcTesting"
                       defaultValue={formatDateForInput(selectedProject?.ntcTesting)}
+                      onChange={(e) => {
+                        const ntcTesting = e.target.value;
+                        const qcStart = selectedProject?.qcStart;
+                        if (ntcTesting && qcStart) {
+                          const days = calculateWorkingDays(ntcTesting, qcStart);
+                          const ntcDaysInput = document.querySelector('input[name="ntcDays"]') as HTMLInputElement;
+                          if (ntcDaysInput) {
+                            ntcDaysInput.value = days.toString();
+                          }
+                        }
+                      }}
                     />
                   </div>
                   <div>
@@ -1203,7 +1222,7 @@ export function ProjectManagementPanel() {
                       <Input
                         type="number"
                         name="ntcDays"
-                        defaultValue={selectedProject?.ntcDays || calculateNTCDays(selectedProject)}
+                        defaultValue={calculateNTCDays(selectedProject)}
                         readOnly
                       />
                       <span className="text-sm text-muted-foreground">
@@ -1217,6 +1236,27 @@ export function ProjectManagementPanel() {
                       type="date"
                       name="qcStart"
                       defaultValue={formatDateForInput(selectedProject?.qcStart)}
+                      onChange={(e) => {
+                        const qcStart = e.target.value;
+                        const ntcTesting = selectedProject?.ntcTesting;
+                        const endDate = selectedProject?.executiveReview || selectedProject?.ship;
+
+                        if (ntcTesting && qcStart) {
+                          const ntcDays = calculateWorkingDays(ntcTesting, qcStart);
+                          const ntcDaysInput = document.querySelector('input[name="ntcDays"]') as HTMLInputElement;
+                          if (ntcDaysInput) {
+                            ntcDaysInput.value = ntcDays.toString();
+                          }
+                        }
+
+                        if (qcStart && endDate) {
+                          const qcDays = calculateWorkingDays(qcStart, endDate);
+                          const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
+                          if (qcDaysInput) {
+                            qcDaysInput.value = qcDays.toString();
+                          }
+                        }
+                      }}
                     />
                   </div>
                   <div>
@@ -1225,7 +1265,7 @@ export function ProjectManagementPanel() {
                       <Input
                         type="number"
                         name="qcDays"
-                        defaultValue={selectedProject?.qcDays || calculateQCDays(selectedProject)}
+                        defaultValue={calculateQCDays(selectedProject)}
                         readOnly
                       />
                       <span className="text-sm text-muted-foreground">
@@ -1241,6 +1281,17 @@ export function ProjectManagementPanel() {
                         name="executiveReview"
                         defaultValue={formatDateForInput(selectedProject?.executiveReview)}
                         className="flex-1"
+                        onChange={(e) => {
+                          const qcStart = selectedProject?.qcStart;
+                          const executiveReview = e.target.value;
+                          if (qcStart && executiveReview) {
+                            const qcDays = calculateWorkingDays(qcStart, executiveReview);
+                            const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
+                            if (qcDaysInput) {
+                              qcDaysInput.value = qcDays.toString();
+                            }
+                          }
+                        }}
                       />
                       <Input 
                         type="time"
@@ -1256,6 +1307,17 @@ export function ProjectManagementPanel() {
                       type="date"
                       name="ship"
                       defaultValue={formatDateForInput(selectedProject?.ship)}
+                      onChange={(e) => {
+                        const qcStart = selectedProject?.qcStart;
+                        const shipDate = e.target.value;
+                        if (qcStart && shipDate) {
+                          const qcDays = calculateWorkingDays(qcStart, shipDate);
+                          const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
+                          if (qcDaysInput) {
+                            qcDaysInput.value = qcDays.toString();
+                          }
+                        }
+                      }}
                     />
                   </div>
                   <div>
@@ -1281,8 +1343,8 @@ export function ProjectManagementPanel() {
                 <Button variant="outline" onClick={() => setShowEditDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Update Project
+                <Button type="submit" disabled={updateProjectMutation.isPending}>
+                  {updateProjectMutation.isPending ? "Updating..." : "Update Project"}
                 </Button>
               </div>
             </Form>
