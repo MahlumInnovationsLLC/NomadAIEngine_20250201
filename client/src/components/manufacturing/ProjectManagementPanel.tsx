@@ -458,9 +458,9 @@ export function ProjectManagementPanel() {
             {showPreview && previewData.length > 0 && (
               <div className="space-y-4">
                 <div className="text-sm font-medium">Preview (First 3 Projects)</div>
-                <div className="border rounded-lg">
+                <div className="border rounded-lg overflow-hidden">
                   <div className="max-h-[400px] overflow-auto">
-                    <div className="min-w-max">
+                    <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead className="sticky top-0 bg-background border-b">
                           <tr className="bg-muted/50">
@@ -531,7 +531,7 @@ export function ProjectManagementPanel() {
                 </div>
               </div>
             )}
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 border-t mt-4">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -824,7 +824,7 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>NTC Testing:</span>
-                                  <span>{formatDate(selectedProject.ntntcTesting)}</span>
+                                  <<span>{formatDate(selectedProject.ntcTesting)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>QC Start:</span>
