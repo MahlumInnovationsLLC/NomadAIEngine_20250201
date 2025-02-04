@@ -873,7 +873,7 @@ export function ProjectManagementPanel() {
                                   <span>NTC Testing:</span>
                                   <span>{formatDate(selectedProject.ntcTesting)}</span>
                                 </div>
-                                <div className<div className="flex justify-between">
+                                <div className="flex justify-between">
                                   <span>QC Start:</span>
                                   <span>{formatDate(selectedProject.qcStart)}</span>
                                 </div>
