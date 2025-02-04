@@ -862,18 +862,14 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>NTC Testing:</span>
-                                  <span>{formatDate(<span>{formatDate(selectedProject.ntcTesting)}</span>
+                                  <span>{formatDate(selectedProject.ntcTesting)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>QC Start:</span>
-                                  <span>{formatDate(selectedProject.qcStart)}</span>
+                                  <span>{formatDate(selectedProject.qcStart</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>Executive Review:</span>
-                                  <span>{formatDate(selectedProject.executiveReview)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Ship:</span>
+                                  <span>Ship Date:</span>
                                   <span>{formatDate(selectedProject.ship)}</span>
                                 </div>
                                 <div className="flex justify-between">
