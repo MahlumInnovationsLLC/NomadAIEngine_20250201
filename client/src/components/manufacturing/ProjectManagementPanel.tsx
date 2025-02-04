@@ -47,10 +47,14 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
+  // Add timezone offset to preserve the exact date
+  const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+  const adjustedDate = new Date(date.getTime() + userTimezoneOffset);
+  return adjustedDate.toLocaleDateString('en-US', {
     year: 'numeric',
     month: '2-digit',
-    day: '2-digit'
+    day: '2-digit',
+    timeZone: 'UTC'  // Force UTC to prevent timezone shifts
   });
 }
 
@@ -874,17 +878,18 @@ export function ProjectManagementPanel() {
                                         {formatDate(task.startDate)} - {formatDate(task.endDate)}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap4">
-                                      <div className="text-sm text-muted-foreground">
-                                        {task.assignee}
+                                    <div className="flex items-center gap-4">                                      <div className="text-sm text-muted-foreground">
+                                          {task.assignee}
+                                        </div>
+                                        <Progress value={task.progress} className="w-24" />
+                                        <Badge variant="outline">
+                                          {task.status.replace('_', ' ')}
+                                        </Badge>
                                       </div>
-                                      <Progress value={task.progress} className="w-24" />
-                                      <Badge variant="outline">
-                                        {task.status.replace('_', ' ')}
-                                      </Badge>
                                     </div>
                                   </div>
-                                </div>                              ))}
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}
