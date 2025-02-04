@@ -449,12 +449,22 @@ export function ProjectManagementPanel() {
           : bLocation.localeCompare(aLocation);
       }
 
-      const aDate = a[sortField] ? new Date(a[sortField]).getTime() : 0;
-      const bDate = b[sortField] ? new Date(b[sortField]).getTime() : 0;
+      // Special handling for date fields
+      const aDate = a[sortField];
+      const bDate = b[sortField];
+
+      // If either date is missing, move it to the bottom
+      if (!aDate && !bDate) return 0;
+      if (!aDate) return 1; // Move a to the end
+      if (!bDate) return -1; // Move b to the end
+
+      // If both dates exist, compare them normally
+      const aTimestamp = new Date(aDate).getTime();
+      const bTimestamp = new Date(bDate).getTime();
 
       return sortDirection === "asc"
-        ? aDate - bDate
-        : bDate - aDate;
+        ? aTimestamp - bTimestamp
+        : bTimestamp - aTimestamp;
     });
 
   if (isLoading) {
@@ -887,7 +897,7 @@ export function ProjectManagementPanel() {
                                       method: 'PATCH',
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ notes: content })
-                                                        });
+                                    });
 
                                     if (!response.ok) throw new Error('Failed to save notes');
 
