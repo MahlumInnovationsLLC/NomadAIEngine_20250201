@@ -439,11 +439,11 @@ export function ProjectManagementPanel() {
       </div>
 
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
-        <DialogContent className="max-w-[95vw] w-[1200px]">
+        <DialogContent className="max-w-[800px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Import Projects from Excel</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="flex-1 min-h-0 space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">
                 Select Excel File
@@ -460,64 +460,34 @@ export function ProjectManagementPanel() {
                 <div className="text-sm font-medium">Preview (First 3 Projects)</div>
                 <div className="border rounded-lg overflow-hidden">
                   <div className="max-h-[400px] overflow-auto">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="sticky top-0 bg-background border-b">
-                          <tr className="bg-muted/50">
-                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">Project Number</th>
-                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">Location</th>
-                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">Status</th>
-                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">Team</th>
-                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">Contract Date</th>
-                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">Chassis ETA</th>
-                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">Payment Milestones</th>
-                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">LLTs Ordered</th>
-                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">ME Assigned</th>
-                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">ME CAD %</th>
-                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">EE Assigned</th>
-                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">EE Design %</th>
-                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">IT Design %</th>
-                            <th className="p-2 text-left min-w-[100px] whitespace-nowrap">NTC Design %</th>
-                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">NTC Testing</th>
-                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">QC Start</th>
-                            <th className="p-2 text-left min-w-[150px] whitespace-nowrap">Executive Review</th>
-                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">Ship</th>
-                            <th className="p-2 text-left min-w-[120px] whitespace-nowrap">Delivery</th>
-                            <th className="p-2 text-left min-w-[200px] whitespace-nowrap">Notes</th>
+                    <table className="w-full">
+                      <thead className="sticky top-0 bg-background border-b">
+                        <tr className="bg-muted/50">
+                          <th className="p-2 text-left">Project Number</th>
+                          <th className="p-2 text-left">Location</th>
+                          <th className="p-2 text-left">Status</th>
+                          <th className="p-2 text-left">Ship</th>
+                          <th className="p-2 text-left">Delivery</th>
+                          <th className="p-2 text-left">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewData.slice(0, 3).map((project, index) => (
+                          <tr key={index} className="border-b last:border-0">
+                            <td className="p-2">{project.projectNumber || '-'}</td>
+                            <td className="p-2">{project.location || '-'}</td>
+                            <td className="p-2">{project.status || '-'}</td>
+                            <td className="p-2">{project.ship ? formatDate(project.ship) : '-'}</td>
+                            <td className="p-2">{project.delivery ? formatDate(project.delivery) : '-'}</td>
+                            <td className="p-2">
+                              <div className="max-w-[200px] truncate">
+                                {project.notes || '-'}
+                              </div>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {previewData.slice(0, 3).map((project, index) => (
-                            <tr key={index} className="border-b last:border-0">
-                              <td className="p-2 whitespace-nowrap">{project.projectNumber || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.location || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.status || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.team || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.contractDate ? formatDate(project.contractDate) : '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.chassisEta || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.paymentMilestones || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.lltsOrdered || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.meAssigned || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.meCadProgress || '0'}%</td>
-                              <td className="p-2 whitespace-nowrap">{project.eeAssigned || '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.eeDesignProgress || '0'}%</td>
-                              <td className="p-2 whitespace-nowrap">{project.itDesignProgress || '0'}%</td>
-                              <td className="p-2 whitespace-nowrap">{project.ntcDesignProgress || '0'}%</td>
-                              <td className="p-2 whitespace-nowrap">{project.ntcTesting ? formatDate(project.ntcTesting) : '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.qcStart ? formatDate(project.qcStart) : '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.executiveReview ? formatDate(project.executiveReview) : '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.ship ? formatDate(project.ship) : '-'}</td>
-                              <td className="p-2 whitespace-nowrap">{project.delivery ? formatDate(project.delivery) : '-'}</td>
-                              <td className="p-2">
-                                <div className="max-w-[200px] truncate">
-                                  {project.notes || '-'}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
                 {previewData.length > 3 && (
@@ -531,31 +501,31 @@ export function ProjectManagementPanel() {
                 </div>
               </div>
             )}
-            <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowImportDialog(false);
+                setImportFile(null);
+                setPreviewData([]);
+                setShowPreview(false);
+              }}
+            >
+              Cancel
+            </Button>
+            {showPreview ? (
               <Button
-                variant="outline"
-                onClick={() => {
-                  setShowImportDialog(false);
-                  setImportFile(null);
-                  setPreviewData([]);
-                  setShowPreview(false);
-                }}
+                onClick={handleImport}
+                disabled={importing}
               >
-                Cancel
+                {importing ? "Importing..." : `Import ${previewData.length} Projects`}
               </Button>
-              {showPreview ? (
-                <Button
-                  onClick={handleImport}
-                  disabled={importing}
-                >
-                  {importing ? "Importing..." : `Import ${previewData.length} Projects`}
-                </Button>
-              ) : (
-                <Button disabled>
-                  Select a file to preview
-                </Button>
-              )}
-            </div>
+            ) : (
+              <Button disabled>
+                Select a file to preview
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -914,8 +884,7 @@ export function ProjectManagementPanel() {
                                       </Badge>
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                </div>                              ))}
                             </div>
                           </div>
                         )}
