@@ -18,14 +18,31 @@ const projectsContainer = database.container("manufacturing-projects");
 export async function getProject(id: string) {
   try {
     console.log(`Attempting to read project with id: ${id}`);
+
+    // Try to get the project from Cosmos DB
     const { resource } = await projectsContainer.item(id, id).read();
+
     if (!resource) {
-      console.log(`Project with id ${id} not found in Cosmos DB`);
-      throw new Error(`Project with id ${id} not found`);
+      // If project doesn't exist, create it with default values
+      console.log(`Project ${id} not found, creating new project`);
+      const newProject = {
+        id,
+        projectNumber: "NEW_PROJECT",
+        name: "New Project",
+        status: "NOT_STARTED",
+        manualStatus: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const { resource: createdProject } = await projectsContainer.items.create(newProject);
+      console.log('Created new project:', createdProject);
+      return createdProject;
     }
+
     console.log('Successfully retrieved project:', resource);
     return resource;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to get project:", error);
     if (error.code === 404) {
       throw new Error(`Project with id ${id} not found`);
@@ -39,7 +56,18 @@ export async function updateProject(id: string, updates: any) {
     console.log('Updating project:', id, 'with updates:', updates);
 
     // First verify the project exists
-    const { resource: existingProject } = await projectsContainer.item(id, id).read();
+    let existingProject;
+    try {
+      const { resource } = await projectsContainer.item(id, id).read();
+      existingProject = resource;
+    } catch (error: any) {
+      if (error.code === 404) {
+        console.log('Project not found, creating new one');
+        existingProject = await getProject(id);
+      } else {
+        throw error;
+      }
+    }
 
     if (!existingProject) {
       console.error(`Project with id ${id} not found for update`);
@@ -67,7 +95,7 @@ export async function updateProject(id: string, updates: any) {
 
     console.log('Successfully updated project:', resource);
     return resource;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to update project:", error);
     // Enhance error details for debugging
     if (error.code) {
