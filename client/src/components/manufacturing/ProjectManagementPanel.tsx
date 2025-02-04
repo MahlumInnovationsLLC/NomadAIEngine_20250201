@@ -871,7 +871,7 @@ export function ProjectManagementPanel() {
                                   <span>Delivery:</span>
                                   <span>{formatDate(selectedProject.delivery)}</span>
                                 </div>
-                              </div>
+                                                            </div>
                             </CardContent>
                           </Card>
                         </div>
@@ -1035,7 +1035,188 @@ export function ProjectManagementPanel() {
               });
             }}
           >
-            {/* Form fields remain unchanged */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Project Number</label>
+                  <Input 
+                    name="projectNumber"
+                    defaultValue={selectedProject?.projectNumber}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Location</label>
+                  <Input 
+                    name="location"
+                    defaultValue={selectedProject?.location}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Team</label>
+                  <Input 
+                    name="team"
+                    defaultValue={selectedProject?.team}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Contract Date</label>
+                  <Input 
+                    type="date"
+                    name="contractDate"
+                    defaultValue={formatDateForInput(selectedProject?.contractDate)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Payment Milestones</label>
+                  <Input 
+                    name="paymentMilestones"
+                    defaultValue={selectedProject?.paymentMilestones}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">LLTS Ordered</label>
+                  <Input 
+                    name="lltsOrdered"
+                    defaultValue={selectedProject?.lltsOrdered}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">ME Assigned</label>
+                  <Input 
+                    name="meAssigned"
+                    defaultValue={selectedProject?.meAssigned}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">ME CAD Progress (%)</label>
+                  <Input 
+                    type="number"
+                    name="meCadProgress"
+                    defaultValue={selectedProject?.meCadProgress}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">EE Assigned</label>
+                  <Input 
+                    name="eeAssigned"
+                    defaultValue={selectedProject?.eeAssigned}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">EE Design Progress (%)</label>
+                  <Input 
+                    type="number"
+                    name="eeDesignProgress"
+                    defaultValue={selectedProject?.eeDesignProgress}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">IT Design Progress (%)</label>
+                  <Input 
+                    type="number"
+                    name="itDesignProgress"
+                    defaultValue={selectedProject?.itDesignProgress}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">NTC Design Progress (%)</label>
+                  <Input 
+                    type="number"
+                    name="ntcDesignProgress"
+                    defaultValue={selectedProject?.ntcDesignProgress}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Fabrication Start</label>
+                  <Input 
+                    type="date"
+                    name="fabricationStart"
+                    defaultValue={formatDateForInput(selectedProject?.fabricationStart)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Assembly Start</label>
+                  <Input 
+                    type="date"
+                    name="assemblyStart"
+                    defaultValue={formatDateForInput(selectedProject?.assemblyStart)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Wrap/Graphics</label>
+                  <Input 
+                    type="date"
+                    name="wrapGraphics"
+                    defaultValue={formatDateForInput(selectedProject?.wrapGraphics)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">NTC Testing</label>
+                  <Input 
+                    type="date"
+                    name="ntcTesting"
+                    defaultValue={formatDateForInput(selectedProject?.ntcTesting)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">QC Start</label>
+                  <Input 
+                    type="date"
+                    name="qcStart"
+                    defaultValue={formatDateForInput(selectedProject?.qcStart)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Executive Review</label>
+                  <Input 
+                    type="date"
+                    name="executiveReview"
+                    defaultValue={formatDateForInput(selectedProject?.executiveReview)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Ship</label>
+                  <Input 
+                    type="date"
+                    name="ship"
+                    defaultValue={formatDateForInput(selectedProject?.ship)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Delivery</label>
+                  <Input 
+                    type="date"
+                    name="delivery"
+                    defaultValue={formatDateForInput(selectedProject?.delivery)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Notes</label>
+                <Input 
+                  name="notes"
+                  defaultValue={selectedProject?.notes}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Update Project
+              </Button>
+            </div>
           </Form>
         </DialogContent>
       </Dialog>
