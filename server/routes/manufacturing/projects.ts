@@ -56,7 +56,7 @@ const columnMappings: { [key: string]: string[] } = {
 function findMatchingColumn(headers: string[], possibleNames: string[]): string | undefined {
   return headers.find(header => 
     possibleNames.some(name => 
-      header.toLowerCase().trim() === name.toLowerCase().trim()
+      header?.toLowerCase().trim() === name.toLowerCase().trim()
     )
   );
 }
@@ -68,7 +68,89 @@ function getValueFromRow(row: any, headers: string[], fieldName: string): any {
   return matchingColumn ? row[matchingColumn] : undefined;
 }
 
-// Import projects from Excel
+// Helper function to parse dates from Excel
+function parseExcelDate(value: any): string | undefined {
+  if (!value) return undefined;
+
+  try {
+    if (typeof value === 'number') {
+      // Handle Excel date number
+      // Excel dates are number of days since 1900-01-01
+      const date = new Date(Math.round((value - 25569) * 86400 * 1000));
+      return date.toISOString();
+    } else if (typeof value === 'string') {
+      // Try parsing string date
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing date:', value, error);
+  }
+  return undefined;
+}
+
+// Preview projects from Excel
+router.post("/preview", upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const rawData = XLSX.utils.sheet_to_json(worksheet);
+
+    console.log('Processing preview data...');
+
+    // Get headers from first row
+    const headers = Object.keys(rawData[0] || {});
+    console.log('Found headers:', headers);
+
+    // Process preview data
+    const processedData = rawData.map(row => {
+      const project: any = {
+        projectNumber: getValueFromRow(row, headers, 'projectNumber'),
+        location: getValueFromRow(row, headers, 'location'),
+        team: getValueFromRow(row, headers, 'team'),
+        status: getValueFromRow(row, headers, 'status'),
+        meAssigned: getValueFromRow(row, headers, 'meAssigned'),
+        eeAssigned: getValueFromRow(row, headers, 'eeAssigned'),
+        itAssigned: getValueFromRow(row, headers, 'itAssigned'),
+        ntcAssigned: getValueFromRow(row, headers, 'ntcAssigned'),
+        notes: getValueFromRow(row, headers, 'notes') || ''
+      };
+
+      // Process dates
+      const dateFields = ['fabricationStart', 'assemblyStart', 'wrapGraphics', 
+                         'ntcTesting', 'qcStart', 'ship', 'delivery'];
+
+      for (const field of dateFields) {
+        const value = getValueFromRow(row, headers, field);
+        project[field] = parseExcelDate(value);
+      }
+
+      return project;
+    });
+
+    res.status(200).json({ 
+      message: "Projects preview generated successfully",
+      count: processedData.length,
+      projects: processedData
+    });
+
+  } catch (error) {
+    console.error("Error generating preview:", error);
+    res.status(500).json({ 
+      error: "Failed to generate preview",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
+// Import projects
 router.post("/import", upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -83,7 +165,7 @@ router.post("/import", upload.single('file'), async (req, res) => {
     console.log('Parsing Excel data...');
 
     // Get headers from first row
-    const headers = Object.keys(rawData[0]);
+    const headers = Object.keys(rawData[0] || {});
     console.log('Found headers:', headers);
 
     const importedProjects = [];
@@ -115,19 +197,7 @@ router.post("/import", upload.single('file'), async (req, res) => {
 
       for (const field of dateFields) {
         const value = getValueFromRow(row, headers, field);
-        if (value) {
-          if (typeof value === 'number') {
-            // Handle Excel date number
-            const date = XLSX.SSF.parse_date_code(value);
-            project[field] = new Date(date.y, date.m - 1, date.d).toISOString();
-          } else if (typeof value === 'string') {
-            // Try to parse string date
-            const date = new Date(value);
-            if (!isNaN(date.getTime())) {
-              project[field] = date.toISOString();
-            }
-          }
-        }
+        project[field] = parseExcelDate(value);
       }
 
       // Save to Azure Blob Storage
@@ -153,74 +223,6 @@ router.post("/import", upload.single('file'), async (req, res) => {
     console.error("Error importing projects:", error);
     res.status(500).json({ 
       error: "Failed to import projects",
-      details: error instanceof Error ? error.message : "Unknown error"
-    });
-  }
-});
-
-// Preview projects from Excel
-router.post("/preview", upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const rawData = XLSX.utils.sheet_to_json(worksheet);
-
-    console.log('Processing preview data...');
-
-    // Get headers from first row
-    const headers = Object.keys(rawData[0]);
-    console.log('Found headers:', headers);
-
-    // Process preview data
-    const processedData = rawData.map(row => {
-      const project: any = {
-        projectNumber: getValueFromRow(row, headers, 'projectNumber'),
-        location: getValueFromRow(row, headers, 'location'),
-        team: getValueFromRow(row, headers, 'team'),
-        meAssigned: getValueFromRow(row, headers, 'meAssigned'),
-        eeAssigned: getValueFromRow(row, headers, 'eeAssigned'),
-        itAssigned: getValueFromRow(row, headers, 'itAssigned'),
-        ntcAssigned: getValueFromRow(row, headers, 'ntcAssigned'),
-        notes: getValueFromRow(row, headers, 'notes') || ''
-      };
-
-      // Process dates
-      const dateFields = ['fabricationStart', 'assemblyStart', 'wrapGraphics', 
-                         'ntcTesting', 'qcStart', 'ship', 'delivery'];
-
-      for (const field of dateFields) {
-        const value = getValueFromRow(row, headers, field);
-        if (value) {
-          if (typeof value === 'number') {
-            const date = XLSX.SSF.parse_date_code(value);
-            project[field] = new Date(date.y, date.m - 1, date.d).toISOString();
-          } else if (typeof value === 'string') {
-            const date = new Date(value);
-            if (!isNaN(date.getTime())) {
-              project[field] = date.toISOString();
-            }
-          }
-        }
-      }
-
-      return project;
-    });
-
-    res.status(200).json({ 
-      message: "Projects preview generated successfully",
-      count: processedData.length,
-      projects: processedData
-    });
-
-  } catch (error) {
-    console.error("Error generating preview:", error);
-    res.status(500).json({ 
-      error: "Failed to generate preview",
       details: error instanceof Error ? error.message : "Unknown error"
     });
   }
@@ -257,65 +259,6 @@ router.get("/:id", async (req, res) => {
       console.error("Error fetching project:", error);
       res.status(500).json({ error: "Failed to fetch project" });
     }
-  }
-});
-
-// Create new project
-router.post("/", async (req, res) => {
-  try {
-    const projectId = uuidv4();
-    const now = new Date().toISOString();
-
-    const project = {
-      id: projectId,
-      ...req.body,
-      status: 'not_started',
-      progress: 0,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    const blockBlobClient = containerClient.getBlockBlobClient(`${projectId}.json`);
-    const content = JSON.stringify(project);
-
-    await blockBlobClient.upload(content, content.length, {
-      blobHTTPHeaders: {
-        blobContentType: "application/json"
-      }
-    });
-
-    res.status(201).json(project);
-  } catch (error) {
-    console.error("Error creating project:", error);
-    res.status(500).json({ error: "Failed to create project" });
-  }
-});
-
-// Update project
-router.patch("/:id", async (req, res) => {
-  try {
-    const blockBlobClient = containerClient.getBlockBlobClient(`${req.params.id}.json`);
-    const downloadResponse = await blockBlobClient.download();
-    const existingData = JSON.parse(await streamToString(downloadResponse.readableStreamBody));
-
-    const updatedProject = {
-      ...existingData,
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-
-    const content = JSON.stringify(updatedProject);
-
-    await blockBlobClient.upload(content, content.length, {
-      blobHTTPHeaders: {
-        blobContentType: "application/json"
-      }
-    });
-
-    res.json(updatedProject);
-  } catch (error) {
-    console.error("Error updating project:", error);
-    res.status(500).json({ error: "Failed to update project" });
   }
 });
 
