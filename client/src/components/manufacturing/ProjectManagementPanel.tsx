@@ -222,40 +222,55 @@ export function ProjectManagementPanel() {
   const updateProjectMutation = useMutation({
     mutationFn: async (project: Partial<Project>) => {
       try {
+        // Clean and validate the data before sending
+        const cleanedData = {
+          ...project,
+          // Only include date fields if they have values and ensure proper ISO format
+          ...(project.contractDate && { contractDate: new Date(project.contractDate).toISOString() }),
+          ...(project.fabricationStart && { fabricationStart: new Date(project.fabricationStart).toISOString() }),
+          ...(project.assemblyStart && { assemblyStart: new Date(project.assemblyStart).toISOString() }),
+          ...(project.wrapGraphics && { wrapGraphics: new Date(project.wrapGraphics).toISOString() }),
+          ...(project.ntcTesting && { ntcTesting: new Date(project.ntcTesting).toISOString() }),
+          ...(project.qcStart && { qcStart: new Date(project.qcStart).toISOString() }),
+          ...(project.executiveReview && { executiveReview: new Date(project.executiveReview).toISOString() }),
+          ...(project.ship && { ship: new Date(project.ship).toISOString() }),
+          ...(project.delivery && { delivery: new Date(project.delivery).toISOString() })
+        };
+
+        console.log('Sending update with data:', cleanedData);
+
         const response = await fetch(`/api/manufacturing/projects/${project.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
-          body: JSON.stringify({
-            ...project,
-            // Ensure dates are properly formatted
-            contractDate: project.contractDate ? new Date(project.contractDate).toISOString() : undefined,
-            fabricationStart: project.fabricationStart ? new Date(project.fabricationStart).toISOString() : undefined,
-            assemblyStart: project.assemblyStart ? new Date(project.assemblyStart).toISOString() : undefined,
-            wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics).toISOString() : undefined,
-            ntcTesting: project.ntcTesting ? new Date(project.ntcTesting).toISOString() : undefined,
-            qcStart: project.qcStart ? new Date(project.qcStart).toISOString() : undefined,
-            executiveReview: project.executiveReview ? new Date(project.executiveReview).toISOString() : undefined,
-            ship: project.ship ? new Date(project.ship).toISOString() : undefined,
-            delivery: project.delivery ? new Date(project.delivery).toISOString() : undefined
-          })
+          body: JSON.stringify(cleanedData)
         });
 
+        // First try to get the response as text to see what we're dealing with
+        const responseText = await response.text();
+        console.log('Raw response:', responseText);
+
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Update failed:', errorText);
-          throw new Error(`Failed to update project: ${response.statusText}`);
+          // Try to parse the error as JSON if possible
+          try {
+            const errorJson = JSON.parse(responseText);
+            throw new Error(errorJson.message || 'Failed to update project');
+          } catch (e) {
+            // If we can't parse as JSON, use the raw text
+            throw new Error(`Failed to update project: ${responseText}`);
+          }
         }
 
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          console.error('Invalid content type:', contentType);
-          throw new Error("Invalid response format from server");
+        // Try to parse the success response as JSON
+        try {
+          const data = JSON.parse(responseText);
+          return data;
+        } catch (e) {
+          console.error('Failed to parse response as JSON:', e);
+          throw new Error('Invalid JSON response from server');
         }
-
-        return await response.json();
       } catch (error) {
         console.error('Update error:', error);
         throw error;
@@ -272,7 +287,6 @@ export function ProjectManagementPanel() {
         description: "Project updated successfully"
       });
 
-      // Close edit dialog and reset selected project with updated data
       setShowEditDialog(false);
       setSelectedProject(prev => prev ? { ...prev, ...updatedProject } : null);
     },
@@ -865,7 +879,7 @@ export function ProjectManagementPanel() {
                                 content={selectedProject.notes || ''}
                                 onChange={async (content) => {
                                   try {
-                                    const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
+                                                                        const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
                                       method: 'PATCH',
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ notes: content })
