@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form } from "@/components/ui/form";
+import { Form, useForm } from "@/components/ui/form";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,19 +43,18 @@ import {
 import { ProductionTimeline } from './ProductionTimeline';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-
+import * as z from "zod";
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
   const date = new Date(dateString);
-  // Add timezone offset to preserve the exact date
   const userTimezoneOffset = date.getTimezoneOffset() * 60000;
   const adjustedDate = new Date(date.getTime() + userTimezoneOffset);
   return adjustedDate.toLocaleDateString('en-US', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    timeZone: 'UTC'  // Force UTC to prevent timezone shifts
+    timeZone: 'UTC'
   });
 }
 
@@ -114,6 +113,11 @@ function calculateQCDays(project: Project): number {
   if (!endDate) return 0;
 
   return calculateWorkingDays(project.qcStart, endDate);
+}
+
+function calculateNTCDays(project: Project): number {
+  if (!project.ntcTesting || !project.qcStart) return 0;
+  return calculateWorkingDays(project.ntcTesting, project.qcStart);
 }
 
 function calculateProjectStatus(project: Project): ProjectStatus {
@@ -223,10 +227,8 @@ export function ProjectManagementPanel() {
   const updateProjectMutation = useMutation({
     mutationFn: async (project: Partial<Project>) => {
       try {
-        // Clean and validate the data before sending
         const cleanedData = {
           ...project,
-          // Only include date fields if they have values and ensure proper ISO format
           ...(project.contractDate && { contractDate: new Date(project.contractDate).toISOString() }),
           ...(project.fabricationStart && { fabricationStart: new Date(project.fabricationStart).toISOString() }),
           ...(project.assemblyStart && { assemblyStart: new Date(project.assemblyStart).toISOString() }),
@@ -249,22 +251,18 @@ export function ProjectManagementPanel() {
           body: JSON.stringify(cleanedData)
         });
 
-        // First try to get the response as text to see what we're dealing with
         const responseText = await response.text();
         console.log('Raw response:', responseText);
 
         if (!response.ok) {
-          // Try to parse the error as JSON if possible
           try {
             const errorJson = JSON.parse(responseText);
             throw new Error(errorJson.message || 'Failed to update project');
           } catch (e) {
-            // If we can't parse as JSON, use the raw text
             throw new Error(`Failed to update project: ${responseText}`);
           }
         }
 
-        // Try to parse the success response as JSON
         try {
           const data = JSON.parse(responseText);
           return data;
@@ -422,7 +420,6 @@ export function ProjectManagementPanel() {
         description: `Successfully imported ${result.count} projects`
       });
 
-      // Refresh projects list
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
       setShowImportDialog(false);
       setImportFile(null);
@@ -455,7 +452,6 @@ export function ProjectManagementPanel() {
           : bLocation.localeCompare(aLocation);
       }
 
-      // Handle cases where either date is missing
       const aDate = a[sortField] ? new Date(a[sortField]).getTime() : sortDirection === "asc" ? Infinity : -Infinity;
       const bDate = b[sortField] ? new Date(b[sortField]).getTime() : sortDirection === "asc" ? Infinity : -Infinity;
 
@@ -472,12 +468,40 @@ export function ProjectManagementPanel() {
     );
   }
 
-  // Helper function for formatting dates in the form
-  function formatDateForInput(dateString: string | null | undefined): string {
+  const formatDateForInput = (dateString: string | null | undefined): string => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return date.toISOString().split('T')[0];
-  }
+  };
+
+  // Add form schema
+  const formSchema = z.object({
+    projectNumber: z.string(),
+    location: z.string().optional(),
+    team: z.string().optional(),
+    contractDate: z.string().optional(),
+    paymentMilestones: z.string().optional(),
+    lltsOrdered: z.string().optional(),
+    meAssigned: z.string().optional(),
+    meCadProgress: z.number().optional(),
+    eeAssigned: z.string().optional(),
+    eeDesignProgress: z.number().optional(),
+    itAssigned: z.string().optional(),
+    itDesignProgress: z.number().optional(),
+    ntcAssigned: z.string().optional(),
+    ntcDesignProgress: z.number().optional(),
+    fabricationStart: z.string().optional(),
+    assemblyStart: z.string().optional(),
+    wrapGraphics: z.string().optional(),
+    ntcTesting: z.string().optional(),
+    qcStart: z.string().optional(),
+    executiveReview: z.string().optional(),
+    executiveReviewTime: z.string().optional(),
+    ship: z.string().optional(),
+    delivery: z.string().optional(),
+    notes: z.string().optional(),
+  });
+
 
   return (
     <div className="space-y-6">
@@ -1014,31 +1038,20 @@ export function ProjectManagementPanel() {
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
           <Form
-            defaultValues={{
-              ...selectedProject,
-              // Format dates for the form inputs
-              contractDate: selectedProject?.contractDate ? formatDateForInput(selectedProject.contractDate) : '',
-              fabricationStart: selectedProject?.fabricationStart ? formatDateForInput(selectedProject.fabricationStart) : '',
-              assemblyStart: selectedProject?.assemblyStart ? formatDateForInput(selectedProject.assemblyStart) : '',
-              wrapGraphics: selectedProject?.wrapGraphics ? formatDateForInput(selectedProject.wrapGraphics) : '',
-              ntcTesting: selectedProject?.ntcTesting ? formatDateForInput(selectedProject.ntcTesting) : '',
-              qcStart: selectedProject?.qcStart ? formatDateForInput(selectedProject.qcStart) : '',
-              executiveReview: selectedProject?.executiveReview ? formatDateForInput(selectedProject.executiveReview) : '',
-              executiveReviewTime: selectedProject?.executiveReview ? new Date(selectedProject.executiveReview).toTimeString().slice(0,5) : '',
-              ship: selectedProject?.ship ? formatDateForInput(selectedProject.ship) : '',
-              delivery: selectedProject?.delivery ? formatDateForInput(selectedProject.delivery) : ''
-            }}
-            onSubmit={async (data) => {
-              if (!selectedProject) return;
+            onSubmit={(event) => {
+              event.preventDefault();
+              const formData = new FormData(event.currentTarget);
+              const data = Object.fromEntries(formData.entries());
 
-              // Combine executive review date and time
-              let executiveReview = data.executiveReview;
+              let executiveReview = data.executiveReview as string;
               if (executiveReview && data.executiveReviewTime) {
                 const date = new Date(executiveReview);
-                const [hours, minutes] = data.executiveReviewTime.split(':');
+                const [hours, minutes] = (data.executiveReviewTime as string).split(':');
                 date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
                 executiveReview = date.toISOString();
               }
+
+              if (!selectedProject) return;
 
               updateProjectMutation.mutate({
                 id: selectedProject.id,
@@ -1197,11 +1210,17 @@ export function ProjectManagementPanel() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">NTC Days</label>
-                  <Input 
-                    type="number"
-                    name="ntcDays"
-                    defaultValue={selectedProject?.ntcDays}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      name="ntcDays"
+                      defaultValue={selectedProject?.ntcDays || calculateNTCDays(selectedProject!)}
+                      readOnly
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      (Auto-calculated)
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium">QC Start</label>
@@ -1213,11 +1232,17 @@ export function ProjectManagementPanel() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">QC Days</label>
-                  <Input 
-                    type="number"
-                    name="qcDays"
-                    defaultValue={selectedProject?.qcDays}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      name="qcDays"
+                      defaultValue={selectedProject?.qcDays || calculateQCDays(selectedProject!)}
+                      readOnly
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      (Auto-calculated)
+                    </span>
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <label className="text-sm font-medium">Executive Review</label>
