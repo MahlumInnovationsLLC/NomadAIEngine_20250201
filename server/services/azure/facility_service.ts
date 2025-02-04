@@ -1,6 +1,7 @@
 import { CosmosClient } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
 import { ProjectStatus } from "@/types/manufacturing";
+import { startOfDay } from "date-fns";
 
 if (!process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING) {
   throw new Error("Azure Cosmos DB connection string not found");
@@ -140,22 +141,28 @@ export function calculateProjectStatus(project: any): ProjectStatus {
 
   console.log('Calculating status for project:', project);
 
-  const today = new Date();
+  // Use startOfDay to normalize dates for comparison
+  const today = startOfDay(new Date());
   console.log('Current date:', today);
 
   const dates = {
-    fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
-    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
-    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
-    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
-    qcStart: project.qcStart ? new Date(project.qcStart) : null,
-    ship: project.ship ? new Date(project.ship) : null,
+    fabricationStart: project.fabricationStart ? startOfDay(new Date(project.fabricationStart)) : null,
+    assemblyStart: project.assemblyStart ? startOfDay(new Date(project.assemblyStart)) : null,
+    wrapGraphics: project.wrapGraphics ? startOfDay(new Date(project.wrapGraphics)) : null,
+    ntcTesting: project.ntcTesting ? startOfDay(new Date(project.ntcTesting)) : null,
+    qcStart: project.qcStart ? startOfDay(new Date(project.qcStart)) : null,
+    ship: project.ship ? startOfDay(new Date(project.ship)) : null,
   };
 
   console.log('Project dates:', dates);
 
   // Return appropriate status based on dates
-  if (dates.ship && today >= dates.ship) {
+  if (dates.ship && today.getTime() === dates.ship.getTime()) {
+    console.log('Project is SHIPPING TODAY');
+    return "SHIPPING";
+  }
+
+  if (dates.ship && today > dates.ship) {
     console.log('Project is COMPLETED');
     return "COMPLETED";
   }
