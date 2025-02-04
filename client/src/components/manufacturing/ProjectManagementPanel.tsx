@@ -121,58 +121,48 @@ function calculateNTCDays(project: Project): number {
 }
 
 function calculateProjectStatus(project: Project): ProjectStatus {
-  console.log('Calculating status for project:', project);
-
+  if (!project) return "NOT STARTED";
+  
   if (project.manualStatus) {
-    console.log('Using manual status:', project.status);
     return project.status;
   }
 
   const today = new Date();
-  console.log('Current date:', today);
+  const getValidDate = (date: string | null | undefined) => date ? new Date(date) : null;
 
   const dates = {
-    fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
-    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
-    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
-    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
-    qcStart: project.qcStart ? new Date(project.qcStart) : null,
-    ship: project.ship ? new Date(project.ship) : null,
+    fabricationStart: getValidDate(project.fabricationStart),
+    assemblyStart: getValidDate(project.assemblyStart),
+    wrapGraphics: getValidDate(project.wrapGraphics),
+    ntcTesting: getValidDate(project.ntcTesting),
+    qcStart: getValidDate(project.qcStart),
+    ship: getValidDate(project.ship)
   };
 
-  console.log('Project dates:', dates);
-
   if (dates.ship && today >= dates.ship) {
-    console.log('Project is COMPLETED');
     return "COMPLETED";
   }
 
   if (dates.qcStart && today >= dates.qcStart) {
-    console.log('Project is IN QC');
     return "IN QC";
   }
 
   if (dates.ntcTesting && today >= dates.ntcTesting) {
-    console.log('Project is IN NTC TESTING');
     return "IN NTC TESTING";
   }
 
   if (dates.wrapGraphics && today >= dates.wrapGraphics) {
-    console.log('Project is IN WRAP');
     return "IN WRAP";
   }
 
   if (dates.assemblyStart && today >= dates.assemblyStart) {
-    console.log('Project is IN ASSEMBLY');
     return "IN ASSEMBLY";
   }
 
   if (dates.fabricationStart && today >= dates.fabricationStart) {
-    console.log('Project is IN FAB');
     return "IN FAB";
   }
 
-  console.log('Project is NOT STARTED');
   return "NOT STARTED";
 }
 
