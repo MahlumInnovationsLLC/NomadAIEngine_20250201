@@ -466,11 +466,21 @@ export function ProjectManagementPanel() {
                         <th className="p-2 text-left">Location</th>
                         <th className="p-2 text-left">Status</th>
                         <th className="p-2 text-left">Team</th>
+                        <th className="p-2 text-left">Contract Date</th>
+                        <th className="p-2 text-left">Chassis ETA</th>
+                        <th className="p-2 text-left">Payment Milestones</th>
+                        <th className="p-2 text-left">LLTs Ordered</th>
                         <th className="p-2 text-left">ME Assigned</th>
+                        <th className="p-2 text-left">ME CAD %</th>
                         <th className="p-2 text-left">EE Assigned</th>
-                        <th className="p-2 text-left">IT Assigned</th>
-                        <th className="p-2 text-left">NTC Assigned</th>
-                        <th className="p-2 text-left">Start Date</th>
+                        <th className="p-2 text-left">EE Design %</th>
+                        <th className="p-2 text-left">IT Design %</th>
+                        <th className="p-2 text-left">NTC Design %</th>
+                        <th className="p-2 text-left">NTC Testing</th>
+                        <th className="p-2 text-left">QC Start</th>
+                        <th className="p-2 text-left">Executive Review</th>
+                        <th className="p-2 text-left">Ship</th>
+                        <th className="p-2 text-left">Delivery</th>
                         <th className="p-2 text-left">Notes</th>
                       </tr>
                     </thead>
@@ -481,11 +491,21 @@ export function ProjectManagementPanel() {
                           <td className="p-2">{project.location || '-'}</td>
                           <td className="p-2">{project.status || '-'}</td>
                           <td className="p-2">{project.team || '-'}</td>
+                          <td className="p-2">{project.contractDate ? formatDate(project.contractDate) : '-'}</td>
+                          <td className="p-2">{project.chassisEta || '-'}</td>
+                          <td className="p-2">{project.paymentMilestones || '-'}</td>
+                          <td className="p-2">{project.lltsOrdered || '-'}</td>
                           <td className="p-2">{project.meAssigned || '-'}</td>
+                          <td className="p-2">{project.meCadProgress || '0'}%</td>
                           <td className="p-2">{project.eeAssigned || '-'}</td>
-                          <td className="p-2">{project.itAssigned || '-'}</td>
-                          <td className="p-2">{project.ntcAssigned || '-'}</td>
-                          <td className="p-2">{project.fabricationStart ? formatDate(project.fabricationStart) : '-'}</td>
+                          <td className="p-2">{project.eeDesignProgress || '0'}%</td>
+                          <td className="p-2">{project.itDesignProgress || '0'}%</td>
+                          <td className="p-2">{project.ntcDesignProgress || '0'}%</td>
+                          <td className="p-2">{project.ntcTesting ? formatDate(project.ntcTesting) : '-'}</td>
+                          <td className="p-2">{project.qcStart ? formatDate(project.qcStart) : '-'}</td>
+                          <td className="p-2">{project.executiveReview ? formatDate(project.executiveReview) : '-'}</td>
+                          <td className="p-2">{project.ship ? formatDate(project.ship) : '-'}</td>
+                          <td className="p-2">{project.delivery ? formatDate(project.delivery) : '-'}</td>
                           <td className="p-2">
                             <div className="max-w-[200px] truncate">
                               {project.notes || '-'}
@@ -496,11 +516,11 @@ export function ProjectManagementPanel() {
                     </tbody>
                   </table>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {previewData.length > 3 && (
-                    <p>...and {previewData.length - 3} more projects</p>
-                  )}
-                </div>
+                {previewData.length > 3 && (
+                  <div className="text-sm text-muted-foreground">
+                    ...and {previewData.length - 3} more projects
+                  </div>
+                )}
                 <div className="text-sm text-muted-foreground">
                   Note: The import will map all available columns from your Excel sheet to the corresponding project fields.
                   Make sure your Excel sheet includes column headers that match the project fields.
@@ -840,7 +860,7 @@ export function ProjectManagementPanel() {
 
                                     queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
                                       if (!oldData) return [];
-                                      return oldData.map(p =>
+                                      return oldData.map(p=>
                                         p.id === selectedProject.id
                                           ? { ...p, notes: content }
                                           : p

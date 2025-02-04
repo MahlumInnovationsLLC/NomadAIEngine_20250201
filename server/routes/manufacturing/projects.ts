@@ -38,15 +38,23 @@ const columnMappings: { [key: string]: string[] } = {
   location: ['Location', '__EMPTY'],
   team: ['Team', '__EMPTY_1'],
   status: ['Tier IV Project Status', 'Status'],
-  meAssigned: ['ME Assigned', '__EMPTY_8'],
-  eeAssigned: ['EE Assigned', '__EMPTY_10'],
-  itAssigned: ['IT Assigned', '__EMPTY_11'],
-  ntcAssigned: ['NTC Assigned', '__EMPTY_12'],
+  contractDate: ['Contract Date', 'ContractDate'],
+  chassisEta: ['Chassis ETA', 'ChassisETA'],
+  paymentMilestones: ['Payment Milestones', 'PaymentMilestones'],
+  lltsOrdered: ['LLTs Ordered', 'LLTsOrdered'],
+  meAssigned: ['ME Assigned', 'MEAssigned', '__EMPTY_8'],
+  meCadProgress: ['ME CAD %', 'MECADProgress'],
+  eeAssigned: ['EE Assigned', 'EEAssigned', '__EMPTY_10'],
+  eeDesignProgress: ['EE Design / Orders %', 'EEDesignProgress'],
+  itDesignProgress: ['IT Design / Orders %', 'ITDesignProgress'],
+  ntcDesignProgress: ['NTC Design / Orders %', 'NTCDesignProgress'],
+  ntcAssigned: ['NTC Assigned', 'NTCAssigned', '__EMPTY_12'],
   fabricationStart: ['Fabrication Start', '__EMPTY_14'],
   assemblyStart: ['Assembly Start', '__EMPTY_15'],
   wrapGraphics: ['Wrap Graphics', '__EMPTY_16'],
   ntcTesting: ['NTC Testing', '__EMPTY_17'],
-  qcStart: ['QC Start', '__EMPTY_18'],
+  qcStart: ['QC Start', 'QC START', '__EMPTY_18'],
+  executiveReview: ['Executive Review', 'EXECUTIVE REVIEW'],
   ship: ['Ship', '__EMPTY_21'],
   delivery: ['Delivery', '__EMPTY_22'],
   notes: ['Notes', '__EMPTY_23']
@@ -54,8 +62,8 @@ const columnMappings: { [key: string]: string[] } = {
 
 // Helper function to find matching column
 function findMatchingColumn(headers: string[], possibleNames: string[]): string | undefined {
-  return headers.find(header => 
-    possibleNames.some(name => 
+  return headers.find(header =>
+    possibleNames.some(name =>
       header?.toLowerCase().trim() === name.toLowerCase().trim()
     )
   );
@@ -116,26 +124,33 @@ router.post("/preview", upload.single('file'), async (req, res) => {
         location: getValueFromRow(row, headers, 'location'),
         team: getValueFromRow(row, headers, 'team'),
         status: getValueFromRow(row, headers, 'status'),
+        contractDate: parseExcelDate(getValueFromRow(row, headers, 'contractDate')),
+        chassisEta: parseExcelDate(getValueFromRow(row, headers, 'chassisEta')),
+        paymentMilestones: getValueFromRow(row, headers, 'paymentMilestones'),
+        lltsOrdered: getValueFromRow(row, headers, 'lltsOrdered'),
         meAssigned: getValueFromRow(row, headers, 'meAssigned'),
+        meCadProgress: getValueFromRow(row, headers, 'meCadProgress'),
         eeAssigned: getValueFromRow(row, headers, 'eeAssigned'),
-        itAssigned: getValueFromRow(row, headers, 'itAssigned'),
+        eeDesignProgress: getValueFromRow(row, headers, 'eeDesignProgress'),
+        itDesignProgress: getValueFromRow(row, headers, 'itDesignProgress'),
+        ntcDesignProgress: getValueFromRow(row, headers, 'ntcDesignProgress'),
         ntcAssigned: getValueFromRow(row, headers, 'ntcAssigned'),
-        notes: getValueFromRow(row, headers, 'notes') || ''
+        notes: getValueFromRow(row, headers, 'notes') || '',
+        fabricationStart: parseExcelDate(getValueFromRow(row, headers, 'fabricationStart')),
+        assemblyStart: parseExcelDate(getValueFromRow(row, headers, 'assemblyStart')),
+        wrapGraphics: parseExcelDate(getValueFromRow(row, headers, 'wrapGraphics')),
+        ntcTesting: parseExcelDate(getValueFromRow(row, headers, 'ntcTesting')),
+        qcStart: parseExcelDate(getValueFromRow(row, headers, 'qcStart')),
+        executiveReview: parseExcelDate(getValueFromRow(row, headers, 'executiveReview')),
+        ship: parseExcelDate(getValueFromRow(row, headers, 'ship')),
+        delivery: parseExcelDate(getValueFromRow(row, headers, 'delivery'))
       };
 
-      // Process dates
-      const dateFields = ['fabricationStart', 'assemblyStart', 'wrapGraphics', 
-                         'ntcTesting', 'qcStart', 'ship', 'delivery'];
-
-      for (const field of dateFields) {
-        const value = getValueFromRow(row, headers, field);
-        project[field] = parseExcelDate(value);
-      }
 
       return project;
     });
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Projects preview generated successfully",
       count: processedData.length,
       projects: processedData
@@ -143,7 +158,7 @@ router.post("/preview", upload.single('file'), async (req, res) => {
 
   } catch (error) {
     console.error("Error generating preview:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to generate preview",
       details: error instanceof Error ? error.message : "Unknown error"
     });
@@ -182,23 +197,29 @@ router.post("/import", upload.single('file'), async (req, res) => {
         team: getValueFromRow(row, headers, 'team'),
         status: 'NOT_STARTED',
         manualStatus: false,
+        contractDate: parseExcelDate(getValueFromRow(row, headers, 'contractDate')),
+        chassisEta: parseExcelDate(getValueFromRow(row, headers, 'chassisEta')),
+        paymentMilestones: getValueFromRow(row, headers, 'paymentMilestones'),
+        lltsOrdered: getValueFromRow(row, headers, 'lltsOrdered'),
         meAssigned: getValueFromRow(row, headers, 'meAssigned'),
+        meCadProgress: getValueFromRow(row, headers, 'meCadProgress'),
         eeAssigned: getValueFromRow(row, headers, 'eeAssigned'),
-        itAssigned: getValueFromRow(row, headers, 'itAssigned'),
+        eeDesignProgress: getValueFromRow(row, headers, 'eeDesignProgress'),
+        itDesignProgress: getValueFromRow(row, headers, 'itDesignProgress'),
+        ntcDesignProgress: getValueFromRow(row, headers, 'ntcDesignProgress'),
         ntcAssigned: getValueFromRow(row, headers, 'ntcAssigned'),
         notes: getValueFromRow(row, headers, 'notes') || '',
+        fabricationStart: parseExcelDate(getValueFromRow(row, headers, 'fabricationStart')),
+        assemblyStart: parseExcelDate(getValueFromRow(row, headers, 'assemblyStart')),
+        wrapGraphics: parseExcelDate(getValueFromRow(row, headers, 'wrapGraphics')),
+        ntcTesting: parseExcelDate(getValueFromRow(row, headers, 'ntcTesting')),
+        qcStart: parseExcelDate(getValueFromRow(row, headers, 'qcStart')),
+        executiveReview: parseExcelDate(getValueFromRow(row, headers, 'executiveReview')),
+        ship: parseExcelDate(getValueFromRow(row, headers, 'ship')),
+        delivery: parseExcelDate(getValueFromRow(row, headers, 'delivery')),
         createdAt: now,
         updatedAt: now
       };
-
-      // Process dates
-      const dateFields = ['fabricationStart', 'assemblyStart', 'wrapGraphics', 
-                         'ntcTesting', 'qcStart', 'ship', 'delivery'];
-
-      for (const field of dateFields) {
-        const value = getValueFromRow(row, headers, field);
-        project[field] = parseExcelDate(value);
-      }
 
       // Save to Azure Blob Storage
       const blockBlobClient = containerClient.getBlockBlobClient(`${projectId}.json`);
@@ -213,15 +234,15 @@ router.post("/import", upload.single('file'), async (req, res) => {
       importedProjects.push(project);
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Projects imported successfully",
       count: importedProjects.length,
-      projects: importedProjects 
+      projects: importedProjects
     });
 
   } catch (error) {
     console.error("Error importing projects:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to import projects",
       details: error instanceof Error ? error.message : "Unknown error"
     });
