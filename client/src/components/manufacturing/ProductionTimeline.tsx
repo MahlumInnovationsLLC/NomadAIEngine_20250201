@@ -66,36 +66,53 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
   // Calculate milestone positions and detect overlaps
   const eventPositions = timelineEvents.map((event, index) => {
+    if (!event.date) return { ...event, position: 0, needsOffset: false };
+
     const eventDate = new Date(event.date);
     const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
       (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
 
     // Check if this position is too close to the previous milestone
-    const prevPosition = index > 0 ? ((new Date(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) / 
-      (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100 : -20;
+    const prevPosition = index > 0 && timelineEvents[index - 1].date
+      ? ((new Date(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) / 
+         (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
+      : -20;
 
     const needsOffset = position - prevPosition < 15; // If milestones are less than 15% apart
 
     return { ...event, position, needsOffset };
   });
 
-  const calculateDaysBetween = (date1: string, date2: string) => {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
-    const diffTime = Math.abs(d2.getTime() - d1.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const isSameDay = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
   };
 
   // Find next upcoming milestone
-  const nextMilestone = timelineEvents.find(event => new Date(event.date) > today);
-  const daysUntilNext = nextMilestone 
-    ? calculateDaysBetween(today.toISOString(), nextMilestone.date)
-    : null;
+  const nextMilestone = timelineEvents.find(event => {
+    if (!event.date) return false;
+    const eventDate = new Date(event.date);
+    return eventDate >= today;
+  });
+
+  // Calculate days message
+  let daysMessage = '';
+  if (nextMilestone?.date) {
+    const eventDate = new Date(nextMilestone.date);
+    if (isSameDay(today, eventDate)) {
+      daysMessage = nextMilestone.type === 'ship' ? 'SHIPPING TODAY' : `${nextMilestone.label} TODAY`;
+    } else {
+      const diffTime = eventDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      daysMessage = `${diffDays} days until ${nextMilestone.label}`;
+    }
+  }
 
   return (
-    <div className="mx-auto max-w-[95%]"> {/* Container to keep content within boundaries */}
+    <div className="mx-auto max-w-[95%]">
       <h3 className="text-lg font-semibold mb-4">Production Timeline</h3>
-      <div className="relative pt-12 pb-16"> {/* Increased padding to accommodate all content */}
+      <div className="relative pt-12 pb-16">
         {/* Timeline base */}
         <div className="absolute h-2 w-full bg-gray-200 rounded">
           {/* Progress bar */}
@@ -106,10 +123,10 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
           {/* Current date indicator with days until next milestone */}
           <div className="absolute" style={{ left: `${progress}%`, transform: 'translateX(-50%)' }}>
-            {daysUntilNext && (
+            {daysMessage && (
               <div className="absolute -top-10 whitespace-nowrap text-center">
                 <div className="text-red-500 text-sm font-medium animate-pulse">
-                  {daysUntilNext} days until {nextMilestone?.label}
+                  {daysMessage}
                 </div>
               </div>
             )}
@@ -120,11 +137,9 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
           {eventPositions.map((event, index) => {
             // Calculate days to next milestone
             const nextEvent = timelineEvents[index + 1];
-            const daysToNext = nextEvent ? calculateDaysBetween(event.date, nextEvent.date) : null;
-            const nextPosition = nextEvent
-              ? ((new Date(nextEvent.date).getTime() - startDateTimeline.getTime()) /
-                 (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
-              : event.position;
+            const daysToNext = nextEvent?.date && event.date
+              ? Math.ceil((new Date(nextEvent.date).getTime() - new Date(event.date).getTime()) / (1000 * 60 * 60 * 24))
+              : null;
 
             return (
               <div key={event.type}>
@@ -138,7 +153,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                 >
                   {/* The dot */}
                   <div className={`w-3 h-3 rounded-full -mt-0.5 ${
-                    new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
+                    event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
                   }`} />
 
                   {/* Connecting line for offset labels */}
@@ -168,7 +183,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                       {event.label}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {new Date(event.date).toLocaleDateString()}
+                      {event.date ? new Date(event.date).toLocaleDateString() : ''}
                     </div>
                   </div>
                 </div>
@@ -178,7 +193,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                   <div 
                     className="absolute text-xs text-gray-500"
                     style={{
-                      left: `${(event.position + nextPosition) / 2}%`,
+                      left: `${(event.position + (eventPositions[index + 1]?.position || 0)) / 2}%`,
                       transform: 'translateX(-50%)',
                       marginTop: '-1rem'
                     }}
