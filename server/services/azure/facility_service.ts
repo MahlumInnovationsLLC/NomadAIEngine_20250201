@@ -76,10 +76,16 @@ export async function updateProject(id: string, updates: any) {
 
     console.log('Found existing project:', existingProject);
 
-    // Prepare the update
+    // Ensure manualStatus is explicitly set in updates
+    const finalUpdates = {
+      ...updates,
+      manualStatus: 'manualStatus' in updates ? updates.manualStatus : existingProject.manualStatus
+    };
+
+    // Prepare the update with the manual status preserved
     const updatedProject = {
       ...existingProject,
-      ...updates,
+      ...finalUpdates,
       updatedAt: new Date().toISOString()
     };
 
@@ -97,7 +103,6 @@ export async function updateProject(id: string, updates: any) {
     return resource;
   } catch (error: any) {
     console.error("Failed to update project:", error);
-    // Enhance error details for debugging
     if (error.code) {
       console.error("Cosmos DB Error Code:", error.code);
     }
@@ -114,7 +119,8 @@ export function calculateProjectStatus(project: any): ProjectStatus {
     return "NOT_STARTED";
   }
 
-  if (project.manualStatus) {
+  // Only use manual status if explicitly set to true
+  if (project.manualStatus === true) {
     console.log('Using manual status:', project.status);
     return project.status;
   }
