@@ -878,6 +878,7 @@ export function ProjectManagementPanel() {
                                       <p className="text-sm text-muted-foreground">
                                         {formatDate(task.startDate)} - {formatDate(task.endDate)}
                                       </p>
+                                      <p className="text-sm text-muted-foreground">
                                         {task.assignee}
                                       </p>
                                     </div>
