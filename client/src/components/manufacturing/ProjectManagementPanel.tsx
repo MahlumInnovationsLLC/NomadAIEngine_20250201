@@ -221,13 +221,29 @@ export function ProjectManagementPanel() {
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data: { id: string; status: ProjectStatus; manualStatus: boolean }) => {
-      const response = await fetch(`/api/manufacturing/projects/${data.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) throw new Error('Failed to update project status');
-      return response.json();
+      try {
+        const response = await fetch(`/api/manufacturing/projects/${data.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Update failed:', errorText);
+          throw new Error(`Failed to update project: ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Invalid response format from server");
+        }
+
+        return await response.json();
+      } catch (error) {
+        console.error('Update error:', error);
+        throw error;
+      }
     },
     onSuccess: (updatedProject) => {
       queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
@@ -236,15 +252,14 @@ export function ProjectManagementPanel() {
       });
       toast({
         title: "Success",
-        description: "Project status updated successfully"
+        description: "Project updated successfully"
       });
-      setShowStatusDialog(false);
-      setPendingStatus(null);
+      setShowEditDialog(false);
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update project status",
+        description: error instanceof Error ? error.message : "Failed to update project",
         variant: "destructive"
       });
     }
