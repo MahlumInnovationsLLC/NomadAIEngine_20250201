@@ -892,7 +892,7 @@ export function ProjectManagementPanel() {
                                   <span>{formatDate(selectedProject.fabricationStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>Assembly Start:</span                                  <span>{formatDate(selectedProject.assemblyStart)}</span>
+                                  <span>Assembly Start:                                  <span>{formatDate(selectedProject.assemblyStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Wrap/Graphics:</span>
