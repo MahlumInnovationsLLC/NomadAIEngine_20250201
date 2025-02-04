@@ -160,22 +160,26 @@ export function calculateProjectStatus(project: any): ProjectStatus {
   };
 
   console.log('Project dates:', dates);
+
+  // Compare only the date portions for shipping status
   if (dates.ship) {
-    console.log('Days until ship:', (dates.ship.getTime() - normalizedToday.getTime()) / (1000 * 60 * 60 * 24));
+    const shipDate = dates.ship.toISOString().split('T')[0];
+    const todayDate = normalizedToday.toISOString().split('T')[0];
+
+    console.log('Comparing dates - Today:', todayDate, 'Ship date:', shipDate);
+
+    if (todayDate === shipDate) {
+      console.log('Project is SHIPPING TODAY');
+      return "SHIPPING";
+    }
+
+    if (todayDate > shipDate) {
+      console.log('Project is COMPLETED');
+      return "COMPLETED";
+    }
   }
 
-  // Return appropriate status based on dates
-  if (dates.ship && normalizedToday.getTime() === dates.ship.getTime()) {
-    console.log('Project is SHIPPING TODAY');
-    return "SHIPPING";
-  }
-
-  if (dates.ship && normalizedToday > dates.ship) {
-    console.log('Project is COMPLETED');
-    return "COMPLETED";
-  }
-
-  // Rest of the status checks remain unchanged
+  // Rest of the status checks using normalized date comparisons
   if (dates.qcStart && normalizedToday >= dates.qcStart) {
     console.log('Project is IN QC');
     return "IN QC";
