@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,8 @@ import { ProductionTimeline } from './ProductionTimeline';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
-function formatDate(dateString?: string) {
+// Move these utility functions outside component to prevent recreation
+const formatDate = (dateString?: string) => {
   if (!dateString) return '-';
   const date = new Date(dateString);
   const userTimezoneOffset = date.getTimezoneOffset() * 60000;
@@ -55,9 +56,9 @@ function formatDate(dateString?: string) {
     day: '2-digit',
     timeZone: 'UTC'
   });
-}
+};
 
-function calculateWorkingDays(startDate: string, endDate: string): number {
+const calculateWorkingDays = (startDate: string, endDate: string): number => {
   const start = new Date(startDate);
   const end = new Date(endDate);
   let days = 0;
@@ -72,103 +73,58 @@ function calculateWorkingDays(startDate: string, endDate: string): number {
   }
 
   return days;
-}
+};
 
-function getDaysColor(days: number) {
-  if (days <= 3) {
-    return "text-green-500";
-  } else if (days <= 7) {
-    return "text-yellow-500";
-  } else {
-    return "text-red-500";
-  }
-}
+const getDaysColor = (days: number) => {
+  if (days <= 3) return "text-green-500";
+  if (days <= 7) return "text-yellow-500";
+  return "text-red-500";
+};
 
-function getStatusColor(status: ProjectStatus): string {
+const getStatusColor = (status: ProjectStatus): string => {
   switch (status) {
-    case "NOT STARTED":
-      return "bg-gray-500";
-    case "IN FAB":
-      return "bg-blue-500";
-    case "IN ASSEMBLY":
-      return "bg-indigo-500";
-    case "IN WRAP":
-      return "bg-purple-500";
-    case "IN NTC TESTING":
-      return "bg-orange-500";
-    case "IN QC":
-      return "bg-yellow-500";
-    case "COMPLETED":
-      return "bg-green-500";
-    default:
-      return "bg-gray-500";
+    case "NOT STARTED": return "bg-gray-500";
+    case "IN FAB": return "bg-blue-500";
+    case "IN ASSEMBLY": return "bg-indigo-500";
+    case "IN WRAP": return "bg-purple-500";
+    case "IN NTC TESTING": return "bg-orange-500";
+    case "IN QC": return "bg-yellow-500";
+    case "COMPLETED": return "bg-green-500";
+    default: return "bg-gray-500";
   }
-}
+};
 
-function calculateQCDays(project: Project): number {
+const calculateQCDays = (project: Project): number => {
   if (!project.qcStart) return 0;
-
   const endDate = project.executiveReview || project.ship;
   if (!endDate) return 0;
-
   return calculateWorkingDays(project.qcStart, endDate);
-}
+};
 
-function calculateProjectStatus(project: Project): ProjectStatus {
-  console.log('Calculating status for project:', project);
-
+const calculateProjectStatus = (project: Project): ProjectStatus => {
   if (project.manualStatus) {
-    console.log('Using manual status:', project.status);
     return project.status;
   }
 
   const today = new Date();
-  console.log('Current date:', today);
-
   const dates = {
-    fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
-    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
-    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
-    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
-    qcStart: project.qcStart ? new Date(project.qcStart) : null,
     ship: project.ship ? new Date(project.ship) : null,
+    qcStart: project.qcStart ? new Date(project.qcStart) : null,
+    ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
+    wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
+    assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
+    fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
   };
 
-  console.log('Project dates:', dates);
+  if (dates.ship && today >= dates.ship) return "COMPLETED";
+  if (dates.qcStart && today >= dates.qcStart) return "IN QC";
+  if (dates.ntcTesting && today >= dates.ntcTesting) return "IN NTC TESTING";
+  if (dates.wrapGraphics && today >= dates.wrapGraphics) return "IN WRAP";
+  if (dates.assemblyStart && today >= dates.assemblyStart) return "IN ASSEMBLY";
+  if (dates.fabricationStart && today >= dates.fabricationStart) return "IN FAB";
 
-  if (dates.ship && today >= dates.ship) {
-    console.log('Project is COMPLETED');
-    return "COMPLETED";
-  }
-
-  if (dates.qcStart && today >= dates.qcStart) {
-    console.log('Project is IN QC');
-    return "IN QC";
-  }
-
-  if (dates.ntcTesting && today >= dates.ntcTesting) {
-    console.log('Project is IN NTC TESTING');
-    return "IN NTC TESTING";
-  }
-
-  if (dates.wrapGraphics && today >= dates.wrapGraphics) {
-    console.log('Project is IN WRAP');
-    return "IN WRAP";
-  }
-
-  if (dates.assemblyStart && today >= dates.assemblyStart) {
-    console.log('Project is IN ASSEMBLY');
-    return "IN ASSEMBLY";
-  }
-
-  if (dates.fabricationStart && today >= dates.fabricationStart) {
-    console.log('Project is IN FAB');
-    return "IN FAB";
-  }
-
-  console.log('Project is NOT STARTED');
   return "NOT STARTED";
-}
+};
 
 export function ProjectManagementPanel() {
   const { toast } = useToast();
@@ -202,23 +158,87 @@ export function ProjectManagementPanel() {
         status: calculateProjectStatus(project)
       }));
     },
-    staleTime: 0,
-    refetchInterval: 1000,
+    staleTime: 5000, // Increase stale time to reduce refetches
+    refetchInterval: 5000, // Reduce refetch frequency
   });
 
-  useEffect(() => {
-    if (selectedProject) {
-      const updatedProject = projects.find(p => p.id === selectedProject.id);
-      if (updatedProject) {
-        const calculatedStatus = calculateProjectStatus(updatedProject);
-        console.log('Updated project status:', calculatedStatus);
-        setSelectedProject({
-          ...updatedProject,
-          status: calculatedStatus
-        });
+  // Memoize filtered and sorted projects
+  const filteredAndSortedProjects = useMemo(() => {
+    return projects
+      .filter(project => (
+        (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+      ))
+      .sort((a, b) => {
+        if (!sortField) return 0;
+
+        if (sortField === "location") {
+          const aLocation = (a.location || '').toLowerCase();
+          const bLocation = (b.location || '').toLowerCase();
+          return sortDirection === "asc"
+            ? aLocation.localeCompare(bLocation)
+            : bLocation.localeCompare(aLocation);
+        }
+
+        const aDate = a[sortField];
+        const bDate = b[sortField];
+
+        if (!aDate && !bDate) return 0;
+        if (!aDate) return 1;
+        if (!bDate) return -1;
+
+        const aTimestamp = new Date(aDate).getTime();
+        const bTimestamp = new Date(bDate).getTime();
+
+        return sortDirection === "asc"
+          ? aTimestamp - bTimestamp
+          : bTimestamp - aTimestamp;
+      });
+  }, [projects, searchQuery, sortField, sortDirection]);
+
+  // Memoize event handlers
+  const handleSort = useCallback((field: "location" | "qcStart" | "ship") => {
+    setSortField(current => {
+      if (current === field) {
+        setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+        return field;
       }
+      setSortDirection("desc");
+      return field;
+    });
+  }, []);
+
+  const handleStatusChange = useCallback((status: ProjectStatus) => {
+    if (!selectedProject) return;
+
+    if (status === "COMPLETED" && (!selectedProject.ship || new Date() <= new Date(selectedProject.ship))) {
+      toast({
+        title: "Invalid Status",
+        description: "Project can only be marked as completed after the ship date",
+        variant: "destructive"
+      });
+      return;
     }
-  }, [projects, selectedProject]);
+
+    setPendingStatus(status);
+    setShowStatusDialog(true);
+  }, [selectedProject, toast]);
+
+  // Optimize useEffect to reduce unnecessary updates
+  useEffect(() => {
+    if (!selectedProject) return;
+
+    const updatedProject = projects.find(p => p.id === selectedProject.id);
+    if (!updatedProject) return;
+
+    const calculatedStatus = calculateProjectStatus(updatedProject);
+    if (selectedProject.status !== calculatedStatus || selectedProject.manualStatus !== updatedProject.manualStatus) {
+      setSelectedProject({
+        ...updatedProject,
+        status: calculatedStatus
+      });
+    }
+  }, [projects, selectedProject?.id, calculateProjectStatus]);
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data: { id: string; status: ProjectStatus; manualStatus: boolean }) => {
@@ -315,41 +335,6 @@ export function ProjectManagementPanel() {
     resetStatusMutation.mutate(projectId);
   };
 
-  const handleStatusChange = (status: ProjectStatus) => {
-    if (!selectedProject) return;
-
-    if (status === "COMPLETED" && (!selectedProject.ship || new Date() <= new Date(selectedProject.ship))) {
-      toast({
-        title: "Invalid Status",
-        description: "Project can only be marked as completed after the ship date",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setPendingStatus(status);
-    setShowStatusDialog(true);
-  };
-
-  const confirmStatusChange = () => {
-    if (!selectedProject || !pendingStatus) return;
-
-    updateProjectMutation.mutate({
-      id: selectedProject.id,
-      status: pendingStatus,
-      manualStatus: true
-    });
-  };
-
-  const handleSort = (field: "location" | "qcStart" | "ship") => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("desc");
-    }
-  };
-
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -432,49 +417,6 @@ export function ProjectManagementPanel() {
     }
   };
 
-
-  const filteredAndSortedProjects = projects
-    .filter(project => (
-      (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-    ))
-    .sort((a, b) => {
-      if (!sortField) return 0;
-
-      if (sortField === "location") {
-        const aLocation = (a.location || '').toLowerCase();
-        const bLocation = (b.location || '').toLowerCase();
-        return sortDirection === "asc"
-          ? aLocation.localeCompare(bLocation)
-          : bLocation.localeCompare(aLocation);
-      }
-
-      // Special handling for date fields
-      const aDate = a[sortField];
-      const bDate = b[sortField];
-
-      // If either date is missing, move it to the bottom
-      if (!aDate && !bDate) return 0;
-      if (!aDate) return 1; // Move a to the end
-      if (!bDate) return -1; // Move b to the end
-
-      // If both dates exist, compare them normally
-      const aTimestamp = new Date(aDate).getTime();
-      const bTimestamp = new Date(bDate).getTime();
-
-      return sortDirection === "asc"
-        ? aTimestamp - bTimestamp
-        : bTimestamp - aTimestamp;
-    });
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   const handleNotesChange = async (content: string) => {
     try {
       const response = await fetch(`/api/manufacturing/projects/${selectedProject?.id}`, {
@@ -512,6 +454,25 @@ export function ProjectManagementPanel() {
       });
     }
   };
+
+  const confirmStatusChange = () => {
+    if (!selectedProject || !pendingStatus) return;
+
+    updateProjectMutation.mutate({
+      id: selectedProject.id,
+      status: pendingStatus,
+      manualStatus: true
+    });
+  };
+
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -764,7 +725,7 @@ export function ProjectManagementPanel() {
                             <div className="flex gap-2">
                               <Select
                                 value={selectedProject?.status || "NOT STARTED"}
-                                onValueChange={(value: ProjectStatus) => handleStatusChange(value)}
+                                onValueChange={handleStatusChange}
                               >
                                 <SelectTrigger className="w-[200px]">
                                   <SelectValue>
@@ -901,7 +862,7 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>NTC Testing:</span>
-                                  <span>{formatDate(selectedProject.ntcTesting)}</span>
+                                  <span>{formatDate(<span>{formatDate(selectedProject.ntcTesting)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>QC Start:</span>
