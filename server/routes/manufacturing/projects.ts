@@ -110,6 +110,58 @@ router.post("/import", upload.single('file'), async (req, res) => {
   }
 });
 
+// Preview projects from Excel
+router.post("/preview", upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    console.log('Preview Excel data:', data);
+
+    // Process dates in the preview data
+    const processedData = data.map(row => {
+      const dateFields = ['contractDate', 'fabricationStart', 'assemblyStart', 'wrapGraphics', 
+                         'ntcTesting', 'qcStart', 'ship', 'delivery', 'executiveReview'];
+
+      const processedRow = { ...row };
+      for (const field of dateFields) {
+        if (row[field]) {
+          if (typeof row[field] === 'number') {
+            const date = XLSX.SSF.parse_date_code(row[field]);
+            processedRow[field] = new Date(date.y, date.m - 1, date.d).toISOString();
+          } else if (typeof row[field] === 'string') {
+            const date = new Date(row[field]);
+            if (!isNaN(date.getTime())) {
+              processedRow[field] = date.toISOString();
+            }
+          }
+        }
+      }
+
+      return processedRow;
+    });
+
+    res.status(200).json({ 
+      message: "Projects preview generated successfully",
+      count: processedData.length,
+      projects: processedData
+    });
+
+  } catch (error) {
+    console.error("Error generating preview:", error);
+    res.status(500).json({ 
+      error: "Failed to generate preview",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
 // Get all projects
 router.get("/", async (req, res) => {
   try {

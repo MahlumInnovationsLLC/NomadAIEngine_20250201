@@ -180,6 +180,8 @@ export function ProjectManagementPanel() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -310,6 +312,37 @@ export function ProjectManagementPanel() {
     }
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportFile(file);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/manufacturing/projects/preview', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Preview failed');
+      }
+
+      const result = await response.json();
+      setPreviewData(result.projects);
+      setShowPreview(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to preview projects",
+        variant: "destructive"
+      });
+      setImportFile(null);
+    }
+  };
+
   const handleImport = async () => {
     if (!importFile) return;
 
@@ -337,6 +370,8 @@ export function ProjectManagementPanel() {
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
       setShowImportDialog(false);
       setImportFile(null);
+      setPreviewData([]);
+      setShowPreview(false);
     } catch (error) {
       toast({
         title: "Error",
@@ -403,7 +438,7 @@ export function ProjectManagementPanel() {
       </div>
 
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Import Projects from Excel</DialogTitle>
           </DialogHeader>
@@ -415,9 +450,42 @@ export function ProjectManagementPanel() {
               <Input
                 type="file"
                 accept=".xlsx,.xls"
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                onChange={handleFileSelect}
+                disabled={showPreview}
               />
             </div>
+            {showPreview && previewData.length > 0 && (
+              <div className="space-y-4">
+                <div className="text-sm font-medium">Preview (First 3 Projects)</div>
+                <div className="border rounded-lg">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="p-2 text-left">Project Number</th>
+                        <th className="p-2 text-left">Name</th>
+                        <th className="p-2 text-left">Location</th>
+                        <th className="p-2 text-left">Team</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewData.slice(0, 3).map((project, index) => (
+                        <tr key={index} className="border-b last:border-0">
+                          <td className="p-2">{project.projectNumber}</td>
+                          <td className="p-2">{project.name || '-'}</td>
+                          <td className="p-2">{project.location || '-'}</td>
+                          <td className="p-2">{project.team || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {previewData.length > 3 && (
+                    <p>...and {previewData.length - 3} more projects</p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="text-sm text-muted-foreground">
               Note: Excel columns should match project fields:
               projectNumber, name, location, team, etc.
@@ -425,16 +493,27 @@ export function ProjectManagementPanel() {
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => setShowImportDialog(false)}
+                onClick={() => {
+                  setShowImportDialog(false);
+                  setImportFile(null);
+                  setPreviewData([]);
+                  setShowPreview(false);
+                }}
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleImport}
-                disabled={!importFile || importing}
-              >
-                {importing ? "Importing..." : "Import"}
-              </Button>
+              {showPreview ? (
+                <Button
+                  onClick={handleImport}
+                  disabled={importing}
+                >
+                  {importing ? "Importing..." : `Import ${previewData.length} Projects`}
+                </Button>
+              ) : (
+                <Button disabled>
+                  Select a file to preview
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
@@ -815,7 +894,7 @@ export function ProjectManagementPanel() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Status Change</AlertDialogTitle>
             <AlertDialogDescription>
-              Manually changing the status will prevent automatic updates based on dates.
+              Manually changing thestatus will prevent automatic updates based on dates.
               Are you sure you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
