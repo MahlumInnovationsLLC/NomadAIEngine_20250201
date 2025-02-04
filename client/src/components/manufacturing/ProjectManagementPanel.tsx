@@ -531,7 +531,7 @@ export function ProjectManagementPanel() {
                 </div>
               </div>
             )}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-4">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -826,7 +826,7 @@ export function ProjectManagementPanel() {
                                   <span>NTC Testing:</span>
                                   <span>{formatDate(selectedProject.ntcTesting)}</span>
                                 </div>
-                                <div className="flex justify-between">                                  <span>QC Start:</span>
+                                <<div className="flex justify-between">                                  <span>QC Start:</span>
                                   <span>{formatDate(selectedProject.qcStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
