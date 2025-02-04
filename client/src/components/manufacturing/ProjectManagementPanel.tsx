@@ -39,6 +39,9 @@ import {
   faRotateLeft
 } from "@fortawesome/free-solid-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
+import { FaFileImport } from 'react-icons/fa';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -174,6 +177,9 @@ export function ProjectManagementPanel() {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
   const [activeView, setActiveView] = useState<"list" | "map" | "table">("list");
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -304,6 +310,44 @@ export function ProjectManagementPanel() {
     }
   };
 
+  const handleImport = async () => {
+    if (!importFile) return;
+
+    setImporting(true);
+    const formData = new FormData();
+    formData.append('file', importFile);
+
+    try {
+      const response = await fetch('/api/manufacturing/projects/import', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Import failed');
+      }
+
+      const result = await response.json();
+      toast({
+        title: "Success",
+        description: `Successfully imported ${result.count} projects`
+      });
+
+      // Refresh projects list
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+      setShowImportDialog(false);
+      setImportFile(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to import projects",
+        variant: "destructive"
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const filteredAndSortedProjects = projects
     .filter(project => (
       (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
@@ -345,8 +389,57 @@ export function ProjectManagementPanel() {
             Manage and track manufacturing projects
           </p>
         </div>
-        <ProjectCreateDialog />
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowImportDialog(true)}
+            className="gap-2"
+          >
+            <FaFileImport className="h-4 w-4" />
+            Import Excel
+          </Button>
+          <ProjectCreateDialog />
+        </div>
       </div>
+
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Projects from Excel</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Select Excel File
+              </label>
+              <Input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Note: Excel columns should match project fields:
+              projectNumber, name, location, team, etc.
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowImportDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleImport}
+                disabled={!importFile || importing}
+              >
+                {importing ? "Importing..." : "Import"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>

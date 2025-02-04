@@ -90,6 +90,7 @@
     "drizzle-zod": "^0.6.1",
     "embla-carousel-react": "^8.3.0",
     "express": "^4.21.2",
+    "express-fileupload": "^1.5.1",
     "express-session": "^1.18.1",
     "framer-motion": "^11.17.0",
     "input-otp": "^1.2.4",
@@ -119,6 +120,7 @@
     "vite-plugin-imagemin": "^0.6.1",
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { BlobServiceClient } from "@azure/storage-blob";
 import { v4 as uuidv4 } from "uuid";
+import multer from 'multer';
+import * as XLSX from 'xlsx';
 
 const router = Router();
 const containerName = "production-projects";
@@ -10,6 +12,14 @@ const blobServiceClient = BlobServiceClient.fromConnectionString(
   process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING || ""
 );
 const containerClient = blobServiceClient.getContainerClient(containerName);
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
 
 // Ensure container exists
 async function ensureContainer() {
@@ -21,6 +31,84 @@ async function ensureContainer() {
 }
 
 ensureContainer();
+
+// Import projects from Excel
+router.post("/import", upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    console.log('Parsed Excel data:', data);
+
+    const importedProjects = [];
+    const now = new Date().toISOString();
+
+    for (const row of data) {
+      const projectId = uuidv4();
+
+      // Convert Excel date numbers to ISO strings where applicable
+      const dateFields = ['contractDate', 'fabricationStart', 'assemblyStart', 'wrapGraphics', 
+                         'ntcTesting', 'qcStart', 'ship', 'delivery', 'executiveReview'];
+
+      const processedRow = { ...row };
+      for (const field of dateFields) {
+        if (row[field]) {
+          // Check if it's an Excel date number
+          if (typeof row[field] === 'number') {
+            const date = XLSX.SSF.parse_date_code(row[field]);
+            processedRow[field] = new Date(date.y, date.m - 1, date.d).toISOString();
+          } else if (typeof row[field] === 'string') {
+            // Try to parse the string date
+            const date = new Date(row[field]);
+            if (!isNaN(date.getTime())) {
+              processedRow[field] = date.toISOString();
+            }
+          }
+        }
+      }
+
+      const project = {
+        id: projectId,
+        ...processedRow,
+        status: 'NOT_STARTED',
+        manualStatus: false,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      // Save to Azure Blob Storage
+      const blockBlobClient = containerClient.getBlockBlobClient(`${projectId}.json`);
+      const content = JSON.stringify(project);
+
+      await blockBlobClient.upload(content, content.length, {
+        blobHTTPHeaders: {
+          blobContentType: "application/json"
+        }
+      });
+
+      importedProjects.push(project);
+    }
+
+    res.status(200).json({ 
+      message: "Projects imported successfully",
+      count: importedProjects.length,
+      projects: importedProjects 
+    });
+
+  } catch (error) {
+    console.error("Error importing projects:", error);
+    res.status(500).json({ 
+      error: "Failed to import projects",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
 
 // Get all projects
 router.get("/", async (req, res) => {
