@@ -182,17 +182,26 @@ export function ProjectManagementPanel() {
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }
-      return response.json();
+      const data = await response.json();
+      return data.map((project: Project) => ({
+        ...project,
+        status: calculateProjectStatus(project)
+      }));
     },
-    staleTime: 5000, // Increased from 0 to reduce unnecessary refetches
-    refetchInterval: 5000, // Increased from 1000 to reduce status calculation frequency
+    staleTime: 0,
+    refetchInterval: 1000,
   });
 
   useEffect(() => {
     if (selectedProject) {
       const updatedProject = projects.find(p => p.id === selectedProject.id);
       if (updatedProject) {
-        setSelectedProject(updatedProject);
+        const calculatedStatus = calculateProjectStatus(updatedProject);
+        console.log('Updated project status:', calculatedStatus);
+        setSelectedProject({
+          ...updatedProject,
+          status: calculatedStatus
+        });
       }
     }
   }, [projects, selectedProject]);
