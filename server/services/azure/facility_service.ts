@@ -75,27 +75,34 @@ export async function updateProject(id: string, updates: any) {
 
     console.log('Found existing project:', existingProject);
 
-    // Ensure manualStatus and status are handled correctly
+    // Handle status updates
     let finalUpdates = { ...updates };
 
-    // If we're explicitly setting manualStatus to false, force automatic status calculation
+    // If manualStatus is explicitly set to false, calculate status
     if ('manualStatus' in updates && updates.manualStatus === false) {
       const calculatedStatus = calculateProjectStatus({
         ...existingProject,
-        ...finalUpdates
+        ...updates
       });
 
       finalUpdates = {
-        ...finalUpdates,
+        ...updates,
         status: calculatedStatus,
-        manualStatus: false  // Ensure this stays false
+        manualStatus: false
       };
     } else if (!('manualStatus' in updates)) {
-      // Preserve existing manualStatus if not explicitly changed
+      // If manualStatus isn't being updated, preserve the existing value
       finalUpdates.manualStatus = existingProject.manualStatus;
+
+      // If it's not manual, calculate the status
+      if (!existingProject.manualStatus) {
+        finalUpdates.status = calculateProjectStatus({
+          ...existingProject,
+          ...updates
+        });
+      }
     }
 
-    // Prepare the final update
     const updatedProject = {
       ...existingProject,
       ...finalUpdates,
@@ -104,11 +111,8 @@ export async function updateProject(id: string, updates: any) {
 
     console.log('Attempting to update with:', updatedProject);
 
-    // Perform the update
     const { resource } = await projectsContainer.item(id, id).replace(updatedProject);
-
     if (!resource) {
-      console.error('No resource returned from update operation');
       throw new Error('Failed to update project - no resource returned');
     }
 
@@ -116,12 +120,8 @@ export async function updateProject(id: string, updates: any) {
     return resource;
   } catch (error: any) {
     console.error("Failed to update project:", error);
-    if (error.code) {
-      console.error("Cosmos DB Error Code:", error.code);
-    }
-    if (error.body) {
-      console.error("Cosmos DB Error Body:", error.body);
-    }
+    if (error.code) console.error("Cosmos DB Error Code:", error.code);
+    if (error.body) console.error("Cosmos DB Error Body:", error.body);
     throw error;
   }
 }
