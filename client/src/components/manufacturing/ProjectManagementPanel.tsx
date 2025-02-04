@@ -625,7 +625,7 @@ export function ProjectManagementPanel() {
                               />
                               <div className="flex flex-col items-start flex-grow space-y-2 min-w-0">
                                 <span className="font-medium text-sm">{project.projectNumber}</span>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <div className="flex gap-2 text-xs text-muted-foreground">
                                   <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
                                   <span>{project.location || 'N/A'}</span>
                                 </div>
@@ -888,8 +888,8 @@ export function ProjectManagementPanel() {
                                       </div>
                                     </div>
                                   </div>
-                                ))}
-                              </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
