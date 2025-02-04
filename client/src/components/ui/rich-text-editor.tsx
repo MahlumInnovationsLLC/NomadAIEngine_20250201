@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Button } from "./button";
@@ -28,7 +29,7 @@ export function RichTextEditor({ content, onChange, disabled = false }: RichText
   });
 
   if (!editor) {
-    return null;
+    return <div className="border rounded-lg p-4 bg-muted/50">Loading editor...</div>;
   }
 
   return (
