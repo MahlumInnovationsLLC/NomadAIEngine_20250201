@@ -36,10 +36,10 @@ import {
   faCircleDot,
   faEdit,
   faLocationDot,
-  faRotateLeft
+  faRotateLeft,
+  faFileImport
 } from "@fortawesome/free-solid-svg-icons";
 import { ProductionTimeline } from './ProductionTimeline';
-import { FaFileImport } from 'react-icons/fa';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 
@@ -395,7 +395,7 @@ export function ProjectManagementPanel() {
             onClick={() => setShowImportDialog(true)}
             className="gap-2"
           >
-            <FaFileImport className="h-4 w-4" />
+            <FontAwesomeIcon icon={faFileImport} className="h-4 w-4" />
             Import Excel
           </Button>
           <ProjectCreateDialog />
