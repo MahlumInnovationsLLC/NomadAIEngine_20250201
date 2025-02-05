@@ -12,11 +12,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   Material,
   ProductionOrder,
-  BillOfMaterials,
-  MaterialAllocation
+  MaterialAllocation,
+  ProductionProject
 } from "@/types/manufacturing";
 
 interface MaterialRequirementsPlanningProps {
@@ -25,10 +32,16 @@ interface MaterialRequirementsPlanningProps {
 
 export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequirementsPlanningProps) {
   const [timeframe, setTimeframe] = useState<'week' | 'month' | 'quarter'>('week');
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+
+  const { data: projects = [] } = useQuery<ProductionProject[]>({
+    queryKey: ['/api/manufacturing/projects'],
+    enabled: true,
+  });
 
   const { data: productionOrders = [] } = useQuery<ProductionOrder[]>({
-    queryKey: [`/api/manufacturing/orders/${productionLineId}`],
-    enabled: !!productionLineId,
+    queryKey: [`/api/manufacturing/orders/${productionLineId}`, selectedProject],
+    enabled: !!productionLineId && !!selectedProject,
   });
 
   const { data: materials = [] } = useQuery<Material[]>({
@@ -37,9 +50,40 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
   });
 
   const { data: allocations = [] } = useQuery<MaterialAllocation[]>({
-    queryKey: [`/api/manufacturing/allocations/${productionLineId}`],
-    enabled: !!productionLineId,
+    queryKey: [`/api/manufacturing/allocations/${productionLineId}`, selectedProject],
+    enabled: !!productionLineId && !!selectedProject,
   });
+
+  if (!selectedProject) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Project for MRP</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Choose a project to view its material requirements planning
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Select
+              onValueChange={(value) => setSelectedProject(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name} ({project.projectNumber})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const calculateRequiredMaterials = (orders: ProductionOrder[]) => {
     const requirements: Record<string, {
@@ -98,7 +142,12 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Material Requirements Planning</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Material Requirements Planning</h2>
+          <p className="text-sm text-muted-foreground">
+            Project: {projects.find(p => p.id === selectedProject)?.name}
+          </p>
+        </div>
         <div className="flex gap-2">
           <Button
             variant={timeframe === 'week' ? 'default' : 'outline'}
@@ -117,6 +166,10 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
             onClick={() => setTimeframe('quarter')}
           >
             This Quarter
+          </Button>
+          <Button variant="outline" onClick={() => setSelectedProject(null)}>
+            <FontAwesomeIcon icon="arrow-left" className="mr-2" />
+            Change Project
           </Button>
         </div>
       </div>
@@ -183,8 +236,8 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
                     <TableCell>
                       <Badge className={
                         req.status === 'critical' ? 'bg-red-500' :
-                        req.status === 'warning' ? 'bg-yellow-500' :
-                        'bg-green-500'
+                          req.status === 'warning' ? 'bg-yellow-500' :
+                            'bg-green-500'
                       }>
                         {req.status}
                       </Badge>

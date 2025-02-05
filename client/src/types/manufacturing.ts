@@ -535,3 +535,54 @@ export interface SupplierCorrectiveAction {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Material {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  unit: string;
+  availableStock: number;
+  safetyStock: number;
+  leadTime: number;
+  reorderPoint: number;
+  standardCost: number;
+  supplier?: string;
+}
+
+export interface BOMComponent {
+  materialId: string;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  leadTime: number;
+  critical: boolean;
+  substitutes?: string[];
+  notes?: string;
+}
+
+export interface BillOfMaterials {
+  id: string;
+  projectId: string;
+  version: number;
+  status: 'draft' | 'active' | 'archived';
+  components: BOMComponent[];
+  totalCost: number;
+  createdBy: string;
+  lastUpdated: string;
+  notes?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
+// Add MaterialAllocation interface
+export interface MaterialAllocation {
+  id: string;
+  materialId: string;
+  quantity: number;
+  allocationDate: string;
+  status: 'pending' | 'allocated' | 'depleted';
+  projectId: string;
+  productionLineId: string;
+  requiredQuantity: number;
+}

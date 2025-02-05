@@ -20,8 +20,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { BillOfMaterials, BOMComponent, Material } from "@/types/manufacturing";
+import type { ProductionProject, BillOfMaterials, BOMComponent, Material } from "@/types/manufacturing";
 
 interface BOMManagementProps {
   productId: string;
@@ -32,11 +39,16 @@ export function BOMManagement({ productId }: BOMManagementProps) {
   const queryClient = useQueryClient();
   const [showAddComponent, setShowAddComponent] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [selectedBOM, setSelectedBOM] = useState<BillOfMaterials | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+
+  const { data: projects = [] } = useQuery<ProductionProject[]>({
+    queryKey: ['/api/manufacturing/projects'],
+    enabled: true,
+  });
 
   const { data: bom, isLoading } = useQuery<BillOfMaterials>({
-    queryKey: [`/api/manufacturing/bom/${productId}`],
-    enabled: !!productId,
+    queryKey: [`/api/manufacturing/bom/${selectedProject}`],
+    enabled: !!selectedProject,
   });
 
   const { data: materials = [] } = useQuery<Material[]>({
@@ -44,28 +56,36 @@ export function BOMManagement({ productId }: BOMManagementProps) {
     enabled: true,
   });
 
-  const updateBOMMutation = useMutation({
-    mutationFn: async (updates: Partial<BillOfMaterials>) => {
-      const response = await fetch(`/api/manufacturing/bom/${productId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update BOM');
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/manufacturing/bom/${productId}`] });
-      toast({
-        title: "Success",
-        description: "Bill of Materials updated successfully.",
-      });
-    },
-  });
+  if (!selectedProject) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Project</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Choose a project to manage its Bill of Materials
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Select
+              onValueChange={(value) => setSelectedProject(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name} ({project.projectNumber})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return <div>Loading BOM data...</div>;
@@ -78,7 +98,12 @@ export function BOMManagement({ productId }: BOMManagementProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle>Bill of Materials</CardTitle>
+        <div>
+          <CardTitle>Bill of Materials</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Project: {projects.find(p => p.id === selectedProject)?.name}
+          </p>
+        </div>
         <div className="flex gap-2">
           <Button 
             variant="outline"
@@ -90,6 +115,10 @@ export function BOMManagement({ productId }: BOMManagementProps) {
           <Button onClick={() => setShowAddComponent(true)}>
             <FontAwesomeIcon icon="plus" className="mr-2" />
             Add Component
+          </Button>
+          <Button variant="outline" onClick={() => setSelectedProject(null)}>
+            <FontAwesomeIcon icon="arrow-left" className="mr-2" />
+            Change Project
           </Button>
         </div>
       </CardHeader>
