@@ -102,14 +102,12 @@ app.use((req, res, next) => {
 
     // Setup WebSocket server with proper upgrade handling
     const wsServer = setupWebSocketServer(server);
-    server.on('upgrade', (request, socket, head) => {
-      const protocol = request.headers['sec-websocket-protocol'];
-      // Skip vite HMR upgrade requests
-      if (protocol === 'vite-hmr') {
-        return;
+    wsServer.io.attach(server, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+        credentials: true
       }
-
-      wsServer.engine.handleUpgrade(request, socket, head);
     });
 
     // Register routes after WebSocket setup
