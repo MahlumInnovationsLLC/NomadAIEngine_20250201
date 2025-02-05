@@ -571,7 +571,7 @@ export function ProjectManagementPanel() {
             onClick={() => setShowImportDialog(true)}
             className="gap-2"
           >
-            <FontAwesomeIcon icon={faFileImport} className="h-4 w-4" />
+            <FontAwesomeIcon icon="file-import" className="h-4 w-4" />
             Import Excel
           </Button>
         </div>
