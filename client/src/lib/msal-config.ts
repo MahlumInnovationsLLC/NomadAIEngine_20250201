@@ -1,4 +1,4 @@
-import type { Configuration } from "@azure/msal-browser";
+import { Configuration, PublicClientApplication } from "@azure/msal-browser";
 
 // MSAL configuration options
 export const msalConfig: Configuration = {
@@ -46,6 +46,9 @@ export const msalConfig: Configuration = {
     }
   }
 };
+
+// Create and export the MSAL instance
+export const msalInstance = new PublicClientApplication(msalConfig);
 
 // Add scopes for id token to be used at MS Identity Platform endpoints.
 export const loginRequest = {
