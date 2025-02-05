@@ -45,6 +45,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { HubspotIntegration } from "./integrations/HubspotIntegration";
 import { MeetingScheduler } from "./meetings/MeetingScheduler";
 import { AIInsightsDashboard } from "./insights/AIInsightsDashboard";
+import { PipelineAnalytics } from "./pipeline/PipelineAnalytics";
+import { useState } from "react";
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
@@ -117,6 +119,8 @@ const mockContacts = [
 ];
 
 export function SalesControlDashboard() {
+  const [pipelineTimeframe, setPipelineTimeframe] = useState("30d");
+
   return (
     <div className="p-6 space-y-6">
       {/* KPI Overview Cards */}
@@ -231,6 +235,11 @@ export function SalesControlDashboard() {
         </TabsContent>
 
         <TabsContent value="pipeline" className="space-y-4">
+          <PipelineAnalytics 
+            stages={mockPipelineStages}
+            timeframe={pipelineTimeframe}
+            onTimeframeChange={setPipelineTimeframe}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Sales Pipeline</CardTitle>
