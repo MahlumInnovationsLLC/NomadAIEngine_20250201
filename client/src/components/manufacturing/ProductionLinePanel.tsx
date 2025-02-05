@@ -5,6 +5,8 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import ProductionLinesGrid from "./production/ProductionLinesGrid";
 import { ProductionScheduler } from "./production/ProductionScheduler";
 import { BayScheduler } from "./production/BayScheduler";
+import { BOMManagement } from "./production/BOMManagement";
+import { MaterialRequirementsPlanning } from "./production/MaterialRequirementsPlanning";
 import { InventoryAllocation } from "./production/InventoryAllocation";
 import { useQuery } from "@tanstack/react-query";
 import type { ProductionLine, ProductionBay, ProductionOrder } from "@/types/manufacturing";
@@ -13,7 +15,6 @@ export const ProductionLinePanel = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
 
-  // Fetch production lines for inventory allocation
   const { data: productionLines = [] } = useQuery<ProductionLine[]>({
     queryKey: ['/api/manufacturing/production-lines'],
     refetchInterval: 5000,
@@ -41,12 +42,20 @@ export const ProductionLinePanel = () => {
             <FontAwesomeIcon icon="calendar" className="mr-2" />
             Scheduling
           </TabsTrigger>
+          <TabsTrigger value="bom">
+            <FontAwesomeIcon icon="sitemap" className="mr-2" />
+            BOM Management
+          </TabsTrigger>
+          <TabsTrigger value="mrp">
+            <FontAwesomeIcon icon="chart-line" className="mr-2" />
+            MRP
+          </TabsTrigger>
           <TabsTrigger value="inventory">
             <FontAwesomeIcon icon="boxes-stacked" className="mr-2" />
             Inventory Allocation
           </TabsTrigger>
           <TabsTrigger value="analytics">
-            <FontAwesomeIcon icon="chart-line" className="mr-2" />
+            <FontAwesomeIcon icon="chart-pie" className="mr-2" />
             Analytics
           </TabsTrigger>
         </TabsList>
@@ -74,6 +83,38 @@ export const ProductionLinePanel = () => {
                 <h3 className="text-lg font-semibold mb-2">Select a Production Line</h3>
                 <p className="text-muted-foreground">
                   Please select a production line from the overview to view and manage its schedule
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="bom" className="space-y-6">
+          {selectedLineId ? (
+            <BOMManagement productId={selectedLineId} />
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <FontAwesomeIcon icon="sitemap" className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Select a Production Line</h3>
+                <p className="text-muted-foreground">
+                  Please select a production line to manage its Bill of Materials
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="mrp" className="space-y-6">
+          {selectedLineId ? (
+            <MaterialRequirementsPlanning productionLineId={selectedLineId} />
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <FontAwesomeIcon icon="chart-line" className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Select a Production Line</h3>
+                <p className="text-muted-foreground">
+                  Please select a production line to view material requirements planning
                 </p>
               </CardContent>
             </Card>
@@ -121,4 +162,4 @@ export const ProductionLinePanel = () => {
       </Tabs>
     </div>
   );
-}
+};
