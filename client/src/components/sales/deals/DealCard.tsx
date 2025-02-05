@@ -2,6 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBuilding,
@@ -15,7 +18,10 @@ import {
   faHistory,
   faComments,
   faFileContract,
-  faGears
+  faGears,
+  faClock,
+  faEnvelope,
+  faPhone
 } from "@fortawesome/free-solid-svg-icons";
 import { AIInsightsDashboard } from "../insights/AIInsightsDashboard";
 
@@ -55,11 +61,11 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
     return "text-red-500";
   };
 
-  const getStageVariant = (stage: string): "default" | "secondary" | "success" => {
+  const getStageVariant = (stage: string): "default" | "secondary" | "outline" => {
     switch (stage) {
-      case "Closed Won": return "success";
+      case "Closed Won": return "default";
       case "Proposal Sent": return "secondary";
-      default: return "default";
+      default: return "outline";
     }
   };
 
@@ -133,19 +139,108 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
             {deal.engagement} Engagement
           </Badge>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="h-8 px-2">
-              <FontAwesomeIcon icon={faHistory} className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 px-2">
-              <FontAwesomeIcon icon={faComments} className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 px-2">
-              <FontAwesomeIcon icon={faFileContract} className="h-4 w-4" />
-            </Button>
-            <Button onClick={() => onEdit(deal.id)}>
-              <FontAwesomeIcon icon={faGears} className="mr-2" />
-              Manage
-            </Button>
+            <TooltipProvider>
+              <Dialog>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 px-2">
+                        <FontAwesomeIcon icon={faHistory} className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>View Deal History</TooltipContent>
+                </Tooltip>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Deal History</DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-4">
+                      {deal.history?.map((entry, i) => (
+                        <div key={i} className="border-l-2 border-primary pl-4 pb-4">
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(entry.date).toLocaleDateString()}
+                          </p>
+                          <p className="font-medium">{entry.action}</p>
+                          <p className="text-sm">{entry.user}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 px-2">
+                        <FontAwesomeIcon icon={faComments} className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Communications Log</TooltipContent>
+                </Tooltip>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Communications Log</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4">
+                    <div className="flex items-center gap-2">
+                      <FontAwesomeIcon icon={faEnvelope} className="text-primary" />
+                      <div>
+                        <p className="font-medium">Last Email</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(deal.lastContact).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FontAwesomeIcon icon={faPhone} className="text-primary" />
+                      <div>
+                        <p className="font-medium">Last Call</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(deal.lastContact).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 px-2">
+                        <FontAwesomeIcon icon={faFileContract} className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Documents</TooltipContent>
+                </Tooltip>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Deal Documents</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p>Shared Documents: {deal.metrics?.documentsShared || 0}</p>
+                    {/* Add document list and upload functionality */}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={() => onEdit(deal.id)}>
+                    <FontAwesomeIcon icon={faGears} className="mr-2" />
+                    Manage
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Manage Deal Settings</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </CardContent>
