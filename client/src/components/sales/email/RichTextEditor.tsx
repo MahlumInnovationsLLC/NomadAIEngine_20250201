@@ -32,7 +32,7 @@ export function RichTextEditor({ content, onChange, variables, onInsertVariable 
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={editor.isActive('bold') ? 'bg-accent' : ''}
         >
-          <FontAwesomeIcon icon="bold" />
+          <FontAwesomeIcon icon={['fal', 'bold']} />
         </Button>
         <Button
           variant="ghost"
@@ -40,7 +40,7 @@ export function RichTextEditor({ content, onChange, variables, onInsertVariable 
           onClick={() => editor.chain().focus().toggleItalic().run()}
           className={editor.isActive('italic') ? 'bg-accent' : ''}
         >
-          <FontAwesomeIcon icon="italic" />
+          <FontAwesomeIcon icon={['fal', 'italic']} />
         </Button>
         <Button
           variant="ghost"
@@ -48,7 +48,7 @@ export function RichTextEditor({ content, onChange, variables, onInsertVariable 
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           className={editor.isActive('heading', { level: 2 }) ? 'bg-accent' : ''}
         >
-          <FontAwesomeIcon icon="heading" />
+          <FontAwesomeIcon icon={['fal', 'heading']} />
         </Button>
         <Button
           variant="ghost"
@@ -56,7 +56,7 @@ export function RichTextEditor({ content, onChange, variables, onInsertVariable 
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           className={editor.isActive('bulletList') ? 'bg-accent' : ''}
         >
-          <FontAwesomeIcon icon="list-ul" />
+          <FontAwesomeIcon icon={['fal', 'list-ul']} />
         </Button>
         <Button
           variant="ghost"
@@ -64,9 +64,9 @@ export function RichTextEditor({ content, onChange, variables, onInsertVariable 
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           className={editor.isActive('orderedList') ? 'bg-accent' : ''}
         >
-          <FontAwesomeIcon icon="list-ol" />
+          <FontAwesomeIcon icon={['fal', 'list-ol']} />
         </Button>
-        
+
         {variables && variables.length > 0 && (
           <div className="border-l ml-2 pl-2">
             <select

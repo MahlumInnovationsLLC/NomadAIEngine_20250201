@@ -183,7 +183,7 @@ export function EmailTemplateEditor() {
                         size="sm"
                         onClick={() => handlePreviewTemplate(template)}
                       >
-                        <FontAwesomeIcon icon="eye" className="mr-2" />
+                        <FontAwesomeIcon icon={['fal', 'eye']} className="mr-2" />
                         Preview
                       </Button>
                       <Button
@@ -195,7 +195,7 @@ export function EmailTemplateEditor() {
                           setSelectedTemplate(template);
                         }}
                       >
-                        <FontAwesomeIcon icon="edit" className="mr-2" />
+                        <FontAwesomeIcon icon={['fal', 'edit']} className="mr-2" />
                         Edit
                       </Button>
                       <Button
@@ -203,7 +203,7 @@ export function EmailTemplateEditor() {
                         size="sm"
                         onClick={() => handleDeleteTemplate(template.id)}
                       >
-                        <FontAwesomeIcon icon="trash" className="mr-2" />
+                        <FontAwesomeIcon icon={['fal', 'trash']} className="mr-2" />
                         Delete
                       </Button>
                     </div>
@@ -298,7 +298,7 @@ export function EmailTemplateEditor() {
                             form.setValue('variables', currentVars.filter(v => v !== variable));
                           }}
                         >
-                          <FontAwesomeIcon icon="times" className="h-3 w-3" />
+                          <FontAwesomeIcon icon={['fal', 'times']} className="h-3 w-3" />
                         </Button>
                       </Badge>
                     ))}
