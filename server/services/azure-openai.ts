@@ -1,22 +1,24 @@
 
 import { AzureKeyCredential, OpenAIClient } from "@azure/openai";
 
-const apiKey = process.env["AZURE_OPENAI_API_KEY"];
-const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
+const apiKey = process.env["NOMAD_AZURE_OPENAI_API_KEY"];
+const endpoint = process.env["NOMAD_AZURE_OPENAI_ENDPOINT"];
+const deploymentName = process.env["NOMAD_AZURE_OPENAI_MODEL"] || "NomadAIEngine-gpt-4o";
 
-if (!apiKey || !endpoint) {
-  throw new Error("Azure OpenAI credentials not configured");
+let client: OpenAIClient | null = null;
+
+if (apiKey?.trim() && endpoint?.trim()) {
+  client = new OpenAIClient(endpoint.trim(), new AzureKeyCredential(apiKey.trim()));
 }
 
-const client = new OpenAIClient(
-  endpoint,
-  new AzureKeyCredential(apiKey)
-);
-
 export async function getChatCompletion(messages: Array<{ role: string; content: string }>) {
+  if (!client) {
+    return "I apologize, but the AI service is currently unavailable. Please ensure Azure OpenAI credentials are configured.";
+  }
+
   try {
     const result = await client.getChatCompletions(
-      "NomadAIEngine-gpt-4o", 
+      deploymentName,
       messages,
       {
         temperature: 0.7,
