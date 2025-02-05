@@ -1,4 +1,3 @@
-```typescript
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -54,34 +53,36 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
     }> = {};
 
     orders.forEach(order => {
-      order.materials.forEach(material => {
-        if (!requirements[material.materialId]) {
-          const materialData = materials.find(m => m.id === material.materialId);
-          const allocated = allocations.filter(a => a.materialId === material.materialId);
-          
-          requirements[material.materialId] = {
-            materialId: material.materialId,
-            required: material.requiredQuantity,
-            available: materialData?.availableStock || 0,
-            shortage: 0,
-            leadTime: materialData?.leadTime || 0,
-            status: 'ok'
-          };
-        } else {
-          requirements[material.materialId].required += material.requiredQuantity;
-        }
-      });
+      if (order.materials) {
+        order.materials.forEach(material => {
+          if (!requirements[material.materialId]) {
+            const materialData = materials.find(m => m.id === material.materialId);
+            const allocated = allocations.filter(a => a.materialId === material.materialId);
+
+            requirements[material.materialId] = {
+              materialId: material.materialId,
+              required: material.requiredQuantity,
+              available: materialData?.availableStock || 0,
+              shortage: 0,
+              leadTime: materialData?.leadTime || 0,
+              status: 'ok'
+            };
+          } else {
+            requirements[material.materialId].required += material.requiredQuantity;
+          }
+        });
+      }
     });
 
     // Calculate shortages and status
     Object.values(requirements).forEach(req => {
       req.shortage = Math.max(0, req.required - req.available);
-      
+
       const material = materials.find(m => m.id === req.materialId);
       if (!material) return;
 
       if (req.shortage > 0) {
-        if (req.shortage > material.safetyStock) {
+        if (req.shortage > (material.safetyStock || 0)) {
           req.status = 'critical';
         } else {
           req.status = 'warning';
@@ -207,4 +208,3 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
     </div>
   );
 }
-```
