@@ -12,22 +12,44 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { Project } from "@/types/manufacturing";
 import { format } from "date-fns";
+import { AddColumnDialog, CustomColumn } from "./AddColumnDialog";
 
 interface ProjectTableViewProps {
   projects: Project[];
+  onEdit?: (project: Project) => void;
+  onView?: (project: Project) => void;
 }
 
 type SortConfig = {
-  key: keyof Project;
+  key: keyof Project | string;
   direction: 'asc' | 'desc';
 };
 
-export function ProjectTableView({ projects }: ProjectTableViewProps) {
+export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ 
     key: 'projectNumber', 
     direction: 'asc' 
   });
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
+  const [showAddColumn, setShowAddColumn] = useState(false);
+  const [customValues, setCustomValues] = useState<Record<string, Record<string, string>>>({});
+
+  // Handle custom column value changes
+  const handleCustomValueChange = (projectId: string, columnId: string, value: string) => {
+    setCustomValues(prev => ({
+      ...prev,
+      [projectId]: {
+        ...(prev[projectId] || {}),
+        [columnId]: value
+      }
+    }));
+  };
+
+  // Add new custom column
+  const handleAddColumn = (column: CustomColumn) => {
+    setCustomColumns(prev => [...prev, column]);
+  };
 
   // Sort and filter projects
   const sortedProjects = useMemo(() => {
@@ -38,8 +60,16 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
     );
 
     return [...filtered].sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
+      if (sortConfig.key.startsWith('custom_')) {
+        const aValue = customValues[a.id]?.[sortConfig.key] || '';
+        const bValue = customValues[b.id]?.[sortConfig.key] || '';
+        return sortConfig.direction === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
+      const aValue = a[sortConfig.key as keyof Project];
+      const bValue = b[sortConfig.key as keyof Project];
 
       if (!aValue && !bValue) return 0;
       if (!aValue) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -65,18 +95,18 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
 
       return 0;
     });
-  }, [projects, searchQuery, sortConfig]);
+  }, [projects, searchQuery, sortConfig, customValues]);
 
-  const handleSort = (key: keyof Project) => {
+  const handleSort = (key: keyof Project | string) => {
     setSortConfig(current => ({
       key,
       direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
     }));
   };
 
-  const renderSortIcon = (key: keyof Project) => {
+  const renderSortIcon = (key: keyof Project | string) => {
     if (sortConfig.key !== key) {
-      return <FontAwesomeIcon icon="sort" className="ml-2 h-4 w-4 text-muted-foreground" />;
+      return null;
     }
     return (
       <FontAwesomeIcon 
@@ -126,10 +156,16 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-sm"
         />
-        <Button>
-          <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
-          Export
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowAddColumn(true)}>
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            Add Column
+          </Button>
+          <Button>
+            <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border overflow-x-auto">
@@ -250,6 +286,17 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
               >
                 EE Progress {renderSortIcon('eeDesignProgress')}
               </TableHead>
+              {/* Custom Columns */}
+              {customColumns.map(column => (
+                <TableHead
+                  key={column.id}
+                  className="cursor-pointer whitespace-nowrap"
+                  onClick={() => handleSort(column.id)}
+                >
+                  {column.title} {renderSortIcon(column.id)}
+                </TableHead>
+              ))}
+
               <TableHead className="whitespace-nowrap sticky right-0 bg-background">
                 Actions
               </TableHead>
@@ -284,12 +331,31 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
                 <TableCell className="whitespace-nowrap">{project.eeAssigned || '-'}</TableCell>
                 <TableCell className="whitespace-nowrap">{formatPercentage(project.meCadProgress)}</TableCell>
                 <TableCell className="whitespace-nowrap">{formatPercentage(project.eeDesignProgress)}</TableCell>
+                {/* Custom Column Cells */}
+                {customColumns.map(column => (
+                  <TableCell key={column.id} className="whitespace-nowrap">
+                    <Input
+                      type={column.type === 'number' ? 'number' : 'text'}
+                      value={customValues[project.id]?.[column.id] || ''}
+                      onChange={(e) => handleCustomValueChange(project.id, column.id, e.target.value)}
+                      className="h-8 w-full"
+                    />
+                  </TableCell>
+                ))}
                 <TableCell className="whitespace-nowrap sticky right-0 bg-background">
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => onEdit?.(project)}
+                    >
                       <FontAwesomeIcon icon="edit" className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => onView?.(project)}
+                    >
                       <FontAwesomeIcon icon="eye" className="h-4 w-4" />
                     </Button>
                   </div>
@@ -299,6 +365,12 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
           </TableBody>
         </Table>
       </div>
+
+      <AddColumnDialog
+        open={showAddColumn}
+        onOpenChange={setShowAddColumn}
+        onAddColumn={handleAddColumn}
+      />
     </div>
   );
 }

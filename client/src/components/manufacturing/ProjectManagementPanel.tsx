@@ -496,6 +496,16 @@ export function ProjectManagementPanel() {
     }
   });
 
+  const handleEditProject = (project: Project) => {
+    setSelectedProject(project);
+    setShowEditDialog(true);
+  };
+
+  const handleViewProject = (project: Project) => {
+    setSelectedProject(project);
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -870,7 +880,7 @@ export function ProjectManagementPanel() {
                               <div className="space-y-2">
                                 <div className="flex justify-between">
                                   <span>Fabrication Start:</span>
-                                  <span>{formatDate(selectedProject.fabricationStart)}</span>
+                                                                 <span>{formatDate(selectedProject.fabricationStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Assembly Start:</span>
@@ -997,7 +1007,11 @@ export function ProjectManagementPanel() {
             </TabsContent>
 
             <TabsContent value="table">
-              <ProjectTableView projects={projects} />
+              <ProjectTableView
+                projects={projects}
+                onEdit={handleEditProject}
+                onView={handleViewProject}
+              />
             </TabsContent>
           </Tabs>
         </TabsContent>
