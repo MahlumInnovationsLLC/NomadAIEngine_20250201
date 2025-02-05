@@ -14,7 +14,8 @@ import {
   faUser,
   faCalendarAlt,
   faBuilding,
-  faPlus
+  faPlus,
+  faClipboardList as faHandshake
 } from "@fortawesome/free-solid-svg-icons";
 
 const mockTasks = [
