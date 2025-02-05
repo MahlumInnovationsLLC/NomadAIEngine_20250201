@@ -8,6 +8,9 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import App from './App';
 import "./index.css";
 
+// Import Font Awesome configuration
+import "./lib/fontawesome";
+
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
