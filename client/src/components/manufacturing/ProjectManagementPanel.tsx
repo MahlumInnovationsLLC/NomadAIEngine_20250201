@@ -4,6 +4,7 @@ import { Form } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader } from "@/components/ui/alert-dialog";
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
 import { 
   faFolder, 
