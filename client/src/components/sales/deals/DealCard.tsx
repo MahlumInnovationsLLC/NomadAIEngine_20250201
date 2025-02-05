@@ -349,10 +349,10 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="value">Deal Value</Label>
-                        <Input 
-                          id="value" 
-                          type="number" 
-                          defaultValue={deal.value} 
+                        <Input
+                          id="value"
+                          type="number"
+                          defaultValue={deal.value}
                         />
                       </div>
                     </div>
@@ -374,25 +374,25 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="probability">Probability (%)</Label>
-                        <Input 
-                          id="probability" 
-                          type="number" 
-                          defaultValue={deal.probability} 
+                        <Input
+                          id="probability"
+                          type="number"
+                          defaultValue={deal.probability}
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="manufacturingProject">Manufacturing Project</Label>
-                      <Input 
-                        id="manufacturingProject" 
-                        defaultValue={deal.manufacturingProject} 
+                      <Input
+                        id="manufacturingProject"
+                        defaultValue={deal.manufacturingProject}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="nextSteps">Next Steps</Label>
-                      <Textarea 
-                        id="nextSteps" 
-                        defaultValue={deal.nextSteps} 
+                      <Textarea
+                        id="nextSteps"
+                        defaultValue={deal.nextSteps}
                       />
                     </div>
                     <DialogFooter>
