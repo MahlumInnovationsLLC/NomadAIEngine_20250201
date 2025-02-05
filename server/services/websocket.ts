@@ -1,6 +1,5 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
-import { WebSocket, WebSocketServer } from 'ws';
 import { db } from "@db";
 import { userTraining } from "@db/schema";
 import { eq, and } from "drizzle-orm";
@@ -23,11 +22,6 @@ const userSchema = z.object({
 
 type User = z.infer<typeof userSchema>;
 
-interface SocketMessage {
-  type: string;
-  data?: any;
-}
-
 interface NotificationPayload {
   type: string;
   title: string;
@@ -39,48 +33,22 @@ interface NotificationPayload {
 
 class WebSocketManager {
   private io: SocketIOServer;
-  private wss: WebSocketServer;
   private users: Map<string, User> = new Map();
   private clients: Map<string, string> = new Map();
-  private connectionPool: Map<string, Set<WebSocket | SocketIOServer.Socket>> = new Map();
-  private heartbeatInterval: NodeJS.Timeout;
 
   constructor(server: HttpServer) {
     this.io = new SocketIOServer(server, {
       cors: {
         origin: "*",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
+        credentials: true
       },
       pingInterval: 10000,
       pingTimeout: 5000,
-      transports: ['websocket']
-    });
-
-    this.wss = new WebSocketServer({
-      server,
-      path: "/ws",
-      perMessageDeflate: true
+      transports: ['websocket', 'polling']
     });
 
     this.setupSocketIO();
-    this.setupWebSocket();
-    this.setupHeartbeat();
-  }
-
-  private setupHeartbeat() {
-    this.heartbeatInterval = setInterval(() => {
-      this.connectionPool.forEach((connections, userId) => {
-        connections.forEach((conn) => {
-          if (conn instanceof WebSocket) {
-            if (conn.readyState === WebSocket.OPEN) {
-              conn.ping();
-            } else {
-              this.handleDisconnect(userId, conn);
-            }
-          }
-        });
-      });
-    }, 30000);
   }
 
   private setupSocketIO() {
@@ -93,9 +61,7 @@ class WebSocketManager {
         return;
       }
 
-      this.addToConnectionPool(userId, socket);
-      this.registerUser(userId);
-
+      this.registerUser(userId, socket.id);
       socket.join(`user-${userId}`);
 
       // Send initial state
@@ -105,7 +71,7 @@ class WebSocketManager {
       });
 
       socket.on('presence:join', async ({ userId: uid, name = `User ${uid.slice(0, 4)}` }) => {
-        await this.handleUserJoin(uid, name);
+        await this.handleUserJoin(uid, name, socket.id);
       });
 
       socket.on('presence:status', ({ status }) => {
@@ -117,103 +83,25 @@ class WebSocketManager {
       });
 
       socket.on('disconnect', () => {
-        this.handleDisconnect(userId, socket);
+        this.handleDisconnect(userId);
       });
 
       socket.on('error', (error) => {
         console.error('Socket error:', error);
-        this.handleDisconnect(userId, socket);
+        this.handleDisconnect(userId);
       });
     });
   }
 
-  private setupWebSocket() {
-    this.wss.on('connection', (ws, req) => {
-      console.log('Raw WebSocket client connected');
-      const url = new URL(req.url!, `ws://${req.headers.host}`);
-      const userId = url.searchParams.get('userId');
-
-      if (!userId) {
-        ws.close();
-        return;
-      }
-
-      this.addToConnectionPool(userId, ws);
-      this.registerUser(userId);
-
-      // Send initial state
-      ws.send(JSON.stringify({
-        type: 'ONLINE_USERS_UPDATE',
-        data: this.getActiveUsers()
-      }));
-
-      ws.on('message', async (message) => {
-        try {
-          const data = JSON.parse(message.toString()) as SocketMessage;
-          await this.handleWebSocketMessage(userId, data, ws);
-        } catch (error) {
-          console.error('Error handling WebSocket message:', error);
-        }
-      });
-
-      ws.on('close', () => {
-        this.handleDisconnect(userId, ws);
-      });
-
-      ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-        this.handleDisconnect(userId, ws);
-      });
-
-      ws.on('pong', () => {
-        const user = this.users.get(userId);
-        if (user) {
-          user.lastSeen = new Date();
-          this.users.set(userId, user);
-        }
-      });
-    });
+  private handleDisconnect(userId: string) {
+    this.users.delete(userId);
+    this.clients.delete(userId);
+    this.broadcastPresence();
   }
 
-  private addToConnectionPool(userId: string, connection: WebSocket | SocketIOServer.Socket) {
-    if (!this.connectionPool.has(userId)) {
-      this.connectionPool.set(userId, new Set());
-    }
-    this.connectionPool.get(userId)!.add(connection);
-  }
-
-  private handleDisconnect(userId: string, connection: WebSocket | SocketIOServer.Socket) {
-    const connections = this.connectionPool.get(userId);
-    if (connections) {
-      connections.delete(connection);
-      if (connections.size === 0) {
-        this.connectionPool.delete(userId);
-        this.users.delete(userId);
-        this.clients.delete(userId);
-        this.broadcastPresence();
-      }
-    }
-  }
-
-  private async handleUserJoin(userId: string, name: string) {
-    this.registerUser(userId);
+  private async handleUserJoin(userId: string, name: string, socketId: string) {
+    this.registerUser(userId, socketId);
     await this.broadcastTrainingLevel(userId);
-  }
-
-  private async handleWebSocketMessage(userId: string, data: SocketMessage, ws: WebSocket) {
-    switch (data.type) {
-      case 'presence:join':
-        await this.handleUserJoin(userId, data.data?.name || `User ${userId.slice(0, 4)}`);
-        break;
-      case 'presence:status':
-        this.updateUserStatus(userId, data.data?.status);
-        break;
-      case 'training:request_level':
-        await this.broadcastTrainingLevel(userId);
-        break;
-      default:
-        console.warn('Unknown message type:', data.type);
-    }
   }
 
   private updateUserStatus(userId: string, status: User['status']) {
@@ -228,10 +116,7 @@ class WebSocketManager {
 
   private broadcastPresence() {
     const activeUsers = Array.from(this.users.values()).map(({ socketId, ...user }) => user);
-    this.broadcast(Array.from(this.users.keys()), {
-      type: 'presence:update',
-      data: activeUsers
-    });
+    this.broadcast('presence:update', activeUsers);
   }
 
   private async broadcastTrainingLevel(userId: string) {
@@ -260,45 +145,25 @@ class WebSocketManager {
         this.users.set(userId, user);
       }
 
-      this.broadcast([userId], {
-        type: 'training:level',
-        data: trainingLevel
-      });
+      this.io.to(`user-${userId}`).emit('training:level', trainingLevel);
     } catch (error) {
       console.error("Error broadcasting training level:", error);
     }
   }
 
-  public broadcast(userIds: string[], message: SocketMessage) {
-    userIds.forEach(userId => {
-      const connections = this.connectionPool.get(userId);
-      if (connections) {
-        connections.forEach(conn => {
-          try {
-            if (conn instanceof WebSocket) {
-              if (conn.readyState === WebSocket.OPEN) {
-                conn.send(JSON.stringify(message));
-              }
-            } else {
-              conn.emit(message.type, message.data);
-            }
-          } catch (error) {
-            console.error('Error broadcasting message:', error);
-            this.handleDisconnect(userId, conn);
-          }
-        });
-      }
-    });
+  private broadcast(event: string, data: any) {
+    this.io.emit(event, data);
   }
 
-  public registerUser(userId: string) {
+  public registerUser(userId: string, socketId: string) {
     this.users.set(userId, {
       id: userId,
       name: `User ${userId.slice(0, 4)}`,
       status: 'online',
-      socketId: '',
+      socketId,
       lastSeen: new Date()
     });
+    this.clients.set(userId, socketId);
     this.broadcastPresence();
   }
 
@@ -309,9 +174,7 @@ class WebSocketManager {
   }
 
   public cleanup() {
-    clearInterval(this.heartbeatInterval);
     this.io.close();
-    this.wss.close();
   }
 
   public async sendNotification(userId: string, payload: NotificationPayload) {
@@ -319,9 +182,8 @@ class WebSocketManager {
       // Insert notification into database
       const [notification] = await db.insert(notifications)
         .values({
-          type: payload.type,
-          title: payload.title,
           message: payload.message,
+          title: payload.title,
           priority: payload.priority,
           link: payload.link,
           metadata: payload.metadata,
@@ -336,12 +198,9 @@ class WebSocketManager {
         });
 
       // Send real-time notification
-      this.broadcast([userId], {
-        type: 'notification:new',
-        data: {
-          ...notification,
-          read: false,
-        }
+      this.io.to(`user-${userId}`).emit('notification:new', {
+        ...notification,
+        read: false,
       });
 
       return notification;
@@ -365,10 +224,7 @@ class WebSocketManager {
           )
         );
 
-      this.broadcast([userId], {
-        type: 'notification:read',
-        data: { notificationId }
-      });
+      this.io.to(`user-${userId}`).emit('notification:read', { notificationId });
     } catch (error) {
       console.error('Error marking notification as read:', error);
       throw error;
@@ -379,7 +235,6 @@ class WebSocketManager {
     try {
       return await db.select({
         id: notifications.id,
-        type: notifications.type,
         title: notifications.title,
         message: notifications.message,
         priority: notifications.priority,

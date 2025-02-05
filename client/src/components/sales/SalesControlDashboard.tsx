@@ -41,6 +41,20 @@ import { DealCard } from "./deals/DealCard";
 import { useToast } from "@/hooks/use-toast";
 import { OutlookIntegrationPanel } from "./integrations/OutlookIntegrationPanel";
 import { PhoneIntegrationPanel } from "./integrations/PhoneIntegrationPanel";
+import {
+  faHandshake,
+  faDollarSign,
+  faChartLine,
+  faBullseye,
+  faUserTie,
+  faBuilding,
+  faPhone,
+  faEnvelope,
+  faProjectDiagram,
+  faFileContract,
+  faRocket,
+  faGears
+} from '@fortawesome/pro-light-svg-icons';
 
 const mockForecastData = {
   monthly: [
@@ -229,7 +243,7 @@ export function SalesControlDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Deals</CardTitle>
             <FontAwesomeIcon
-              icon="handshake"
+              icon={faHandshake}
               className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
@@ -242,7 +256,7 @@ export function SalesControlDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pipeline Value</CardTitle>
             <FontAwesomeIcon
-              icon="dollar-sign"
+              icon={faDollarSign}
               className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
@@ -255,7 +269,7 @@ export function SalesControlDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
             <FontAwesomeIcon
-              icon="chart-line"
+              icon={faChartLine}
               className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
@@ -268,7 +282,7 @@ export function SalesControlDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Deal Size</CardTitle>
             <FontAwesomeIcon
-              icon="bullseye"
+              icon={faBullseye}
               className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
@@ -376,7 +390,7 @@ export function SalesControlDashboard() {
               <Dialog>
                 <DialogTrigger asChild>
                   <Button>
-                    <FontAwesomeIcon icon="handshake" className="mr-2" />
+                    <FontAwesomeIcon icon={faHandshake} className="mr-2" />
                     New Deal
                   </Button>
                 </DialogTrigger>
@@ -508,7 +522,7 @@ export function SalesControlDashboard() {
               <Dialog>
                 <DialogTrigger asChild>
                   <Button>
-                    <FontAwesomeIcon icon="user-tie" className="mr-2" />
+                    <FontAwesomeIcon icon={faUserTie} className="mr-2" />
                     Add Contact
                   </Button>
                 </DialogTrigger>
@@ -556,18 +570,18 @@ export function SalesControlDashboard() {
                       <TableCell>{contact.title}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <FontAwesomeIcon icon="building" className="text-muted-foreground" />
+                          <FontAwesomeIcon icon={faBuilding} className="text-muted-foreground" />
                           {contact.company}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <FontAwesomeIcon icon="phone" className="text-muted-foreground" />
+                            <FontAwesomeIcon icon={faPhone} className="text-muted-foreground" />
                             {contact.phone}
                           </div>
                           <div className="flex items-center gap-2">
-                            <FontAwesomeIcon icon="envelope" className="text-muted-foreground" />
+                            <FontAwesomeIcon icon={faEnvelope} className="text-muted-foreground" />
                             {contact.email}
                           </div>
                         </div>
@@ -616,7 +630,7 @@ export function SalesControlDashboard() {
                 onClick={() => setShowPipeline(!showPipeline)}
               >
                 <FontAwesomeIcon
-                  icon="chart-line"
+                  icon={faChartLine}
                   className={`mr-2 ${showPipeline ? 'text-primary' : ''}`}
                 />
                 Pipeline Overlay
@@ -813,7 +827,7 @@ export function SalesControlDashboard() {
             <CardHeader className="flex items-center justify-between">
               <CardTitle>Manufacturing Projects</CardTitle>
               <Button variant="outline">
-                <FontAwesomeIcon icon="project-diagram" className="mr-2" />
+                <FontAwesomeIcon icon={faProjectDiagram} className="mr-2" />
                 Link to Deal
               </Button>
             </CardHeader>
@@ -842,8 +856,7 @@ export function SalesControlDashboard() {
                     <TableCell>Assembly System Upgrade</TableCell>
                     <TableCell>
                       <Badge className="bg-green-500">Planning</Badge>
-                    </TableCell>
-                    <TableCell>Q3 2025</TableCell>
+                    </TableCell>                    <TableCell>Q3 2025</TableCell>
                     <TableCell>Global Manufacturing Co</TableCell>
                     <TableCell>$120,000</TableCell>
                   </TableRow>

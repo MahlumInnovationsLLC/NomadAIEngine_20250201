@@ -8,28 +8,27 @@ import { setupWebSocketServer } from "./services/websocket";
 import manufacturingRoutes from "./routes/manufacturing";
 import inventoryRoutes from "./routes/inventory";
 import aiRoutes from "./routes/ai";
+import salesRoutes from "./routes/sales";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Update CORS middleware for SPA
+// Update CORS middleware for SPA and WebSocket
 app.use((req, res, next) => {
-  // Allow requests from our SPA origin
   const allowedOrigins = [
-    'https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev',
-    process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : ''
+    process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '',
+    'https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev'
   ].filter(Boolean);
 
   const origin = req.headers.origin;
   if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Origin', origin);
   }
 
-  // Allow credentials and required headers for token-based auth
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -43,8 +42,10 @@ app.use((req, res, next) => {
 // Register routes
 app.use('/api/manufacturing', manufacturingRoutes);
 app.use('/api/inventory', inventoryRoutes);
-app.use('/api/ai', aiRoutes); // Add AI routes
+app.use('/api/ai', aiRoutes);
+app.use('/api/sales', salesRoutes);
 
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -99,12 +100,24 @@ app.use((req, res, next) => {
 
     const server = createServer(app);
 
-    // Setup WebSocket server with both Socket.IO and raw WebSocket support
+    // Setup WebSocket server with proper upgrade handling
     const wsServer = setupWebSocketServer(server);
+    server.on('upgrade', (request, socket, head) => {
+      const protocol = request.headers['sec-websocket-protocol'];
+      // Skip vite HMR upgrade requests
+      if (protocol === 'vite-hmr') {
+        return;
+      }
+
+      wsServer.handleUpgrade(request, socket, head, (ws) => {
+        wsServer.emit('connection', ws, request);
+      });
+    });
 
     // Register routes after WebSocket setup
     await registerRoutes(app);
 
+    // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Server error:', err);
       const status = err.status || err.statusCode || 500;

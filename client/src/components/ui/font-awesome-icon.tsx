@@ -3,16 +3,6 @@ import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition, IconName, IconPrefix } from '@fortawesome/fontawesome-svg-core';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
-  faGithub,
-  faTwitter,
-  faLinkedin,
-  faDiscord,
-  faSlack,
-  faWindows,
-  faFacebook,
-  faInstagram,
-} from '@fortawesome/free-brands-svg-icons';
-import {
   faBold,
   faItalic,
   faHeading,
@@ -70,22 +60,11 @@ import {
   faProjectDiagram,
   faFileContract,
   faRocket,
-  faGears,
-} from '@fortawesome/free-solid-svg-icons';
+  faGears
+} from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
 library.add(
-  // Brand icons
-  faGithub,
-  faTwitter,
-  faLinkedin,
-  faDiscord,
-  faSlack,
-  faWindows,
-  faFacebook,
-  faInstagram,
-
-  // Pro Light icons
   faBold,
   faItalic,
   faHeading,
@@ -137,25 +116,17 @@ library.add(
   faCircleExclamation,
   faHandshake,
   faDollarSign,
-  faChartLine,
   faBullseye,
   faUserTie,
-  faBuilding,
   faPhone,
-  faEnvelope,
-  faChartBar,
-  faChartPie,
-  faUsers,
-  faIndustry,
   faProjectDiagram,
-  faCog,
   faFileContract,
   faRocket,
   faGears
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
-  icon: [IconPrefix, IconName] | IconName | string;
+  icon: IconDefinition | [IconPrefix, IconName] | IconName;
   size?: 'xs' | 'sm' | 'lg' | '2x' | '3x' | '4x' | '5x';
 }
 
@@ -226,6 +197,19 @@ export function FontAwesomeIcon({
   className,
   ...props
 }: FontAwesomeIconProps) {
+  // Handle IconDefinition objects directly
+  if (typeof icon === 'object' && 'icon' in icon) {
+    return (
+      <FAIcon
+        icon={icon}
+        className={className}
+        size={size}
+        {...props}
+      />
+    );
+  }
+
+  // Handle array-based icon specifications
   if (Array.isArray(icon)) {
     return (
       <FAIcon
@@ -238,9 +222,10 @@ export function FontAwesomeIcon({
   }
 
   // Handle string-based icon names
-  const faIcon = iconMap[typeof icon === 'string' ? icon : ''];
+  const iconName = typeof icon === 'string' ? icon : '';
+  const faIcon = iconMap[iconName];
   if (!faIcon) {
-    console.warn(`Icon "${icon}" not found in icon map`);
+    console.warn(`Icon "${iconName}" not found in icon map`);
     return null;
   }
 

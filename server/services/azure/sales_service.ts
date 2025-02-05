@@ -60,7 +60,7 @@ export class SalesService {
     });
 
     // Initialize Blob Storage Client
-    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    const connectionString = process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING;
     if (!connectionString) {
       throw new Error("Azure Storage connection string not found");
     }

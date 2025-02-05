@@ -6,7 +6,6 @@ export function useWebSocket() {
 
   useEffect(() => {
     const newSocket = io(window.location.origin, {
-      path: '/socket.io',
       withCredentials: true,
       query: {
         userId: '1', // This should be replaced with actual user ID from auth context
@@ -18,17 +17,40 @@ export function useWebSocket() {
     });
 
     newSocket.on('connect', () => {
-      console.log('WebSocket connected');
-      // Join the calendar room to receive updates
-      newSocket.emit('join_room', 'calendar');
+      console.log('Socket.IO connected');
+      // Join the user's room
+      newSocket.emit('presence:join', {
+        userId: '1', // Replace with actual user ID
+        name: 'User' // Replace with actual user name
+      });
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
+      console.error('Socket.IO connection error:', error);
     });
 
     newSocket.on('disconnect', () => {
-      console.log('WebSocket disconnected');
+      console.log('Socket.IO disconnected');
+    });
+
+    newSocket.on('ONLINE_USERS_UPDATE', (data) => {
+      console.log('Online users updated:', data);
+    });
+
+    newSocket.on('presence:update', (users) => {
+      console.log('User presence updated:', users);
+    });
+
+    newSocket.on('notification:new', (notification) => {
+      console.log('New notification received:', notification);
+    });
+
+    newSocket.on('notification:read', (data) => {
+      console.log('Notification marked as read:', data);
+    });
+
+    newSocket.on('training:level', (level) => {
+      console.log('Training level updated:', level);
     });
 
     setSocket(newSocket);
@@ -38,6 +60,11 @@ export function useWebSocket() {
         newSocket.off('connect');
         newSocket.off('connect_error');
         newSocket.off('disconnect');
+        newSocket.off('ONLINE_USERS_UPDATE');
+        newSocket.off('presence:update');
+        newSocket.off('notification:new');
+        newSocket.off('notification:read');
+        newSocket.off('training:level');
         newSocket.close();
       }
     };
