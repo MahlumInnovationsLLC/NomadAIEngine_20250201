@@ -876,7 +876,7 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Wrap/Graphics:</span>
-                                  <span>{formatDate(selectedProject.wrapGraphics)}</</span>
+                                  <span>{formatDate(selectedProject.wrapGraphics)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>NTC Testing:</span>
