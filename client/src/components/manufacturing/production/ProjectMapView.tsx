@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { motion, Reorder } from "framer-motion";
+import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -67,25 +67,35 @@ export function ProjectMapView() {
         description: "Floor plan created successfully",
       });
     },
-  });
-
-  // Update project location mutation
-  const updateProjectLocationMutation = useMutation({
-    mutationFn: async (location: ProjectLocation) => {
-      const response = await fetch('/api/project-locations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(location),
+    onError: (error) => {
+      console.error('Failed to create floor plan:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create floor plan. Please try again.",
+        variant: "destructive",
       });
-      if (!response.ok) throw new Error('Failed to update project location');
-      return response.json();
     },
   });
 
   const handleCreateFloorPlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    await createFloorPlanMutation.mutateAsync(formData);
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+
+    // Add default values
+    formData.append('dimensions', JSON.stringify({
+      width: 800,
+      height: 600
+    }));
+    formData.append('gridSize', '20');
+    formData.append('zones', JSON.stringify([]));
+    formData.append('isActive', 'true');
+
+    try {
+      await createFloorPlanMutation.mutateAsync(formData);
+    } catch (error) {
+      console.error('Error creating floor plan:', error);
+    }
   };
 
   const handleDragEnd = async (_: any, info: any) => {
@@ -163,6 +173,19 @@ export function ProjectMapView() {
     );
   }
 
+  const updateProjectLocationMutation = useMutation({
+    mutationFn: async (location: ProjectLocation) => {
+      const response = await fetch('/api/project-locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(location),
+      });
+      if (!response.ok) throw new Error('Failed to update project location');
+      return response.json();
+    },
+  });
+
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -238,35 +261,67 @@ export function ProjectMapView() {
       </div>
 
       <Dialog open={showFloorPlanDialog} onOpenChange={setShowFloorPlanDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Add New Floor Plan</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreateFloorPlan} className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Name</label>
-              <Input name="name" placeholder="Production Floor A" required />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Description</label>
-              <Input name="description" placeholder="Main production area" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Upload Floor Plan Image</label>
-              <Input
-                name="image"
-                type="file"
-                accept="image/*"
-                ref={imageInputRef}
-                required
-              />
+          <form id="floor-plan-form" onSubmit={handleCreateFloorPlan} className="space-y-4">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="name" className="text-sm font-medium">
+                  Name
+                </label>
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder="Production Floor A"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="description" className="text-sm font-medium">
+                  Description
+                </label>
+                <Input
+                  id="description"
+                  name="description"
+                  placeholder="Main production area"
+                />
+              </div>
+              <div>
+                <label htmlFor="image" className="text-sm font-medium">
+                  Upload Floor Plan Image
+                </label>
+                <Input
+                  id="image"
+                  name="image"
+                  type="file"
+                  accept="image/*"
+                  ref={imageInputRef}
+                  required
+                />
+              </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowFloorPlanDialog(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowFloorPlanDialog(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createFloorPlanMutation.isPending}>
-                Create Floor Plan
+              <Button
+                type="submit"
+                disabled={createFloorPlanMutation.isPending}
+              >
+                {createFloorPlanMutation.isPending ? (
+                  <>
+                    <FontAwesomeIcon icon="spinner" className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Floor Plan'
+                )}
               </Button>
             </DialogFooter>
           </form>

@@ -590,13 +590,18 @@ export interface MaterialAllocation {
 export interface FloorPlan {
   id: string;
   name: string;
-  imageUrl: string;
-  width: number;
-  height: number;
-  scale: number; // pixels per meter
+  description: string | null;
+  imageUrl?: string;
+  dimensions: {
+    width: number;
+    height: number;
+  };
+  gridSize: number;
   zones: FloorPlanZone[];
   createdAt: string;
   updatedAt: string;
+  metadata?: Record<string, unknown>;
+  isActive: boolean;
 }
 
 export interface FloorPlanZone {
