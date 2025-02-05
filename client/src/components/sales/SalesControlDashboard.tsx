@@ -44,6 +44,7 @@ import { TaskManager } from "./tasks/TaskManager";
 import { Textarea } from "@/components/ui/textarea";
 import { HubspotIntegration } from "./integrations/HubspotIntegration";
 import { MeetingScheduler } from "./meetings/MeetingScheduler";
+import { AIInsightsDashboard } from "./insights/AIInsightsDashboard";
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
@@ -187,6 +188,7 @@ export function SalesControlDashboard() {
           <TabsTrigger value="manufacturing">Manufacturing Projects</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="meetings">Meetings</TabsTrigger>
+          <TabsTrigger value="insights">AI Insights</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -510,6 +512,16 @@ export function SalesControlDashboard() {
         </TabsContent>
         <TabsContent value="meetings" className="space-y-4">
           <MeetingScheduler />
+        </TabsContent>
+        <TabsContent value="insights" className="space-y-4">
+          <AIInsightsDashboard 
+            currentDeal={mockDeals[0]} 
+            salesData={{
+              deals: mockDeals,
+              pipeline: mockPipelineStages,
+              performance: mockSalesData
+            }} 
+          />
         </TabsContent>
       </Tabs>
     </div>
