@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { DownloadReportButton } from "@/components/ui/download-report-button";
 import FilePreview from "@/components/document/FilePreview";
 import ReactMarkdown from 'react-markdown';
+import { FontAwesomeIcon } from "@fortawesome/free-solid-svg-icons";
+import { faUser, faDollarSign } from "@fortawesome/free-solid-svg-icons";
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -28,7 +30,7 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
           "w-full h-full flex items-center justify-center text-xs font-medium",
           role === 'assistant' ? "bg-primary text-primary-foreground" : "bg-secondary"
         )}>
-          {role === 'assistant' ? 'AI' : 'You'}
+          <FontAwesomeIcon icon={role === 'assistant' ? faDollarSign : faUser} className="h-4 w-4" />
         </div>
       </Avatar>
 
