@@ -21,6 +21,8 @@ import { ResourceManagementPanel } from './ResourceManagementPanel';
 import { Project, ProjectStatus } from "@/types/manufacturing";
 import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faUsers, faLocationArrow } from "@fortawesome/free-solid-svg-icons";
 import { ProjectMapView } from "./production/ProjectMapView";
+import { ProjectTableView } from "./production/ProjectTableView"; // Import the new component
+
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -872,7 +874,7 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Assembly Start:</span>
-                                  <span>{formatDate(selectedProject.assemblyStart)}</span>
+                                  <span>{formatDate(selectedProject.assemblyStart)</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Wrap/Graphics:</span>
@@ -991,15 +993,11 @@ export function ProjectManagementPanel() {
             </TabsContent>
 
             <TabsContent value="map">
-              <ProjectMapView />
+              <ProjectMapView projects={projects} />
             </TabsContent>
 
             <TabsContent value="table">
-              <Card>
-                <CardContent>
-                  <div>Table View Coming Soon...</div>
-                </CardContent>
-              </Card>
+              <ProjectTableView projects={projects} />
             </TabsContent>
           </Tabs>
         </TabsContent>
