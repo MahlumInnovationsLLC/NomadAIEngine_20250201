@@ -19,6 +19,7 @@ import { ProductionTimeline } from './ProductionTimeline';
 import { ResourceManagementPanel } from './ResourceManagementPanel';
 import { Project, ProjectStatus } from "@/types/manufacturing";
 import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -450,6 +451,39 @@ export function ProjectManagementPanel() {
     updateProjectMutation.mutate(formattedData);
   };
 
+  // Add a mutation for updating notes
+  const updateNotesMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      const response = await fetch(`/api/manufacturing/projects/${id}/notes`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notes })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update notes');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+      toast({
+        title: "Success",
+        description: "Notes updated successfully"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update notes",
+        variant: "destructive"
+      });
+    }
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -840,7 +874,7 @@ export function ProjectManagementPanel() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>QC Start:</span>
-                                  <span>{formatDate(selectedProject.qcStart)}</span>
+                                  <span<span>{formatDate(selectedProject.qcStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Ship:</span>
@@ -855,46 +889,47 @@ export function ProjectManagementPanel() {
                           </Card>
                         </div>
 
-                        {selectedProject && (
-                          <Card className="mt-6">
-                            <CardHeader>
-                              <CardTitle>Notes</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <RichTextEditor
-                                key={selectedProject.id}
-                                content={selectedProject.notes || ''}
-                                onChange={async (content) => {
-                                  try {
-                                    const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}`, {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ notes: content })
-                                    });
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Notes</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {selectedProject && (
+                                <RichTextEditor
+                                  key={selectedProject.id}
+                                  content={selectedProject.notes || ''}
+                                  onChange={async (content) => {
+                                    try {
+                                      const response = await fetch(`/api/manufacturing/projects/${selectedProject.id}/notes`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ notes: content })
+                                      });
 
-                                    if (!response.ok) throw new Error('Failed to save notes');
+                                      if (!response.ok) throw new Error('Failed to save notes');
 
-                                                                   queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-                                      if (!oldData) return [];
-                                      return oldData.map(p =>
-                                        p.id === selectedProject.id
-                                          ? { ...p, notes: content }
-                                          : p
-                                      );
-                                    });
-                                                 } catch (error) {
-                                    toast({
-                                      title: "Error",
-                                      description: "Failed to save notes",
-                                      variant: "destructive"
-                                    });
-                                  }
-                                }}
-                              />
-                            </CardContent>
-                          </Card>
-                        )}
-
+                                      queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+                                        if (!oldData) return [];
+                                        return oldData.map(p =>
+                                          p.id === selectedProject.id
+                                            ? { ...p, notes: content }
+                                            : p
+                                        );
+                                      });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Error",
+                                        description: "Failed to save notes",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                />
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
 
                         {selectedProject.tasks && selectedProject.tasks.length > 0 && (
                           <div className="space-y-4">
