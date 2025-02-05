@@ -9,7 +9,14 @@ import {
   faBullseye,
   faFileContract,
   faRocket,
-  faGears
+  faGears,
+  faIndustry,
+  faProjectDiagram,
+  faCog,
+  faUserTie,
+  faBuilding,
+  faPhone,
+  faEnvelope
 } from "@fortawesome/free-solid-svg-icons";
 import {
   LineChart,
@@ -26,6 +33,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
@@ -33,6 +46,60 @@ const mockSalesData = [
   { month: "Mar", revenue: 48000, deals: 14, conversion: 30 },
   { month: "Apr", revenue: 61000, deals: 18, conversion: 35 },
   { month: "May", revenue: 55000, deals: 16, conversion: 33 },
+];
+
+const mockPipelineStages = [
+  { id: 1, name: "Lead", deals: 45, value: 280000 },
+  { id: 2, name: "Meeting Scheduled", deals: 28, value: 420000 },
+  { id: 3, name: "Proposal Sent", deals: 15, value: 380000 },
+  { id: 4, name: "Contract Review", deals: 8, value: 250000 },
+  { id: 5, name: "Closed Won", deals: 12, value: 580000 }
+];
+
+const mockDeals = [
+  {
+    id: 1,
+    company: "TechCorp Industries",
+    value: 75000,
+    stage: "Proposal Sent",
+    probability: 65,
+    owner: "John Smith",
+    manufacturingProject: "Custom Automation Line",
+    lastContact: "2025-02-01"
+  },
+  {
+    id: 2,
+    company: "Global Manufacturing Co",
+    value: 120000,
+    stage: "Contract Review",
+    probability: 85,
+    owner: "Sarah Johnson",
+    manufacturingProject: "Assembly System Upgrade",
+    lastContact: "2025-02-03"
+  }
+];
+
+const mockContacts = [
+  {
+    id: 1,
+    name: "Michael Chen",
+    title: "Procurement Director",
+    company: "TechCorp Industries",
+    email: "m.chen@techcorp.com",
+    phone: "+1 (555) 123-4567",
+    lastContact: "2025-02-01",
+    deals: 3
+  },
+  {
+    id: 2,
+    name: "Lisa Rodriguez",
+    title: "Operations Manager",
+    company: "Global Manufacturing Co",
+    email: "l.rodriguez@globalmfg.com",
+    phone: "+1 (555) 987-6543",
+    lastContact: "2025-02-03",
+    deals: 2
+  }
 ];
 
 export function SalesControlDashboard() {
@@ -144,25 +211,245 @@ export function SalesControlDashboard() {
           </Card>
         </TabsContent>
 
-        {/* Additional tab contents will be implemented next */}
         <TabsContent value="pipeline" className="space-y-4">
-          {/* Pipeline management component will go here */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Sales Pipeline</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {mockPipelineStages.map((stage) => (
+                  <div key={stage.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">{stage.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {stage.deals} deals · ${stage.value.toLocaleString()}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">{Math.round((stage.deals / 45) * 100)}%</Badge>
+                    </div>
+                    <Progress value={(stage.deals / 45) * 100} />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="deals" className="space-y-4">
-          {/* Deals management component will go here */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Active Deals</CardTitle>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button>
+                    <FontAwesomeIcon icon={faHandshake} className="mr-2" />
+                    New Deal
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Deal</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="company">Company</Label>
+                      <Input id="company" />
+                    </div>
+                    <div>
+                      <Label htmlFor="value">Deal Value</Label>
+                      <Input id="value" type="number" />
+                    </div>
+                    {/* Add more fields as needed */}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Value</TableHead>
+                    <TableHead>Stage</TableHead>
+                    <TableHead>Probability</TableHead>
+                    <TableHead>Manufacturing Project</TableHead>
+                    <TableHead>Owner</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockDeals.map((deal) => (
+                    <TableRow key={deal.id}>
+                      <TableCell>{deal.company}</TableCell>
+                      <TableCell>${deal.value.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{deal.stage}</Badge>
+                      </TableCell>
+                      <TableCell>{deal.probability}%</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FontAwesomeIcon icon={faIndustry} className="text-muted-foreground" />
+                          {deal.manufacturingProject}
+                        </div>
+                      </TableCell>
+                      <TableCell>{deal.owner}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="contacts" className="space-y-4">
-          {/* Contacts management component will go here */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Contacts</CardTitle>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button>
+                    <FontAwesomeIcon icon={faUserTie} className="mr-2" />
+                    Add Contact
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Contact</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="name">Name</Label>
+                      <Input id="name" />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" type="email" />
+                    </div>
+                    {/* Add more fields as needed */}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Contact Info</TableHead>
+                    <TableHead>Last Contact</TableHead>
+                    <TableHead>Active Deals</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockContacts.map((contact) => (
+                    <TableRow key={contact.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar>
+                            <AvatarImage src={`https://avatar.vercel.sh/${contact.name}`} />
+                            <AvatarFallback>{contact.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                          </Avatar>
+                          {contact.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>{contact.title}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FontAwesomeIcon icon={faBuilding} className="text-muted-foreground" />
+                          {contact.company}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <FontAwesomeIcon icon={faPhone} className="text-muted-foreground" />
+                            {contact.phone}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <FontAwesomeIcon icon={faEnvelope} className="text-muted-foreground" />
+                            {contact.email}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{new Date(contact.lastContact).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge>{contact.deals} deals</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="forecasting" className="space-y-4">
-          {/* Sales forecasting component will go here */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Sales Forecast</CardTitle>
+            </CardHeader>
+            <CardContent className="pl-2">
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={mockSalesData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="revenue" name="Actual Revenue" stroke="#8884d8" />
+                  <Line type="monotone" dataKey="deals" name="Projected Revenue" stroke="#82ca9d" />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="manufacturing" className="space-y-4">
-          {/* Manufacturing projects integration will go here */}
+          <Card>
+            <CardHeader className="flex items-center justify-between">
+              <CardTitle>Manufacturing Projects</CardTitle>
+              <Button variant="outline">
+                <FontAwesomeIcon icon={faProjectDiagram} className="mr-2" />
+                Link to Deal
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Timeline</TableHead>
+                    <TableHead>Associated Deal</TableHead>
+                    <TableHead>Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>Custom Automation Line</TableCell>
+                    <TableCell>
+                      <Badge className="bg-yellow-500">In Progress</Badge>
+                    </TableCell>
+                    <TableCell>Q2 2025</TableCell>
+                    <TableCell>TechCorp Industries</TableCell>
+                    <TableCell>$75,000</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Assembly System Upgrade</TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-500">Planning</Badge>
+                    </TableCell>
+                    <TableCell>Q3 2025</TableCell>
+                    <TableCell>Global Manufacturing Co</TableCell>
+                    <TableCell>$120,000</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
