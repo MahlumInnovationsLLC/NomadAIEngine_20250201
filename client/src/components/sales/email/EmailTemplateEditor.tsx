@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -12,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { RichTextEditor } from './RichTextEditor';
 
 interface EmailTemplate {
   id: string;
@@ -53,6 +53,18 @@ const mockTemplates: EmailTemplate[] = [
     lastModified: new Date().toISOString(),
     usageCount: 45
   }
+];
+
+const commonVariables = [
+  'customer_name',
+  'company_name',
+  'contact_title',
+  'project_name',
+  'product_name',
+  'quote_amount',
+  'meeting_date',
+  'sales_rep_name',
+  'custom_greeting'
 ];
 
 export function EmailTemplateEditor() {
@@ -109,6 +121,13 @@ export function EmailTemplateEditor() {
   const handlePreviewTemplate = (template: EmailTemplate) => {
     setSelectedTemplate(template);
     setIsPreviewOpen(true);
+  };
+
+  const handleAddVariable = (variable: string) => {
+    const currentVars = form.getValues('variables');
+    if (!currentVars.includes(variable)) {
+      form.setValue('variables', [...currentVars, variable]);
+    }
   };
 
   return (
@@ -249,36 +268,67 @@ export function EmailTemplateEditor() {
 
                 <div className="space-y-2">
                   <Label htmlFor="templateContent">Email Content</Label>
-                  <Textarea
-                    id="templateContent"
-                    {...form.register("content")}
-                    className="min-h-[200px] font-mono"
+                  <RichTextEditor
+                    content={form.watch('content')}
+                    onChange={(content) => form.setValue('content', content)}
+                    variables={[...commonVariables, ...form.watch('variables')]}
+                    onInsertVariable={handleAddVariable}
                   />
                   {form.formState.errors.content && (
                     <p className="text-sm text-red-500">{form.formState.errors.content.message}</p>
                   )}
-                  <p className="text-sm text-muted-foreground">
-                    Use variables like {"{contact_name}"} that will be replaced with actual values
-                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="templateVariables">Variables</Label>
+                  <Label>Template Variables</Label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {form.watch('variables').map((variable) => (
+                      <Badge
+                        key={variable}
+                        variant="secondary"
+                        className="flex items-center gap-1"
+                      >
+                        {variable}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-4 w-4 p-0 hover:bg-destructive"
+                          onClick={() => {
+                            const currentVars = form.getValues('variables');
+                            form.setValue('variables', currentVars.filter(v => v !== variable));
+                          }}
+                        >
+                          <FontAwesomeIcon icon="times" className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <Select onValueChange={(value) => handleAddVariable(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Add predefined variable" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {commonVariables.map((variable) => (
+                        <SelectItem key={variable} value={variable}>
+                          {variable.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
-                    id="templateVariables"
-                    placeholder="contact_name, company_name, product_name"
-                    onChange={(e) => {
-                      const variables = e.target.value.split(",").map(v => v.trim()).filter(Boolean);
-                      form.setValue("variables", variables);
+                    placeholder="Add custom variable (Press Enter)"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.currentTarget as HTMLInputElement;
+                        const value = input.value.trim().toLowerCase().replace(/\s+/g, '_');
+                        if (value) {
+                          handleAddVariable(value);
+                          input.value = '';
+                        }
+                      }
                     }}
-                    defaultValue={form.watch("variables")?.join(", ")}
                   />
-                  {form.formState.errors.variables && (
-                    <p className="text-sm text-red-500">{form.formState.errors.variables.message}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    Comma-separated list of variables used in the template
-                  </p>
                 </div>
 
                 <div className="flex justify-end space-x-2">

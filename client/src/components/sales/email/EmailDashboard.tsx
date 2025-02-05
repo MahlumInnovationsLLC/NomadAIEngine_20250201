@@ -16,6 +16,20 @@ import { useToast } from "@/hooks/use-toast";
 import { EmailTemplateEditor } from "./EmailTemplateEditor";
 import { EmailCampaignPanel } from "./EmailCampaignPanel";
 
+// Add to imports
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
+} from 'recharts';
+
 interface Campaign {
   id: string;
   name: string;
@@ -41,6 +55,36 @@ const mockEmailAnalytics = {
   bestTimeToSend: "Tuesday 10:00 AM",
   topPerformingSubject: "Manufacturing Solutions Proposal",
 };
+
+// Add mock data for analytics
+const mockPerformanceData = [
+  { date: '2025-01-01', sent: 45, opened: 30, clicked: 15, responded: 8 },
+  { date: '2025-01-02', sent: 52, opened: 35, clicked: 18, responded: 10 },
+  { date: '2025-01-03', sent: 48, opened: 32, clicked: 20, responded: 12 },
+  { date: '2025-01-04', sent: 70, opened: 45, clicked: 25, responded: 15 },
+  { date: '2025-01-05', sent: 65, opened: 40, clicked: 22, responded: 13 },
+];
+
+const mockCampaignComparison = [
+  {
+    name: 'Product Launch',
+    openRate: 65,
+    clickRate: 42,
+    responseRate: 28,
+  },
+  {
+    name: 'Follow-up',
+    openRate: 72,
+    clickRate: 38,
+    responseRate: 25,
+  },
+  {
+    name: 'Newsletter',
+    openRate: 58,
+    clickRate: 35,
+    responseRate: 20,
+  },
+];
 
 export function EmailDashboard() {
   const [selectedTab, setSelectedTab] = useState("overview");
@@ -242,20 +286,118 @@ export function EmailDashboard() {
           <EmailTemplateEditor />
         </TabsContent>
 
+        {/* Replace the analytics TabsContent with: */}
         <TabsContent value="analytics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Campaign Performance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Add detailed analytics visualization here */}
-                <p className="text-muted-foreground">
-                  Detailed campaign performance metrics and trends will be displayed here
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Email Performance Trends</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={mockPerformanceData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="sent" stroke="#8884d8" name="Sent" />
+                        <Line type="monotone" dataKey="opened" stroke="#82ca9d" name="Opened" />
+                        <Line type="monotone" dataKey="clicked" stroke="#ffc658" name="Clicked" />
+                        <Line type="monotone" dataKey="responded" stroke="#ff7300" name="Responded" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Campaign Performance Comparison</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={mockCampaignComparison}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="openRate" fill="#8884d8" name="Open Rate %" />
+                        <Bar dataKey="clickRate" fill="#82ca9d" name="Click Rate %" />
+                        <Bar dataKey="responseRate" fill="#ffc658" name="Response Rate %" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance Insights</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Best Performing Time</h4>
+                      <div className="flex items-center space-x-2">
+                        <FontAwesomeIcon icon="clock" className="text-muted-foreground" />
+                        <span>Tuesday 10:00 AM</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Emails sent at this time have 45% higher open rates
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Top Subject Line</h4>
+                      <div className="flex items-center space-x-2">
+                        <FontAwesomeIcon icon="envelope" className="text-muted-foreground" />
+                        <span>"New Manufacturing Solutions"</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        72% open rate with this subject line
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Best Call-to-Action</h4>
+                      <div className="flex items-center space-x-2">
+                        <FontAwesomeIcon icon="mouse-pointer" className="text-muted-foreground" />
+                        <span>"Schedule Demo"</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        38% click-through rate
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Recommendations</h4>
+                    <ul className="space-y-2">
+                      <li className="flex items-center space-x-2">
+                        <FontAwesomeIcon icon="lightbulb" className="text-yellow-500" />
+                        <span>Schedule emails for Tuesday morning to maximize engagement</span>
+                      </li>
+                      <li className="flex items-center space-x-2">
+                        <FontAwesomeIcon icon="lightbulb" className="text-yellow-500" />
+                        <span>Include product name in subject lines for higher open rates</span>
+                      </li>
+                      <li className="flex items-center space-x-2">
+                        <FontAwesomeIcon icon="lightbulb" className="text-yellow-500" />
+                        <span>Use action-oriented CTAs for better click-through rates</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
