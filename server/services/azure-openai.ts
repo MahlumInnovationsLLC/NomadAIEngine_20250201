@@ -1,12 +1,16 @@
+
 import { AzureKeyCredential, OpenAIClient } from "@azure/openai";
 
-if (!process.env.AZURE_OPENAI_API_KEY || !process.env.AZURE_OPENAI_ENDPOINT) {
+const apiKey = process.env["AZURE_OPENAI_API_KEY"];
+const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
+
+if (!apiKey || !endpoint) {
   throw new Error("Azure OpenAI credentials not configured");
 }
 
 const client = new OpenAIClient(
-  process.env.AZURE_OPENAI_ENDPOINT,
-  new AzureKeyCredential(process.env.AZURE_OPENAI_API_KEY)
+  endpoint,
+  new AzureKeyCredential(apiKey)
 );
 
 export async function getChatCompletion(messages: Array<{ role: string; content: string }>) {
