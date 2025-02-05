@@ -43,6 +43,7 @@ import { EmailDashboard } from "./email/EmailDashboard";
 import { TaskManager } from "./tasks/TaskManager";
 import { Textarea } from "@/components/ui/textarea";
 import { HubspotIntegration } from "./integrations/HubspotIntegration";
+import { MeetingScheduler } from "./meetings/MeetingScheduler";
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
@@ -69,7 +70,11 @@ const mockDeals = [
     probability: 65,
     owner: "John Smith",
     manufacturingProject: "Custom Automation Line",
-    lastContact: "2025-02-01"
+    lastContact: "2025-02-01",
+    score: 85,
+    qualificationStatus: "Highly Qualified",
+    nextSteps: "Schedule technical review",
+    engagement: "High"
   },
   {
     id: 2,
@@ -79,7 +84,11 @@ const mockDeals = [
     probability: 85,
     owner: "Sarah Johnson",
     manufacturingProject: "Assembly System Upgrade",
-    lastContact: "2025-02-03"
+    lastContact: "2025-02-03",
+    score: 92,
+    qualificationStatus: "Qualified",
+    nextSteps: "Final contract review",
+    engagement: "Very High"
   }
 ];
 
@@ -177,6 +186,7 @@ export function SalesControlDashboard() {
           <TabsTrigger value="forecasting">Forecasting</TabsTrigger>
           <TabsTrigger value="manufacturing">Manufacturing Projects</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="meetings">Meetings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -268,7 +278,19 @@ export function SalesControlDashboard() {
                       <Label htmlFor="value">Deal Value</Label>
                       <Input id="value" type="number" />
                     </div>
-                    {/* Add more fields as needed */}
+                    <div>
+                      <Label htmlFor="qualification">Qualification Status</Label>
+                      <select className="w-full px-3 py-2 border rounded-md">
+                        <option value="highly-qualified">Highly Qualified</option>
+                        <option value="qualified">Qualified</option>
+                        <option value="partially-qualified">Partially Qualified</option>
+                        <option value="unqualified">Unqualified</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="nextSteps">Next Steps</Label>
+                      <Textarea id="nextSteps" placeholder="Define next steps" />
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -280,7 +302,8 @@ export function SalesControlDashboard() {
                     <TableHead>Company</TableHead>
                     <TableHead>Value</TableHead>
                     <TableHead>Stage</TableHead>
-                    <TableHead>Probability</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Qualification</TableHead>
                     <TableHead>Manufacturing Project</TableHead>
                     <TableHead>Owner</TableHead>
                   </TableRow>
@@ -293,7 +316,23 @@ export function SalesControlDashboard() {
                       <TableCell>
                         <Badge variant="outline">{deal.stage}</Badge>
                       </TableCell>
-                      <TableCell>{deal.probability}%</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Progress value={deal.score} className="w-[60px]" />
+                          <span className="text-sm">{deal.score}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            deal.qualificationStatus === 'Highly Qualified' ? 'default' :
+                            deal.qualificationStatus === 'Qualified' ? 'secondary' :
+                            'outline'
+                          }
+                        >
+                          {deal.qualificationStatus}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <FontAwesomeIcon icon={faIndustry} className="text-muted-foreground" />
@@ -468,6 +507,9 @@ export function SalesControlDashboard() {
         </TabsContent>
         <TabsContent value="integrations" className="space-y-4">
           <HubspotIntegration />
+        </TabsContent>
+        <TabsContent value="meetings" className="space-y-4">
+          <MeetingScheduler />
         </TabsContent>
       </Tabs>
     </div>
