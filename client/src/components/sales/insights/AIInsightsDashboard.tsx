@@ -253,42 +253,7 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FontAwesomeIcon icon={faFileUpload} className="text-primary" />
-              Document Analysis
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-4">
-              <Input
-                type="file"
-                onChange={handleFileUpload}
-                className="flex-1"
-                accept=".pdf,.doc,.docx,.txt"
-              />
-              <Button 
-                onClick={analyzeFile} 
-                disabled={!file || isAnalyzing}
-              >
-                {isAnalyzing ? (
-                  <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <FontAwesomeIcon icon={faBrain} className="h-4 w-4 mr-2" />
-                )}
-                Analyze
-              </Button>
-            </div>
-            {analysisResult && (
-              <Alert>
-                <AlertDescription>
-                  {analysisResult}
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+        
 
         <div className="md:col-span-2">
           <AISalesChat />
