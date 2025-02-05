@@ -55,7 +55,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DealCard } from "./deals/DealCard";
-import { useToast } from '@radix-ui/react-toast'; // Assuming this is where useToast comes from
+import { useToast } from "@/hooks/use-toast";
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
