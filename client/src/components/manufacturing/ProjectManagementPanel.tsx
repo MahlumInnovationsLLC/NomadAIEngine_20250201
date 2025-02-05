@@ -218,45 +218,38 @@ export function ProjectManagementPanel() {
   const updateProjectMutation = useMutation({
     mutationFn: async (project: Partial<Project>) => {
       console.log('Starting mutation with project data:', project);
-      try {
-        const cleanedData = {
-          ...project,
-          ...(project.contractDate && { contractDate: new Date(project.contractDate).toISOString() }),
-          ...(project.fabricationStart && { fabricationStart: new Date(project.fabricationStart).toISOString() }),
-          ...(project.assemblyStart && { assemblyStart: new Date(project.assemblyStart).toISOString() }),
-          ...(project.wrapGraphics && { wrapGraphics: new Date(project.wrapGraphics).toISOString() }),
-          ...(project.ntcTesting && { ntcTesting: new Date(project.ntcTesting).toISOString() }),
-          ...(project.qcStart && { qcStart: new Date(project.qcStart).toISOString() }),
-          ...(project.executiveReview && { executiveReview: new Date(project.executiveReview).toISOString() }),
-          ...(project.ship && { ship: new Date(project.ship).toISOString() }),
-          ...(project.delivery && { delivery: new Date(project.delivery).toISOString() })
-        };
+      const cleanedData = {
+        ...project,
+        ...(project.contractDate && { contractDate: new Date(project.contractDate).toISOString() }),
+        ...(project.fabricationStart && { fabricationStart: new Date(project.fabricationStart).toISOString() }),
+        ...(project.assemblyStart && { assemblyStart: new Date(project.assemblyStart).toISOString() }),
+        ...(project.wrapGraphics && { wrapGraphics: new Date(project.wrapGraphics).toISOString() }),
+        ...(project.ntcTesting && { ntcTesting: new Date(project.ntcTesting).toISOString() }),
+        ...(project.qcStart && { qcStart: new Date(project.qcStart).toISOString() }),
+        ...(project.executiveReview && { executiveReview: new Date(project.executiveReview).toISOString() }),
+        ...(project.ship && { ship: new Date(project.ship).toISOString() }),
+        ...(project.delivery && { delivery: new Date(project.delivery).toISOString() })
+      };
 
-        console.log('Cleaned data for API call:', cleanedData);
+      console.log('Cleaned data for API call:', cleanedData);
 
-        const response = await fetch(`/api/manufacturing/projects/${project.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(cleanedData)
-        });
+      const response = await fetch(`/api/manufacturing/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(cleanedData)
+      });
 
-        console.log('API response status:', response.status);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API error response:', errorText);
-          throw new Error(`Failed to update project: ${errorText}`);
-        }
-
-        const result = await response.json();
-        console.log('API success response:', result);
-        return result;
-      } catch (error) {
-        console.error('Mutation error:', error);
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API error response:', errorText);
+        throw new Error(`Failed to update project: ${errorText}`);
       }
+
+      const result = await response.json();
+      console.log('API success response:', result);
+      return result;
     },
     onSuccess: (updatedProject) => {
       console.log('Mutation succeeded:', updatedProject);
@@ -868,9 +861,9 @@ export function ProjectManagementPanel() {
                                 <div className="flex justify-between">
                                   <span>Ship:</span>
                                   <span>{formatDate(selectedProject.ship)}</span>
-                                </div>
+                               </div>
                                 <div className="flex justify-between">
-                                  <<span>Delivery:</span>
+                                  <span>Delivery:</span>
                                   <span>{formatDate(selectedProject.delivery)}</span>
                                 </div>
                               </div>
@@ -1018,25 +1011,19 @@ export function ProjectManagementPanel() {
           {selectedProject && (
             <Form
               key={formKey}
-              onSubmit={async (event) => {
-                event.preventDefault();
-                console.log('Form submission started');
+              onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
+                e.preventDefault();
+                console.log('Form submitted');
 
-                const form = event.currentTarget;
-                const formData = new FormData(form);
+                const formElement = e.currentTarget;
+                const formData = new FormData(formElement);
                 const data: Record<string, any> = {
                   id: selectedProject.id
                 };
 
-                console.log('Initial form data:', Object.fromEntries(formData));
-
-                // Process form data
+                console.log('Processing form data');
                 for (const [key, value] of formData.entries()) {
-                  // Skip empty values
-                  if (value === '') {
-                    console.log(`Skipping empty value for ${key}`);
-                    continue;
-                  }
+                  if (!value) continue;
 
                   // Convert number fields
                   if (['meCadProgress', 'eeDesignProgress', 'itDesignProgress', 'ntcDesignProgress'].includes(key)) {
@@ -1046,11 +1033,8 @@ export function ProjectManagementPanel() {
                   }
                 }
 
-                console.log('Processed form data:', data);
-
                 // Handle executive review time
                 if (data.executiveReview && data.executiveReviewTime) {
-                  console.log('Processing executive review time');
                   const date = new Date(data.executiveReview);
                   const [hours, minutes] = (data.executiveReviewTime as string).split(':');
                   date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
@@ -1058,13 +1042,22 @@ export function ProjectManagementPanel() {
                   delete data.executiveReviewTime;
                 }
 
-                try {
-                  console.log('Calling mutation with data:', data);
-                  await updateProjectMutation.mutateAsync(data);
-                  console.log('Mutation completed successfully');
-                } catch (error) {
-                  console.error('Form submission error:', error);
-                }
+                console.log('Submitting data:', data);
+                updateProjectMutation.mutate(data, {
+                  onSuccess: () => {
+                    console.log('Update successful');
+                    setShowEditDialog(false);
+                    queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+                  },
+                  onError: (error) => {
+                    console.error('Update failed:', error);
+                    toast({
+                      title: "Error",
+                      description: error instanceof Error ? error.message : "Failed to update project",
+                      variant: "destructive"
+                    });
+                  }
+                });
               }}
             >
               <div className="grid grid-cols-2 gap-4">
@@ -1358,6 +1351,9 @@ export function ProjectManagementPanel() {
                 <Button 
                   type="submit" 
                   disabled={updateProjectMutation.isPending}
+                  onClick={() => {
+                    console.log('Update Project button clicked');
+                  }}
                 >
                   {updateProjectMutation.isPending ? "Updating..." : "Update Project"}
                 </Button>
