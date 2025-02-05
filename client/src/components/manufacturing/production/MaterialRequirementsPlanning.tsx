@@ -40,9 +40,9 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
     queryFn: getAllProjects,
   });
 
-  const { data: productionOrders = [] } = useQuery<ProductionOrder[]>({
-    queryKey: [`/api/manufacturing/orders/${productionLineId}`, selectedProject],
-    enabled: !!productionLineId && !!selectedProject,
+  const { data: productionOrders = [], isLoading: isLoadingOrders } = useQuery<ProductionOrder[]>({
+    queryKey: [`/api/manufacturing/orders/${selectedProject}`],
+    enabled: !!selectedProject,
   });
 
   const { data: materials = [] } = useQuery<Material[]>({
@@ -51,9 +51,24 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
   });
 
   const { data: allocations = [] } = useQuery<MaterialAllocation[]>({
-    queryKey: [`/api/manufacturing/allocations/${productionLineId}`, selectedProject],
-    enabled: !!productionLineId && !!selectedProject,
+    queryKey: [`/api/manufacturing/allocations/${selectedProject}`],
+    enabled: !!selectedProject,
   });
+
+  if (isLoadingProjects) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loading Projects</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-40">
+            Loading available projects...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (projectsError) {
     return (
@@ -81,24 +96,37 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {isLoadingProjects ? (
-              <div>Loading projects...</div>
-            ) : (
-              <Select
-                onValueChange={(value) => setSelectedProject(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name} ({project.projectNumber})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Select
+              onValueChange={(value) => setSelectedProject(value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.projectNumber} - {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const project = projects.find(p => p.id === selectedProject);
+
+  if (isLoadingOrders) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loading MRP Data</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-40">
+            Loading material requirements data...
           </div>
         </CardContent>
       </Card>
@@ -165,7 +193,7 @@ export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequi
         <div>
           <h2 className="text-2xl font-bold">Material Requirements Planning</h2>
           <p className="text-sm text-muted-foreground">
-            Project: {projects.find(p => p.id === selectedProject)?.name}
+            Project: {project?.projectNumber} - {project?.name}
           </p>
         </div>
         <div className="flex gap-2">

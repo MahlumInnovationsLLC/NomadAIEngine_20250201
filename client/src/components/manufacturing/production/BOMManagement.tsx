@@ -47,7 +47,7 @@ export function BOMManagement({ productId }: BOMManagementProps) {
     queryFn: getAllProjects,
   });
 
-  const { data: bom, isLoading } = useQuery<BillOfMaterials>({
+  const { data: bom, isLoading: isLoadingBOM } = useQuery<BillOfMaterials>({
     queryKey: [`/api/manufacturing/bom/${selectedProject}`],
     enabled: !!selectedProject,
   });
@@ -56,6 +56,21 @@ export function BOMManagement({ productId }: BOMManagementProps) {
     queryKey: ['/api/material/inventory'],
     enabled: true,
   });
+
+  if (isLoadingProjects) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loading Projects</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-40">
+            Loading available projects...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (projectsError) {
     return (
@@ -83,33 +98,42 @@ export function BOMManagement({ productId }: BOMManagementProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {isLoadingProjects ? (
-              <div>Loading projects...</div>
-            ) : (
-              <Select
-                onValueChange={(value) => setSelectedProject(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name} ({project.projectNumber})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Select
+              onValueChange={(value) => setSelectedProject(value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.projectNumber} - {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  if (isLoading) {
-    return <div>Loading BOM data...</div>;
+  if (isLoadingBOM) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loading BOM Data</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-40">
+            Loading bill of materials...
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
+
+  const project = projects.find(p => p.id === selectedProject);
 
   const getTotalCost = (components: BOMComponent[]) => {
     return components.reduce((acc, component) => acc + component.totalCost, 0);
@@ -121,7 +145,7 @@ export function BOMManagement({ productId }: BOMManagementProps) {
         <div>
           <CardTitle>Bill of Materials</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Project: {projects.find(p => p.id === selectedProject)?.name}
+            Project: {project?.projectNumber} - {project?.name}
           </p>
         </div>
         <div className="flex gap-2">
