@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faHubspot, faFileImport, faCog, faSync } from "@fortawesome/free-solid-svg-icons";
+import { faPlug, faFileImport, faCog, faSync } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,7 +48,7 @@ export function HubspotIntegration() {
         emails: Math.max(0, progress - 60),
         total: Math.min(100, progress)
       }));
-      
+
       if (progress >= 100) {
         clearInterval(interval);
         setIsImporting(false);
@@ -65,7 +65,7 @@ export function HubspotIntegration() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FontAwesomeIcon icon={faHubspot} className="text-[#ff7a59]" />
+            <FontAwesomeIcon icon={faPlug} className="text-[#ff7a59]" />
             HubSpot Integration
           </CardTitle>
         </CardHeader>
@@ -78,7 +78,7 @@ export function HubspotIntegration() {
               </p>
             </div>
             <Button onClick={handleConnect} variant={isConnected ? "outline" : "default"}>
-              <FontAwesomeIcon icon={isConnected ? faCog : faHubspot} className="mr-2" />
+              <FontAwesomeIcon icon={isConnected ? faCog : faPlug} className="mr-2" />
               {isConnected ? "Configure" : "Connect to HubSpot"}
             </Button>
           </div>
