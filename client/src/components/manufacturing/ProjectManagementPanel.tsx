@@ -178,7 +178,6 @@ const ProjectCreateDialog = ({ project, onClose }: { project?: Project, onClose?
   </div>
 );
 
-
 export function ProjectManagementPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -631,7 +630,7 @@ export function ProjectManagementPanel() {
         </TabsList>
 
         <TabsContent value="overview">
-          <Tabs defaultValue="list">
+          <Tabs defaultValue="list" className="space-y-4">
             <TabsList>
               <TabsTrigger value="list">List View</TabsTrigger>
               <TabsTrigger value="map">Map View</TabsTrigger>
@@ -874,10 +873,10 @@ export function ProjectManagementPanel() {
                                 <div className="flex justify-between">
                                   <span>Assembly Start:</span>
                                   <span>{formatDate(selectedProject.assemblyStart)}</span>
-                                </</div>
+                                </div>
                                 <div className="flex justify-between">
                                   <span>Wrap/Graphics:</span>
-                                  <span>{formatDate(selectedProject.wrapGraphics)}</span>
+                                  <span>{formatDate(selectedProject.wrapGraphics)}</</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>NTC Testing:</span>
@@ -992,11 +991,7 @@ export function ProjectManagementPanel() {
             </TabsContent>
 
             <TabsContent value="map">
-              <Card>
-                <CardContent className="p-6">
-                  <ProjectMapView />
-                </CardContent>
-              </Card>
+              <ProjectMapView />
             </TabsContent>
 
             <TabsContent value="table">
