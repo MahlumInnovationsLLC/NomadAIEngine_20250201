@@ -2,21 +2,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { 
-  faCheckCircle, 
-  faClock, 
+import {
+  faCheckCircle,
+  faClock,
   faExclamationCircle,
   faUser,
   faCalendarAlt,
   faBuilding,
   faPlus,
+  faFilter,
+  faEdit,
+  faTrash,
   faClipboardList as faHandshake
 } from "@fortawesome/free-solid-svg-icons";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useToast } from "@/hooks/use-toast";
 
 const mockTasks = [
   {
@@ -30,7 +37,10 @@ const mockTasks = [
       type: "Deal",
       name: "Custom Automation Line Project"
     },
-    status: "pending"
+    status: "pending",
+    description: "Schedule a follow-up call to discuss technical requirements",
+    notes: "Previous call covered initial scope",
+    createdAt: "2025-02-01"
   },
   {
     id: 2,
@@ -43,11 +53,93 @@ const mockTasks = [
       type: "Company",
       name: "Global Manufacturing Co"
     },
-    status: "completed"
+    status: "completed",
+    description: "Send updated proposal with new pricing",
+    notes: "Include updated terms as discussed",
+    createdAt: "2025-02-02"
   }
 ];
 
+interface TaskFormData {
+  title: string;
+  type: string;
+  priority: string;
+  dueDate: string;
+  assignee: string;
+  description: string;
+  notes?: string;
+  relatedTo?: {
+    type: string;
+    name: string;
+  };
+}
+
 export function TaskManager() {
+  const [tasks, setTasks] = useState(mockTasks);
+  const [filterType, setFilterType] = useState("all");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
+
+  const form = useForm<TaskFormData>({
+    defaultValues: {
+      title: "",
+      type: "todo",
+      priority: "medium",
+      dueDate: new Date().toISOString().split('T')[0],
+      assignee: "",
+      description: "",
+      notes: ""
+    }
+  });
+
+  const handleCreateTask = async (data: TaskFormData) => {
+    try {
+      // In a real app, this would be an API call
+      const newTask = {
+        id: tasks.length + 1,
+        ...data,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      };
+
+      setTasks([...tasks, newTask]);
+      form.reset();
+
+      toast({
+        title: "Success",
+        description: "Task created successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create task",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleTaskStatus = (taskId: number) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          status: task.status === "completed" ? "pending" : "completed"
+        };
+      }
+      return task;
+    }));
+  };
+
+  const filteredTasks = tasks.filter(task => {
+    if (filterType !== "all" && task.type.toLowerCase() !== filterType) return false;
+    if (filterPriority !== "all" && task.priority.toLowerCase() !== filterPriority) return false;
+    if (filterStatus !== "all" && task.status !== filterStatus) return false;
+    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -62,54 +154,119 @@ export function TaskManager() {
               New Task
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleCreateTask)} className="space-y-4">
               <div>
                 <Label htmlFor="title">Task Title</Label>
-                <Input id="title" placeholder="Enter task title" />
+                <Input {...form.register("title", { required: true })} placeholder="Enter task title" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="type">Type</Label>
-                  <select className="w-full px-3 py-2 border rounded-md">
-                    <option value="call">Call</option>
-                    <option value="email">Email</option>
-                    <option value="meeting">Meeting</option>
-                    <option value="todo">To-do</option>
-                  </select>
+                  <Select value={form.watch("type")} onValueChange={(value) => form.setValue("type", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="call">Call</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="meeting">Meeting</SelectItem>
+                      <SelectItem value="todo">To-do</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="priority">Priority</Label>
-                  <select className="w-full px-3 py-2 border rounded-md">
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
+                  <Select value={form.watch("priority")} onValueChange={(value) => form.setValue("priority", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="dueDate">Due Date</Label>
+                  <Input {...form.register("dueDate")} type="date" />
+                </div>
+                <div>
+                  <Label htmlFor="assignee">Assignee</Label>
+                  <Input {...form.register("assignee")} placeholder="Select assignee" />
                 </div>
               </div>
               <div>
-                <Label htmlFor="dueDate">Due Date</Label>
-                <Input id="dueDate" type="date" />
-              </div>
-              <div>
-                <Label htmlFor="assignee">Assignee</Label>
-                <Input id="assignee" placeholder="Select assignee" />
+                <Label htmlFor="description">Description</Label>
+                <Textarea {...form.register("description")} placeholder="Add task description" />
               </div>
               <div>
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" placeholder="Add any additional notes" />
+                <Textarea {...form.register("notes")} placeholder="Add any additional notes" />
               </div>
-            </div>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => form.reset()}>
+                  Cancel
+                </Button>
+                <Button type="submit">Create Task</Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Active Tasks</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Active Tasks</CardTitle>
+            <div className="flex gap-4">
+              <Input
+                placeholder="Search tasks..."
+                className="max-w-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="call">Call</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="meeting">Meeting</SelectItem>
+                  <SelectItem value="todo">To-do</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterPriority} onValueChange={setFilterPriority}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Filter by priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -122,10 +279,11 @@ export function TaskManager() {
                 <TableHead>Assignee</TableHead>
                 <TableHead>Related To</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockTasks.map((task) => (
+              {filteredTasks.map((task) => (
                 <TableRow key={task.id}>
                   <TableCell>{task.title}</TableCell>
                   <TableCell>
@@ -133,8 +291,8 @@ export function TaskManager() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={
-                      task.priority === 'High' ? 'destructive' : 
-                      task.priority === 'Medium' ? 'default' : 
+                      task.priority === 'High' ? 'destructive' :
+                      task.priority === 'Medium' ? 'default' :
                       'secondary'
                     }>
                       {task.priority}
@@ -154,21 +312,45 @@ export function TaskManager() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <FontAwesomeIcon 
-                        icon={task.relatedTo.type === 'Deal' ? faHandshake : faBuilding} 
-                        className="text-muted-foreground" 
+                      <FontAwesomeIcon
+                        icon={task.relatedTo.type === 'Deal' ? faHandshake : faBuilding}
+                        className="text-muted-foreground"
                       />
                       {task.relatedTo.name}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={task.status === 'completed' ? 'default' : 'secondary'}>
-                      <FontAwesomeIcon 
-                        icon={task.status === 'completed' ? faCheckCircle : faClock} 
-                        className="mr-1" 
+                    <Badge
+                      variant={task.status === 'completed' ? 'default' : 'secondary'}
+                      className="cursor-pointer"
+                      onClick={() => toggleTaskStatus(task.id)}
+                    >
+                      <FontAwesomeIcon
+                        icon={task.status === 'completed' ? faCheckCircle : faClock}
+                        className="mr-1"
                       />
                       {task.status === 'completed' ? 'Completed' : 'Pending'}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <FontAwesomeIcon icon={faEdit} />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit Task</DialogTitle>
+                          </DialogHeader>
+                          {/* Task edit form would go here */}
+                        </DialogContent>
+                      </Dialog>
+                      <Button variant="ghost" size="sm" className="text-red-500">
+                        <FontAwesomeIcon icon={faTrash} />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
