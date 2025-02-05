@@ -41,6 +41,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmailDashboard } from "./email/EmailDashboard";
 import { TaskManager } from "./tasks/TaskManager";
+import { Textarea } from "@/components/ui/textarea";
+import { HubspotIntegration } from "./integrations/HubspotIntegration";
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
@@ -174,6 +176,7 @@ export function SalesControlDashboard() {
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="forecasting">Forecasting</TabsTrigger>
           <TabsTrigger value="manufacturing">Manufacturing Projects</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -462,6 +465,9 @@ export function SalesControlDashboard() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="integrations" className="space-y-4">
+          <HubspotIntegration />
         </TabsContent>
       </Tabs>
     </div>
