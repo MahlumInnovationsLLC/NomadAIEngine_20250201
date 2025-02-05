@@ -61,8 +61,17 @@ import {
   faShare,
   faRightFromBracket,
   faLaptop,
-  faCircleExclamation
-} from '@fortawesome/pro-light-svg-icons';
+  faCircleExclamation,
+  faHandshake,
+  faDollarSign,
+  faBullseye,
+  faUserTie,
+  faPhone,
+  faProjectDiagram,
+  faFileContract,
+  faRocket,
+  faGears,
+} from '@fortawesome/free-solid-svg-icons';
 
 // Add icons to library
 library.add(
@@ -125,7 +134,24 @@ library.add(
   faShare,
   faRightFromBracket,
   faLaptop,
-  faCircleExclamation
+  faCircleExclamation,
+  faHandshake,
+  faDollarSign,
+  faChartLine,
+  faBullseye,
+  faUserTie,
+  faBuilding,
+  faPhone,
+  faEnvelope,
+  faChartBar,
+  faChartPie,
+  faUsers,
+  faIndustry,
+  faProjectDiagram,
+  faCog,
+  faFileContract,
+  faRocket,
+  faGears
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -182,7 +208,16 @@ const iconMap: Record<string, IconDefinition> = {
   'share': faShare,
   'right-from-bracket': faRightFromBracket,
   'laptop': faLaptop,
-  'circle-exclamation': faCircleExclamation
+  'circle-exclamation': faCircleExclamation,
+  'handshake': faHandshake,
+  'dollar-sign': faDollarSign,
+  'bullseye': faBullseye,
+  'user-tie': faUserTie,
+  'phone': faPhone,
+  'project-diagram': faProjectDiagram,
+  'file-contract': faFileContract,
+  'rocket': faRocket,
+  'gears': faGears,
 };
 
 export function FontAwesomeIcon({

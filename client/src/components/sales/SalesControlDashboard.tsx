@@ -2,23 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import {
-  faChartLine,
-  faHandshake,
-  faDollarSign,
-  faUsers,
-  faBullseye,
-  faFileContract,
-  faRocket,
-  faGears,
-  faIndustry,
-  faProjectDiagram,
-  faCog,
-  faUserTie,
-  faBuilding,
-  faPhone,
-  faEnvelope
-} from "@fortawesome/free-solid-svg-icons";
-import {
   LineChart,
   Line,
   XAxis,
@@ -224,10 +207,7 @@ export function SalesControlDashboard() {
 
   const handleDealEdit = async (id: number, updatedData: any) => {
     try {
-      // In a real application, this would make an API call to update the deal
       console.log('Edit deal:', id, updatedData);
-
-      // For demo purposes, show a success toast
       toast({
         title: "Success",
         description: "Deal updated successfully",
@@ -244,14 +224,13 @@ export function SalesControlDashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* KPI Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Deals</CardTitle>
-            <FontAwesomeIcon 
-              icon={faHandshake}
-              className="h-4 w-4 text-muted-foreground" 
+            <FontAwesomeIcon
+              icon="handshake"
+              className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
           <CardContent>
@@ -262,9 +241,9 @@ export function SalesControlDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pipeline Value</CardTitle>
-            <FontAwesomeIcon 
-              icon={faDollarSign}
-              className="h-4 w-4 text-muted-foreground" 
+            <FontAwesomeIcon
+              icon="dollar-sign"
+              className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
           <CardContent>
@@ -275,9 +254,9 @@ export function SalesControlDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
-            <FontAwesomeIcon 
-              icon={faChartLine}
-              className="h-4 w-4 text-muted-foreground" 
+            <FontAwesomeIcon
+              icon="chart-line"
+              className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
           <CardContent>
@@ -288,9 +267,9 @@ export function SalesControlDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Deal Size</CardTitle>
-            <FontAwesomeIcon 
-              icon={faBullseye}
-              className="h-4 w-4 text-muted-foreground" 
+            <FontAwesomeIcon
+              icon="bullseye"
+              className="h-4 w-4 text-muted-foreground"
             />
           </CardHeader>
           <CardContent>
@@ -300,7 +279,6 @@ export function SalesControlDashboard() {
         </Card>
       </div>
 
-      {/* Main Dashboard Content */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -328,26 +306,26 @@ export function SalesControlDashboard() {
                   <YAxis stroke="#888888" />
                   <Tooltip />
                   <Legend />
-                  <Bar 
-                    dataKey="revenue" 
+                  <Bar
+                    dataKey="revenue"
                     name="Revenue ($)"
-                    fill="currentColor" 
-                    radius={[4, 4, 0, 0]} 
+                    fill="currentColor"
+                    radius={[4, 4, 0, 0]}
                     className="fill-primary"
                   />
-                  <Bar 
-                    dataKey="deals" 
+                  <Bar
+                    dataKey="deals"
                     name="Deals Closed"
-                    fill="currentColor" 
-                    radius={[4, 4, 0, 0]} 
-                    className="fill-primary/50" 
+                    fill="currentColor"
+                    radius={[4, 4, 0, 0]}
+                    className="fill-primary/50"
                   />
-                  <Bar 
-                    dataKey="conversion" 
+                  <Bar
+                    dataKey="conversion"
                     name="Conversion Rate %"
-                    fill="currentColor" 
-                    radius={[4, 4, 0, 0]} 
-                    className="fill-primary/20" 
+                    fill="currentColor"
+                    radius={[4, 4, 0, 0]}
+                    className="fill-primary/20"
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -356,7 +334,7 @@ export function SalesControlDashboard() {
         </TabsContent>
 
         <TabsContent value="pipeline" className="space-y-4">
-          <PipelineAnalytics 
+          <PipelineAnalytics
             stages={mockPipelineStages}
             timeframe={pipelineTimeframe}
             onTimeframeChange={setPipelineTimeframe}
@@ -398,7 +376,7 @@ export function SalesControlDashboard() {
               <Dialog>
                 <DialogTrigger asChild>
                   <Button>
-                    <FontAwesomeIcon icon={faHandshake} className="mr-2" />
+                    <FontAwesomeIcon icon="handshake" className="mr-2" />
                     New Deal
                   </Button>
                 </DialogTrigger>
@@ -440,9 +418,9 @@ export function SalesControlDashboard() {
                     </div>
                     <div>
                       <Label htmlFor="manufacturingProject">Manufacturing Project</Label>
-                      <Input 
-                        id="manufacturingProject" 
-                        placeholder="Enter project details" 
+                      <Input
+                        id="manufacturingProject"
+                        placeholder="Enter project details"
                       />
                     </div>
                     <div>
@@ -461,9 +439,9 @@ export function SalesControlDashboard() {
                     </div>
                     <div>
                       <Label htmlFor="nextSteps">Next Steps</Label>
-                      <Textarea 
-                        id="nextSteps" 
-                        placeholder="Define next steps and action items" 
+                      <Textarea
+                        id="nextSteps"
+                        placeholder="Define next steps and action items"
                       />
                     </div>
                   </div>
@@ -477,8 +455,8 @@ export function SalesControlDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <Input 
-                      placeholder="Search deals..." 
+                    <Input
+                      placeholder="Search deals..."
                       className="max-w-sm"
                     />
                   </div>
@@ -511,9 +489,9 @@ export function SalesControlDashboard() {
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {mockDeals.map((deal) => (
-                    <DealCard 
-                      key={deal.id} 
-                      deal={deal} 
+                    <DealCard
+                      key={deal.id}
+                      deal={deal}
                       onEdit={handleDealEdit}
                     />
                   ))}
@@ -530,7 +508,7 @@ export function SalesControlDashboard() {
               <Dialog>
                 <DialogTrigger asChild>
                   <Button>
-                    <FontAwesomeIcon icon={faUserTie} className="mr-2" />
+                    <FontAwesomeIcon icon="user-tie" className="mr-2" />
                     Add Contact
                   </Button>
                 </DialogTrigger>
@@ -547,7 +525,6 @@ export function SalesControlDashboard() {
                       <Label htmlFor="email">Email</Label>
                       <Input id="email" type="email" />
                     </div>
-                    {/* Add more fields as needed */}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -579,18 +556,18 @@ export function SalesControlDashboard() {
                       <TableCell>{contact.title}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <FontAwesomeIcon icon={faBuilding} className="text-muted-foreground" />
+                          <FontAwesomeIcon icon="building" className="text-muted-foreground" />
                           {contact.company}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <FontAwesomeIcon icon={faPhone} className="text-muted-foreground" />
+                            <FontAwesomeIcon icon="phone" className="text-muted-foreground" />
                             {contact.phone}
                           </div>
                           <div className="flex items-center gap-2">
-                            <FontAwesomeIcon icon={faEnvelope} className="text-muted-foreground" />
+                            <FontAwesomeIcon icon="envelope" className="text-muted-foreground" />
                             {contact.email}
                           </div>
                         </div>
@@ -638,9 +615,9 @@ export function SalesControlDashboard() {
                 variant="outline"
                 onClick={() => setShowPipeline(!showPipeline)}
               >
-                <FontAwesomeIcon 
-                  icon={faChartLine} 
-                  className={`mr-2 ${showPipeline ? 'text-primary' : ''}`} 
+                <FontAwesomeIcon
+                  icon="chart-line"
+                  className={`mr-2 ${showPipeline ? 'text-primary' : ''}`}
                 />
                 Pipeline Overlay
               </Button>
@@ -836,7 +813,7 @@ export function SalesControlDashboard() {
             <CardHeader className="flex items-center justify-between">
               <CardTitle>Manufacturing Projects</CardTitle>
               <Button variant="outline">
-                <FontAwesomeIcon icon={faProjectDiagram} className="mr-2" />
+                <FontAwesomeIcon icon="project-diagram" className="mr-2" />
                 Link to Deal
               </Button>
             </CardHeader>
@@ -883,7 +860,7 @@ export function SalesControlDashboard() {
             </p>
 
             <div className="grid gap-4">
-              <OutlookIntegrationPanel 
+              <OutlookIntegrationPanel
                 onIntegrationUpdate={(status) => {
                   if (status) {
                     toast({
@@ -911,13 +888,13 @@ export function SalesControlDashboard() {
           <MeetingScheduler />
         </TabsContent>
         <TabsContent value="insights" className="space-y-4">
-          <AIInsightsDashboard 
-            currentDeal={mockDeals[0]} 
+          <AIInsightsDashboard
+            currentDeal={mockDeals[0]}
             salesData={{
               deals: mockDeals,
               pipeline: mockPipelineStages,
               performance: mockSalesData
-            }} 
+            }}
           />
         </TabsContent>
       </Tabs>
