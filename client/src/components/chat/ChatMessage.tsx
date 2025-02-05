@@ -5,7 +5,7 @@ import { DownloadReportButton } from "@/components/ui/download-report-button";
 import FilePreview from "@/components/document/FilePreview";
 import ReactMarkdown from 'react-markdown';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser, faRobot, faMessage, faBrain } from "@fortawesome/pro-light-svg-icons";
+import { faUser, faRobot, faMessage, faBrain, faDollarSign } from "@fortawesome/pro-light-svg-icons";
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -30,7 +30,16 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
           "w-full h-full flex items-center justify-center text-xs font-medium",
           role === 'assistant' ? "bg-primary text-primary-foreground" : "bg-secondary"
         )}>
-          <FontAwesomeIcon icon={role === 'assistant' ? faBrain : faUser} className="h-4 w-4" />
+          {role === 'assistant' ? (
+            <div className="flex -space-x-1">
+              <FontAwesomeIcon icon={faBrain} className="h-4 w-4" />
+              <FontAwesomeIcon icon={faMessage} className="h-4 w-4" />
+              <FontAwesomeIcon icon={faRobot} className="h-4 w-4" />
+              <FontAwesomeIcon icon={faDollarSign} className="h-4 w-4" />
+            </div>
+          ) : (
+            <FontAwesomeIcon icon={faUser} className="h-4 w-4" />
+          )}
         </div>
       </Avatar>
 
