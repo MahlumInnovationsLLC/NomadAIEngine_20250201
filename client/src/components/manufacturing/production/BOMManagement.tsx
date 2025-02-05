@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { ProductionProject, BillOfMaterials, BOMComponent, Material } from "@/types/manufacturing";
+import { getAllProjects } from "@/lib/azure/project-service";
 
 interface BOMManagementProps {
   productId: string;
@@ -41,9 +42,9 @@ export function BOMManagement({ productId }: BOMManagementProps) {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
 
-  const { data: projects = [] } = useQuery<ProductionProject[]>({
+  const { data: projects = [], isLoading: isLoadingProjects, error: projectsError } = useQuery<ProductionProject[]>({
     queryKey: ['/api/manufacturing/projects'],
-    enabled: true,
+    queryFn: getAllProjects,
   });
 
   const { data: bom, isLoading } = useQuery<BillOfMaterials>({
@@ -56,6 +57,21 @@ export function BOMManagement({ productId }: BOMManagementProps) {
     enabled: true,
   });
 
+  if (projectsError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Error Loading Projects</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-red-500">
+            Failed to load projects. Please try again later.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!selectedProject) {
     return (
       <Card>
@@ -67,20 +83,24 @@ export function BOMManagement({ productId }: BOMManagementProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <Select
-              onValueChange={(value) => setSelectedProject(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name} ({project.projectNumber})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isLoadingProjects ? (
+              <div>Loading projects...</div>
+            ) : (
+              <Select
+                onValueChange={(value) => setSelectedProject(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name} ({project.projectNumber})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardContent>
       </Card>
