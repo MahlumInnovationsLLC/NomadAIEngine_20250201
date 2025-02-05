@@ -848,7 +848,7 @@ export function SalesControlDashboard() {
                     <TableHead>Associated Deal</TableHead>
                     <TableHead>Value</TableHead>
                   </TableRow>
-                </</TableHeader>
+                </TableHeader>
                 <TableBody>
                   <TableRow>
                     <TableCell>Custom Automation Line</TableCell>
