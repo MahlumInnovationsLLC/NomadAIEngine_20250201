@@ -20,7 +20,6 @@ import { ProductionTimeline } from './ProductionTimeline';
 import { ResourceManagementPanel } from './ResourceManagementPanel';
 import { Project, ProjectStatus } from "@/types/manufacturing";
 import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faUsers } from "@fortawesome/free-solid-svg-icons";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
