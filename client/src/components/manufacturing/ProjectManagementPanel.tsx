@@ -550,34 +550,46 @@ export function ProjectManagementPanel() {
     }
   });
 
-  const handleEditProject = (project: Project) => {
-    setSelectedProject(project);
-    form.reset({
-      projectNumber: project.projectNumber,
-      location: project.location || '',
-      team: project.team || '',
-      contractDate: formatDateForInput(project.contractDate),
-      ntcTesting: formatDateForInput(project.ntcTesting),
-      qcStart: formatDateForInput(project.qcStart),
-      executiveReview: formatDateForInput(project.executiveReview),
-      executiveReviewTime: project.executiveReview ? new Date(project.executiveReview).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '',
-      ship: formatDateForInput(project.ship),
-      delivery: formatDateForInput(project.delivery),
-      notes: project.notes || '',
-      meAssigned: project.meAssigned || '',
-      meCadProgress: project.meCadProgress || 0,
-      eeAssigned: project.eeAssigned || '',
-      eeDesignProgress: project.eeDesignProgress || 0,
-      itAssigned: project.itAssigned || '',
-      itDesignProgress: project.itDesignProgress || 0,
-      ntcAssigned: project.ntcAssigned || '',
-      ntcDesignProgress: project.ntcDesignProgress || 0,
-      fabricationStart: formatDateForInput(project.fabricationStart),
-      assemblyStart: formatDateForInput(project.assemblyStart),
-      wrapGraphics: formatDateForInput(project.wrapGraphics)
+  const handleEditProject = async (project: Project) => {
+    try {
+      // Fetch latest project data
+      const response = await fetch(`/api/manufacturing/projects/${project.id}`);
+      if (!response.ok) throw new Error('Failed to fetch project details');
+      const projectData = await response.json();
 
-    });
-    setShowEditDialog(true);
+      setSelectedProject(projectData);
+      form.reset({
+        projectNumber: projectData.projectNumber,
+        location: projectData.location || '',
+        team: projectData.team || '',
+        contractDate: formatDateForInput(projectData.contractDate),
+        ntcTesting: formatDateForInput(projectData.ntcTesting),
+        qcStart: formatDateForInput(projectData.qcStart),
+        executiveReview: formatDateForInput(projectData.executiveReview),
+        executiveReviewTime: projectData.executiveReview ? new Date(projectData.executiveReview).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '',
+        ship: formatDateForInput(projectData.ship),
+        delivery: formatDateForInput(projectData.delivery),
+        notes: projectData.notes || '',
+        meAssigned: projectData.meAssigned || '',
+        meCadProgress: projectData.meCadProgress || 0,
+        eeAssigned: projectData.eeAssigned || '',
+        eeDesignProgress: projectData.eeDesignProgress || 0,
+        itAssigned: projectData.itAssigned || '',
+        itDesignProgress: projectData.itDesignProgress || 0,
+        ntcAssigned: projectData.ntcAssigned || '',
+        ntcDesignProgress: projectData.ntcDesignProgress || 0,
+        fabricationStart: formatDateForInput(projectData.fabricationStart),
+        assemblyStart: formatDateForInput(projectData.assemblyStart),
+        wrapGraphics: formatDateForInput(projectData.wrapGraphics)
+      });
+      setShowEditDialog(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load project details",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleViewProject = (project: Project) => {
