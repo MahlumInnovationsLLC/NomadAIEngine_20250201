@@ -39,6 +39,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EmailDashboard } from "./email/EmailDashboard";
+import { TaskManager } from "./tasks/TaskManager";
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
@@ -168,6 +170,8 @@ export function SalesControlDashboard() {
           <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
           <TabsTrigger value="deals">Deals</TabsTrigger>
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="forecasting">Forecasting</TabsTrigger>
           <TabsTrigger value="manufacturing">Manufacturing Projects</TabsTrigger>
         </TabsList>
@@ -384,6 +388,14 @@ export function SalesControlDashboard() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="tasks" className="space-y-4">
+          <TaskManager />
+        </TabsContent>
+
+        <TabsContent value="email" className="space-y-4">
+          <EmailDashboard />
         </TabsContent>
 
         <TabsContent value="forecasting" className="space-y-4">
