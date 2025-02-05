@@ -20,7 +20,9 @@ import {
   faRocket,
   faFileUpload,
   faSpinner,
-  faPaperPlane
+  faPaperPlane,
+  faRotateRight,
+  faWandMagicSparkles
 } from "@fortawesome/pro-light-svg-icons";
 
 interface Deal {
@@ -62,7 +64,7 @@ interface AIInsightsDashboardProps {
 }
 
 export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashboardProps) {
-  const queryClient = useQueryClient(); // Added useQueryClient hook
+  const queryClient = useQueryClient(); 
   const [file, setFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
@@ -110,7 +112,6 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
     }
   };
 
-  // Check for API key error
   const hasApiKeyError = dealInsights === null || salesInsights === null;
 
   if (hasApiKeyError) {
@@ -156,18 +157,18 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
                   }}
                   className="ml-auto"
                 >
-                  <FontAwesomeIcon icon={["fal", "sync"]} className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => {
-                    queryClient.invalidateQueries(['salesInsights'], { refetchType: 'active' });
-                  }}
-                  className="ml-2"
-                >
-                  <FontAwesomeIcon icon={["fal", "magic"]} className="h-4 w-4" />
-                </Button>
+                    <FontAwesomeIcon icon={faRotateRight} className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      queryClient.invalidateQueries(['salesInsights'], { refetchType: 'active' });
+                    }}
+                    className="ml-2"
+                  >
+                    <FontAwesomeIcon icon={faWandMagicSparkles} className="h-4 w-4" />
+                  </Button>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -241,7 +242,7 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
                 }}
                 className="ml-auto"
               >
-                <FontAwesomeIcon icon={["fal", "sync"]} className="h-4 w-4" />
+                <FontAwesomeIcon icon={faRotateRight} className="h-4 w-4" />
               </Button>
               <Button 
                 variant="ghost" 
@@ -251,7 +252,7 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
                 }}
                 className="ml-2"
               >
-                <FontAwesomeIcon icon={["fal", "magic"]} className="h-4 w-4" />
+                <FontAwesomeIcon icon={faWandMagicSparkles} className="h-4 w-4" />
               </Button>
             </CardTitle>
           </CardHeader>
