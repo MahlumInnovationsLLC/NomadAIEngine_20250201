@@ -86,7 +86,25 @@ const mockDeals = [
     score: 85,
     qualificationStatus: "Highly Qualified",
     nextSteps: "Schedule technical review",
-    engagement: "High"
+    engagement: "High",
+    history: [
+      {
+        date: "2025-02-01",
+        action: "Proposal sent to client",
+        user: "John Smith"
+      },
+      {
+        date: "2025-01-28",
+        action: "Technical requirements finalized",
+        user: "Sarah Johnson"
+      }
+    ],
+    metrics: {
+      daysInStage: 5,
+      lastActivityDate: "2025-02-01",
+      meetingsScheduled: 3,
+      documentsShared: 2
+    }
   },
   {
     id: 2,
@@ -100,7 +118,25 @@ const mockDeals = [
     score: 92,
     qualificationStatus: "Qualified",
     nextSteps: "Final contract review",
-    engagement: "Very High"
+    engagement: "Very High",
+    history: [
+      {
+        date: "2025-02-03",
+        action: "Contract draft reviewed",
+        user: "Sarah Johnson"
+      },
+      {
+        date: "2025-02-01",
+        action: "Pricing negotiation completed",
+        user: "Sarah Johnson"
+      }
+    ],
+    metrics: {
+      daysInStage: 2,
+      lastActivityDate: "2025-02-03",
+      meetingsScheduled: 4,
+      documentsShared: 3
+    }
   }
 ];
 

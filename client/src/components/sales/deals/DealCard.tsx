@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { 
+import {
   faBuilding,
   faDollarSign,
   faChartLine,
@@ -11,8 +11,13 @@ import {
   faUserTie,
   faIndustry,
   faCheckCircle,
-  faExclamationTriangle
+  faExclamationTriangle,
+  faHistory,
+  faComments,
+  faFileContract,
+  faGears
 } from "@fortawesome/free-solid-svg-icons";
+import { AIInsightsDashboard } from "../insights/AIInsightsDashboard";
 
 interface DealCardProps {
   deal: {
@@ -28,6 +33,17 @@ interface DealCardProps {
     qualificationStatus: string;
     nextSteps: string;
     engagement: string;
+    history?: Array<{
+      date: string;
+      action: string;
+      user: string;
+    }>;
+    metrics?: {
+      daysInStage: number;
+      lastActivityDate: string;
+      meetingsScheduled: number;
+      documentsShared: number;
+    };
   };
   onEdit: (id: number) => void;
 }
@@ -39,12 +55,11 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
     return "text-red-500";
   };
 
-  const getStageVariant = (stage: string) => {
+  const getStageVariant = (stage: string): "default" | "secondary" | "success" => {
     switch (stage) {
       case "Closed Won": return "success";
-      case "Proposal Sent": return "warning";
-      case "Contract Review": return "default";
-      default: return "secondary";
+      case "Proposal Sent": return "secondary";
+      default: return "default";
     }
   };
 
@@ -92,11 +107,7 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
             <span className="text-sm font-medium">Deal Score</span>
             <span className={`font-bold ${getScoreColor(deal.score)}`}>{deal.score}/100</span>
           </div>
-          <Progress 
-            value={deal.score} 
-            className="h-2"
-            indicatorClassName={getScoreColor(deal.score)}
-          />
+          <Progress value={deal.score} className="h-2" />
         </div>
 
         <div className="space-y-2">
@@ -104,13 +115,38 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
           <p className="text-sm text-muted-foreground">{deal.nextSteps}</p>
         </div>
 
+        {deal.metrics && (
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Days in Stage</div>
+              <div className="font-medium">{deal.metrics.daysInStage} days</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Meetings</div>
+              <div className="font-medium">{deal.metrics.meetingsScheduled}</div>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between items-center pt-2">
           <Badge variant="outline">
             {deal.engagement} Engagement
           </Badge>
-          <Button size="sm" onClick={() => onEdit(deal.id)}>
-            Manage Deal
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="h-8 px-2">
+              <FontAwesomeIcon icon={faHistory} className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 px-2">
+              <FontAwesomeIcon icon={faComments} className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 px-2">
+              <FontAwesomeIcon icon={faFileContract} className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => onEdit(deal.id)}>
+              <FontAwesomeIcon icon={faGears} className="mr-2" />
+              Manage
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
