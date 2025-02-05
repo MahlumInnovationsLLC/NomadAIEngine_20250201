@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Resizable } from "react-resizable";
+import "react-resizable/css/styles.css";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { 
   FloorPlan, 
   FloorPlanZone, 
@@ -41,10 +43,18 @@ export function ProjectMapView() {
     height: 800,
     scale: 50, // pixels per meter
   });
+  const [newZone, setNewZone] = useState<Partial<FloorPlanZone>>({
+    name: '',
+    type: 'production',
+    coordinates: { x: 100, y: 100, width: 200, height: 150 },
+    capacity: 1
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedZone, setSelectedZone] = useState<FloorPlanZone | null>(null);
   const [showZoneDialog, setShowZoneDialog] = useState(false);
+  const [isCreatingZone, setIsCreatingZone] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   // Queries
   const { data: floorPlans = [] } = useQuery<FloorPlan[]>({
@@ -95,45 +105,17 @@ export function ProjectMapView() {
     },
   });
 
-  const updateLocationMutation = useMutation({
-    mutationFn: updateProjectLocation,
+  const updateFloorPlanMutation = useMutation({
+    mutationFn: updateFloorPlan,
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/manufacturing/project-locations', selectedFloorPlan] 
-      });
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/floor-plans'] });
+      setShowZoneDialog(false);
       toast({
         title: "Success",
-        description: "Project location updated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
+        description: "Floor plan updated successfully",
       });
     },
   });
-
-  const handleDragEnd = useCallback((result: any) => {
-    if (!result.destination || !selectedFloorPlan) return;
-
-    const projectId = result.draggableId;
-    const zoneId = result.destination.droppableId;
-    const position = {
-      x: result.destination.x,
-      y: result.destination.y,
-    };
-
-    updateLocationMutation.mutate({
-      projectId,
-      floorPlanId: selectedFloorPlan,
-      zoneId,
-      position,
-      status: 'active',
-      startDate: new Date().toISOString(),
-    });
-  }, [selectedFloorPlan, updateLocationMutation]);
 
   const handleCreateFloorPlan = async () => {
     if (!imageInputRef.current?.files?.[0]) {
@@ -148,6 +130,58 @@ export function ProjectMapView() {
     createFloorPlanMutation.mutate({
       name: newFloorPlan.name,
       imageFile: imageInputRef.current.files[0],
+    });
+  };
+
+  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isEditing || !isCreatingZone || !mapContainerRef.current) return;
+
+    const rect = mapContainerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setNewZone(prev => ({
+      ...prev,
+      coordinates: {
+        ...prev.coordinates!,
+        x,
+        y,
+      }
+    }));
+    setShowZoneDialog(true);
+    setIsCreatingZone(false);
+  };
+
+  const handleCreateZone = () => {
+    if (!selectedFloorPlan || !newZone.name) return;
+
+    const currentFloorPlan = floorPlans.find(fp => fp.id === selectedFloorPlan);
+    if (!currentFloorPlan) return;
+
+    const newZoneComplete: FloorPlanZone = {
+      id: crypto.randomUUID(),
+      ...newZone as Required<Omit<FloorPlanZone, 'id'>>
+    };
+
+    updateFloorPlanMutation.mutate({
+      id: selectedFloorPlan,
+      zones: [...(currentFloorPlan.zones || []), newZoneComplete]
+    });
+  };
+
+  const handleUpdateZone = (zoneId: string) => {
+    if (!selectedFloorPlan) return;
+
+    const currentFloorPlan = floorPlans.find(fp => fp.id === selectedFloorPlan);
+    if (!currentFloorPlan) return;
+
+    const updatedZones = currentFloorPlan.zones.map(zone =>
+      zone.id === zoneId ? { ...zone, ...newZone } : zone
+    );
+
+    updateFloorPlanMutation.mutate({
+      id: selectedFloorPlan,
+      zones: updatedZones
     });
   };
 
@@ -213,10 +247,20 @@ export function ProjectMapView() {
         <div>
           <h2 className="text-2xl font-bold">{currentFloorPlan?.name}</h2>
           <p className="text-sm text-muted-foreground">
-            Drag and drop projects to assign them to production zones
+            {isEditing ? "Edit zones by clicking on the map" : "Drag and drop projects to assign them to production zones"}
           </p>
         </div>
         <div className="flex gap-2">
+          {isEditing && (
+            <Button
+              variant="outline"
+              onClick={() => setIsCreatingZone(true)}
+              className={isCreatingZone ? 'bg-primary text-primary-foreground' : ''}
+            >
+              <FontAwesomeIcon icon="plus" className="mr-2" />
+              Add Zone
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setIsEditing(!isEditing)}
@@ -231,7 +275,7 @@ export function ProjectMapView() {
         </div>
       </div>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
+      <DragDropContext onDragEnd={() => {}}>
         <div className="grid grid-cols-4 gap-6">
           <div className="col-span-1">
             <Card>
@@ -289,11 +333,14 @@ export function ProjectMapView() {
             <Card>
               <CardContent className="p-6">
                 <div 
+                  ref={mapContainerRef}
                   className="relative"
                   style={{
                     width: currentFloorPlan?.width,
                     height: currentFloorPlan?.height,
+                    cursor: isCreatingZone ? 'crosshair' : 'default'
                   }}
+                  onClick={handleMapClick}
                 >
                   {currentFloorPlan?.imageUrl && (
                     <img
@@ -319,6 +366,7 @@ export function ProjectMapView() {
                           onClick={() => {
                             if (isEditing) {
                               setSelectedZone(zone);
+                              setNewZone(zone);
                               setShowZoneDialog(true);
                             }
                           }}
@@ -412,6 +460,91 @@ export function ProjectMapView() {
             </Button>
             <Button onClick={handleCreateFloorPlan}>
               Create Floor Plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showZoneDialog} onOpenChange={setShowZoneDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {selectedZone ? 'Edit Zone' : 'Create New Zone'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Name</label>
+              <Input
+                value={newZone.name}
+                onChange={(e) => setNewZone(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Assembly Area 1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Type</label>
+              <Select
+                value={newZone.type}
+                onValueChange={(value) => setNewZone(prev => ({ ...prev, type: value as FloorPlanZone['type'] }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="production">Production</SelectItem>
+                  <SelectItem value="storage">Storage</SelectItem>
+                  <SelectItem value="assembly">Assembly</SelectItem>
+                  <SelectItem value="testing">Testing</SelectItem>
+                  <SelectItem value="packaging">Packaging</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Capacity</label>
+              <Input
+                type="number"
+                value={newZone.capacity}
+                onChange={(e) => setNewZone(prev => ({ ...prev, capacity: parseInt(e.target.value) }))}
+                min={1}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Width (pixels)</label>
+                <Input
+                  type="number"
+                  value={newZone.coordinates?.width}
+                  onChange={(e) => setNewZone(prev => ({
+                    ...prev,
+                    coordinates: {
+                      ...prev.coordinates!,
+                      width: parseInt(e.target.value)
+                    }
+                  }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Height (pixels)</label>
+                <Input
+                  type="number"
+                  value={newZone.coordinates?.height}
+                  onChange={(e) => setNewZone(prev => ({
+                    ...prev,
+                    coordinates: {
+                      ...prev.coordinates!,
+                      height: parseInt(e.target.value)
+                    }
+                  }))}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowZoneDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => selectedZone ? handleUpdateZone(selectedZone.id) : handleCreateZone()}>
+              {selectedZone ? 'Update Zone' : 'Create Zone'}
             </Button>
           </DialogFooter>
         </DialogContent>
