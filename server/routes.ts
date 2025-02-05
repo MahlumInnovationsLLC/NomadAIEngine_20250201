@@ -128,16 +128,29 @@ export function registerRoutes(app: express.Application): Server {
         .values(newSystem)
         .returning();
       // Create a notification for the new system
-      await createFacili...
-{ error: "Report not found" });
+      await createFacilityNotification({
+        type: 'system_created',
+        title: `New building system created: ${newSystem.name}`,
+        message: `A new building system of type ${newSystem.type} has been added.`
+      });
+      res.json(createdSystem);
+    } catch (error) {
+      console.error("Error creating building system:", error);
+      res.status(500).json({ error: "Failed to create building system" });
+    }
+  });
+  app.get("/api/documents/:id/report", async (req, res) => {
+    try {
+      const documentId = parseInt(req.params.id);
+      const blobName = `reports/${documentId}.docx`;
+      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+      const downloadResponse = await blockBlobClient.download();
+      if (!downloadResponse.readableStreamBody) {
+        return res.status(404).json({ error: "Report not found" });
       }
-    
-
       // Set response headers
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       res.setHeader('Content-Disposition', `attachment; filename="${blobName.split('/').pop()}"`);
-    
-
       // Pipe the stream to the response
       downloadResponse.readableStreamBody.pipe(res);
     } catch (error) {
@@ -145,8 +158,6 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to download report" });
     }
   });
-
-
   // Add notification endpoints
   app.get("/api/notifications", async (req: AuthenticatedRequest, res) => {
     try {
@@ -154,8 +165,6 @@ export function registerRoutes(app: express.Application): Server {
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
-    
-
       const userNotifs = await db.query.userNotifications.findMany({
         where: eq(userNotifications.userId, userId),
         orderBy: [notifications.createdAt],
@@ -163,32 +172,22 @@ export function registerRoutes(app: express.Application): Server {
           notification: true
         }
       });
-    
-
-    
-
       res.json(userNotifs);
     } catch (error) {
       console.error("Error fetching notifications:", error);
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
-
-
   app.post("/api/notifications/mark-read", async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
-    
-
       const { notificationIds } = req.body;
       if (!Array.isArray(notificationIds)) {
         return res.status(400).json({ error: "Invalid notification IDs" });
       }
-    
-
       await db.update(userNotifications)
         .set({
           read: true,
@@ -200,24 +199,18 @@ export function registerRoutes(app: express.Application): Server {
             inArray(userNotifications.notificationId, notificationIds)
           )
         );
-    
-
       res.json({ message: "Notifications marked as read" });
     } catch (error) {
       console.error("Error marking notifications as read:", error);
       res.status(500).json({ error: "Failed to mark notifications as read" });
     }
   });
-
-
   app.get("/api/notifications/unread-count", async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
-    
-
       const [result] = await db.select({
         count: notifications.id,
       })
@@ -232,29 +225,21 @@ export function registerRoutes(app: express.Application): Server {
             eq(userNotifications.read, false)
           )
         );
-    
-
       res.json({ count: result?.count || 0 });
     } catch (error) {
       console.error("Error fetching unread count:", error);
       res.status(500).json({ error: "Failed to fetch unread count" });
     }
   });
-
-
   // Document submission for review endpoint
   app.post("/api/documents/:documentId/submit-review", async (req: AuthenticatedRequest, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
       const { version } = req.body;
       const userId = req.user?.id;
-    
-
       if (!documentId || !version || !userId) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-    
-
       // Create workflow entry
       const [workflow] = await db
         .insert(documentWorkflows)
@@ -264,8 +249,6 @@ export function registerRoutes(app: express.Application): Server {
           startedAt: new Date(),
         })
         .returning();
-    
-
       // Get document approvers
       const approvers = await db
         .select()
@@ -276,20 +259,14 @@ export function registerRoutes(app: express.Application): Server {
             eq(documentCollaborators.role, 'approver')
           )
         );
-    
-
       // Get document details
       const [document] = await db
         .select()
         .from(documents)
         .where(eq(documents.id, documentId));
-    
-
       if (!document) {
         throw new Error("Document not found");
       }
-    
-
       // Send approval requests to all approvers
       const approvalPromises = approvers.map(async (approver) => {
         // Create approval entry
@@ -302,8 +279,6 @@ export function registerRoutes(app: express.Application): Server {
             status: 'pending',
           })
           .returning();
-    
-
         //          // Generate approval/reject links
         const baseUrl = `${req.protocol}://${req.get('host')}`;
         const approvalLink = `${baseUrl}/api/documents/${documentId}/approve/${approval.id}`;
@@ -318,11 +293,7 @@ export function registerRoutes(app: express.Application): Server {
           requestId: documentId
         });
       });
-    
-
       await Promise.all(approvalPromises);
-    
-
       // Update document status
       await db
         .update(documents)
@@ -333,8 +304,6 @@ export function registerRoutes(app: express.Application): Server {
           updatedBy: userId,
         })
         .where(eq(documents.id, documentId));
-    
-
       res.json({
         message: "Document submitted for review",
         workflowId: workflow.id,
@@ -344,21 +313,15 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to submit document for review" });
     }
   });
-
-
   // Document approval endpoint
   app.post("/api/documents/:documentId/approve/:approvalId", async (req: AuthenticatedRequest, res) => {
     try {
       const documentId = parseInt(req.params.documentId);
       const approvalId = parseInt(req.params.approvalId);
       const userId = req.user?.id;
-    
-
       if (!documentId || !approvalId || !userId) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-    
-
       // Update approval status
       await db
         .update(documentApprovals)
@@ -367,8 +330,6 @@ export function registerRoutes(app: express.Application): Server {
           approvedAt: new Date(),
         })
         .where(eq(documentApprovals.id, approvalId));
-    
-
       // Check if all approvers have approved
       const [pendingApprovals] = await db
         .select({ count: sql`count(*)` })
@@ -379,8 +340,6 @@ export function registerRoutes(app: express.Application): Server {
             eq(documentApprovals.status, 'pending')
           )
         );
-    
-
       if (pendingApprovals.count === 0) {
         // All approvers have approved, update document status
         await db
@@ -391,8 +350,6 @@ export function registerRoutes(app: express.Application): Server {
             updatedBy: userId,
           })
           .where(eq(documents.id, documentId));
-    
-
         // Complete the workflow
         await db
           .update(documentWorkflows)
@@ -402,16 +359,12 @@ export function registerRoutes(app: express.Application): Server {
           })
           .where(eq(documentWorkflows.documentId, documentId));
       }
-    
-
       res.json({ message: "Document approved successfully" });
     } catch (error) {
       console.error("Error approving document:", error);
       res.status(500).json({ error: "Failed to approve document" });
     }
   });
-
-
   // Document rejection endpoint
   app.post("/api/documents/:documentId/reject/:approvalId", async (req: AuthenticatedRequest, res) => {
     try {
@@ -419,13 +372,9 @@ export function registerRoutes(app: express.Application): Server {
       const approvalId = parseInt(req.params.approvalId);
       const userId = req.user?.id;
       const { comments } = req.body;
-    
-
       if (!documentId || !approvalId || !userId) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-    
-
       // Update approval status
       await db
         .update(documentApprovals)
@@ -435,8 +384,6 @@ export function registerRoutes(app: express.Application): Server {
           updatedAt: new Date(),
         })
         .where(eq(documentApprovals.id, approvalId));
-    
-
       // Update document status
       await db
         .update(documents)
@@ -446,8 +393,6 @@ export function registerRoutes(app: express.Application): Server {
           updatedBy: userId,
         })
         .where(eq(documents.id, documentId));
-    
-
       // Complete the workflow
       await db
         .update(documentWorkflows)
@@ -456,24 +401,18 @@ export function registerRoutes(app: express.Application): Server {
           completedAt: new Date(),
         })
         .where(eq(documentWorkflows.documentId, documentId));
-    
-
       res.json({ message: "Document rejected" });
     } catch (error) {
       console.error("Error rejecting document:", error);
       res.status(500).json({ error: "Failed to reject document" });
     }
   });
-
-
   // Add new endpoint to get user's training level
   app.get("/api/training/level", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).send("Not authenticated");
       }
-    
-
       const trainingLevel = await getUserTrainingLevel(req.user.id);
       res.json(trainingLevel);
     } catch (error) {
@@ -481,19 +420,13 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to get training level" });
     }
   });
-
-
   // Update training progress endpoint
   app.post("/api/training/progress", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).send("Not authenticated");
       }
-    
-
       const { moduleId, progress, status } = req.body;
-    
-
       // Update the training progress
       await db
         .insert(userTraining)
@@ -512,30 +445,20 @@ export function registerRoutes(app: express.Application): Server {
             completedAt: status === 'completed' ? new Date() : undefined,
           },
         });
-    
-
       // Broadcast the updated training level
       await wsServer.broadcastTrainingLevel(req.user.id);
-    
-
       res.json({ message: "Training progress updated successfully" });
     } catch (error) {
       console.error("Error updating training progress:", error);
       res.status(500).json({ error: "Failed to update training progress" });
     }
   });
-
-
   // Document content endpoint - updating to handle paths correctly
   app.get("/api/documents/:path*/content", async (req: AuthenticatedRequest, res) => {
     try {
       const documentPath = req.params["path*"];
       console.log("Fetching document content for path:", documentPath);
-    
-
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
-    
-
       try {
         const downloadResponse = await blockBlobClient.download();
         const properties = await blockBlobClient.getProperties();
@@ -571,42 +494,28 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to fetch document content" });
     }
   });
-
-
   // Update document content endpoint
   app.put("/api/documents/content/:path*", async (req: AuthenticatedRequest, res) => {
     try {
       const documentPath = decodeURIComponent(req.params.path + (req.params[0] || ''));
       const { content, version, status } = req.body;
-    
-
       if (!content) {
         return res.status(400).json({ error: "Content is required" });
       }
-    
-
       console.log("Updating document content for:", documentPath);
-    
-
       const blockBlobClient = containerClient.getBlockBlobClient(documentPath);
-    
-
       // Add metadata
       const metadata = {
         version: version || '1.0',
         status: status || 'draft',
         lastModified: new Date().toISOString()
       };
-    
-
       await blockBlobClient.upload(content, content.length, {
         metadata,
         blobHTTPHeaders: {
           blobContentType: "text/html",
         },
       });
-    
-
       console.log("Successfully updated document content");
       res.json({ message: "Document updated successfully" });
     } catch (error) {
@@ -614,8 +523,6 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to update document content" });
     }
   });
-
-
   // Add integration status endpoints
   app.get("/api/integrations/status", async (req, res) => {
     try {
@@ -624,17 +531,11 @@ export function registerRoutes(app: express.Application): Server {
         .select()
         .from(integrationConfigs)
         .where(eq(integrationConfigs.userId, req.user?.id || 'anonymous'));
-    
-
       // Initialize status object
       const statuses: Record<string, any> = {};
-    
-
       // Check each integration's status based on its configuration
       for (const config of configs) {
         const hasCredentials = Boolean(config.apiKey);
-    
-
         if (!config.enabled) {
           statuses[config.integrationId] = {
             status: 'disconnected',
@@ -643,8 +544,6 @@ export function registerRoutes(app: express.Application): Server {
           };
           continue;
         }
-    
-
         if (!hasCredentials) {
           statuses[config.integrationId] = {
             status: 'disconnected',
@@ -653,12 +552,8 @@ export function registerRoutes(app: express.Application): Server {
           };
           continue;
         }
-    
-
         // Mock connection check - replace with actual API checks in production
         const isConnected = hasCredentials && Math.random() > 0.2; // 80% success rate for demo
-    
-
         statuses[config.integrationId] = {
           status: isConnected ? 'connected' : 'error',
           lastChecked: new Date().toISOString(),
@@ -667,16 +562,12 @@ export function registerRoutes(app: express.Application): Server {
             : 'Authentication failed. Please check your credentials.'
         };
       }
-    
-
       // Add default disconnected status for unconfigured integrations
       const allPlatforms = [
         'mailchimp', 'sendgrid', 'hubspot', 'klaviyo',
         'facebook', 'instagram', 'twitter', 'linkedin',
         'google-analytics', 'mixpanel', 'segment', 'amplitude'
       ];
-    
-
       for (const platform of allPlatforms) {
         if (!statuses[platform]) {
           statuses[platform] = {
@@ -686,16 +577,12 @@ export function registerRoutes(app: express.Application): Server {
           };
         }
       }
-    
-
       res.json(statuses);
     } catch (error) {
       console.error("Error fetching integration statuses:", error);
       res.status(500).json({ error: "Failed to fetch integration statuses" });
     }
   });
-
-
   // Add integration config endpoints
   app.get("/api/integrations/configs", async (req, res) => {
     try {
@@ -703,8 +590,6 @@ export function registerRoutes(app: express.Application): Server {
         .select()
         .from(integrationConfigs)
         .where(eq(integrationConfigs.userId, req.user?.id || 'anonymous'));
-    
-
       // Convert array of configs to object keyed by integration ID
       const configsMap = configs.reduce((acc, config) => ({
         ...acc,
@@ -716,22 +601,16 @@ export function registerRoutes(app: express.Application): Server {
           customFields: config.customFields,
         }
       }), {});
-    
-
       res.json(configsMap);
     } catch (error) {
       console.error("Error fetching integration configs:", error);
       res.status(500).json({ error: "Failed to fetch integration configurations" });
     }
   });
-
-
   app.put("/api/integrations/:id/config", async (req, res) => {
     try {
       const { id } = req.params;
       const config = req.body;
-    
-
       // Update or insert config
       const [updatedConfig] = await db
         .insert(integrationConfigs)
@@ -756,22 +635,16 @@ export function registerRoutes(app: express.Application): Server {
           },
         })
         .returning();
-    
-
       res.json(updatedConfig);
     } catch (error) {
       console.error("Error saving integration config:", error);
       res.status(500).json({ error: "Failed to save integration configuration" });
     }
   });
-
-
   // Update the refresh endpoint to check actual connection
   app.post("/api/integrations/:id/refresh", async (req, res) => {
     try {
       const { id } = req.params;
-    
-
       // Get the integration config
       const [config] = await db
         .select()
@@ -782,8 +655,6 @@ export function registerRoutes(app: express.Application): Server {
             eq(integrationConfigs.integrationId, id)
           )
         );
-    
-
       let status;
       if (!config?.enabled) {
         status = {
@@ -808,8 +679,6 @@ export function registerRoutes(app: express.Application): Server {
             : 'Authentication failed. Please check your credentials.'
         };
       }
-    
-
       // Track the refresh attempt
       await trackAIEngineUsage(
         req.user?.id || 'anonymous',
@@ -817,8 +686,6 @@ export function registerRoutes(app: express.Application): Server {
         0.1,
         { integration: id, action: 'refresh' }
       );
-    
-
       res.json(status);
     } catch (error) {
       console.error("Error refreshing integration status:", error);
@@ -830,8 +697,6 @@ export function registerRoutes(app: express.Application): Server {
     try {
       const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
-    
-
       // Get events from database
       const events = await db.query.marketingEvents.findMany({
         where: and(
@@ -840,27 +705,19 @@ export function registerRoutes(app: express.Application): Server {
         ),
         orderBy: [marketingEvents.startDate]
       });
-    
-
       res.json(events);
     } catch (error) {
       console.error("Error fetching calendar events:", error);
       res.status(500).json({ error: "Failed to fetch calendar events" });
     }
   });
-
-
   app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
     try {
       const { title, description, startDate, endDate, type, status, location } = req.body;
-    
-
       // Validate required fields
       if (!title || !startDate || !type) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-    
-
       // Create new event
       const [event] = await db
         .insert(marketingEvents)
@@ -875,36 +732,24 @@ export function registerRoutes(app: express.Application): Server {
           location
         })
         .returning();
-    
-
       // Broadcast event to connected clients
       wsServer.broadcastToRoom('calendar', {
         type: 'calendar_event_created',
         data: event
       });
-    
-
       res.json(event);
-    
-
     } catch (error) {
       console.error("Error creating calendar event:", error);
       res.status(500).json({ error: "Failed to create calendar event" });
     }
   });
-
-
   app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Authentication required" });
       }
-    
-
       // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
       await new Promise(resolve => setTimeout(resolve, 1000));
-    
-
       const sampleOutlookEvent = {
         id: "outlook-1",
         title: "Marketing Team Meeting",
@@ -914,8 +759,6 @@ export function registerRoutes(app: express.Application): Server {
         status: "scheduled",
         outlookEventId: "123456"
       };
-    
-
       res.json({
         message: "Calendar synced with Outlook",
         syncedEvents: [sampleOutlookEvent]
@@ -930,8 +773,6 @@ export function registerRoutes(app: express.Application): Server {
     try {
       const { memberId } = req.params;
       const updates = req.body;
-    
-
       const updatedMember = await updateMemberData(memberId, updates);
       res.json(updatedMember);
     } catch (error) {
@@ -947,8 +788,6 @@ export function registerRoutes(app: express.Application): Server {
         membershipType: req.query.membershipType as string,
         status: req.query.status as string
       };
-    
-
       const members = await searchMembers(searchTerm, filters);
       res.json(members);
     } catch (error) {
@@ -963,8 +802,6 @@ export function registerRoutes(app: express.Application): Server {
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
-    
-
       // Mock data for demonstration - replace with actual data fetching
       const metrics = [
         {
@@ -992,8 +829,6 @@ export function registerRoutes(app: express.Application): Server {
           date: new Date().toISOString()
         }
       ];
-    
-
       const achievements = [
         {
           name: "Fitness Warrior",
@@ -1012,18 +847,12 @@ export function registerRoutes(app: express.Application): Server {
           progress: 60
         }
       ];
-    
-
       const filename = await generateHealthReport(userId, metrics, achievements);
-    
-
       res.json({
         success: true,
         filename,
         downloadUrl: `/uploads/${filename}`
       });
-    
-
     } catch (error) {
       console.error("Error generating health report:", error);
       res.status(500).json({
@@ -1037,8 +866,6 @@ export function registerRoutes(app: express.Application): Server {
     try {
       const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
-    
-
       // Get events from database
       const events = await db.query.marketingEvents.findMany({
         where: and(
@@ -1047,27 +874,19 @@ export function registerRoutes(app: express.Application): Server {
         ),
         orderBy: [marketingEvents.startDate]
       });
-    
-
       res.json(events);
     } catch (error) {
       console.error("Error fetching calendar events:", error);
       res.status(500).json({ error: "Failed to fetch calendar events" });
     }
   });
-
-
   app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
     try {
       const { title, description, startDate, endDate, type, status, location } = req.body;
-    
-
       // Validate required fields
       if (!title || !startDate || !type) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-    
-
       // Create new event
       const [event] = await db
         .insert(marketingEvents)
@@ -1082,34 +901,24 @@ export function registerRoutes(app: express.Application): Server {
           location
         })
         .returning();
-    
-
       // Broadcast event to connected clients
       wsServer.broadcastToRoom('calendar', {
         type: 'calendar_event_created',
         data: event
       });
-    
-
       res.json(event);
     } catch (error) {
       console.error("Error creating calendar event:", error);
       res.status(500).json({ error: "Failed to create calendar event" });
     }
   });
-
-
   app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Authentication required" });
       }
-    
-
       // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
       await new Promise(resolve => setTimeout(resolve, 1000));
-    
-
       const sampleOutlookEvent = {
         id: "outlook-1",
         title: "Marketing Team Meeting",
@@ -1119,8 +928,175 @@ export function registerRoutes(app: express.Application): Server {
         status: "scheduled",
         outlookEventId: "123456"
       };
-    
-
+      res.json({
+        message: "Calendar synced with Outlook",
+        syncedEvents: [sampleOutlookEvent]
+      });
+    } catch (error) {
+      console.error("Error syncing with Outlook:", error);
+      res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+    }
+  });
+  // Add member update endpoint
+  app.patch("/api/members/:memberId", async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const updates = req.body;
+      const updatedMember = await updateMemberData(memberId, updates);
+      res.json(updatedMember);
+    } catch (error) {
+      console.error("Error updating member:", error);
+      res.status(500).json({ error: "Failed to update member data" });
+    }
+  });
+  // Add member search endpoint
+  app.get("/api/members", async (req, res) => {
+    try {
+      const searchTerm = req.query.search as string;
+      const filters = {
+        membershipType: req.query.membershipType as string,
+        status: req.query.status as string
+      };
+      const members = await searchMembers(searchTerm, filters);
+      res.json(members);
+    } catch (error) {
+      console.error("Error searching members:", error);
+      res.status(500).json({ error: "Failed to search members" });
+    }
+  });
+  // Add health report generation endpoint
+  app.post("/api/health-report", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Mock data for demonstration - replace with actual data fetching
+      const metrics = [
+        {
+          name: "Steps",
+          value: 8432,
+          unit: "steps",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Heart Rate",
+          value: 72,
+          unit: "bpm",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Sleep",
+          value: 7.5,
+          unit: "hours",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Calories",
+          value: 2250,
+          unit: "kcal",
+          date: new Date().toISOString()
+        }
+      ];
+      const achievements = [
+        {
+          name: "Fitness Warrior",
+          description: "Complete 10 workouts in a month",
+          completedAt: "2025-01-20",
+          progress: 100
+        },
+        {
+          name: "Consistency King",
+          description: "Log in for 7 consecutive days",
+          progress: 85
+        },
+        {
+          name: "Health Champion",
+          description: "Maintain heart rate zones during workouts",
+          progress: 60
+        }
+      ];
+      const filename = await generateHealthReport(userId, metrics, achievements);
+      res.json({
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
+      });
+    } catch (error) {
+      console.error("Error generating health report:", error);
+      res.status(500).json({
+        error: "Failed to generate health report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  // Add calendar event endpoints
+  app.get("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      // Get events from database
+      const events = await db.query.marketingEvents.findMany({
+        where: and(
+          startDate ? gte(marketingEvents.startDate, startDate) : undefined,
+          endDate ? lte(marketingEvents.endDate, endDate) : undefined
+        ),
+        orderBy: [marketingEvents.startDate]
+      });
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+  app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title, description, startDate, endDate, type, status, location } = req.body;
+      // Validate required fields
+      if (!title || !startDate || !type) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      // Create new event
+      const [event] = await db
+        .insert(marketingEvents)
+        .values({
+          title,
+          description,
+          startDate: new Date(startDate),
+          endDate: endDate ? new Date(endDate) : null,
+          type,
+          status: status || 'scheduled',
+          createdBy: req.user?.id || 'system',
+          location
+        })
+        .returning();
+      // Broadcast event to connected clients
+      wsServer.broadcastToRoom('calendar', {
+        type: 'calendar_event_created',
+        data: event
+      });
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ error: "Failed to create calendar event" });
+    }
+  });
+  app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const sampleOutlookEvent = {
+        id: "outlook-1",
+        title: "Marketing Team Meeting",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 3600000),
+        type: "meeting",
+        status: "scheduled",
+        outlookEventId: "123456"
+      };
       res.json({
         message: "Calendar synced with Outlook",
         syncedEvents: [sampleOutlookEvent]
@@ -1136,8 +1112,6 @@ export function registerRoutes(app: express.Application): Server {
   app.get("/api/material/inventory/stats", async (req: AuthenticatedRequest, res) => {
     try {
       const warehouseId = req.query.warehouseId as string;
-    
-
       // Get inventory statistics from the database
       const query = db.select({
         totalValue: sql`SUM(unit_price * current_stock)`.mapWith(Number),
@@ -1145,77 +1119,49 @@ export function registerRoutes(app: express.Application): Server {
         lowStockCount: sql`COUNT(CASE WHEN current_stock <= minimum_stock THEN 1 END)`.mapWith(Number),
         overStockCount: sql`COUNT(CASE WHEN current_stock > reorder_point * 2 THEN 1 END)`.mapWith(Number)
       }).from(materials);
-    
-
       if (warehouseId) {
         query.where(eq(materials.warehouseId, warehouseId));
       }
-    
-
       const [stats] = await query;
-    
-
       // Calculate additional metrics
       const turnoverQuery = db.select({
         totalSold: sql`SUM(quantity)`.mapWith(Number)
       })
       .from(materialTransactions)
       .where(eq(materialTransactions.type, 'issue'));
-    
-
       const [turnover] = await turnoverQuery;
-    
-
       const avgLeadTimeQuery = db.select({
         avgLeadTime: sql`AVG(lead_time)`.mapWith(Number)
       }).from(materials);
-    
-
       const [leadTime] = await avgLeadTimeQuery;
-    
-
       res.json({
         ...stats,
         inventoryTurnover: turnover?.totalSold / (stats?.totalItems || 1),
         averageLeadTime: leadTime?.avgLeadTime || 0,
         stockoutRate: stats?.lowStockCount / (stats?.totalItems || 1)
       });
-    
-
     } catch (error) {
       console.error("Error fetching inventory stats:", error);
       res.status(500).json({ error: "Failed to fetch inventory statistics" });
     }
   });
-
-
   app.get("/api/material/inventory", async (req: AuthenticatedRequest, res) => {
     try {
       const warehouseId = req.query.warehouseId as string;
-    
-
       const query = db.select()
         .from(materials)
         .leftJoin(suppliers, eq(materials.supplierId, suppliers.id))
         .orderBy(materials.name);
-    
-
       if (warehouseId) {
         query.where(eq(materials.warehouseId, warehouseId));
       }
-    
-
       const materials = await query;
       res.json(materials);
-    
-
     } catch (error) {
       console.error("Error fetching materials:", error);
       res.status(500).json({ error: "Failed to fetch materials" });
     }
   });
-
-
   app.get("/api/material/warehouses", async (_req: AuthenticatedRequest, res) => {
     try {
       const warehouses = await db.select().from(warehouses);
@@ -1225,18 +1171,12 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to fetch warehouses" });
     }
   });
-
-
   app.post("/api/material/inventory/adjust", async (req: AuthenticatedRequest, res) => {
     try {
       const { materialId, quantity, type, reason, warehouseId } = req.body;
-    
-
       if (!materialId || !quantity || !type) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-    
-
       // Start a transaction
       const result = await db.transaction(async (tx) => {
         // Update material stock
@@ -1248,8 +1188,6 @@ export function registerRoutes(app: express.Application): Server {
           })
           .where(eq(materials.id, materialId))
           .returning();
-    
-
         // Record the transaction
         const [transaction] = await tx
           .insert(materialTransactions)
@@ -1263,48 +1201,32 @@ export function registerRoutes(app: express.Application): Server {
             timestamp: new Date()
           })
           .returning();
-    
-
         return { material, transaction };
       });
-    
-
       res.json(result);
     } catch (error) {
       console.error("Error adjusting inventory:", error);
       res.status(500).json({ error: "Failed to adjust inventory" });
     }
   });
-
-
   app.post("/api/material/allocations", async (req: AuthenticatedRequest, res) => {
     try {
       const { materialId, quantity, productionOrderId, priority } = req.body;
-    
-
       if (!materialId || !quantity || !productionOrderId) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-    
-
       const result = await db.transaction(async (tx) => {
         // Check available stock
         const [material] = await tx
           .select()
           .from(materials)
           .where(eq(materials.id, materialId));
-    
-
         if (!material) {
           throw new Error("Material not found");
         }
-    
-
         if (material.availableStock < quantity) {
           throw new Error("Insufficient stock for allocation");
         }
-    
-
         // Create allocation
         const [allocation] = await tx
           .insert(materialAllocations)
@@ -1318,8 +1240,6 @@ export function registerRoutes(app: express.Application): Server {
             requiredDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Default to 7 days
           })
           .returning();
-    
-
         // Update material available stock
         await tx
           .update(materials)
@@ -1329,12 +1249,8 @@ export function registerRoutes(app: express.Application): Server {
             updatedAt: new Date()
           })
           .where(eq(materials.id, materialId));
-    
-
         return allocation;
       });
-    
-
       res.json(result);
     } catch (error) {
       console.error("Error creating allocation:", error);
@@ -1347,28 +1263,18 @@ export function registerRoutes(app: express.Application): Server {
   const httpServer = createServer(app);
   return httpServer;
 }
-    
-
 export function setupWebSocketServer(httpServer: Server, app: Express): WebSocketServer {
   const wss = new WebSocketServer({
     server: httpServer,
     path: '/socket.io'
   });
-    
-
   const clients = new Map<string, WebSocket>();
   const rooms = new Map<string, Set<WebSocket>>();
-    
-
   wss.on('connection', (ws: WebSocket) => {
     console.log('New WebSocket connection');
-    
-
     ws.on('message', (message: string) => {
       try {
         const data = JSON.parse(message);
-        
-
         if (data.type === 'join_room') {
           const roomName = data.room;
           if (!rooms.has(roomName)) {
@@ -1381,15 +1287,11 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
         console.error('Error processing WebSocket message:', error);
       }
     });
-    
-
     ws.on('close', () => {
       // Remove client from all rooms
       rooms.forEach(clients => clients.delete(ws));
     });
   });
-    
-
   // Add broadcast helper
   wss.broadcastToRoom = (room: string, message: any) => {
     const clients = rooms.get(room);
@@ -1410,8 +1312,6 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
       console.error("Error broadcasting training level:", error);
     }
   };
-    
-
   // Add calendar events endpoints
   app.get('/api/marketing/calendar/events', async (req, res) => {
     try {
@@ -1429,8 +1329,6 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
       res.status(500).json({ error: 'Failed to fetch calendar events' });
     }
   });
-    
-
   app.post('/api/marketing/calendar/events', async (req: AuthenticatedRequest, res) => {
     try {
       const eventData = {
@@ -1438,40 +1336,28 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
         createdBy: req.user?.id || 'anonymous',
         status: 'scheduled'
       };
-    
-
       const [event] = await db.insert(marketingEvents)
         .values(eventData)
         .returning();
-    
-
       // Broadcast to all clients in the calendar room
       wss.broadcastToRoom('calendar', {
         type: 'calendar_event_created',
         event
       });
-    
-
       res.json(event);
     } catch (error) {
       console.error('Error creating calendar event:', error);
-      res.status(500).json({ error: 'Failed to create calendar event});
+      res.status(500).json({ error: 'Failed to create calendar event' });
     }
   });
-    
-
   app.post('/api/marketing/calendar/sync-outlook', async (req: AuthenticatedRequest, res) => {
     try {
       // For demo purposes, simulate syncing with Outlook
       // In production, this would use Microsoft Graph API
       const events = await db.select().from(marketingEvents)
         .where(eq(marketingEvents.createdBy, req.user?.id || 'anonymous'));
-    
-
       // Simulate sync delay
       await new Promise(resolve => setTimeout(resolve, 1500));
-    
-
       // Update events with mock Outlook IDs
       const syncedEvents = await Promise.all(events.map(async event => {
         if (!event.outlookEventId) {
@@ -1487,19 +1373,13 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
         }
         return event;
       }));
-    
-
       res.json({ syncedEvents });
     } catch (error) {
       console.error('Error syncing with Outlook:', error);
       res.status(500).json({ error: 'Failed to sync with Outlook' });
     }
   });
-    
-
   // Add manufacturing projects routes
   app.use("/api/manufacturing/projects", projectsRouter);
-    
-
   return wss;
 }
