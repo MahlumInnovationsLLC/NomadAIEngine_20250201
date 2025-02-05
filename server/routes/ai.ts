@@ -1,16 +1,13 @@
-\n?|\n?```/g, '').trim();
-    res.json(JSON.parse(cleanedContent));
-  } catch (error) {
-    console.error("Error getting sales recommendations:", error);
-    res.status(500).json({ error: "Failed to get sales recommendations" });
-  }
-});
+
+import express from 'express';
+import { getChatCompletion } from '../services/azure-openai';
+
+const router = express.Router();
 
 // AI Sales Chat
 router.post("/sales-chat", async (req, res) => {
   try {
     const { message, history } = req.body;
-
     const messages = [
       { 
         role: "system", 
@@ -32,7 +29,6 @@ router.post("/sales-chat", async (req, res) => {
 router.post("/analyze-email", async (req, res) => {
   try {
     const { content } = req.body;
-
     const prompt = `Analyze the sentiment of this email content and provide suggestions for improvement.
     Return results in this exact JSON format:
     {
@@ -48,4 +44,12 @@ router.post("/analyze-email", async (req, res) => {
       { role: "user", content: prompt }
     ]);
 
-    const cleanedContent = response.replace(/```json\n?|\n?
+    const cleanedContent = response.replace(/```json\n?|\n?```/g, '').trim();
+    res.json(JSON.parse(cleanedContent));
+  } catch (error) {
+    console.error("Error getting sales recommendations:", error);
+    res.status(500).json({ error: "Failed to get sales recommendations" });
+  }
+});
+
+export default router;
