@@ -1,4 +1,4 @@
-import { DealInsight, EmailAnalysis, SalesRecommendations } from "./types";
+import { openai } from "@/lib/azure/openai";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 
@@ -39,31 +39,19 @@ export interface EmailAnalysis {
 
 export async function analyzeEmailSentiment(emailContent: string): Promise<EmailAnalysis> {
   try {
-    if (!process.env.VITE_OPENAI_API_KEY) {
-      throw new Error("The OPENAI_API_KEY environment variable is missing");
-    }
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "Analyze the sentiment of this email content and provide suggestions for improvement. Return results in JSON format with sentiment (positive/neutral/negative), score (0-1), and array of suggestions."
-        },
-        {
-          role: "user",
-          content: emailContent
-        }
-      ],
-      response_format: { type: "json_object" }
+    const response = await fetch('/api/ai/analyze-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: emailContent })
     });
 
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error("No content in response");
+    if (!response.ok) {
+      throw new Error('Failed to analyze email');
     }
 
-    return JSON.parse(content) as EmailAnalysis;
+    return await response.json();
   } catch (error) {
     console.error("Error analyzing email sentiment:", error);
     throw error;

@@ -48,7 +48,12 @@ import {
   faShare,
   faRightFromBracket,
   faLaptop,
-  faCircleExclamation
+  faCircleExclamation,
+  faMessageBot,
+  faBrain,
+  faKey,
+  faTriangleExclamation,
+  faPaperPlane
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add all icons to the library
@@ -101,7 +106,12 @@ library.add(
   faShare,
   faRightFromBracket,
   faLaptop,
-  faCircleExclamation
+  faCircleExclamation,
+  faMessageBot,
+  faBrain,
+  faKey,
+  faTriangleExclamation,
+  faPaperPlane
 );
 
 export { library };
