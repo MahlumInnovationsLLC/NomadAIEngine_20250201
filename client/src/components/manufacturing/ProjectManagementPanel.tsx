@@ -11,41 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { ResourceManagementPanel } from "./ResourceManagementPanel";
-import { ProjectCreateDialog } from "./ProjectCreateDialog";
-import { Project, ProjectStatus } from "@/types/manufacturing";
-import {
-  faArrowUp,
-  faArrowDown,
-  faFolder,
-  faCheckCircle,
-  faCircleDot,
-  faEdit,
-  faLocationDot,
-  faRotateLeft,
-  faFileImport
-} from "@fortawesome/free-solid-svg-icons";
-import { ProductionTimeline } from './ProductionTimeline';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import * as z from "zod";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ProductionTimeline } from './ProductionTimeline';
+import { Project, ProjectStatus } from "@/types/manufacturing";
+import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport } from "@fortawesome/free-solid-svg-icons";
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -168,6 +140,19 @@ function calculateProjectStatus(project: Project | null): ProjectStatus {
   return "NOT STARTED";
 }
 
+const defaultFormValues = {
+  projectNumber: "",
+  location: "",
+  team: "",
+  contractDate: "",
+  ntcTesting: "",
+  qcStart: "",
+  executiveReview: "",
+  ship: "",
+  delivery: "",
+  notes: ""
+};
+
 const formSchema = z.object({
   projectNumber: z.string(),
   location: z.string().optional(),
@@ -184,6 +169,12 @@ const formSchema = z.object({
 export function ProjectManagementPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: defaultFormValues
+  });
+
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"location" | "qcStart" | "ship" | null>(null);
@@ -191,13 +182,12 @@ export function ProjectManagementPanel() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
-  const [activeView, setActiveView] = useState<"list" | "map" | "table">("list");
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
-  const [formKey, setFormKey] = useState(0);
+  const [activeView, setActiveView] = useState<"list" | "map" | "table">("list");
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -220,11 +210,9 @@ export function ProjectManagementPanel() {
     if (selectedProject) {
       const updatedProject = projects.find(p => p.id === selectedProject.id);
       if (updatedProject) {
-        const calculatedStatus = calculateProjectStatus(updatedProject);
-        console.log('Updated project status:', calculatedStatus);
         setSelectedProject({
           ...updatedProject,
-          status: calculatedStatus
+          status: calculateProjectStatus(updatedProject)
         });
       }
     }
@@ -443,6 +431,24 @@ export function ProjectManagementPanel() {
         : bDate - aDate;
     });
 
+  const formatDateForInput = (dateString: string | null | undefined): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+
+  const handleSubmit = async (data: z.infer<typeof formSchema>) => {
+    if (!selectedProject) return;
+
+    console.log('Form submitted with data:', data);
+    const formattedData = {
+      ...data,
+      id: selectedProject.id
+    };
+
+    updateProjectMutation.mutate(formattedData);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -450,18 +456,6 @@ export function ProjectManagementPanel() {
       </div>
     );
   }
-
-  const formatDateForInput = (dateString: string | null | undefined): string => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
-  };
-
-
-  const methods = useForm({
-    resolver: zodResolver(formSchema),
-    defaultValues: selectedProject || {}
-  });
 
   return (
     <div className="space-y-6">
@@ -481,7 +475,7 @@ export function ProjectManagementPanel() {
             <FontAwesomeIcon icon={faFileImport} className="h-4 w-4" />
             Import Excel
           </Button>
-          <ProjectCreateDialog />
+          {/* <ProjectCreateDialog /> */}
         </div>
       </div>
 
@@ -880,8 +874,7 @@ export function ProjectManagementPanel() {
                                     if (!response.ok) throw new Error('Failed to save notes');
 
                                     queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-                                      if (!oldData) return [];
-                                      return oldData.map(p=>
+                                      if (!oldData) return [];                                      return oldData.map(p=>
                                         p.id === selectedProject.id
                                           ? { ...p, notes: content }
                                           : p
@@ -998,264 +991,204 @@ export function ProjectManagementPanel() {
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
           {selectedProject && (
-            <form
-              onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
-                e.preventDefault();
-                console.log('Form submit triggered');
-
-                const formData = new FormData(e.currentTarget);
-                const data: Record<string, any> = {
-                  id: selectedProject.id
-                };
-
-                for (const [key, value] of formData.entries()) {
-                  if (!value) continue;
-                  data[key] = value;
-                }
-
-                if (data.executiveReview && data.executiveReviewTime) {
-                  const date = new Date(data.executiveReview);
-                  const [hours, minutes] = (data.executiveReviewTime as string).split(':');
-                  date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
-                  data.executiveReview = date.toISOString();
-                  delete data.executiveReviewTime;
-                }
-
-                console.log('Submitting form data:', data);
-                updateProjectMutation.mutate(data);
-              }}
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Project Number</label>
-                    <Input
-                      name="projectNumber"
-                      defaultValue={selectedProject?.projectNumber}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Location</label>
-                    <Input
-                      name="location"
-                      defaultValue={selectedProject?.location}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Team</label>
-                    <Input
-                      name="team"
-                      defaultValue={selectedProject?.team}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Contract Date</label>
-                    <Input
-                      type="date"
-                      name="contractDate"
-                      defaultValue={formatDateForInput(selectedProject?.contractDate)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Payment Milestones</label>
-                    <Input
-                      name="paymentMilestones"
-                      defaultValue={selectedProject?.paymentMilestones}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">LLTS Ordered</label>
-                    <Input
-                      name="lltsOrdered"
-                      defaultValue={selectedProject?.lltsOrdered}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">ME Assigned</label>
-                    <Input
-                      name="meAssigned"
-                      defaultValue={selectedProject?.meAssigned}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">ME CAD Progress (%)</label>
-                    <Input
-                      type="number"
-                      name="meCadProgress"
-                      defaultValue={selectedProject?.meCadProgress}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">EE Assigned</label>
-                    <Input
-                      name="eeAssigned"
-                      defaultValue={selectedProject?.eeAssigned}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">EE Design Progress (%)</label>
-                    <Input
-                      type="number"
-                      name="eeDesignProgress"
-                      defaultValue={selectedProject?.eeDesignProgress}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">IT Assigned</label>
-                    <Input
-                      name="itAssigned"
-                      defaultValue={selectedProject?.itAssigned}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">IT Design Progress (%)</label>
-                    <Input
-                      type="number"
-                      name="itDesignProgress"
-                      defaultValue={selectedProject?.itDesignProgress}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="text-sm font-medium">NTC Assigned</label>
-                  <Input
-                    name="ntcAssigned"
-                    defaultValue={selectedProject?.ntcAssigned}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">NTC Design Progress (%)</label>
-                  <Input
-                    type="number"
-                    name="ntcDesignProgress"
-                    defaultValue={selectedProject?.ntcDesignProgress}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4 mt-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Fabrication Start</label>
-                    <Input
-                      type="date"
-                      name="fabricationStart"
-                      defaultValue={formatDateForInput(selectedProject?.fabricationStart)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Assembly Start</label>
-                    <Input
-                      type="date"
-                      name="assemblyStart"
-                      defaultValue={formatDateForInput(selectedProject?.assemblyStart)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Wrap/Graphics</label>
-                    <Input
-                      type="date"
-                      name="wrapGraphics"
-                      defaultValue={formatDateForInput(selectedProject?.wrapGraphics)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">NTC Testing</label>
-                    <Input
-                      type="date"
-                      name="ntcTesting"
-                      defaultValue={formatDateForInput(selectedProject?.ntcTesting)}
-                      onChange={(e) => {
-                        const ntcTesting = e.target.value;
-                        const qcStart = (document.querySelector('input[name="qcStart"]') as HTMLInputElement)?.value;
-
-                        if (ntcTesting && qcStart) {
-                          const days = calculateWorkingDays(ntcTesting, qcStart);
-                          const ntcDaysInput = document.querySelector('input[name="ntcDays"]') as HTMLInputElement;
-                          if (ntcDaysInput) {
-                            ntcDaysInput.value = days.toString();
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">NTC Days</label>
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">Project Number</label>
                       <Input
-                        type="number"
-                        name="ntcDays"
-                        defaultValue={selectedProject?.ntcTesting && selectedProject?.qcStart ?
-                          calculateWorkingDays(selectedProject.ntcTesting, selectedProject.qcStart) : 0}
-                        readOnly
+                        name="projectNumber"
+                        defaultValue={selectedProject?.projectNumber}
                       />
-                      <span className="text-sm text-muted-foreground">
-                        (Auto-calculated)
-                      </span>
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">QC Start</label>
-                    <Input
-                      type="date"
-                      name="qcStart"
-                      defaultValue={formatDateForInput(selectedProject?.qcStart)}
-                      onChange={(e) => {
-                        const ntcTesting = (document.querySelector('input[name="ntcTesting"]') as HTMLInputElement)?.value;
-                        const qcStart = e.target.value;
-
-                        if (ntcTesting && qcStart) {
-                          const ntcDays = calculateWorkingDays(ntcTesting, qcStart);
-                          const ntcDaysInput = document.querySelector('input[name="ntcDays"]') as HTMLInputElement;
-                          if (ntcDaysInput) {
-                            ntcDaysInput.value = ntcDays.toString();
-                          }
-                        }
-
-                        const endDate = selectedProject?.executiveReview || selectedProject?.ship;
-                        if (qcStart && endDate) {
-                          const qcDays = calculateWorkingDays(qcStart, endDate);
-                          const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
-                          if (qcDaysInput) {
-                            qcDaysInput.value = qcDays.toString();
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">QC Days</label>
-                    <div className="flex items-center gap-2">
+                    <div>
+                      <label className="text-sm font-medium">Location</label>
                       <Input
-                        type="number"
-                        name="qcDays"
-                        defaultValue={calculateQCDays(selectedProject)}
-                        readOnly
+                        name="location"
+                        defaultValue={selectedProject?.location}
                       />
-                      <span className="text-sm text-muted-foreground">
-                        (Auto-calculated)
-                      </span>
                     </div>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-sm font-medium">Executive Review</label>
-                    <div className="flex gap-2">
+                    <div>
+                      <label className="text-sm font-medium">Team</label>
+                      <Input
+                        name="team"
+                        defaultValue={selectedProject?.team}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Contract Date</label>
                       <Input
                         type="date"
-                        name="executiveReview"
-                        defaultValue={formatDateForInput(selectedProject?.executiveReview)}
-                        className="flex-1"
+                        name="contractDate"
+                        defaultValue={formatDateForInput(selectedProject?.contractDate)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Payment Milestones</label>
+                      <Input
+                        name="paymentMilestones"
+                        defaultValue={selectedProject?.paymentMilestones}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">LLTS Ordered</label>
+                      <Input
+                        name="lltsOrdered"
+                        defaultValue={selectedProject?.lltsOrdered}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">ME Assigned</label>
+                      <Input
+                        name="meAssigned"
+                        defaultValue={selectedProject?.meAssigned}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">ME CAD Progress (%)</label>
+                      <Input
+                        type="number"
+                        name="meCadProgress"
+                        defaultValue={selectedProject?.meCadProgress}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">EE Assigned</label>
+                      <Input
+                        name="eeAssigned"
+                        defaultValue={selectedProject?.eeAssigned}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">EE Design Progress (%)</label>
+                      <Input
+                        type="number"
+                        name="eeDesignProgress"
+                        defaultValue={selectedProject?.eeDesignProgress}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">IT Assigned</label>
+                      <Input
+                        name="itAssigned"
+                        defaultValue={selectedProject?.itAssigned}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">IT Design Progress (%)</label>
+                      <Input
+                        type="number"
+                        name="itDesignProgress"
+                        defaultValue={selectedProject?.itDesignProgress}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="text-sm font-medium">NTC Assigned</label>
+                    <Input
+                      name="ntcAssigned"
+                      defaultValue={selectedProject?.ntcAssigned}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">NTC Design Progress (%)</label>
+                    <Input
+                      type="number"
+                      name="ntcDesignProgress"
+                      defaultValue={selectedProject?.ntcDesignProgress}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Fabrication Start</label>
+                      <Input
+                        type="date"
+                        name="fabricationStart"
+                        defaultValue={formatDateForInput(selectedProject?.fabricationStart)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Assembly Start</label>
+                      <Input
+                        type="date"
+                        name="assemblyStart"
+                        defaultValue={formatDateForInput(selectedProject?.assemblyStart)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Wrap/Graphics</label>
+                      <Input
+                        type="date"
+                        name="wrapGraphics"
+                        defaultValue={formatDateForInput(selectedProject?.wrapGraphics)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">NTC Testing</label>
+                      <Input
+                        type="date"
+                        name="ntcTesting"
+                        defaultValue={formatDateForInput(selectedProject?.ntcTesting)}
                         onChange={(e) => {
-                          const qcStart = selectedProject?.qcStart;
-                          const executiveReview = e.target.value;
-                          if (qcStart && executiveReview) {
-                            const qcDays = calculateWorkingDays(qcStart, executiveReview);
+                          const ntcTesting = e.target.value;
+                          const qcStart = (document.querySelector('input[name="qcStart"]') as HTMLInputElement)?.value;
+
+                          if (ntcTesting && qcStart) {
+                            const days = calculateWorkingDays(ntcTesting, qcStart);
+                            const ntcDaysInput = document.querySelector('input[name="ntcDays"]') as HTMLInputElement;
+                            if (ntcDaysInput) {
+                              ntcDaysInput.value = days.toString();
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">NTC Days</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          name="ntcDays"
+                          defaultValue={selectedProject?.ntcTesting && selectedProject?.qcStart ?
+                            calculateWorkingDays(selectedProject.ntcTesting, selectedProject.qcStart) : 0}
+                          readOnly
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          (Auto-calculated)
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">QC Start</label>
+                      <Input
+                        type="date"
+                        name="qcStart"
+                        defaultValue={formatDateForInput(selectedProject?.qcStart)}
+                        onChange={(e) => {
+                          const ntcTesting = (document.querySelector('input[name="ntcTesting"]') as HTMLInputElement)?.value;
+                          const qcStart = e.target.value;
+
+                          if (ntcTesting && qcStart) {
+                            const ntcDays = calculateWorkingDays(ntcTesting, qcStart);
+                            const ntcDaysInput = document.querySelector('input[name="ntcDays"]') as HTMLInputElement;
+                            if (ntcDaysInput) {
+                              ntcDaysInput.value = ntcDays.toString();
+                            }
+                          }
+
+                          const endDate = selectedProject?.executiveReview || selectedProject?.ship;
+                          if (qcStart && endDate) {
+                            const qcDays = calculateWorkingDays(qcStart, endDate);
                             const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
                             if (qcDaysInput) {
                               qcDaysInput.value = qcDays.toString();
@@ -1263,67 +1196,100 @@ export function ProjectManagementPanel() {
                           }
                         }}
                       />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">QC Days</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          name="qcDays"
+                          defaultValue={calculateQCDays(selectedProject)}
+                          readOnly
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          (Auto-calculated)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-sm font-medium">Executive Review</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="date"
+                          name="executiveReview"
+                          defaultValue={formatDateForInput(selectedProject?.executiveReview)}
+                          className="flex-1"
+                          onChange={(e) => {
+                            const qcStart = selectedProject?.qcStart;
+                            const executiveReview = e.target.value;
+                            if (qcStart && executiveReview) {
+                              const qcDays = calculateWorkingDays(qcStart, executiveReview);
+                              const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
+                              if (qcDaysInput) {
+                                qcDaysInput.value = qcDays.toString();
+                              }
+                            }
+                          }}
+                        />
+                        <Input
+                          type="time"
+                          name="executiveReviewTime"
+                          defaultValue={selectedProject?.executiveReview ? new Date(selectedProject.executiveReview).toTimeString().slice(0,5) : ''}
+                          className="w-32"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Ship</label>
                       <Input
-                        type="time"
-                        name="executiveReviewTime"
-                        defaultValue={selectedProject?.executiveReview ? new Date(selectedProject.executiveReview).toTimeString().slice(0,5) : ''}
-                        className="w-32"
+                        type="date"
+                        name="ship"
+                        defaultValue={formatDateForInput(selectedProject?.ship)}
+                        onChange={(e) => {
+                          const qcStart = selectedProject?.qcStart;
+                          const shipDate = e.target.value;
+                          if (qcStart && shipDate) {
+                            const qcDays = calculateWorkingDays(qcStart, shipDate);
+                            const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
+                            if (qcDaysInput) {
+                              qcDaysInput.value = qcDays.toString();
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Delivery</label>
+                      <Input
+                        type="date"
+                        name="delivery"
+                        defaultValue={formatDateForInput(selectedProject?.delivery)}
                       />
                     </div>
                   </div>
+
                   <div>
-                    <label className="text-sm font-medium">Ship</label>
+                    <label className="text-sm font-medium">Notes</label>
                     <Input
-                      type="date"
-                      name="ship"
-                      defaultValue={formatDateForInput(selectedProject?.ship)}
-                      onChange={(e) => {
-                        const qcStart = selectedProject?.qcStart;
-                        const shipDate = e.target.value;
-                        if (qcStart && shipDate) {
-                          const qcDays = calculateWorkingDays(qcStart, shipDate);
-                          const qcDaysInput = document.querySelector('input[name="qcDays"]') as HTMLInputElement;
-                          if (qcDaysInput) {
-                            qcDaysInput.value = qcDays.toString();
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Delivery</label>
-                    <Input
-                      type="date"
-                      name="delivery"
-                      defaultValue={formatDateForInput(selectedProject?.delivery)}
+                      name="notes"
+                      defaultValue={selectedProject?.notes}
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium">Notes</label>
-                  <Input
-                    name="notes"
-                    defaultValue={selectedProject?.notes}
-                  />
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" onClick={() => setShowEditDialog(false)} type="button">
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={updateProjectMutation.isPending}
+                  >
+                    {updateProjectMutation.isPending ? "Updating..." : "Update Project"}
+                  </Button>
                 </div>
-              </div>
-
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => setShowEditDialog(false)} type="button">
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={updateProjectMutation.isPending}
-                  onClick={() => {
-                    console.log('Update Project button clicked');
-                  }}
-                >
-                  {updateProjectMutation.isPending ? "Updating..." : "Update Project"}
-                </Button>
-              </div>
-            </form>
+              </form>
+            </Form>
           )}
         </DialogContent>
       </Dialog>
