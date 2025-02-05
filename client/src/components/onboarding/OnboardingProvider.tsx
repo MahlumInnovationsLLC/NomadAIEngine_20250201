@@ -36,7 +36,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
       setShowOnboarding(false);
       toast({
         title: "Welcome aboard! 🎉",
-        description: "You're all set to start using the platform.",
+        description: "You're all set to start using the Nomad AI Engine platform.",
       });
     } else {
       setCurrentStep((prev) => prev + 1);
@@ -83,28 +83,38 @@ export const useOnboarding = () => {
 
 export const onboardingSteps = [
   {
-    title: "Welcome to GYM AI Engine",
-    description: "Let's take a quick tour of the platform's features.",
+    title: "Welcome to Nomad AI Engine",
+    description: "Let's explore your intelligent assistant for Sales and Manufacturing management.",
     target: "welcome-section",
   },
   {
-    title: "Start a Chat",
-    description: "Begin conversations with our AI assistant to get help with your documents.",
-    target: "chat-section",
+    title: "Sales Control",
+    description: "Manage your sales pipeline, track deals, and optimize your sales process with AI-powered insights.",
+    target: "sales-section",
+  },
+  {
+    title: "Manufacturing Control",
+    description: "Monitor production lines, manage quality control, and optimize manufacturing processes with real-time analytics.",
+    target: "manufacturing-section",
+  },
+  {
+    title: "Material Handling",
+    description: "Track inventory, manage materials, and optimize your supply chain operations efficiently.",
+    target: "material-section",
+  },
+  {
+    title: "Marketing Control",
+    description: "Create and manage marketing campaigns, track performance metrics, and optimize your marketing strategy.",
+    target: "marketing-section",
   },
   {
     title: "Document Management",
-    description: "Upload, manage, and train documents with advanced version control.",
+    description: "Centralize your document control with advanced version tracking, training materials, and SOPs.",
     target: "document-section",
   },
   {
-    title: "Workflow Templates",
-    description: "Create and manage custom document workflows for your team.",
-    target: "workflow-section",
-  },
-  {
-    title: "Search Documents",
-    description: "Use our powerful AI-powered search to find content across your documents.",
-    target: "search-section",
+    title: "AI Assistant",
+    description: "Get intelligent help with data analysis, report generation, and process optimization.",
+    target: "chat-section",
   },
 ];
