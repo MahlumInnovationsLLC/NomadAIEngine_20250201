@@ -182,6 +182,22 @@ export function EmailCampaignPanel() {
     }
   };
 
+  const handleEditCampaign = (campaign: Campaign) => {
+    setSelectedCampaign(campaign);
+    // Reset form with campaign data
+    form.reset({
+      name: campaign.name,
+      subject: campaign.subject,
+      template: campaign.template,
+      schedule: campaign.schedule,
+      targetAudience: campaign.targetAudience,
+      content: campaign.content,
+      sendTime: campaign.sendTime,
+      frequency: campaign.frequency
+    });
+    setIsEditOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Create Campaign Button */}
@@ -348,10 +364,7 @@ export function EmailCampaignPanel() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setSelectedCampaign(campaign);
-                          setIsEditOpen(true);
-                        }}
+                        onClick={() => handleEditCampaign(campaign)}
                       >
                         <FontAwesomeIcon icon={['fal', 'edit']} className="mr-2" />
                         Edit

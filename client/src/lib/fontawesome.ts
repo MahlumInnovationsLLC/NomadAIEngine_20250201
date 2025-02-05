@@ -17,7 +17,25 @@ import {
   faChartLine,
   faXmark,
   faChartBar,
-  faChartPie
+  faChartPie,
+  faGripVertical,
+  faCloud,
+  faShield,
+  faCircleCheck,
+  faGear,
+  faTriangleCircleSquare,
+  faHome,
+  faServer,
+  faIndustry,
+  faBoxesStacked,
+  faWrench,
+  faTasks,
+  faCalendar,
+  faChevronDown,
+  faCheck,
+  faDashboard,
+  faUsers,
+  faBuilding
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add all icons to the library
@@ -39,7 +57,25 @@ library.add(
   faChartLine,
   faXmark,
   faChartBar,
-  faChartPie
+  faChartPie,
+  faGripVertical,
+  faCloud,
+  faShield,
+  faCircleCheck,
+  faGear,
+  faTriangleCircleSquare,
+  faHome,
+  faServer,
+  faIndustry,
+  faBoxesStacked,
+  faWrench,
+  faTasks,
+  faCalendar,
+  faChevronDown,
+  faCheck,
+  faDashboard,
+  faUsers,
+  faBuilding
 );
 
 export { library };
