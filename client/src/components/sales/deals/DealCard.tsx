@@ -2,9 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBuilding,
@@ -21,7 +25,13 @@ import {
   faGears,
   faClock,
   faEnvelope,
-  faPhone
+  faPhone,
+  faFilter,
+  faUpload,
+  faDownload,
+  faTrash,
+  faEdit,
+  faPlus
 } from "@fortawesome/free-solid-svg-icons";
 import { AIInsightsDashboard } from "../insights/AIInsightsDashboard";
 
@@ -151,23 +161,50 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
                   </TooltipTrigger>
                   <TooltipContent>View Deal History</TooltipContent>
                 </Tooltip>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Deal History</DialogTitle>
                   </DialogHeader>
-                  <ScrollArea className="h-[300px]">
-                    <div className="space-y-4">
-                      {deal.history?.map((entry, i) => (
-                        <div key={i} className="border-l-2 border-primary pl-4 pb-4">
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(entry.date).toLocaleDateString()}
-                          </p>
-                          <p className="font-medium">{entry.action}</p>
-                          <p className="text-sm">{entry.user}</p>
-                        </div>
-                      ))}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <Input placeholder="Search history..." className="max-w-sm" />
+                      <Select defaultValue="all">
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Filter by type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Actions</SelectItem>
+                          <SelectItem value="stage">Stage Changes</SelectItem>
+                          <SelectItem value="communication">Communications</SelectItem>
+                          <SelectItem value="document">Documents</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm">
+                        <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                        Add Note
+                      </Button>
                     </div>
-                  </ScrollArea>
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-4">
+                        {deal.history?.map((entry, i) => (
+                          <div key={i} className="border-l-2 border-primary pl-4 pb-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="text-sm text-muted-foreground">
+                                  {new Date(entry.date).toLocaleDateString()}
+                                </p>
+                                <p className="font-medium">{entry.action}</p>
+                                <p className="text-sm">{entry.user}</p>
+                              </div>
+                              <Button variant="ghost" size="sm">
+                                <FontAwesomeIcon icon={faEdit} />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
                 </DialogContent>
               </Dialog>
 
@@ -182,27 +219,58 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
                   </TooltipTrigger>
                   <TooltipContent>Communications Log</TooltipContent>
                 </Tooltip>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Communications Log</DialogTitle>
                   </DialogHeader>
-                  <div className="grid gap-4">
-                    <div className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faEnvelope} className="text-primary" />
-                      <div>
-                        <p className="font-medium">Last Email</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(deal.lastContact).toLocaleDateString()}
-                        </p>
+                  <div className="space-y-6">
+                    <div className="flex justify-between">
+                      <h3 className="text-lg font-medium">Recent Communications</h3>
+                      <div className="space-x-2">
+                        <Button variant="outline" size="sm">
+                          <FontAwesomeIcon icon={faEnvelope} className="mr-2" />
+                          New Email
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <FontAwesomeIcon icon={faPhone} className="mr-2" />
+                          Log Call
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faPhone} className="text-primary" />
-                      <div>
-                        <p className="font-medium">Last Call</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(deal.lastContact).toLocaleDateString()}
-                        </p>
+                    <div className="space-y-4">
+                      <div className="border rounded-lg p-4">
+                        <div className="flex items-center gap-2">
+                          <FontAwesomeIcon icon={faEnvelope} className="text-primary" />
+                          <div className="flex-1">
+                            <p className="font-medium">Last Email</p>
+                            <p className="text-sm text-muted-foreground">
+                              Sent proposal follow-up
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(deal.lastContact).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button variant="ghost" size="sm">
+                            <FontAwesomeIcon icon={faEdit} />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="border rounded-lg p-4">
+                        <div className="flex items-center gap-2">
+                          <FontAwesomeIcon icon={faPhone} className="text-primary" />
+                          <div className="flex-1">
+                            <p className="font-medium">Last Call</p>
+                            <p className="text-sm text-muted-foreground">
+                              Technical requirements discussion
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(deal.lastContact).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button variant="ghost" size="sm">
+                            <FontAwesomeIcon icon={faEdit} />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -220,26 +288,120 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
                   </TooltipTrigger>
                   <TooltipContent>Documents</TooltipContent>
                 </Tooltip>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Deal Documents</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <p>Shared Documents: {deal.metrics?.documentsShared || 0}</p>
-                    {/* Add document list and upload functionality */}
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <p>Shared Documents: {deal.metrics?.documentsShared || 0}</p>
+                      <Button>
+                        <FontAwesomeIcon icon={faUpload} className="mr-2" />
+                        Upload Document
+                      </Button>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FontAwesomeIcon icon={faFileContract} className="text-primary" />
+                            <div>
+                              <p className="font-medium">Technical Proposal.pdf</p>
+                              <p className="text-sm text-muted-foreground">
+                                Uploaded on {new Date().toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm">
+                              <FontAwesomeIcon icon={faDownload} />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-red-500">
+                              <FontAwesomeIcon icon={faTrash} />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button onClick={() => onEdit(deal.id)}>
-                    <FontAwesomeIcon icon={faGears} className="mr-2" />
-                    Manage
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Manage Deal Settings</TooltipContent>
-              </Tooltip>
+              <Dialog>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={() => onEdit(deal.id)}>
+                      <FontAwesomeIcon icon={faGears} className="mr-2" />
+                      Manage
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Manage Deal Settings</TooltipContent>
+                </Tooltip>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle>Manage Deal: {deal.company}</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="company">Company Name</Label>
+                        <Input id="company" defaultValue={deal.company} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="value">Deal Value</Label>
+                        <Input 
+                          id="value" 
+                          type="number" 
+                          defaultValue={deal.value} 
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="stage">Stage</Label>
+                        <Select defaultValue={deal.stage}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Lead">Lead</SelectItem>
+                            <SelectItem value="Meeting Scheduled">Meeting Scheduled</SelectItem>
+                            <SelectItem value="Proposal Sent">Proposal Sent</SelectItem>
+                            <SelectItem value="Contract Review">Contract Review</SelectItem>
+                            <SelectItem value="Closed Won">Closed Won</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="probability">Probability (%)</Label>
+                        <Input 
+                          id="probability" 
+                          type="number" 
+                          defaultValue={deal.probability} 
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="manufacturingProject">Manufacturing Project</Label>
+                      <Input 
+                        id="manufacturingProject" 
+                        defaultValue={deal.manufacturingProject} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nextSteps">Next Steps</Label>
+                      <Textarea 
+                        id="nextSteps" 
+                        defaultValue={deal.nextSteps} 
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline">Cancel</Button>
+                      <Button type="submit">Save Changes</Button>
+                    </DialogFooter>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </TooltipProvider>
           </div>
         </div>
