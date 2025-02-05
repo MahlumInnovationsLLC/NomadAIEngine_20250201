@@ -16,7 +16,7 @@ import type {
   FloorPlan, 
   FloorPlanZone, 
   ProjectLocation,
-  ProductionProject 
+  Project 
 } from "@/types/manufacturing";
 import {
   getAllProjects,
@@ -40,7 +40,7 @@ export function ProjectMapView() {
     queryFn: getAllFloorPlans,
   });
 
-  const { data: projects = [] } = useQuery<ProductionProject[]>({
+  const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
     queryFn: getAllProjects,
   });
@@ -232,7 +232,7 @@ export function ProjectMapView() {
                       className="w-full h-full object-cover"
                     />
                   )}
-                  
+
                   {currentFloorPlan?.zones.map((zone) => (
                     <Droppable key={zone.id} droppableId={zone.id}>
                       {(provided) => (
