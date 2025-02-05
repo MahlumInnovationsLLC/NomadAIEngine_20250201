@@ -512,7 +512,8 @@ export function ProjectManagementPanel() {
     console.log('Form submitted with data:', data);
     const formattedData = {
       ...data,
-      id: selectedProject.id
+      id: selectedProject.id,
+      notes: data.notes || selectedProject.notes || ''
     };
 
     updateProjectMutation.mutate(formattedData);
@@ -1130,7 +1131,7 @@ export function ProjectManagementPanel() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-[800px] max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
+            <DialogTitle>Edit Project {selectedProject?.projectNumber}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto">
             <Form {...form}>
@@ -1245,6 +1246,14 @@ export function ProjectManagementPanel() {
                       {calculateNTCDays(selectedProject)} days
                     </div>
                   </div>
+                </div>
+
+                <div className="space-y-2 mt-4">
+                  <Label>Notes</Label>
+                  <RichTextEditor
+                    content={selectedProject?.notes || ''}
+                    onChange={(content) => form.setValue("notes", content)}
+                  />
                 </div>
               </form>
             </Form>
