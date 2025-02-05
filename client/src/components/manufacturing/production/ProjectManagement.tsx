@@ -10,7 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import type { ProductionProject, ProjectCreationForm } from "@/types/manufacturing";
+import type { Project, ProjectCreationForm } from "@/types/manufacturing";
 import { format } from "date-fns";
 
 const projectFormSchema = z.object({
@@ -29,10 +29,10 @@ type ViewMode = "cards" | "table";
 
 export function ProjectManagement() {
   const queryClient = useQueryClient();
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [isCreating, setIsCreating] = useState(false);
 
-  const { data: projects, isLoading } = useQuery<ProductionProject[]>({
+  const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/manufacturing/projects"],
   });
 
@@ -106,7 +106,7 @@ export function ProjectManagement() {
       </div>
 
       {viewMode === "table" ? (
-        <ProjectTableView />
+        <ProjectTableView projects={projects || []} />
       ) : (
         <>
           {isCreating && (
