@@ -1,7 +1,6 @@
-import OpenAI from "openai";
+import { DealInsight, EmailAnalysis, SalesRecommendations } from "./types";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI();
 
 interface DealInsight {
   score: number;
@@ -13,30 +12,22 @@ interface DealInsight {
 
 export async function analyzeDealPotential(dealData: any): Promise<DealInsight> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert sales analyst. Analyze the deal data and provide insights including score, confidence, recommendations, next best actions, and risk factors. Return the analysis in JSON format."
-        },
-        {
-          role: "user",
-          content: JSON.stringify(dealData)
-        }
-      ],
-      response_format: { type: "json_object" }
+    const response = await fetch('/api/ai/analyze-deal', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dealData)
     });
 
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error("No content in response");
+    if (!response.ok) {
+      throw new Error('Failed to analyze deal');
     }
 
-    return JSON.parse(content) as DealInsight;
+    return await response.json();
   } catch (error) {
     console.error("Error analyzing deal:", error);
-    throw new Error("Failed to analyze deal potential");
+    throw error;
   }
 }
 
@@ -48,6 +39,10 @@ export interface EmailAnalysis {
 
 export async function analyzeEmailSentiment(emailContent: string): Promise<EmailAnalysis> {
   try {
+    if (!process.env.VITE_OPENAI_API_KEY) {
+      throw new Error("The OPENAI_API_KEY environment variable is missing");
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -71,7 +66,7 @@ export async function analyzeEmailSentiment(emailContent: string): Promise<Email
     return JSON.parse(content) as EmailAnalysis;
   } catch (error) {
     console.error("Error analyzing email sentiment:", error);
-    throw new Error("Failed to analyze email sentiment");
+    throw error;
   }
 }
 
@@ -83,29 +78,21 @@ export interface SalesRecommendations {
 
 export async function getSalesRecommendations(salesData: any): Promise<SalesRecommendations> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "As a sales strategy expert, analyze the sales data and provide strategic recommendations, priority actions, and potential opportunities. Return in JSON format."
-        },
-        {
-          role: "user",
-          content: JSON.stringify(salesData)
-        }
-      ],
-      response_format: { type: "json_object" }
+    const response = await fetch('/api/ai/sales-recommendations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(salesData)
     });
 
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error("No content in response");
+    if (!response.ok) {
+      throw new Error('Failed to get sales recommendations');
     }
 
-    return JSON.parse(content) as SalesRecommendations;
+    return await response.json();
   } catch (error) {
     console.error("Error getting sales recommendations:", error);
-    throw new Error("Failed to generate sales recommendations");
+    throw error;
   }
 }

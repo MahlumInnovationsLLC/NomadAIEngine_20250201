@@ -4,7 +4,7 @@ import { getContainer } from "./cosmos_service";
 import { getBlobServiceClient } from "./blob_service";
 
 let client: OpenAIClient | null = null;
-const deploymentName = process.env.NOMAD_AZURE_OPENAI_MODEL || "NomadAIEngine-gpt-4o";
+export const deploymentName = process.env.NOMAD_AZURE_OPENAI_MODEL || "NomadAIEngine-gpt-4o";
 
 export async function initializeOpenAI() {
   try {
@@ -50,6 +50,128 @@ export async function ensureInitialized() {
     return initializeOpenAI();
   }
   return client;
+}
+
+export { client as openai };
+
+export async function analyzeDocument(content: string) {
+  const openai = await ensureInitialized();
+  if (!openai) {
+    return "I apologize, but the AI service is currently unavailable. Please try again later.";
+  }
+
+  try {
+    console.log("Generating content with Azure OpenAI...");
+    const result = await openai.getChatCompletions(deploymentName, [
+      { 
+        role: "system", 
+        content: `You are a helpful assistant for a Vehicle Manufacturing Facility. You are an expert in manufacturing processes, production optimization, and quality control. You are also a professional report writer that creates detailed, well-structured reports with your manufacturing industry expertise.
+
+When asked to generate a report, structure your response in the following format:
+
+# [Create a clear, professional title for the report]
+
+## Executive Summary
+[Provide a concise summary of the key points]
+
+## Detailed Analysis
+[Provide thorough analysis with supporting evidence]
+
+### Key Findings
+[List and explain major findings]
+
+### Impact Assessment
+[Analyze potential impacts]
+
+## Recommendations
+[Provide actionable recommendations]
+
+## Implementation Strategy
+[Outline implementation steps]
+
+Note: Use proper markdown formatting:
+- Use # for main headings
+- Use ## for subheadings
+- Use ### for sub-subheadings
+- Use bullet points (-)
+- Use numbering (1., 2., etc.)
+- Use **bold** for emphasis`
+      },
+      { role: "user", content }
+    ]);
+
+    if (!result?.choices?.[0]?.message?.content) {
+      console.warn("No valid response received from OpenAI");
+      return "I apologize, but I wasn't able to generate a response. Please try again.";
+    }
+
+    console.log("Successfully generated content");
+    return result.choices[0].message.content;
+  } catch (error) {
+    console.error("Error in analyzeDocument:", error);
+    return "I apologize, but I'm having trouble processing your request. Please try again later.";
+  }
+}
+
+export async function generateSummary(content: string) {
+  const openai = await ensureInitialized();
+  if (!openai) {
+    console.warn("OpenAI client not initialized - summary generation skipped");
+    return null;
+  }
+
+  try {
+    const result = await openai.getChatCompletions(deploymentName, [
+      { role: "system", content: "You are an AI assistant that summarizes manufacturing documents." },
+      { role: "user", content: `Please summarize this document: ${content}` }
+    ]);
+
+    return result?.choices?.[0]?.message?.content || null;
+  } catch (error) {
+    console.warn("Error generating summary:", error);
+    return null;
+  }
+}
+
+export async function predictMaintenanceNeeds(systemData: any) {
+  const openai = await ensureInitialized();
+  if (!openai) {
+    return "AI service unavailable for maintenance prediction";
+  }
+
+  try {
+    console.log("Generating maintenance prediction for system:", systemData.name);
+    const result = await openai.getChatCompletions(deploymentName, [
+      {
+        role: "system",
+        content: `You are an expert manufacturing maintenance AI assistant specializing in predictive maintenance for production systems. Analyze the provided system data and generate maintenance predictions and recommendations.
+
+Format your response as a JSON object with the following structure:
+{
+  "nextMaintenanceDate": "YYYY-MM-DD",
+  "predictedIssues": ["issue1", "issue2"],
+  "maintenanceRecommendations": ["recommendation1", "recommendation2"],
+  "urgencyLevel": "low|medium|high",
+  "estimatedMaintenanceCost": number,
+  "confidenceScore": number (0-1)
+}`
+      },
+      {
+        role: "user",
+        content: JSON.stringify(systemData)
+      }
+    ]);
+
+    if (!result?.choices?.[0]?.message?.content) {
+      throw new Error("No prediction generated");
+    }
+
+    const prediction = JSON.parse(result.choices[0].message.content);
+    return prediction;
+  } catch (error) {
+    console.error("Error generating maintenance prediction:", error);
+    return null;
+  }
 }
 
 async function checkBlobStorageConnection(): Promise<boolean> {
@@ -144,126 +266,6 @@ export async function checkOpenAIConnection() {
       status: "error",
       message: error instanceof Error ? error.message : "Failed to check services status"
     }];
-  }
-}
-
-export async function analyzeDocument(content: string) {
-  const openaiClient = await ensureInitialized();
-  if (!openaiClient) {
-    return "I apologize, but the AI service is currently unavailable. Please try again later.";
-  }
-
-  try {
-    console.log("Generating content with Azure OpenAI...");
-    const result = await openaiClient.getChatCompletions(deploymentName, [
-      { 
-        role: "system", 
-        content: `You are a helpful assistant for a Vehicle Manufacturing Facility. You are an expert in manufacturing processes, production optimization, and quality control. You are also a professional report writer that creates detailed, well-structured reports with your manufacturing industry expertise.
-
-When asked to generate a report, structure your response in the following format:
-
-# [Create a clear, professional title for the report]
-
-## Executive Summary
-[Provide a concise summary of the key points]
-
-## Detailed Analysis
-[Provide thorough analysis with supporting evidence]
-
-### Key Findings
-[List and explain major findings]
-
-### Impact Assessment
-[Analyze potential impacts]
-
-## Recommendations
-[Provide actionable recommendations]
-
-## Implementation Strategy
-[Outline implementation steps]
-
-Note: Use proper markdown formatting:
-- Use # for main headings
-- Use ## for subheadings
-- Use ### for sub-subheadings
-- Use bullet points (-)
-- Use numbering (1., 2., etc.)
-- Use **bold** for emphasis`
-      },
-      { role: "user", content }
-    ]);
-
-    if (!result?.choices?.[0]?.message?.content) {
-      console.warn("No valid response received from OpenAI");
-      return "I apologize, but I wasn't able to generate a response. Please try again.";
-    }
-
-    console.log("Successfully generated content");
-    return result.choices[0].message.content;
-  } catch (error) {
-    console.error("Error in analyzeDocument:", error);
-    return "I apologize, but I'm having trouble processing your request. Please try again later.";
-  }
-}
-
-export async function generateSummary(content: string) {
-  const openaiClient = await ensureInitialized();
-  if (!openaiClient) {
-    console.warn("OpenAI client not initialized - summary generation skipped");
-    return null;
-  }
-
-  try {
-    const result = await openaiClient.getChatCompletions(deploymentName, [
-      { role: "system", content: "You are an AI assistant that summarizes manufacturing documents." },
-      { role: "user", content: `Please summarize this document: ${content}` }
-    ]);
-
-    return result?.choices?.[0]?.message?.content || null;
-  } catch (error) {
-    console.warn("Error generating summary:", error);
-    return null;
-  }
-}
-
-export async function predictMaintenanceNeeds(systemData: any) {
-  const openaiClient = await ensureInitialized();
-  if (!openaiClient) {
-    return "AI service unavailable for maintenance prediction";
-  }
-
-  try {
-    console.log("Generating maintenance prediction for system:", systemData.name);
-    const result = await openaiClient.getChatCompletions(deploymentName, [
-      {
-        role: "system",
-        content: `You are an expert manufacturing maintenance AI assistant specializing in predictive maintenance for production systems. Analyze the provided system data and generate maintenance predictions and recommendations.
-
-Format your response as a JSON object with the following structure:
-{
-  "nextMaintenanceDate": "YYYY-MM-DD",
-  "predictedIssues": ["issue1", "issue2"],
-  "maintenanceRecommendations": ["recommendation1", "recommendation2"],
-  "urgencyLevel": "low|medium|high",
-  "estimatedMaintenanceCost": number,
-  "confidenceScore": number (0-1)
-}`
-      },
-      {
-        role: "user",
-        content: JSON.stringify(systemData)
-      }
-    ]);
-
-    if (!result?.choices?.[0]?.message?.content) {
-      throw new Error("No prediction generated");
-    }
-
-    const prediction = JSON.parse(result.choices[0].message.content);
-    return prediction;
-  } catch (error) {
-    console.error("Error generating maintenance prediction:", error);
-    return null;
   }
 }
 
