@@ -28,6 +28,10 @@ import {
   faEnvelope,
   faMousePointer,
   faPaperPlane,
+  faChartLine,
+  faXmark,
+  faChartBar,
+  faChartPie
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -57,7 +61,11 @@ library.add(
   faClock,
   faEnvelope,
   faMousePointer,
-  faPaperPlane
+  faPaperPlane,
+  faChartLine,
+  faXmark,
+  faChartBar,
+  faChartPie
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -81,6 +89,10 @@ const iconMap: Record<string, IconDefinition> = {
   'envelope': faEnvelope,
   'mouse-pointer': faMousePointer,
   'paper-plane': faPaperPlane,
+  'chart-line': faChartLine,
+  'xmark': faXmark,
+  'chart-bar': faChartBar,
+  'chart-pie': faChartPie,
 };
 
 export function FontAwesomeIcon({

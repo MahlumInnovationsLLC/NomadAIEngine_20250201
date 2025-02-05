@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -161,7 +161,7 @@ export function EmailCampaignPanel() {
   };
 
   const handleUpdateCampaign = (campaignId: string, status: Campaign['status']) => {
-    setCampaigns(campaigns.map(campaign => 
+    setCampaigns(campaigns.map(campaign =>
       campaign.id === campaignId
         ? { ...campaign, status }
         : campaign
@@ -380,7 +380,12 @@ export function EmailCampaignPanel() {
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Campaign Preview</DialogTitle>
+            <div className="flex justify-between items-center">
+              <DialogTitle>Campaign Preview</DialogTitle>
+              <DialogClose className="w-6 h-6 opacity-70 hover:opacity-100">
+                <FontAwesomeIcon icon={['fal', 'xmark']} />
+              </DialogClose>
+            </div>
           </DialogHeader>
           {selectedCampaign && (
             <div className="space-y-4">
@@ -421,11 +426,103 @@ export function EmailCampaignPanel() {
         </DialogContent>
       </Dialog>
 
+      {/* Campaign Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <div className="flex justify-between items-center">
+              <DialogTitle>Edit Campaign</DialogTitle>
+              <DialogClose className="w-6 h-6 opacity-70 hover:opacity-100">
+                <FontAwesomeIcon icon={['fal', 'xmark']} />
+              </DialogClose>
+            </div>
+          </DialogHeader>
+          {selectedCampaign && (
+            <form onSubmit={form.handleSubmit((data) => {
+              setCampaigns(campaigns.map(campaign =>
+                campaign.id === selectedCampaign.id
+                  ? { ...campaign, ...data }
+                  : campaign
+              ));
+              setIsEditOpen(false);
+              toast({
+                title: "Campaign Updated",
+                description: "Campaign has been updated successfully",
+              });
+            })}
+            className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input defaultValue={selectedCampaign.name} {...form.register("name")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Input defaultValue={selectedCampaign.subject} {...form.register("subject")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Content</Label>
+                <RichTextEditor
+                  content={form.watch("content") || selectedCampaign.content || ""}
+                  onChange={(content) => form.setValue("content", content)}
+                  variables={["customer_name", "company_name", "product_name"]}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Schedule</Label>
+                  <Input type="date" defaultValue={selectedCampaign.schedule} {...form.register("schedule")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Send Time</Label>
+                  <Input type="time" defaultValue={selectedCampaign.sendTime} {...form.register("sendTime")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Frequency</Label>
+                  <Select onValueChange={(value) => form.setValue("frequency", value)} defaultValue={selectedCampaign.frequency}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="one-time">One Time</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Target Audience</Label>
+                  <Select onValueChange={(value) => form.setValue("targetAudience", value)} defaultValue={selectedCampaign.targetAudience}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select audience" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Contacts</SelectItem>
+                      <SelectItem value="manufacturing_executives">Manufacturing Executives</SelectItem>
+                      <SelectItem value="warm_leads">Warm Leads</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Update Campaign</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Campaign Analytics Dialog */}
       <Dialog open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
         <DialogContent className="sm:max-w-[800px]">
           <DialogHeader>
-            <DialogTitle>Campaign Analytics</DialogTitle>
+            <div className="flex justify-between items-center">
+              <DialogTitle>Campaign Analytics</DialogTitle>
+              <DialogClose className="w-6 h-6 opacity-70 hover:opacity-100">
+                <FontAwesomeIcon icon={['fal', 'xmark']} />
+              </DialogClose>
+            </div>
           </DialogHeader>
           {selectedCampaign && (
             <div className="space-y-6">
