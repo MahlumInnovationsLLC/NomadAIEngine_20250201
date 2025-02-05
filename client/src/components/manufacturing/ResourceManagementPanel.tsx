@@ -126,3 +126,58 @@ export function ResourceManagementPanel() {
     </div>
   );
 }
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { useQuery } from "@tanstack/react-query";
+import type { Project } from "@/types/manufacturing";
+
+export function ResourceManagementPanel() {
+  const [selectedResource, setSelectedResource] = useState<string | null>(null);
+
+  const { data: resources = [], isLoading } = useQuery({
+    queryKey: ['/api/manufacturing/resources'],
+    queryFn: async () => {
+      const response = await fetch('/api/manufacturing/resources');
+      if (!response.ok) throw new Error('Failed to fetch resources');
+      return response.json();
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Resource Management</h2>
+          <p className="text-muted-foreground">
+            Manage and allocate manufacturing resources
+          </p>
+        </div>
+        <Button>
+          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+          Add Resource
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Available Resources</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">Resource management coming soon</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
