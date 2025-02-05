@@ -1,4 +1,3 @@
-```typescript
 import { useState, useMemo } from "react";
 import {
   Table,
@@ -191,4 +190,3 @@ export function ProjectTableView() {
     </div>
   );
 }
-```
