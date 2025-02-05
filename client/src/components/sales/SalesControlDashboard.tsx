@@ -36,7 +36,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmailDashboard } from "./email/EmailDashboard";
@@ -47,6 +47,15 @@ import { MeetingScheduler } from "./meetings/MeetingScheduler";
 import { AIInsightsDashboard } from "./insights/AIInsightsDashboard";
 import { PipelineAnalytics } from "./pipeline/PipelineAnalytics";
 import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DealCard } from "./deals/DealCard";
+
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
@@ -268,7 +277,12 @@ export function SalesControlDashboard() {
         <TabsContent value="deals" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Active Deals</CardTitle>
+              <div>
+                <CardTitle>Active Deals</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Manage and track your sales pipeline
+                </p>
+              </div>
               <Dialog>
                 <DialogTrigger asChild>
                   <Button>
@@ -276,85 +290,126 @@ export function SalesControlDashboard() {
                     New Deal
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[600px]">
                   <DialogHeader>
                     <DialogTitle>Create New Deal</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="company">Company</Label>
-                      <Input id="company" />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="company">Company</Label>
+                        <Input id="company" placeholder="Enter company name" />
+                      </div>
+                      <div>
+                        <Label htmlFor="value">Deal Value</Label>
+                        <Input id="value" type="number" placeholder="Enter deal value" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="stage">Stage</Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select stage" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="lead">Lead</SelectItem>
+                            <SelectItem value="meeting">Meeting Scheduled</SelectItem>
+                            <SelectItem value="proposal">Proposal Sent</SelectItem>
+                            <SelectItem value="negotiation">Negotiation</SelectItem>
+                            <SelectItem value="closed">Closed Won</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="owner">Owner</Label>
+                        <Input id="owner" placeholder="Assign deal owner" />
+                      </div>
                     </div>
                     <div>
-                      <Label htmlFor="value">Deal Value</Label>
-                      <Input id="value" type="number" />
+                      <Label htmlFor="manufacturingProject">Manufacturing Project</Label>
+                      <Input 
+                        id="manufacturingProject" 
+                        placeholder="Enter project details" 
+                      />
                     </div>
                     <div>
                       <Label htmlFor="qualification">Qualification Status</Label>
-                      <select className="w-full px-3 py-2 border rounded-md">
-                        <option value="highly-qualified">Highly Qualified</option>
-                        <option value="qualified">Qualified</option>
-                        <option value="partially-qualified">Partially Qualified</option>
-                        <option value="unqualified">Unqualified</option>
-                      </select>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select qualification" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="highly-qualified">Highly Qualified</SelectItem>
+                          <SelectItem value="qualified">Qualified</SelectItem>
+                          <SelectItem value="partially-qualified">Partially Qualified</SelectItem>
+                          <SelectItem value="unqualified">Unqualified</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="nextSteps">Next Steps</Label>
-                      <Textarea id="nextSteps" placeholder="Define next steps" />
+                      <Textarea 
+                        id="nextSteps" 
+                        placeholder="Define next steps and action items" 
+                      />
                     </div>
                   </div>
+                  <DialogFooter>
+                    <Button type="submit">Create Deal</Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Value</TableHead>
-                    <TableHead>Stage</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Qualification</TableHead>
-                    <TableHead>Manufacturing Project</TableHead>
-                    <TableHead>Owner</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Input 
+                      placeholder="Search deals..." 
+                      className="max-w-sm"
+                    />
+                  </div>
+                  <Select defaultValue="all">
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Stages</SelectItem>
+                      <SelectItem value="lead">Lead</SelectItem>
+                      <SelectItem value="meeting">Meeting Scheduled</SelectItem>
+                      <SelectItem value="proposal">Proposal Sent</SelectItem>
+                      <SelectItem value="negotiation">Negotiation</SelectItem>
+                      <SelectItem value="closed">Closed Won</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select defaultValue="newest">
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest First</SelectItem>
+                      <SelectItem value="oldest">Oldest First</SelectItem>
+                      <SelectItem value="highest-value">Highest Value</SelectItem>
+                      <SelectItem value="lowest-value">Lowest Value</SelectItem>
+                      <SelectItem value="highest-score">Highest Score</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {mockDeals.map((deal) => (
-                    <TableRow key={deal.id}>
-                      <TableCell>{deal.company}</TableCell>
-                      <TableCell>${deal.value.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{deal.stage}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress value={deal.score} className="w-[60px]" />
-                          <span className="text-sm">{deal.score}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={
-                            deal.qualificationStatus === 'Highly Qualified' ? 'default' :
-                            deal.qualificationStatus === 'Qualified' ? 'secondary' :
-                            'outline'
-                          }
-                        >
-                          {deal.qualificationStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FontAwesomeIcon icon={faIndustry} className="text-muted-foreground" />
-                          {deal.manufacturingProject}
-                        </div>
-                      </TableCell>
-                      <TableCell>{deal.owner}</TableCell>
-                    </TableRow>
+                    <DealCard 
+                      key={deal.id} 
+                      deal={deal} 
+                      onEdit={(id) => {
+                        // Handle deal edit
+                        console.log('Edit deal:', id);
+                      }}
+                    />
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
