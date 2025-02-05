@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useQueryClient } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -18,7 +18,8 @@ import {
   faChartLine,
   faRocket,
   faFileUpload,
-  faSpinner
+  faSpinner,
+  faPaperPlane
 } from "@fortawesome/pro-light-svg-icons";
 
 interface Deal {
@@ -60,6 +61,7 @@ interface AIInsightsDashboardProps {
 }
 
 export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashboardProps) {
+  const queryClient = useQueryClient(); // Added useQueryClient hook
   const [file, setFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
@@ -145,6 +147,26 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
               <CardTitle className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faLightbulb} className="text-yellow-500" />
                 Deal Insights
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    queryClient.invalidateQueries(['dealInsights']);
+                  }}
+                  className="ml-auto"
+                >
+                  <FontAwesomeIcon icon={["fal", "sync"]} className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    queryClient.invalidateQueries(['salesInsights'], { refetchType: 'active' });
+                  }}
+                  className="ml-2"
+                >
+                  <FontAwesomeIcon icon={["fal", "magic"]} className="h-4 w-4" />
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -210,6 +232,26 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
             <CardTitle className="flex items-center gap-2">
               <FontAwesomeIcon icon={faRocket} className="text-primary" />
               Strategic Recommendations
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  queryClient.invalidateQueries(['salesInsights']);
+                }}
+                className="ml-auto"
+              >
+                <FontAwesomeIcon icon={["fal", "sync"]} className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  queryClient.invalidateQueries(['salesInsights'], { refetchType: 'active' });
+                }}
+                className="ml-2"
+              >
+                <FontAwesomeIcon icon={["fal", "magic"]} className="h-4 w-4" />
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -253,7 +295,7 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
           </CardContent>
         </Card>
 
-        
+
 
         <div className="md:col-span-2">
           <AISalesChat />

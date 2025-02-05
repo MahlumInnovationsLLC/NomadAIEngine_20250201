@@ -1,4 +1,5 @@
 import { library } from '@fortawesome/fontawesome-svg-core';
+import { faPaperPlane, faSync, faMagic } from '@fortawesome/pro-light-svg-icons';
 import { 
   faFileUpload,
   faSpinner,

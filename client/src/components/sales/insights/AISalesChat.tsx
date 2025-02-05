@@ -158,7 +158,7 @@ export function AISalesChat() {
             />
             <Button type="submit" disabled={isLoading || isAnalyzing || !input.trim()}>
               <FontAwesomeIcon 
-                icon="paper-plane" 
+                icon={["fal", "paper-plane"]} 
                 className={cn(
                   "h-4 w-4",
                   isLoading && "animate-pulse"
