@@ -8,95 +8,47 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import {
-  faEnvelope,
-  faEye,
-  faPaperPlane,
-  faCheck,
-  faClock,
-  faUser,
-  faCalendarAlt,
-  faBuilding,
-  faPlus,
-  faEdit,
-  faTrash,
-  faChartLine,
-  faSync,
-  faStar
-} from "@fortawesome/free-solid-svg-icons";
 
-// Mock data for demonstration
-const mockEmailTemplates = [
-  {
-    id: 1,
-    name: "Initial Contact",
-    subject: "Discussing Manufacturing Solutions for [Company]",
-    body: "Dear [Name],\n\nI hope this email finds you well...",
-    usageCount: 45,
-    openRate: "68%",
-    category: "sales",
-    lastModified: "2025-02-04"
-  },
-  {
-    id: 2,
-    name: "Follow-up Meeting",
-    subject: "Next Steps - [Company] Manufacturing Project",
-    body: "Hi [Name],\n\nThank you for your time yesterday...",
-    usageCount: 32,
-    openRate: "75%",
-    category: "follow-up",
-    lastModified: "2025-02-03"
-  }
-];
+// Import our new components
+import { EmailTemplateEditor } from "./EmailTemplateEditor";
+import { EmailCampaignPanel } from "./EmailCampaignPanel";
 
-const mockEmailActivity = [
-  {
-    id: 1,
-    recipient: "Michael Chen",
-    recipientEmail: "michael.chen@techcorp.com",
-    company: "TechCorp Industries",
-    subject: "Manufacturing Solutions Proposal",
-    sentAt: "2025-02-04T10:30:00",
-    status: "opened",
-    openCount: 3,
-    clickRate: "15%",
-    scheduledFor: null
-  },
-  {
-    id: 2,
-    recipient: "Lisa Rodriguez",
-    recipientEmail: "l.rodriguez@globalmanufacturing.com",
-    company: "Global Manufacturing Co",
-    subject: "Follow-up: Assembly System Discussion",
-    sentAt: "2025-02-04T14:15:00",
-    status: "sent",
-    openCount: 0,
-    clickRate: "0%",
-    scheduledFor: "2025-02-06T09:00:00"
-  }
-];
+interface Campaign {
+  id: string;
+  name: string;
+  subject: string;
+  template: string;
+  status: 'draft' | 'scheduled' | 'active' | 'completed';
+  schedule: string;
+  targetAudience: string;
+  stats: {
+    sent: number;
+    opened: number;
+    clicked: number;
+    responded: number;
+  };
+}
 
-const mockAnalytics = {
-  totalSent: 156,
-  openRate: "42%",
-  clickRate: "12%",
-  responseRate: "8%",
-  avgResponseTime: "3.2 hours",
+const mockEmailAnalytics = {
+  sent: 156,
+  opened: 89,
+  clicked: 34,
+  responded: 12,
+  averageResponseTime: "3.2 hours",
   bestTimeToSend: "Tuesday 10:00 AM",
   topPerformingSubject: "Manufacturing Solutions Proposal",
 };
 
 export function EmailDashboard() {
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [selectedTab, setSelectedTab] = useState("overview");
   const { toast } = useToast();
 
-  const handleSendEmail = async (data) => {
+  const handleSendEmail = async (data: any) => {
     try {
-      // Here we would integrate with Azure Email service
+      // Here we would integrate with email service
       toast({
         title: "Success",
         description: "Email sent successfully",
@@ -110,7 +62,7 @@ export function EmailDashboard() {
     }
   };
 
-  const handleScheduleEmail = async (data) => {
+  const handleScheduleEmail = async () => {
     try {
       toast({
         title: "Success",
@@ -130,13 +82,15 @@ export function EmailDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Email Communications</h2>
-          <p className="text-muted-foreground">Manage and track your sales emails</p>
+          <p className="text-muted-foreground">
+            Manage campaigns, templates, and track performance
+          </p>
         </div>
         <div className="flex gap-2">
           <Dialog>
             <DialogTrigger asChild>
               <Button>
-                <FontAwesomeIcon icon={faPaperPlane} className="mr-2" />
+                <FontAwesomeIcon icon="paper-plane" className="mr-2" />
                 New Email
               </Button>
             </DialogTrigger>
@@ -158,7 +112,7 @@ export function EmailDashboard() {
                       </SelectContent>
                     </Select>
                     <Button variant="outline" size="icon">
-                      <FontAwesomeIcon icon={faPlus} />
+                      <FontAwesomeIcon icon="plus" />
                     </Button>
                   </div>
                 </div>
@@ -173,11 +127,7 @@ export function EmailDashboard() {
                       <SelectValue placeholder="Select a template" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockEmailTemplates.map(template => (
-                        <SelectItem key={template.id} value={template.id.toString()}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
+                      {/* Template options will be populated dynamically */}
                     </SelectContent>
                   </Select>
                 </div>
@@ -190,7 +140,7 @@ export function EmailDashboard() {
                   <div className="flex gap-2">
                     <Input type="datetime-local" className="w-full" />
                     <Button variant="outline" onClick={handleScheduleEmail}>
-                      <FontAwesomeIcon icon={faClock} className="mr-2" />
+                      <FontAwesomeIcon icon="clock" className="mr-2" />
                       Schedule
                     </Button>
                   </div>
@@ -199,7 +149,7 @@ export function EmailDashboard() {
               <DialogFooter>
                 <Button variant="outline">Save Draft</Button>
                 <Button onClick={handleSendEmail}>
-                  <FontAwesomeIcon icon={faPaperPlane} className="mr-2" />
+                  <FontAwesomeIcon icon="paper-plane" className="mr-2" />
                   Send Now
                 </Button>
               </DialogFooter>
@@ -208,11 +158,11 @@ export function EmailDashboard() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -225,193 +175,87 @@ export function EmailDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
+                    <span>Emails Sent</span>
+                    <Badge variant="default">{mockEmailAnalytics.sent}</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
                     <span>Open Rate</span>
-                    <Badge variant="default">{mockAnalytics.openRate}</Badge>
+                    <Badge variant="default">
+                      {((mockEmailAnalytics.opened / mockEmailAnalytics.sent) * 100).toFixed(1)}%
+                    </Badge>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Click Rate</span>
-                    <Badge variant="default">{mockAnalytics.clickRate}</Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Response Rate</span>
-                    <Badge variant="default">{mockAnalytics.responseRate}</Badge>
+                    <Badge variant="default">
+                      {((mockEmailAnalytics.clicked / mockEmailAnalytics.sent) * 100).toFixed(1)}%
+                    </Badge>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
             <Card>
               <CardHeader>
-                <CardTitle>Best Sending Times</CardTitle>
+                <CardTitle>Response Metrics</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span>Best Time</span>
-                    <Badge variant="default">{mockAnalytics.bestTimeToSend}</Badge>
+                    <span>Response Rate</span>
+                    <Badge variant="default">
+                      {((mockEmailAnalytics.responded / mockEmailAnalytics.sent) * 100).toFixed(1)}%
+                    </Badge>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Avg Response Time</span>
-                    <Badge variant="default">{mockAnalytics.avgResponseTime}</Badge>
+                    <Badge variant="default">{mockEmailAnalytics.averageResponseTime}</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Best Send Time</span>
+                    <Badge variant="default">{mockEmailAnalytics.bestTimeToSend}</Badge>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Top Performing</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <div>
                     <span className="text-sm text-muted-foreground">Subject Line</span>
-                    <p className="font-medium">{mockAnalytics.topPerformingSubject}</p>
+                    <p className="font-medium">{mockEmailAnalytics.topPerformingSubject}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="campaigns">
+          <EmailCampaignPanel />
         </TabsContent>
 
         <TabsContent value="templates">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Email Templates</CardTitle>
-              <Button onClick={() => setShowTemplateEditor(true)}>
-                <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                New Template
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Template Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Usage</TableHead>
-                    <TableHead>Open Rate</TableHead>
-                    <TableHead>Last Modified</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockEmailTemplates.map((template) => (
-                    <TableRow key={template.id}>
-                      <TableCell>{template.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {template.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{template.usageCount} times</TableCell>
-                      <TableCell>{template.openRate}</TableCell>
-                      <TableCell>{new Date(template.lastModified).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">
-                            <FontAwesomeIcon icon={faEdit} />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <FontAwesomeIcon icon={faTrash} />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="activity">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Email Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Recipient</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Sent/Scheduled</TableHead>
-                    <TableHead>Performance</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockEmailActivity.map((email) => (
-                    <TableRow key={email.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{email.recipient}</div>
-                          <div className="text-sm text-muted-foreground">{email.company}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{email.subject}</TableCell>
-                      <TableCell>
-                        <Badge variant={email.status === 'opened' ? 'default' : 'secondary'}>
-                          <FontAwesomeIcon
-                            icon={email.status === 'opened' ? faEye : faClock}
-                            className="mr-1"
-                          />
-                          {email.status === 'opened' ? `Opened (${email.openCount}x)` : 'Sent'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {email.scheduledFor
-                          ? `Scheduled for ${new Date(email.scheduledFor).toLocaleString()}`
-                          : new Date(email.sentAt).toLocaleString()
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-sm">Click Rate: {email.clickRate}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">
-                            <FontAwesomeIcon icon={faSync} />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <FontAwesomeIcon icon={faEdit} />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <EmailTemplateEditor />
         </TabsContent>
 
         <TabsContent value="analytics">
-          <div className="grid gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Analytics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <div className="text-lg font-medium">Total Sent</div>
-                    <div className="text-3xl font-bold">{mockAnalytics.totalSent}</div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-lg font-medium">Open Rate</div>
-                    <div className="text-3xl font-bold">{mockAnalytics.openRate}</div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-lg font-medium">Click Rate</div>
-                    <div className="text-3xl font-bold">{mockAnalytics.clickRate}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Campaign Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Add detailed analytics visualization here */}
+                <p className="text-muted-foreground">
+                  Detailed campaign performance metrics and trends will be displayed here
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
