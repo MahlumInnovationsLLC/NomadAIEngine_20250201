@@ -57,6 +57,57 @@ import {
 import { DealCard } from "./deals/DealCard";
 import { useToast } from "@/hooks/use-toast";
 
+const mockForecastData = {
+  monthly: [
+    { month: "Jan", actual: 45000, forecast: 42000, pipeline: 65000 },
+    { month: "Feb", actual: 52000, forecast: 48000, pipeline: 72000 },
+    { month: "Mar", actual: 48000, forecast: 51000, pipeline: 68000 },
+    { month: "Apr", actual: 61000, forecast: 55000, pipeline: 85000 },
+    { month: "May", actual: 55000, forecast: 58000, pipeline: 78000 },
+    { month: "Jun", forecast: 62000, pipeline: 88000 },
+    { month: "Jul", forecast: 65000, pipeline: 92000 },
+    { month: "Aug", forecast: 68000, pipeline: 95000 },
+    { month: "Sep", forecast: 71000, pipeline: 98000 },
+    { month: "Oct", forecast: 74000, pipeline: 102000 },
+    { month: "Nov", forecast: 77000, pipeline: 105000 },
+    { month: "Dec", forecast: 80000, pipeline: 110000 }
+  ],
+  metrics: {
+    currentQuarter: {
+      forecast: 185000,
+      pipeline: 255000,
+      probability: 0.75,
+      growth: 0.15
+    },
+    nextQuarter: {
+      forecast: 210000,
+      pipeline: 285000,
+      probability: 0.65,
+      growth: 0.18
+    },
+    yearEnd: {
+      forecast: 850000,
+      pipeline: 1200000,
+      probability: 0.55,
+      growth: 0.22
+    }
+  },
+  topDeals: [
+    {
+      name: "TechCorp Automation",
+      value: 75000,
+      probability: 0.8,
+      expectedClose: "2025-03-15"
+    },
+    {
+      name: "Global Manufacturing Line",
+      value: 120000,
+      probability: 0.6,
+      expectedClose: "2025-04-30"
+    }
+  ]
+};
+
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
   { month: "Feb", revenue: 52000, deals: 15, conversion: 32 },
@@ -165,6 +216,8 @@ const mockContacts = [
 
 export function SalesControlDashboard() {
   const [pipelineTimeframe, setPipelineTimeframe] = useState("30d");
+  const [forecastTimeframe, setForecastTimeframe] = useState("monthly");
+  const [showPipeline, setShowPipeline] = useState(true);
   const { toast } = useToast();
 
   const handleDealEdit = async (id: number, updatedData: any) => {
@@ -561,22 +614,217 @@ export function SalesControlDashboard() {
         </TabsContent>
 
         <TabsContent value="forecasting" className="space-y-4">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-2xl font-bold">Sales Forecast</h2>
+              <p className="text-muted-foreground">
+                Revenue predictions and pipeline analysis
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Select value={forecastTimeframe} onValueChange={setForecastTimeframe}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select timeframe" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly View</SelectItem>
+                  <SelectItem value="quarterly">Quarterly View</SelectItem>
+                  <SelectItem value="yearly">Yearly View</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                onClick={() => setShowPipeline(!showPipeline)}
+              >
+                <FontAwesomeIcon 
+                  icon={faChartLine} 
+                  className={`mr-2 ${showPipeline ? 'text-primary' : ''}`} 
+                />
+                Pipeline Overlay
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3 mb-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Quarter</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Forecast</span>
+                    <span className="font-bold">
+                      ${mockForecastData.metrics.currentQuarter.forecast.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Pipeline</span>
+                    <span className="font-bold">
+                      ${mockForecastData.metrics.currentQuarter.pipeline.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Probability</span>
+                    <Badge variant="secondary">
+                      {(mockForecastData.metrics.currentQuarter.probability * 100).toFixed(0)}%
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Growth</span>
+                    <Badge variant="default" className="bg-green-500">
+                      +{(mockForecastData.metrics.currentQuarter.growth * 100).toFixed(0)}%
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Next Quarter</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Forecast</span>
+                    <span className="font-bold">
+                      ${mockForecastData.metrics.nextQuarter.forecast.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Pipeline</span>
+                    <span className="font-bold">
+                      ${mockForecastData.metrics.nextQuarter.pipeline.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Probability</span>
+                    <Badge variant="secondary">
+                      {(mockForecastData.metrics.nextQuarter.probability * 100).toFixed(0)}%
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Growth</span>
+                    <Badge variant="default" className="bg-green-500">
+                      +{(mockForecastData.metrics.nextQuarter.growth * 100).toFixed(0)}%
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Year-End Projection</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Forecast</span>
+                    <span className="font-bold">
+                      ${mockForecastData.metrics.yearEnd.forecast.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Pipeline</span>
+                    <span className="font-bold">
+                      ${mockForecastData.metrics.yearEnd.pipeline.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Probability</span>
+                    <Badge variant="secondary">
+                      {(mockForecastData.metrics.yearEnd.probability * 100).toFixed(0)}%
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Growth</span>
+                    <Badge variant="default" className="bg-green-500">
+                      +{(mockForecastData.metrics.yearEnd.growth * 100).toFixed(0)}%
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle>Sales Forecast</CardTitle>
+              <CardTitle>Revenue Forecast</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={mockSalesData}>
+              <ResponsiveContainer width="100%" height={400}>
+                <LineChart data={mockForecastData.monthly}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
                   <Legend />
-                  <Line type="monotone" dataKey="revenue" name="Actual Revenue" stroke="#8884d8" />
-                  <Line type="monotone" dataKey="deals" name="Projected Revenue" stroke="#82ca9d" />
+                  <Line
+                    type="monotone"
+                    dataKey="actual"
+                    name="Actual Revenue"
+                    stroke="#8884d8"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="forecast"
+                    name="Forecasted Revenue"
+                    stroke="#82ca9d"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                  />
+                  {showPipeline && (
+                    <Line
+                      type="monotone"
+                      dataKey="pipeline"
+                      name="Pipeline Revenue"
+                      stroke="#ffc658"
+                      strokeWidth={2}
+                      strokeDasharray="3 3"
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Deal Forecast</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Deal Name</TableHead>
+                    <TableHead>Value</TableHead>
+                    <TableHead>Probability</TableHead>
+                    <TableHead>Expected Close</TableHead>
+                    <TableHead>Weighted Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockForecastData.topDeals.map((deal) => (
+                    <TableRow key={deal.name}>
+                      <TableCell>{deal.name}</TableCell>
+                      <TableCell>${deal.value.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {(deal.probability * 100).toFixed(0)}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(deal.expectedClose).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-bold">
+                        ${(deal.value * deal.probability).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -600,7 +848,7 @@ export function SalesControlDashboard() {
                     <TableHead>Associated Deal</TableHead>
                     <TableHead>Value</TableHead>
                   </TableRow>
-                </TableHeader>
+                </</TableHeader>
                 <TableBody>
                   <TableRow>
                     <TableCell>Custom Automation Line</TableCell>
