@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Resizable } from "react-resizable";
 import type { 
   FloorPlan, 
   FloorPlanZone, 
@@ -33,6 +35,16 @@ export function ProjectMapView() {
   const [showFloorPlanDialog, setShowFloorPlanDialog] = useState(false);
   const [selectedFloorPlan, setSelectedFloorPlan] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [newFloorPlan, setNewFloorPlan] = useState({
+    name: '',
+    width: 1200,
+    height: 800,
+    scale: 50, // pixels per meter
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedZone, setSelectedZone] = useState<FloorPlanZone | null>(null);
+  const [showZoneDialog, setShowZoneDialog] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Queries
   const { data: floorPlans = [] } = useQuery<FloorPlan[]>({
@@ -52,6 +64,37 @@ export function ProjectMapView() {
   });
 
   // Mutations
+  const createFloorPlanMutation = useMutation({
+    mutationFn: async (data: { name: string, imageFile: File }) => {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('image', data.imageFile);
+
+      const response = await fetch('/api/manufacturing/floor-plans', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to create floor plan');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/floor-plans'] });
+      setShowFloorPlanDialog(false);
+      toast({
+        title: "Success",
+        description: "Floor plan created successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateLocationMutation = useMutation({
     mutationFn: updateProjectLocation,
     onSuccess: () => {
@@ -91,6 +134,27 @@ export function ProjectMapView() {
       startDate: new Date().toISOString(),
     });
   }, [selectedFloorPlan, updateLocationMutation]);
+
+  const handleCreateFloorPlan = async () => {
+    if (!imageInputRef.current?.files?.[0]) {
+      toast({
+        title: "Error",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createFloorPlanMutation.mutate({
+      name: newFloorPlan.name,
+      imageFile: imageInputRef.current.files[0],
+    });
+  };
+
+  const filteredProjects = projects.filter(project => 
+    project.projectNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    project.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const currentFloorPlan = floorPlans.find(fp => fp.id === selectedFloorPlan);
 
@@ -173,6 +237,12 @@ export function ProjectMapView() {
             <Card>
               <CardHeader>
                 <CardTitle>Available Projects</CardTitle>
+                <Input
+                  placeholder="Search projects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="mt-2"
+                />
               </CardHeader>
               <CardContent>
                 <Droppable droppableId="projects-list">
@@ -182,7 +252,7 @@ export function ProjectMapView() {
                       ref={provided.innerRef}
                       className="space-y-2"
                     >
-                      {projects
+                      {filteredProjects
                         .filter(p => !projectLocations.some(pl => pl.projectId === p.id))
                         .map((project, index) => (
                           <Draggable
@@ -239,12 +309,18 @@ export function ProjectMapView() {
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className="absolute border-2 border-dashed rounded-lg"
+                          className={`absolute border-2 border-dashed rounded-lg ${isEditing ? 'cursor-move' : ''}`}
                           style={{
                             left: zone.coordinates.x,
                             top: zone.coordinates.y,
                             width: zone.coordinates.width,
                             height: zone.coordinates.height,
+                          }}
+                          onClick={() => {
+                            if (isEditing) {
+                              setSelectedZone(zone);
+                              setShowZoneDialog(true);
+                            }
                           }}
                         >
                           <div className="p-2 text-sm font-medium">
@@ -252,19 +328,29 @@ export function ProjectMapView() {
                           </div>
                           {projectLocations
                             .filter(pl => pl.zoneId === zone.id)
-                            .map((pl, index) => {
+                            .map((pl) => {
                               const project = projects.find(p => p.id === pl.projectId);
                               return (
-                                <div
+                                <Resizable
                                   key={pl.projectId}
-                                  className="absolute p-2 bg-primary text-primary-foreground rounded"
-                                  style={{
-                                    left: pl.position.x,
-                                    top: pl.position.y,
+                                  width={200}
+                                  height={100}
+                                  onResize={(e, { size }) => {
+                                    // Handle resize
                                   }}
+                                  draggableOpts={{ grid: [10, 10] }}
                                 >
-                                  {project?.projectNumber}
-                                </div>
+                                  <div
+                                    className="absolute p-2 bg-primary text-primary-foreground rounded cursor-move"
+                                    style={{
+                                      left: pl.position.x,
+                                      top: pl.position.y,
+                                    }}
+                                  >
+                                    <div className="font-medium">{project?.projectNumber}</div>
+                                    <div className="text-sm">{project?.name}</div>
+                                  </div>
+                                </Resizable>
                               );
                             })}
                           {provided.placeholder}
@@ -287,13 +373,47 @@ export function ProjectMapView() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Name</label>
-              <Input placeholder="Production Floor A" />
+              <Input 
+                placeholder="Production Floor A" 
+                value={newFloorPlan.name}
+                onChange={(e) => setNewFloorPlan(prev => ({ ...prev, name: e.target.value }))}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Upload Floor Plan Image</label>
-              <Input type="file" accept="image/*" />
+              <Input 
+                type="file" 
+                accept="image/*" 
+                ref={imageInputRef}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Width (pixels)</label>
+                <Input
+                  type="number"
+                  value={newFloorPlan.width}
+                  onChange={(e) => setNewFloorPlan(prev => ({ ...prev, width: parseInt(e.target.value) }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Height (pixels)</label>
+                <Input
+                  type="number"
+                  value={newFloorPlan.height}
+                  onChange={(e) => setNewFloorPlan(prev => ({ ...prev, height: parseInt(e.target.value) }))}
+                />
+              </div>
             </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFloorPlanDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateFloorPlan}>
+              Create Floor Plan
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
