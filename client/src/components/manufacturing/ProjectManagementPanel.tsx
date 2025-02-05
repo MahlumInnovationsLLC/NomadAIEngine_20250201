@@ -4,7 +4,26 @@ import { Form } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { faFolder, faCircleDot, faCheckCircle, faEdit, faRotateLeft, faLocationDot, faGrid2, faTable, faArrowUp, faArrowDown, faFileImport } from '@fortawesome/pro-light-svg-icons';
+import { 
+  faFolder, 
+  faCircleDot, 
+  faCheckCircle, 
+  faEdit, 
+  faRotateLeft, 
+  faLocationDot, 
+  faGrid2, 
+  faTable, 
+  faArrowUp, 
+  faArrowDown, 
+  faFileImport,
+  faUsers,
+  faPlus,
+  faSpinner,
+  faEye,
+  faCloud,
+  faCloudCheck,
+  faCloudArrowUp
+} from '@fortawesome/pro-light-svg-icons';
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
