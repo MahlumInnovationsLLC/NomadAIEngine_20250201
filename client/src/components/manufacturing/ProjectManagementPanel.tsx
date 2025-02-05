@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, useForm } from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,6 +168,19 @@ function calculateProjectStatus(project: Project | null): ProjectStatus {
   return "NOT STARTED";
 }
 
+const formSchema = z.object({
+  projectNumber: z.string(),
+  location: z.string().optional(),
+  team: z.string().optional(),
+  contractDate: z.string().optional(),
+  ntcTesting: z.string().optional(),
+  qcStart: z.string().optional(),
+  executiveReview: z.string().optional(),
+  ship: z.string().optional(),
+  delivery: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 export function ProjectManagementPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -218,12 +233,9 @@ export function ProjectManagementPanel() {
   const updateProjectMutation = useMutation({
     mutationFn: async (project: Partial<Project>) => {
       console.log('Starting mutation with project data:', project);
+
       const cleanedData = {
         ...project,
-        ...(project.contractDate && { contractDate: new Date(project.contractDate).toISOString() }),
-        ...(project.fabricationStart && { fabricationStart: new Date(project.fabricationStart).toISOString() }),
-        ...(project.assemblyStart && { assemblyStart: new Date(project.assemblyStart).toISOString() }),
-        ...(project.wrapGraphics && { wrapGraphics: new Date(project.wrapGraphics).toISOString() }),
         ...(project.ntcTesting && { ntcTesting: new Date(project.ntcTesting).toISOString() }),
         ...(project.qcStart && { qcStart: new Date(project.qcStart).toISOString() }),
         ...(project.executiveReview && { executiveReview: new Date(project.executiveReview).toISOString() }),
@@ -231,7 +243,7 @@ export function ProjectManagementPanel() {
         ...(project.delivery && { delivery: new Date(project.delivery).toISOString() })
       };
 
-      console.log('Cleaned data for API call:', cleanedData);
+      console.log('Sending API request with data:', cleanedData);
 
       const response = await fetch(`/api/manufacturing/projects/${project.id}`, {
         method: 'PATCH',
@@ -259,10 +271,9 @@ export function ProjectManagementPanel() {
         description: "Project updated successfully"
       });
       setShowEditDialog(false);
-      setSelectedProject(prev => prev ? { ...prev, ...updatedProject } : null);
     },
     onError: (error) => {
-      console.error('Mutation error handler:', error);
+      console.error('Mutation error:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update project",
@@ -446,33 +457,11 @@ export function ProjectManagementPanel() {
     return date.toISOString().split('T')[0];
   };
 
-  const formSchema = z.object({
-    projectNumber: z.string(),
-    location: z.string().optional(),
-    team: z.string().optional(),
-    contractDate: z.string().optional(),
-    paymentMilestones: z.string().optional(),
-    lltsOrdered: z.string().optional(),
-    meAssigned: z.string().optional(),
-    meCadProgress: z.number().optional(),
-    eeAssigned: z.string().optional(),
-    eeDesignProgress: z.number().optional(),
-    itAssigned: z.string().optional(),
-    itDesignProgress: z.number().optional(),
-    ntcAssigned: z.string().optional(),
-    ntcDesignProgress: z.number().optional(),
-    fabricationStart: z.string().optional(),
-    assemblyStart: z.string().optional(),
-    wrapGraphics: z.string().optional(),
-    ntcTesting: z.string().optional(),
-    qcStart: z.string().optional(),
-    executiveReview: z.string().optional(),
-    executiveReviewTime: z.string().optional(),
-    ship: z.string().optional(),
-    delivery: z.string().optional(),
-    notes: z.string().optional(),
-  });
 
+  const methods = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: selectedProject || {}
+  });
 
   return (
     <div className="space-y-6">
@@ -861,7 +850,7 @@ export function ProjectManagementPanel() {
                                 <div className="flex justify-between">
                                   <span>Ship:</span>
                                   <span>{formatDate(selectedProject.ship)}</span>
-                               </div>
+                                </div>
                                 <div className="flex justify-between">
                                   <span>Delivery:</span>
                                   <span>{formatDate(selectedProject.delivery)}</span>
@@ -1004,36 +993,26 @@ export function ProjectManagementPanel() {
       </AlertDialog>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-[800px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
           {selectedProject && (
-            <Form
-              key={formKey}
+            <form
               onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
-                console.log('Form submitted');
+                console.log('Form submit triggered');
 
-                const formElement = e.currentTarget;
-                const formData = new FormData(formElement);
+                const formData = new FormData(e.currentTarget);
                 const data: Record<string, any> = {
                   id: selectedProject.id
                 };
 
-                console.log('Processing form data');
                 for (const [key, value] of formData.entries()) {
                   if (!value) continue;
-
-                  // Convert number fields
-                  if (['meCadProgress', 'eeDesignProgress', 'itDesignProgress', 'ntcDesignProgress'].includes(key)) {
-                    data[key] = parseFloat(value as string) || 0;
-                  } else {
-                    data[key] = value;
-                  }
+                  data[key] = value;
                 }
 
-                // Handle executive review time
                 if (data.executiveReview && data.executiveReviewTime) {
                   const date = new Date(data.executiveReview);
                   const [hours, minutes] = (data.executiveReviewTime as string).split(':');
@@ -1042,50 +1021,36 @@ export function ProjectManagementPanel() {
                   delete data.executiveReviewTime;
                 }
 
-                console.log('Submitting data:', data);
-                updateProjectMutation.mutate(data, {
-                  onSuccess: () => {
-                    console.log('Update successful');
-                    setShowEditDialog(false);
-                    queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
-                  },
-                  onError: (error) => {
-                    console.error('Update failed:', error);
-                    toast({
-                      title: "Error",
-                      description: error instanceof Error ? error.message : "Failed to update project",
-                      variant: "destructive"
-                    });
-                  }
-                });
+                console.log('Submitting form data:', data);
+                updateProjectMutation.mutate(data);
               }}
             >
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium">Project Number</label>
-                    <Input 
+                    <Input
                       name="projectNumber"
                       defaultValue={selectedProject?.projectNumber}
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium">Location</label>
-                    <Input 
+                    <Input
                       name="location"
                       defaultValue={selectedProject?.location}
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium">Team</label>
-                    <Input 
+                    <Input
                       name="team"
                       defaultValue={selectedProject?.team}
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium">Contract Date</label>
-                    <Input 
+                    <Input
                       type="date"
                       name="contractDate"
                       defaultValue={formatDateForInput(selectedProject?.contractDate)}
@@ -1093,14 +1058,14 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Payment Milestones</label>
-                    <Input 
+                    <Input
                       name="paymentMilestones"
                       defaultValue={selectedProject?.paymentMilestones}
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium">LLTS Ordered</label>
-                    <Input 
+                    <Input
                       name="lltsOrdered"
                       defaultValue={selectedProject?.lltsOrdered}
                     />
@@ -1110,14 +1075,14 @@ export function ProjectManagementPanel() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium">ME Assigned</label>
-                    <Input 
+                    <Input
                       name="meAssigned"
                       defaultValue={selectedProject?.meAssigned}
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium">ME CAD Progress (%)</label>
-                    <Input 
+                    <Input
                       type="number"
                       name="meCadProgress"
                       defaultValue={selectedProject?.meCadProgress}
@@ -1125,14 +1090,14 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">EE Assigned</label>
-                    <Input 
+                    <Input
                       name="eeAssigned"
                       defaultValue={selectedProject?.eeAssigned}
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium">EE Design Progress (%)</label>
-                    <Input 
+                    <Input
                       type="number"
                       name="eeDesignProgress"
                       defaultValue={selectedProject?.eeDesignProgress}
@@ -1140,14 +1105,14 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">IT Assigned</label>
-                    <Input 
+                    <Input
                       name="itAssigned"
                       defaultValue={selectedProject?.itAssigned}
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium">IT Design Progress (%)</label>
-                    <Input 
+                    <Input
                       type="number"
                       name="itDesignProgress"
                       defaultValue={selectedProject?.itDesignProgress}
@@ -1159,14 +1124,14 @@ export function ProjectManagementPanel() {
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <div>
                   <label className="text-sm font-medium">NTC Assigned</label>
-                  <Input 
+                  <Input
                     name="ntcAssigned"
                     defaultValue={selectedProject?.ntcAssigned}
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium">NTC Design Progress (%)</label>
-                  <Input 
+                  <Input
                     type="number"
                     name="ntcDesignProgress"
                     defaultValue={selectedProject?.ntcDesignProgress}
@@ -1178,7 +1143,7 @@ export function ProjectManagementPanel() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">Fabrication Start</label>
-                    <Input 
+                    <Input
                       type="date"
                       name="fabricationStart"
                       defaultValue={formatDateForInput(selectedProject?.fabricationStart)}
@@ -1186,7 +1151,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Assembly Start</label>
-                    <Input 
+                    <Input
                       type="date"
                       name="assemblyStart"
                       defaultValue={formatDateForInput(selectedProject?.assemblyStart)}
@@ -1194,7 +1159,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Wrap/Graphics</label>
-                    <Input 
+                    <Input
                       type="date"
                       name="wrapGraphics"
                       defaultValue={formatDateForInput(selectedProject?.wrapGraphics)}
@@ -1202,7 +1167,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">NTC Testing</label>
-                    <Input 
+                    <Input
                       type="date"
                       name="ntcTesting"
                       defaultValue={formatDateForInput(selectedProject?.ntcTesting)}
@@ -1226,7 +1191,7 @@ export function ProjectManagementPanel() {
                       <Input
                         type="number"
                         name="ntcDays"
-                        defaultValue={selectedProject?.ntcTesting && selectedProject?.qcStart ? 
+                        defaultValue={selectedProject?.ntcTesting && selectedProject?.qcStart ?
                           calculateWorkingDays(selectedProject.ntcTesting, selectedProject.qcStart) : 0}
                         readOnly
                       />
@@ -1237,7 +1202,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">QC Start</label>
-                    <Input 
+                    <Input
                       type="date"
                       name="qcStart"
                       defaultValue={formatDateForInput(selectedProject?.qcStart)}
@@ -1281,7 +1246,7 @@ export function ProjectManagementPanel() {
                   <div className="col-span-2">
                     <label className="text-sm font-medium">Executive Review</label>
                     <div className="flex gap-2">
-                      <Input 
+                      <Input
                         type="date"
                         name="executiveReview"
                         defaultValue={formatDateForInput(selectedProject?.executiveReview)}
@@ -1298,7 +1263,7 @@ export function ProjectManagementPanel() {
                           }
                         }}
                       />
-                      <Input 
+                      <Input
                         type="time"
                         name="executiveReviewTime"
                         defaultValue={selectedProject?.executiveReview ? new Date(selectedProject.executiveReview).toTimeString().slice(0,5) : ''}
@@ -1308,7 +1273,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Ship</label>
-                    <Input 
+                    <Input
                       type="date"
                       name="ship"
                       defaultValue={formatDateForInput(selectedProject?.ship)}
@@ -1327,7 +1292,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Delivery</label>
-                    <Input 
+                    <Input
                       type="date"
                       name="delivery"
                       defaultValue={formatDateForInput(selectedProject?.delivery)}
@@ -1337,7 +1302,7 @@ export function ProjectManagementPanel() {
 
                 <div>
                   <label className="text-sm font-medium">Notes</label>
-                  <Input 
+                  <Input
                     name="notes"
                     defaultValue={selectedProject?.notes}
                   />
@@ -1345,11 +1310,11 @@ export function ProjectManagementPanel() {
               </div>
 
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                <Button variant="outline" onClick={() => setShowEditDialog(false)} type="button">
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={updateProjectMutation.isPending}
                   onClick={() => {
                     console.log('Update Project button clicked');
@@ -1358,7 +1323,7 @@ export function ProjectManagementPanel() {
                   {updateProjectMutation.isPending ? "Updating..." : "Update Project"}
                 </Button>
               </div>
-            </Form>
+            </form>
           )}
         </DialogContent>
       </Dialog>
