@@ -34,6 +34,9 @@ import {
   faPlus
 } from "@fortawesome/free-solid-svg-icons";
 import { AIInsightsDashboard } from "../insights/AIInsightsDashboard";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useToast } from "@/hooks/use-toast";
 
 interface DealCardProps {
   deal: {
@@ -61,10 +64,43 @@ interface DealCardProps {
       documentsShared: number;
     };
   };
-  onEdit: (id: number) => void;
+  onEdit: (id: number, updatedData: any) => void;
 }
 
 export function DealCard({ deal, onEdit }: DealCardProps) {
+  const [isManaging, setIsManaging] = useState(false);
+  const { toast } = useToast();
+  const form = useForm({
+    defaultValues: {
+      company: deal.company,
+      value: deal.value,
+      stage: deal.stage,
+      probability: deal.probability,
+      manufacturingProject: deal.manufacturingProject,
+      nextSteps: deal.nextSteps,
+      qualificationStatus: deal.qualificationStatus,
+    }
+  });
+
+  const handleManageSubmit = async (data: any) => {
+    try {
+      setIsManaging(true);
+      await onEdit(deal.id, data);
+      toast({
+        title: "Deal Updated",
+        description: "The deal has been successfully updated.",
+      });
+      setIsManaging(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update deal. Please try again.",
+        variant: "destructive",
+      });
+      setIsManaging(false);
+    }
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-500";
     if (score >= 60) return "text-yellow-500";
@@ -330,10 +366,12 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
               <Dialog>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button onClick={() => onEdit(deal.id)}>
-                      <FontAwesomeIcon icon={faGears} className="mr-2" />
-                      Manage
-                    </Button>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <FontAwesomeIcon icon={faGears} className="mr-2" />
+                        Manage
+                      </Button>
+                    </DialogTrigger>
                   </TooltipTrigger>
                   <TooltipContent>Manage Deal Settings</TooltipContent>
                 </Tooltip>
@@ -341,65 +379,90 @@ export function DealCard({ deal, onEdit }: DealCardProps) {
                   <DialogHeader>
                     <DialogTitle>Manage Deal: {deal.company}</DialogTitle>
                   </DialogHeader>
-                  <div className="grid gap-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="company">Company Name</Label>
-                        <Input id="company" defaultValue={deal.company} />
+                  <form onSubmit={form.handleSubmit(handleManageSubmit)}>
+                    <div className="grid gap-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="company">Company Name</Label>
+                          <Input {...form.register("company")} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="value">Deal Value</Label>
+                          <Input
+                            type="number"
+                            {...form.register("value", { valueAsNumber: true })}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="stage">Stage</Label>
+                          <Select
+                            value={form.watch("stage")}
+                            onValueChange={(value) => form.setValue("stage", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Lead">Lead</SelectItem>
+                              <SelectItem value="Meeting Scheduled">Meeting Scheduled</SelectItem>
+                              <SelectItem value="Proposal Sent">Proposal Sent</SelectItem>
+                              <SelectItem value="Contract Review">Contract Review</SelectItem>
+                              <SelectItem value="Closed Won">Closed Won</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="probability">Probability (%)</Label>
+                          <Input
+                            type="number"
+                            {...form.register("probability", { valueAsNumber: true })}
+                          />
+                        </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="value">Deal Value</Label>
-                        <Input
-                          id="value"
-                          type="number"
-                          defaultValue={deal.value}
-                        />
+                        <Label htmlFor="manufacturingProject">Manufacturing Project</Label>
+                        <Input {...form.register("manufacturingProject")} />
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="stage">Stage</Label>
-                        <Select defaultValue={deal.stage}>
+                        <Label htmlFor="nextSteps">Next Steps</Label>
+                        <Textarea {...form.register("nextSteps")} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="qualificationStatus">Qualification Status</Label>
+                        <Select
+                          value={form.watch("qualificationStatus")}
+                          onValueChange={(value) => form.setValue("qualificationStatus", value)}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Lead">Lead</SelectItem>
-                            <SelectItem value="Meeting Scheduled">Meeting Scheduled</SelectItem>
-                            <SelectItem value="Proposal Sent">Proposal Sent</SelectItem>
-                            <SelectItem value="Contract Review">Contract Review</SelectItem>
-                            <SelectItem value="Closed Won">Closed Won</SelectItem>
+                            <SelectItem value="Highly Qualified">Highly Qualified</SelectItem>
+                            <SelectItem value="Qualified">Qualified</SelectItem>
+                            <SelectItem value="Partially Qualified">Partially Qualified</SelectItem>
+                            <SelectItem value="Unqualified">Unqualified</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="probability">Probability (%)</Label>
-                        <Input
-                          id="probability"
-                          type="number"
-                          defaultValue={deal.probability}
-                        />
-                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          type="button"
+                          onClick={() => form.reset()}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={isManaging}
+                        >
+                          {isManaging ? "Saving..." : "Save Changes"}
+                        </Button>
+                      </DialogFooter>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="manufacturingProject">Manufacturing Project</Label>
-                      <Input
-                        id="manufacturingProject"
-                        defaultValue={deal.manufacturingProject}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="nextSteps">Next Steps</Label>
-                      <Textarea
-                        id="nextSteps"
-                        defaultValue={deal.nextSteps}
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline">Cancel</Button>
-                      <Button type="submit">Save Changes</Button>
-                    </DialogFooter>
-                  </div>
+                  </form>
                 </DialogContent>
               </Dialog>
             </TooltipProvider>

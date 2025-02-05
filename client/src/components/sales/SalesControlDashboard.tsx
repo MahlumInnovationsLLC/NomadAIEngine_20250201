@@ -55,7 +55,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DealCard } from "./deals/DealCard";
-
+import { useToast } from '@radix-ui/react-toast'; // Assuming this is where useToast comes from
 
 const mockSalesData = [
   { month: "Jan", revenue: 45000, deals: 12, conversion: 28 },
@@ -165,6 +165,27 @@ const mockContacts = [
 
 export function SalesControlDashboard() {
   const [pipelineTimeframe, setPipelineTimeframe] = useState("30d");
+  const { toast } = useToast();
+
+  const handleDealEdit = async (id: number, updatedData: any) => {
+    try {
+      // In a real application, this would make an API call to update the deal
+      console.log('Edit deal:', id, updatedData);
+
+      // For demo purposes, show a success toast
+      toast({
+        title: "Success",
+        description: "Deal updated successfully",
+      });
+    } catch (error) {
+      console.error('Failed to update deal:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update deal. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -438,10 +459,7 @@ export function SalesControlDashboard() {
                     <DealCard 
                       key={deal.id} 
                       deal={deal} 
-                      onEdit={(id) => {
-                        // Handle deal edit
-                        console.log('Edit deal:', id);
-                      }}
+                      onEdit={handleDealEdit}
                     />
                   ))}
                 </div>
