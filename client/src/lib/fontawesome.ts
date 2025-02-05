@@ -59,7 +59,13 @@ import {
   faBrain,
   faKey,
   faTriangleExclamation,
-  faPaperPlane
+  faPaperPlane,
+  faBold,
+  faItalic,
+  faHeading,
+  faListUl,
+  faListOl
+
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add all icons to the library
