@@ -37,6 +37,7 @@ export function InventoryManagement({
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [showStockAdjustment, setShowStockAdjustment] = useState(false);
   const [showAllocation, setShowAllocation] = useState(false);
+  const [filterABCClass, setFilterABCClass] = useState<'A' | 'B' | 'C' | null>(null);
 
   const { data: materials = [] } = useQuery<Material[]>({
     queryKey: ['/api/material/inventory', selectedWarehouse],
@@ -49,8 +50,9 @@ export function InventoryManagement({
   });
 
   const filteredMaterials = materials.filter(material =>
-    material.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    material.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    (material.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    material.sku.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (!filterABCClass || material.abcClass === filterABCClass)
   );
 
   const getStockStatusColor = (material: Material) => {
@@ -58,6 +60,15 @@ export function InventoryManagement({
     if (stockLevel <= material.minimumStock) return "bg-red-500";
     if (stockLevel <= material.reorderPoint) return "bg-yellow-500";
     return "bg-green-500";
+  };
+
+  const getABCClassBadge = (abcClass?: 'A' | 'B' | 'C') => {
+    switch (abcClass) {
+      case 'A': return <Badge className="bg-blue-500">Class A</Badge>;
+      case 'B': return <Badge className="bg-green-500">Class B</Badge>;
+      case 'C': return <Badge className="bg-yellow-500">Class C</Badge>;
+      default: return <Badge className="bg-gray-500">Unclassified</Badge>;
+    }
   };
 
   return (
@@ -93,6 +104,22 @@ export function InventoryManagement({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <FontAwesomeIcon icon="filter" className="mr-2" />
+                {filterABCClass ? `Class ${filterABCClass}` : "ABC Class"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setFilterABCClass(null)}>
+                All Classes
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterABCClass('A')}>Class A</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterABCClass('B')}>Class B</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterABCClass('C')}>Class C</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowStockAdjustment(true)}>
@@ -118,6 +145,9 @@ export function InventoryManagement({
                 <TableHead>SKU</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>ABC Class</TableHead>
+                <TableHead>Bin Location</TableHead>
+                <TableHead>Batch/Serial</TableHead>
                 <TableHead className="text-right">Current Stock</TableHead>
                 <TableHead className="text-right">Allocated</TableHead>
                 <TableHead className="text-right">Available</TableHead>
@@ -131,6 +161,16 @@ export function InventoryManagement({
                   <TableCell className="font-medium">{material.sku}</TableCell>
                   <TableCell>{material.name}</TableCell>
                   <TableCell>{material.category}</TableCell>
+                  <TableCell>{getABCClassBadge(material.abcClass)}</TableCell>
+                  <TableCell>{material.binLocation || "-"}</TableCell>
+                  <TableCell>
+                    {material.batchNumber || material.serialNumber ? (
+                      <div className="flex flex-col">
+                        {material.batchNumber && <span>Batch: {material.batchNumber}</span>}
+                        {material.serialNumber && <span>Serial: {material.serialNumber}</span>}
+                      </div>
+                    ) : "-"}
+                  </TableCell>
                   <TableCell className="text-right">
                     {material.currentStock} {material.unit}
                   </TableCell>

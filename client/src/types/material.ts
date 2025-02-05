@@ -19,6 +19,24 @@ export interface Material {
   availableStock: number;
   lastUpdated: string;
   createdAt: string;
+  // New fields for enhanced tracking
+  batchNumber?: string;
+  serialNumber?: string;
+  abcClass?: 'A' | 'B' | 'C';
+  binLocation?: string;
+  lastCycleCount?: string;
+  safetyStock: number;
+  maxStock: number;
+  turnoverRate?: number;
+  averageDailyUsage?: number;
+  // Vehicle manufacturing specifics
+  isVehicleComponent?: boolean;
+  compatibleVehicles?: string[];
+  vinAssociations?: string[];
+  regulatoryInfo?: {
+    certifications: string[];
+    complianceNotes: string;
+  };
 }
 
 export interface Supplier {
@@ -40,8 +58,18 @@ export interface Supplier {
   rating: number;
   activeOrders: number;
   performanceMetrics: SupplierMetrics;
+  // New fields for enhanced supplier management
+  qualityScore: number;
+  contractTerms?: {
+    paymentTerms: string;
+    deliveryTerms: string;
+    minimumOrderQuantity: number;
+  };
+  certifications?: string[];
+  preferredSupplier?: boolean;
 }
 
+// Rest of the existing interfaces remain unchanged
 export interface SupplierMetrics {
   onTimeDelivery: number;
   qualityScore: number;
@@ -73,18 +101,125 @@ export interface WarehouseZone {
   type: 'storage' | 'picking' | 'receiving' | 'shipping';
   capacity: number;
   currentUtilization: number;
+  // New fields for enhanced warehouse operations
+  pickingStrategy: 'FIFO' | 'LIFO' | 'FEFO';
+  allowsCrossDocking: boolean;
+  restrictedMaterials?: string[];
+  temperatureControlled?: boolean;
+  temperatureRange?: {
+    min: number;
+    max: number;
+    unit: 'C' | 'F';
+  };
 }
 
 export interface InventoryTransaction {
   id: string;
   materialId: string;
-  type: 'receipt' | 'issue' | 'transfer' | 'adjustment';
+  type: 'receipt' | 'issue' | 'transfer' | 'adjustment' | 'cycle_count';
   quantity: number;
   fromWarehouseId?: string;
   toWarehouseId?: string;
   reference: string;
   timestamp: string;
   performedBy: string;
+  // New fields for enhanced tracking
+  batchNumber?: string;
+  serialNumber?: string;
+  qualityCheck?: {
+    passed: boolean;
+    inspectedBy: string;
+    notes: string;
+  };
+  workOrderId?: string;
+  productionLineId?: string;
+}
+
+// New interfaces for production integration
+export interface ProductionOrder {
+  id: string;
+  orderNumber: string;
+  status: 'planned' | 'in_progress' | 'completed' | 'on_hold';
+  startDate: string;
+  endDate: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  materials: ProductionMaterial[];
+  workInProgress: WorkInProgress[];
+}
+
+export interface ProductionMaterial {
+  materialId: string;
+  requiredQuantity: number;
+  allocatedQuantity: number;
+  consumedQuantity: number;
+  deliverySchedule: {
+    date: string;
+    quantity: number;
+  }[];
+}
+
+export interface WorkInProgress {
+  id: string;
+  productionOrderId: string;
+  currentStage: string;
+  completionPercentage: number;
+  qualityMetrics: {
+    defectRate: number;
+    reworkRate: number;
+    scrapQuantity: number;
+  };
+}
+
+// New interfaces for BOM management
+export interface BillOfMaterials {
+  id: string;
+  productId: string;
+  version: string;
+  status: 'draft' | 'active' | 'obsolete';
+  components: BOMComponent[];
+  totalCost: number;
+  lastUpdated: string;
+}
+
+export interface BOMComponent {
+  materialId: string;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  substitutes?: string[];
+  critical: boolean;
+  leadTime: number;
+}
+
+// Extended analytics interfaces
+export interface SupplyChainMetrics {
+  healthScore: number;
+  activeOrders: number;
+  onTimeDelivery: number;
+  averageLeadTime: number;
+  supplierPerformance: number;
+  inventoryAccuracy: number;
+  transportationCosts: number;
+  riskIndex: number;
+  // New analytics fields
+  totalInventoryValue: number;
+  inventoryTurnover: number;
+  stockoutRate: number;
+  backorderRate: number;
+  averageOrderCycle: number;
+  warehouseUtilization: number;
+  crossDockingRate: number;
+  returnRate: number;
+}
+
+export interface InventoryStats {
+  totalValue: number;
+  totalItems: number;
+  lowStockCount: number;
+  overStockCount: number;
+  inventoryTurnover: number;
+  averageLeadTime: number;
+  stockoutRate: number;
 }
 
 export interface PurchaseOrder {
@@ -105,27 +240,6 @@ export interface PurchaseOrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-}
-
-export interface InventoryStats {
-  totalValue: number;
-  totalItems: number;
-  lowStockCount: number;
-  overStockCount: number;
-  inventoryTurnover: number;
-  averageLeadTime: number;
-  stockoutRate: number;
-}
-
-export interface SupplyChainMetrics {
-  healthScore: number;
-  activeOrders: number;
-  onTimeDelivery: number;
-  averageLeadTime: number;
-  supplierPerformance: number;
-  inventoryAccuracy: number;
-  transportationCosts: number;
-  riskIndex: number;
 }
 
 export interface MaterialAllocation {
