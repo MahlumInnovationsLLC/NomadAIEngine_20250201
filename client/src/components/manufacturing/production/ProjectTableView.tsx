@@ -32,15 +32,18 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
   // Sort and filter projects
   const sortedProjects = useMemo(() => {
     const filtered = projects.filter(project => 
-      project.projectNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.location?.toLowerCase().includes(searchQuery.toLowerCase())
+      Object.values(project).some(value => 
+        value && value.toString().toLowerCase().includes(searchQuery.toLowerCase())
+      )
     );
 
     return [...filtered].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
 
-      if (!aValue || !bValue) return 0;
+      if (!aValue && !bValue) return 0;
+      if (!aValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      if (!bValue) return sortConfig.direction === 'asc' ? -1 : 1;
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         return sortConfig.direction === 'asc' 
@@ -52,6 +55,12 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
         return sortConfig.direction === 'asc'
           ? aValue - bValue
           : bValue - aValue;
+      }
+
+      if (aValue instanceof Date && bValue instanceof Date) {
+        return sortConfig.direction === 'asc'
+          ? aValue.getTime() - bValue.getTime()
+          : bValue.getTime() - aValue.getTime();
       }
 
       return 0;
@@ -103,6 +112,11 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
     }
   };
 
+  const formatPercentage = (value: number | undefined | null) => {
+    if (value === undefined || value === null) return '-';
+    return `${value}%`;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -118,50 +132,125 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
         </Button>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead 
-                className="cursor-pointer"
+                className="cursor-pointer whitespace-nowrap sticky left-0 bg-background"
                 onClick={() => handleSort('projectNumber')}
               >
                 Project Number {renderSortIcon('projectNumber')}
               </TableHead>
               <TableHead 
-                className="cursor-pointer"
+                className="cursor-pointer whitespace-nowrap"
                 onClick={() => handleSort('status')}
               >
                 Status {renderSortIcon('status')}
               </TableHead>
               <TableHead 
-                className="cursor-pointer"
+                className="cursor-pointer whitespace-nowrap"
                 onClick={() => handleSort('location')}
               >
                 Location {renderSortIcon('location')}
               </TableHead>
               <TableHead 
-                className="cursor-pointer"
+                className="cursor-pointer whitespace-nowrap"
                 onClick={() => handleSort('team')}
               >
                 Team {renderSortIcon('team')}
               </TableHead>
-              <TableHead>
-                Contract Date
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('dpasRating')}
+              >
+                DPAS Rating {renderSortIcon('dpasRating')}
               </TableHead>
-              <TableHead>
-                NTC Testing
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('chassisEta')}
+              >
+                Chassis ETA {renderSortIcon('chassisEta')}
               </TableHead>
-              <TableHead>
-                QC Start
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('contractDate')}
+              >
+                Contract Date {renderSortIcon('contractDate')}
               </TableHead>
-              <TableHead>
-                Ship Date
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('fabricationStart')}
+              >
+                Fabrication Start {renderSortIcon('fabricationStart')}
               </TableHead>
-              <TableHead>
-                Delivery Date
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('assemblyStart')}
+              >
+                Assembly Start {renderSortIcon('assemblyStart')}
               </TableHead>
-              <TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('wrapGraphics')}
+              >
+                Wrap Graphics {renderSortIcon('wrapGraphics')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('ntcTesting')}
+              >
+                NTC Testing {renderSortIcon('ntcTesting')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('qcStart')}
+              >
+                QC Start {renderSortIcon('qcStart')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('executiveReview')}
+              >
+                Executive Review {renderSortIcon('executiveReview')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('ship')}
+              >
+                Ship Date {renderSortIcon('ship')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('delivery')}
+              >
+                Delivery Date {renderSortIcon('delivery')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('meAssigned')}
+              >
+                ME Assigned {renderSortIcon('meAssigned')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('eeAssigned')}
+              >
+                EE Assigned {renderSortIcon('eeAssigned')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('meCadProgress')}
+              >
+                ME Progress {renderSortIcon('meCadProgress')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('eeDesignProgress')}
+              >
+                EE Progress {renderSortIcon('eeDesignProgress')}
+              </TableHead>
+              <TableHead className="whitespace-nowrap sticky right-0 bg-background">
                 Actions
               </TableHead>
             </TableRow>
@@ -169,23 +258,33 @@ export function ProjectTableView({ projects }: ProjectTableViewProps) {
           <TableBody>
             {sortedProjects.map((project) => (
               <TableRow key={project.id}>
-                <TableCell className="font-medium">
+                <TableCell className="font-medium whitespace-nowrap sticky left-0 bg-background">
                   {project.projectNumber}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
                     {project.status}
                   </div>
                 </TableCell>
-                <TableCell>{project.location || '-'}</TableCell>
-                <TableCell>{project.team || '-'}</TableCell>
-                <TableCell>{formatDate(project.contractDate)}</TableCell>
-                <TableCell>{formatDate(project.ntcTesting)}</TableCell>
-                <TableCell>{formatDate(project.qcStart)}</TableCell>
-                <TableCell>{formatDate(project.ship)}</TableCell>
-                <TableCell>{formatDate(project.delivery)}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">{project.location || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{project.team || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{project.dpasRating || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.chassisEta)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.contractDate)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.fabricationStart)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.assemblyStart)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.wrapGraphics)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.ntcTesting)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.qcStart)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.executiveReview)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.ship)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.delivery)}</TableCell>
+                <TableCell className="whitespace-nowrap">{project.meAssigned || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{project.eeAssigned || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatPercentage(project.meCadProgress)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatPercentage(project.eeDesignProgress)}</TableCell>
+                <TableCell className="whitespace-nowrap sticky right-0 bg-background">
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm">
                       <FontAwesomeIcon icon="edit" className="h-4 w-4" />
