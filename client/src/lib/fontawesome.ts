@@ -40,7 +40,15 @@ import {
   faArrowRight,
   faFileLines,
   faBullhorn,
-  faPlay
+  faPlay,
+  faSun,
+  faMoon,
+  faBars,
+  faCog,
+  faShare,
+  faRightFromBracket,
+  faLaptop,
+  faCircleExclamation
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add all icons to the library
@@ -85,7 +93,15 @@ library.add(
   faArrowRight,
   faFileLines,
   faBullhorn,
-  faPlay
+  faPlay,
+  faSun,
+  faMoon,
+  faBars,
+  faCog,
+  faShare,
+  faRightFromBracket,
+  faLaptop,
+  faCircleExclamation
 );
 
 export { library };

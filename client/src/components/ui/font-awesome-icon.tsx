@@ -54,6 +54,13 @@ import {
   faFileLines,
   faBullhorn,
   faPlay,
+  faSun,
+  faMoon,
+  faBars,
+  faCog,
+  faShare,
+  faRightFromBracket,
+  faLaptop,
   faCircleExclamation
 } from '@fortawesome/pro-light-svg-icons';
 
@@ -111,6 +118,13 @@ library.add(
   faFileLines,
   faBullhorn,
   faPlay,
+  faSun,
+  faMoon,
+  faBars,
+  faCog,
+  faShare,
+  faRightFromBracket,
+  faLaptop,
   faCircleExclamation
 );
 
@@ -161,6 +175,13 @@ const iconMap: Record<string, IconDefinition> = {
   'file-lines': faFileLines,
   'bullhorn': faBullhorn,
   'play': faPlay,
+  'sun': faSun,
+  'moon': faMoon,
+  'bars': faBars,
+  'cog': faCog,
+  'share': faShare,
+  'right-from-bracket': faRightFromBracket,
+  'laptop': faLaptop,
   'circle-exclamation': faCircleExclamation
 };
 
