@@ -74,15 +74,23 @@ interface TaskFormData {
   };
 }
 
+interface Task extends TaskFormData {
+  id: number;
+  status: string;
+  createdAt: string;
+}
+
 export function TaskManager() {
-  const [tasks, setTasks] = useState(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
   const [filterType, setFilterType] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<TaskFormData>({
+  const createForm = useForm<TaskFormData>({
     defaultValues: {
       title: "",
       type: "todo",
@@ -94,9 +102,10 @@ export function TaskManager() {
     }
   });
 
+  const editForm = useForm<TaskFormData>();
+
   const handleCreateTask = async (data: TaskFormData) => {
     try {
-      // In a real app, this would be an API call
       const newTask = {
         id: tasks.length + 1,
         ...data,
@@ -105,7 +114,7 @@ export function TaskManager() {
       };
 
       setTasks([...tasks, newTask]);
-      form.reset();
+      createForm.reset();
 
       toast({
         title: "Success",
@@ -120,21 +129,83 @@ export function TaskManager() {
     }
   };
 
+  const handleEditTask = async (data: TaskFormData) => {
+    try {
+      setIsEditing(true);
+      if (!editingTask) return;
+
+      const updatedTasks = tasks.map(task => {
+        if (task.id === editingTask.id) {
+          return {
+            ...task,
+            ...data,
+          };
+        }
+        return task;
+      });
+
+      setTasks(updatedTasks);
+      setEditingTask(null);
+      setIsEditing(false);
+
+      toast({
+        title: "Success",
+        description: "Task updated successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update task",
+        variant: "destructive",
+      });
+      setIsEditing(false);
+    }
+  };
+
+  const startEditingTask = (task: Task) => {
+    setEditingTask(task);
+    editForm.reset({
+      title: task.title,
+      type: task.type,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      assignee: task.assignee,
+      description: task.description,
+      notes: task.notes,
+      relatedTo: task.relatedTo,
+    });
+  };
+
   const toggleTaskStatus = (taskId: number) => {
     setTasks(tasks.map(task => {
       if (task.id === taskId) {
+        const newStatus = task.status === "completed" ? "pending" : "completed";
+        toast({
+          title: "Status Updated",
+          description: `Task marked as ${newStatus}`,
+        });
         return {
           ...task,
-          status: task.status === "completed" ? "pending" : "completed"
+          status: newStatus
         };
       }
       return task;
     }));
   };
 
+  const deleteTask = (taskId: number) => {
+    if (window.confirm("Are you sure you want to delete this task?")) {
+      setTasks(tasks.filter(task => task.id !== taskId));
+      toast({
+        title: "Success",
+        description: "Task deleted successfully",
+      });
+    }
+  };
+
   const filteredTasks = tasks.filter(task => {
-    if (filterType !== "all" && task.type.toLowerCase() !== filterType) return false;
-    if (filterPriority !== "all" && task.priority.toLowerCase() !== filterPriority) return false;
+    if (filterType !== "all" && task.type.toLowerCase() !== filterType.toLowerCase()) return false;
+    if (filterPriority !== "all" && task.priority.toLowerCase() !== filterPriority.toLowerCase()) return false;
     if (filterStatus !== "all" && task.status !== filterStatus) return false;
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
@@ -158,15 +229,15 @@ export function TaskManager() {
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
             </DialogHeader>
-            <form onSubmit={form.handleSubmit(handleCreateTask)} className="space-y-4">
+            <form onSubmit={createForm.handleSubmit(handleCreateTask)} className="space-y-4">
               <div>
                 <Label htmlFor="title">Task Title</Label>
-                <Input {...form.register("title", { required: true })} placeholder="Enter task title" />
+                <Input {...createForm.register("title", { required: true })} placeholder="Enter task title" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="type">Type</Label>
-                  <Select value={form.watch("type")} onValueChange={(value) => form.setValue("type", value)}>
+                  <Select value={createForm.watch("type")} onValueChange={(value) => createForm.setValue("type", value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -180,7 +251,7 @@ export function TaskManager() {
                 </div>
                 <div>
                   <Label htmlFor="priority">Priority</Label>
-                  <Select value={form.watch("priority")} onValueChange={(value) => form.setValue("priority", value)}>
+                  <Select value={createForm.watch("priority")} onValueChange={(value) => createForm.setValue("priority", value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
@@ -195,23 +266,23 @@ export function TaskManager() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="dueDate">Due Date</Label>
-                  <Input {...form.register("dueDate")} type="date" />
+                  <Input {...createForm.register("dueDate")} type="date" />
                 </div>
                 <div>
                   <Label htmlFor="assignee">Assignee</Label>
-                  <Input {...form.register("assignee")} placeholder="Select assignee" />
+                  <Input {...createForm.register("assignee")} placeholder="Select assignee" />
                 </div>
               </div>
               <div>
                 <Label htmlFor="description">Description</Label>
-                <Textarea {...form.register("description")} placeholder="Add task description" />
+                <Textarea {...createForm.register("description")} placeholder="Add task description" />
               </div>
               <div>
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea {...form.register("notes")} placeholder="Add any additional notes" />
+                <Textarea {...createForm.register("notes")} placeholder="Add any additional notes" />
               </div>
               <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => form.reset()}>
+                <Button variant="outline" type="button" onClick={() => createForm.reset()}>
                   Cancel
                 </Button>
                 <Button type="submit">Create Task</Button>
@@ -291,8 +362,8 @@ export function TaskManager() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={
-                      task.priority === 'High' ? 'destructive' :
-                      task.priority === 'Medium' ? 'default' :
+                      task.priority.toLowerCase() === 'high' ? 'destructive' :
+                      task.priority.toLowerCase() === 'medium' ? 'default' :
                       'secondary'
                     }>
                       {task.priority}
@@ -313,10 +384,10 @@ export function TaskManager() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <FontAwesomeIcon
-                        icon={task.relatedTo.type === 'Deal' ? faHandshake : faBuilding}
+                        icon={task.relatedTo?.type === 'Deal' ? faHandshake : faBuilding}
                         className="text-muted-foreground"
                       />
-                      {task.relatedTo.name}
+                      {task.relatedTo?.name}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -336,18 +407,90 @@ export function TaskManager() {
                     <div className="flex gap-2">
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => startEditingTask(task)}>
                             <FontAwesomeIcon icon={faEdit} />
                           </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="max-w-2xl">
                           <DialogHeader>
                             <DialogTitle>Edit Task</DialogTitle>
                           </DialogHeader>
-                          {/* Task edit form would go here */}
+                          <form onSubmit={editForm.handleSubmit(handleEditTask)} className="space-y-4">
+                            <div>
+                              <Label htmlFor="edit-title">Task Title</Label>
+                              <Input {...editForm.register("title", { required: true })} placeholder="Enter task title" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label htmlFor="edit-type">Type</Label>
+                                <Select value={editForm.watch("type")} onValueChange={(value) => editForm.setValue("type", value)}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="call">Call</SelectItem>
+                                    <SelectItem value="email">Email</SelectItem>
+                                    <SelectItem value="meeting">Meeting</SelectItem>
+                                    <SelectItem value="todo">To-do</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label htmlFor="edit-priority">Priority</Label>
+                                <Select value={editForm.watch("priority")} onValueChange={(value) => editForm.setValue("priority", value)}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select priority" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="high">High</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="low">Low</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label htmlFor="edit-dueDate">Due Date</Label>
+                                <Input {...editForm.register("dueDate")} type="date" />
+                              </div>
+                              <div>
+                                <Label htmlFor="edit-assignee">Assignee</Label>
+                                <Input {...editForm.register("assignee")} placeholder="Select assignee" />
+                              </div>
+                            </div>
+                            <div>
+                              <Label htmlFor="edit-description">Description</Label>
+                              <Textarea {...editForm.register("description")} placeholder="Add task description" />
+                            </div>
+                            <div>
+                              <Label htmlFor="edit-notes">Notes</Label>
+                              <Textarea {...editForm.register("notes")} placeholder="Add any additional notes" />
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                type="button"
+                                onClick={() => {
+                                  setEditingTask(null);
+                                  editForm.reset();
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button type="submit" disabled={isEditing}>
+                                {isEditing ? "Saving..." : "Save Changes"}
+                              </Button>
+                            </DialogFooter>
+                          </form>
                         </DialogContent>
                       </Dialog>
-                      <Button variant="ghost" size="sm" className="text-red-500">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500"
+                        onClick={() => deleteTask(task.id)}
+                      >
                         <FontAwesomeIcon icon={faTrash} />
                       </Button>
                     </div>
