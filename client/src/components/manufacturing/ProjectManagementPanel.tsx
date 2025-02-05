@@ -16,8 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ProductionTimeline } from './ProductionTimeline';
+import { ResourceManagementPanel } from './ResourceManagementPanel';
 import { Project, ProjectStatus } from "@/types/manufacturing";
-import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport } from "@fortawesome/free-solid-svg-icons";
+import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faUsers } from "@fortawesome/free-solid-svg-icons";
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -579,7 +580,7 @@ export function ProjectManagementPanel() {
             Project Overview
           </TabsTrigger>
           <TabsTrigger value="resources">
-            <FontAwesomeIcon icon="users" className="mr-2" />
+            <FontAwesomeIcon icon={faUsers} className="mr-2" />
             Resource Management
           </TabsTrigger>
         </TabsList>
@@ -873,14 +874,15 @@ export function ProjectManagementPanel() {
 
                                     if (!response.ok) throw new Error('Failed to save notes');
 
-                                    queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
-                                      if (!oldData) return [];                                      return oldData.map(p=>
+                                                                   queryClient.setQueryData(['/api/manufacturing/projects'], (oldData: Project[] | undefined) => {
+                                      if (!oldData) return [];
+                                      return oldData.map(p =>
                                         p.id === selectedProject.id
                                           ? { ...p, notes: content }
                                           : p
                                       );
                                     });
-                                  } catch (error) {
+                                                 } catch (error) {
                                     toast({
                                       title: "Error",
                                       description: "Failed to save notes",
