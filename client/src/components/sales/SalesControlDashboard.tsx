@@ -56,6 +56,8 @@ import {
 } from "@/components/ui/select";
 import { DealCard } from "./deals/DealCard";
 import { useToast } from "@/hooks/use-toast";
+import { OutlookIntegrationPanel } from "./integrations/OutlookIntegrationPanel";
+import { PhoneIntegrationPanel } from "./integrations/PhoneIntegrationPanel";
 
 const mockForecastData = {
   monthly: [
@@ -874,7 +876,36 @@ export function SalesControlDashboard() {
           </Card>
         </TabsContent>
         <TabsContent value="integrations" className="space-y-4">
-          <HubspotIntegration />
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">Integrations</h2>
+            <p className="text-muted-foreground">
+              Connect your communication tools to automatically track project discussions
+            </p>
+
+            <div className="grid gap-4">
+              <OutlookIntegrationPanel 
+                onIntegrationUpdate={(status) => {
+                  if (status) {
+                    toast({
+                      title: "Integration Updated",
+                      description: "Outlook integration is now active",
+                    });
+                  }
+                }}
+              />
+
+              <PhoneIntegrationPanel
+                onIntegrationUpdate={(status) => {
+                  if (status) {
+                    toast({
+                      title: "Integration Updated",
+                      description: "Phone integration is now active",
+                    });
+                  }
+                }}
+              />
+            </div>
+          </div>
         </TabsContent>
         <TabsContent value="meetings" className="space-y-4">
           <MeetingScheduler />
