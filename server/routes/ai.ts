@@ -1,11 +1,8 @@
-// Parse and clean the JSON response
-try {
-  const cleanedContent = response.replace(/```json\n?|\n?```/g, '').trim();
-  res.json(JSON.parse(cleanedContent));
-} catch (error) {
-  console.error("Error analyzing deal:", error);
-  res.status(500).json({ error: "Failed to analyze deal" });
-}
+
+import express from 'express';
+import { getChatCompletion } from '../services/azure-openai';
+
+const router = express.Router();
 
 // Get sales recommendations
 router.post("/sales-recommendations", async (req, res) => {
@@ -79,9 +76,12 @@ router.post("/analyze-email", async (req, res) => {
     ]);
 
     // Parse and clean the JSON response
-      const cleanedContent = response.replace(/```json\n?|\n?```/g, '').trim();
-      res.json(JSON.parse(cleanedContent));
-    } catch (error) {
-      console.error("Error analyzing deal:", error);
-      res.status(500).json({ error: "Failed to analyze deal" });
-    }
+    const cleanedContent = response.replace(/```json\n?|\n?```/g, '').trim();
+    res.json(JSON.parse(cleanedContent));
+  } catch (error) {
+    console.error("Error analyzing email:", error);
+    res.status(500).json({ error: "Failed to analyze email" });
+  }
+});
+
+export default router;
