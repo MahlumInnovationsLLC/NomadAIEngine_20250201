@@ -10,30 +10,28 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@/types/manufacturing";
 import { format } from "date-fns";
+
+interface ProjectTableViewProps {
+  projects: Project[];
+}
 
 type SortConfig = {
   key: keyof Project;
   direction: 'asc' | 'desc';
 };
 
-export function ProjectTableView() {
+export function ProjectTableView({ projects }: ProjectTableViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ 
     key: 'projectNumber', 
     direction: 'asc' 
   });
 
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ['/api/projects'],
-  });
-
   // Sort and filter projects
   const sortedProjects = useMemo(() => {
     const filtered = projects.filter(project => 
-      project.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.projectNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.location?.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -79,9 +77,30 @@ export function ProjectTableView() {
     );
   };
 
-  const formatDate = (date: string | undefined) => {
+  const formatDate = (date: string | undefined | null) => {
     if (!date) return '-';
     return format(new Date(date), 'MMM d, yyyy');
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'NOT STARTED':
+        return 'bg-gray-500';
+      case 'IN FAB':
+        return 'bg-blue-500';
+      case 'IN ASSEMBLY':
+        return 'bg-indigo-500';
+      case 'IN WRAP':
+        return 'bg-purple-500';
+      case 'IN NTC TESTING':
+        return 'bg-orange-500';
+      case 'IN QC':
+        return 'bg-yellow-500';
+      case 'COMPLETED':
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-500';
+    }
   };
 
   return (
@@ -111,9 +130,9 @@ export function ProjectTableView() {
               </TableHead>
               <TableHead 
                 className="cursor-pointer"
-                onClick={() => handleSort('name')}
+                onClick={() => handleSort('status')}
               >
-                Name {renderSortIcon('name')}
+                Status {renderSortIcon('status')}
               </TableHead>
               <TableHead 
                 className="cursor-pointer"
@@ -127,21 +146,24 @@ export function ProjectTableView() {
               >
                 Team {renderSortIcon('team')}
               </TableHead>
-              <TableHead 
-                className="cursor-pointer"
-                onClick={() => handleSort('status')}
-              >
-                Status {renderSortIcon('status')}
+              <TableHead>
+                Contract Date
               </TableHead>
-              <TableHead 
-                className="cursor-pointer"
-                onClick={() => handleSort('progress')}
-              >
-                Progress {renderSortIcon('progress')}
+              <TableHead>
+                NTC Testing
               </TableHead>
-              <TableHead>Contract Date</TableHead>
-              <TableHead>Ship Date</TableHead>
-              <TableHead>Delivery Date</TableHead>
+              <TableHead>
+                QC Start
+              </TableHead>
+              <TableHead>
+                Ship Date
+              </TableHead>
+              <TableHead>
+                Delivery Date
+              </TableHead>
+              <TableHead>
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -150,38 +172,29 @@ export function ProjectTableView() {
                 <TableCell className="font-medium">
                   {project.projectNumber}
                 </TableCell>
-                <TableCell>{project.name}</TableCell>
-                <TableCell>{project.location}</TableCell>
-                <TableCell>{project.team}</TableCell>
                 <TableCell>
-                  <div className="flex items-center">
-                    <span className={`
-                      inline-block w-2 h-2 rounded-full mr-2
-                      ${project.status === 'IN FAB' ? 'bg-blue-500' :
-                        project.status === 'IN ASSEMBLY' ? 'bg-yellow-500' :
-                        project.status === 'IN WRAP' ? 'bg-purple-500' :
-                        project.status === 'IN NTC TESTING' ? 'bg-orange-500' :
-                        project.status === 'IN QC' ? 'bg-pink-500' :
-                        project.status === 'COMPLETED' ? 'bg-green-500' :
-                        'bg-gray-500'}
-                    `} />
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
                     {project.status}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="w-full bg-secondary rounded-full h-2">
-                    <div
-                      className="bg-primary rounded-full h-2"
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {project.progress}%
-                  </span>
-                </TableCell>
+                <TableCell>{project.location || '-'}</TableCell>
+                <TableCell>{project.team || '-'}</TableCell>
                 <TableCell>{formatDate(project.contractDate)}</TableCell>
+                <TableCell>{formatDate(project.ntcTesting)}</TableCell>
+                <TableCell>{formatDate(project.qcStart)}</TableCell>
                 <TableCell>{formatDate(project.ship)}</TableCell>
                 <TableCell>{formatDate(project.delivery)}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm">
+                      <FontAwesomeIcon icon="edit" className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm">
+                      <FontAwesomeIcon icon="eye" className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
