@@ -48,7 +48,13 @@ import {
   faCheck,
   faDashboard,
   faUsers,
-  faBuilding
+  faBuilding,
+  faMessage,
+  faArrowRight,
+  faFileLines,
+  faBullhorn,
+  faPlay,
+  faCircleExclamation
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add icons to library
@@ -99,7 +105,13 @@ library.add(
   faCheck,
   faDashboard,
   faUsers,
-  faBuilding
+  faBuilding,
+  faMessage,
+  faArrowRight,
+  faFileLines,
+  faBullhorn,
+  faPlay,
+  faCircleExclamation
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -143,7 +155,13 @@ const iconMap: Record<string, IconDefinition> = {
   'check': faCheck,
   'dashboard': faDashboard,
   'users': faUsers,
-  'building': faBuilding
+  'building': faBuilding,
+  'message': faMessage,
+  'arrow-right': faArrowRight,
+  'file-lines': faFileLines,
+  'bullhorn': faBullhorn,
+  'play': faPlay,
+  'circle-exclamation': faCircleExclamation
 };
 
 export function FontAwesomeIcon({

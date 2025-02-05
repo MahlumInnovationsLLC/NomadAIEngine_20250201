@@ -35,7 +35,12 @@ import {
   faCheck,
   faDashboard,
   faUsers,
-  faBuilding
+  faBuilding,
+  faMessage,
+  faArrowRight,
+  faFileLines,
+  faBullhorn,
+  faPlay
 } from '@fortawesome/pro-light-svg-icons';
 
 // Add all icons to the library
@@ -75,7 +80,12 @@ library.add(
   faCheck,
   faDashboard,
   faUsers,
-  faBuilding
+  faBuilding,
+  faMessage,
+  faArrowRight,
+  faFileLines,
+  faBullhorn,
+  faPlay
 );
 
 export { library };

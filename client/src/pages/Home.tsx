@@ -15,104 +15,122 @@ export default function Home() {
           Welcome to Nomad AI Engine
         </h1>
         <p className="text-muted-foreground text-lg mb-6">
-          Your intelligent assistant for Project and Manufacturing management
+          Your intelligent assistant for Sales and Manufacturing management
         </p>
         {isFirstVisit && (
           <Button onClick={startOnboarding} size="lg" className="gap-2">
-            <FontAwesomeIcon icon="play" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={['fal', 'play']} className="mr-2 h-4 w-4" />
             Start Platform Tour
           </Button>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="p-6" data-tour="chat-section">
-          <h2 className="text-2xl font-semibold mb-4">Start a Chat</h2>
+        <Card className="p-6" data-tour="sales-section">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'chart-line']} className="h-5 w-5" />
+            Sales Control
+          </h2>
           <p className="text-muted-foreground mb-6">
-            Begin a new conversation with our AI assistant to get help, analyze documents, or generate reports.
+            Manage sales pipelines, track deals, and optimize your sales process with AI-powered insights.
           </p>
           <Button 
             size="lg" 
             className="w-full"
-            onClick={() => navigate('/chat')}
+            onClick={() => navigate('/sales-control')}
           >
-            <FontAwesomeIcon icon="message" className="mr-2 h-5 w-5" />
-            New Chat
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Open Sales Control
           </Button>
         </Card>
 
-        <Card className="p-6" data-tour="document-section">
-          <h2 className="text-2xl font-semibold mb-4">Document Training & Control</h2>
+        <Card className="p-6" data-tour="manufacturing-section">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'industry']} className="h-5 w-5" />
+            Manufacturing Control
+          </h2>
           <p className="text-muted-foreground mb-6">
-            Upload, manage, and train documents with advanced version control.
+            Monitor production lines, manage quality control, and optimize manufacturing processes.
           </p>
           <Button 
             size="lg" 
             className="w-full"
-            onClick={() => navigate('/docmanage')}
+            onClick={() => navigate('/manufacturing-control')}
           >
-            <FontAwesomeIcon icon="file-lines" className="mr-2 h-5 w-5" />
-            Manage Documents
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Open Manufacturing
           </Button>
         </Card>
 
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">Dashboard</h2>
+        <Card className="p-6" data-tour="material-section">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'boxes-stacked']} className="h-5 w-5" />
+            Material Handling
+          </h2>
           <p className="text-muted-foreground mb-6">
-            View analytics, statistics, and key performance indicators for your gym.
+            Track inventory, manage materials, and optimize supply chain operations.
           </p>
           <Button 
             size="lg" 
             className="w-full"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/material-handling')}
           >
-            <FontAwesomeIcon icon="chart-mixed" className="mr-2 h-5 w-5" />
-            Open Dashboard
-          </Button>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">Club Control</h2>
-          <p className="text-muted-foreground mb-6">
-            Manage equipment, maintenance schedules, and facility operations.
-          </p>
-          <Button 
-            size="lg" 
-            className="w-full"
-            onClick={() => navigate('/club-control')}
-          >
-            <FontAwesomeIcon icon="dumbbell" className="mr-2 h-5 w-5" />
-            Club Control
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Open Material Handling
           </Button>
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">Marketing Control</h2>
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'bullhorn']} className="h-5 w-5" />
+            Marketing Control
+          </h2>
           <p className="text-muted-foreground mb-6">
-            Create and manage marketing campaigns, promotions, and member communications.
+            Create and manage marketing campaigns, emails, and track campaign performance.
           </p>
           <Button 
             size="lg" 
             className="w-full"
             onClick={() => navigate('/marketing-control')}
           >
-            <FontAwesomeIcon icon="bullhorn" className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
             Marketing Control
           </Button>
         </Card>
 
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">Member Management</h2>
+        <Card className="p-6" data-tour="document-section">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'file-lines']} className="h-5 w-5" />
+            Document Management
+          </h2>
           <p className="text-muted-foreground mb-6">
-            Handle member profiles, subscriptions, and engagement tracking.
+            Manage training documents, SOPs, and quality control documentation.
           </p>
           <Button 
             size="lg" 
             className="w-full"
-            onClick={() => navigate('/member-management')}
+            onClick={() => navigate('/docmanage')}
           >
-            <FontAwesomeIcon icon="users" className="mr-2 h-5 w-5" />
-            Member Management
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Open Documents
+          </Button>
+        </Card>
+
+        <Card className="p-6" data-tour="chat-section">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'message']} className="h-5 w-5" />
+            AI Assistant
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Get help, analyze data, and generate reports with our AI assistant.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/chat')}
+          >
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Start Chat
           </Button>
         </Card>
       </div>
