@@ -586,3 +586,42 @@ export interface MaterialAllocation {
   productionLineId: string;
   requiredQuantity: number;
 }
+
+export interface FloorPlan {
+  id: string;
+  name: string;
+  imageUrl: string;
+  width: number;
+  height: number;
+  scale: number; // pixels per meter
+  zones: FloorPlanZone[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FloorPlanZone {
+  id: string;
+  name: string;
+  type: 'production' | 'storage' | 'assembly' | 'testing' | 'packaging';
+  coordinates: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  capacity: number;
+  occupiedBy?: string[]; // Project IDs
+}
+
+export interface ProjectLocation {
+  projectId: string;
+  floorPlanId: string;
+  zoneId: string;
+  position: {
+    x: number;
+    y: number;
+  };
+  status: 'planned' | 'active' | 'complete';
+  startDate: string;
+  endDate?: string;
+}
