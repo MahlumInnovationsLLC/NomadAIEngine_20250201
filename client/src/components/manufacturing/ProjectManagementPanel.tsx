@@ -20,6 +20,7 @@ import { ProductionTimeline } from './ProductionTimeline';
 import { ResourceManagementPanel } from './ResourceManagementPanel';
 import { Project, ProjectStatus } from "@/types/manufacturing";
 import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faUsers, faLocationArrow } from "@fortawesome/free-solid-svg-icons";
+import { ProjectMapView } from "./production/ProjectMapView";
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -168,10 +169,7 @@ const formSchema = z.object({
   notes: z.string().optional(),
 });
 
-// Placeholder -  Replace with actual implementation
-const ProjectMapView = () => <div>Map View Implementation</div>;
 
-// Placeholder - Replace with actual implementation
 const ProjectCreateDialog = ({ project, onClose }: { project?: Project, onClose?: () => void }) => (
   <div>
     {/* Implement your ProjectCreateDialog here */}
@@ -876,7 +874,7 @@ export function ProjectManagementPanel() {
                                 <div className="flex justify-between">
                                   <span>Assembly Start:</span>
                                   <span>{formatDate(selectedProject.assemblyStart)}</span>
-                                </div>
+                                </</div>
                                 <div className="flex justify-between">
                                   <span>Wrap/Graphics:</span>
                                   <span>{formatDate(selectedProject.wrapGraphics)}</span>
@@ -993,33 +991,20 @@ export function ProjectManagementPanel() {
               </div>
             </TabsContent>
 
-            <TabsContent value="map" className="space-y-6">
-              <div className="grid grid-cols-12 gap-6">
-                <Card className="col-span-12">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FontAwesomeIcon icon={faLocationDot} />
-                        Floor Plan View
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setShowEditDialog(true)}>
-                          <FontAwesomeIcon icon={faEdit} className="mr-2" />
-                          Edit Floor Plan
-                        </Button>
-                        <ProjectCreateDialog />
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ProjectMapView />
-                  </CardContent>
-                </Card>
-              </div>
+            <TabsContent value="map">
+              <Card>
+                <CardContent className="p-6">
+                  <ProjectMapView />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="table">
-              <div>Table View coming soon...</div>
+              <Card>
+                <CardContent>
+                  <div>Table View Coming Soon...</div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </TabsContent>
