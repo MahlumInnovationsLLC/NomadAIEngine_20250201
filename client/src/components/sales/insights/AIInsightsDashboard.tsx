@@ -7,6 +7,8 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useQuery } from "@tanstack/react-query";
 import { analyzeDealPotential, getSalesRecommendations } from "@/lib/ai/salesInsights";
 import { AISalesChat } from "./AISalesChat";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { 
   faBrain, 
   faLightbulb, 
@@ -14,7 +16,9 @@ import {
   faTriangleExclamation,
   faCheckCircle,
   faChartLine,
-  faRocket
+  faRocket,
+  faFileUpload,
+  faSpinner
 } from "@fortawesome/pro-light-svg-icons";
 
 interface Deal {
@@ -56,6 +60,10 @@ interface AIInsightsDashboardProps {
 }
 
 export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashboardProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+
   const { data: dealInsights, isLoading: dealInsightsLoading } = useQuery({
     queryKey: ['dealInsights', currentDeal?.id],
     queryFn: () => analyzeDealPotential(currentDeal),
@@ -69,6 +77,35 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
     enabled: !!salesData,
     retry: 1
   });
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFile(file);
+    }
+  };
+
+  const analyzeFile = async () => {
+    if (!file) return;
+    setIsAnalyzing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/ai/analyze-document', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      setAnalysisResult(result.analysis);
+    } catch (error) {
+      console.error('Error analyzing file:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   // Check for API key error
   const hasApiKeyError = dealInsights === null || salesInsights === null;
@@ -112,7 +149,9 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
             </CardHeader>
             <CardContent className="space-y-4">
               {dealInsightsLoading ? (
-                <div>Loading insights...</div>
+                <div className="flex items-center justify-center py-8">
+                  <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary" />
+                </div>
               ) : dealInsights ? (
                 <>
                   <div>
@@ -157,7 +196,11 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
                     </Alert>
                   )}
                 </>
-              ) : null}
+              ) : (
+                <div className="text-center text-muted-foreground py-4">
+                  No deal insights available
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -171,7 +214,9 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
           </CardHeader>
           <CardContent className="space-y-4">
             {salesInsightsLoading ? (
-              <div>Loading recommendations...</div>
+              <div className="flex items-center justify-center py-8">
+                <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin text-primary" />
+              </div>
             ) : salesInsights ? (
               <>
                 <div className="space-y-2">
@@ -205,6 +250,43 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
                 </div>
               </>
             ) : null}
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FontAwesomeIcon icon={faFileUpload} className="text-primary" />
+              Document Analysis
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4">
+              <Input
+                type="file"
+                onChange={handleFileUpload}
+                className="flex-1"
+                accept=".pdf,.doc,.docx,.txt"
+              />
+              <Button 
+                onClick={analyzeFile} 
+                disabled={!file || isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <FontAwesomeIcon icon={faBrain} className="h-4 w-4 mr-2" />
+                )}
+                Analyze
+              </Button>
+            </div>
+            {analysisResult && (
+              <Alert>
+                <AlertDescription>
+                  {analysisResult}
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
 

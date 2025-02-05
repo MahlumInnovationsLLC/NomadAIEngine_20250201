@@ -1,31 +1,4 @@
-
-import express from 'express';
-import { getChatCompletion } from '../services/azure-openai';
-
-const router = express.Router();
-
-// Get sales recommendations
-router.post("/sales-recommendations", async (req, res) => {
-  try {
-    const salesData = req.body;
-
-    const prompt = `Analyze this sales data and provide strategic recommendations.
-    Return your analysis in this exact JSON format:
-    {
-      "recommendations": string[],
-      "priorityActions": string[],
-      "opportunities": string[]
-    }
-
-    Sales data: ${JSON.stringify(salesData)}`;
-
-    const response = await getChatCompletion([
-      { role: "system", content: "You are a sales strategy expert for manufacturing solutions." },
-      { role: "user", content: prompt }
-    ]);
-
-    // Parse and clean the JSON response
-    const cleanedContent = response.replace(/```json\n?|\n?```/g, '').trim();
+\n?|\n?```/g, '').trim();
     res.json(JSON.parse(cleanedContent));
   } catch (error) {
     console.error("Error getting sales recommendations:", error);
@@ -75,13 +48,4 @@ router.post("/analyze-email", async (req, res) => {
       { role: "user", content: prompt }
     ]);
 
-    // Parse and clean the JSON response
-    const cleanedContent = response.replace(/```json\n?|\n?```/g, '').trim();
-    res.json(JSON.parse(cleanedContent));
-  } catch (error) {
-    console.error("Error analyzing email:", error);
-    res.status(500).json({ error: "Failed to analyze email" });
-  }
-});
-
-export default router;
+    const cleanedContent = response.replace(/```json\n?|\n?
