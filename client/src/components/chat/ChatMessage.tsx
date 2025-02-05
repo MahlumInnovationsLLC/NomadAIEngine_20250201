@@ -36,6 +36,7 @@ export default function ChatMessage({ role, content, files, citations }: ChatMes
               <FontAwesomeIcon icon={faMessage} className="h-4 w-4" />
               <FontAwesomeIcon icon={faRobot} className="h-4 w-4" />
               <FontAwesomeIcon icon={faDollarSign} className="h-4 w-4" />
+              <FontAwesomeIcon icon={faUser} className="h-4 w-4" />
             </div>
           ) : (
             <FontAwesomeIcon icon={faUser} className="h-4 w-4" />
