@@ -27,11 +27,9 @@ import type {
 } from "@/types/manufacturing";
 import { getAllProjects } from "@/lib/azure/project-service";
 
-interface MaterialRequirementsPlanningProps {
-  productionLineId: string;
-}
+interface MaterialRequirementsPlanningProps {}
 
-export function MaterialRequirementsPlanning({ productionLineId }: MaterialRequirementsPlanningProps) {
+export function MaterialRequirementsPlanning({}: MaterialRequirementsPlanningProps) {
   const [timeframe, setTimeframe] = useState<'week' | 'month' | 'quarter'>('week');
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
 

@@ -31,11 +31,9 @@ import { useToast } from "@/hooks/use-toast";
 import type { ProductionProject, BillOfMaterials, BOMComponent, Material } from "@/types/manufacturing";
 import { getAllProjects } from "@/lib/azure/project-service";
 
-interface BOMManagementProps {
-  productId: string;
-}
+interface BOMManagementProps {}
 
-export function BOMManagement({ productId }: BOMManagementProps) {
+export function BOMManagement({}: BOMManagementProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAddComponent, setShowAddComponent] = useState(false);

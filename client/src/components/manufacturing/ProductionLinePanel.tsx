@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import ProductionLinesGrid from "./production/ProductionLinesGrid";
-import { ProductionScheduler } from "./production/ProductionScheduler";
-import { BayScheduler } from "./production/BayScheduler";
 import { BOMManagement } from "./production/BOMManagement";
 import { MaterialRequirementsPlanning } from "./production/MaterialRequirementsPlanning";
 import { InventoryAllocation } from "./production/InventoryAllocation";
+import { ProductionHotProjectsGrid } from "./production/ProductionHotProjectsGrid";
+import { ProductionScheduler } from "./production/ProductionScheduler";
+import { BayScheduler } from "./production/BayScheduler";
 import { useQuery } from "@tanstack/react-query";
 import type { ProductionLine, ProductionBay, ProductionOrder } from "@/types/manufacturing";
 
@@ -61,7 +61,7 @@ export const ProductionLinePanel = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <ProductionLinesGrid onLineSelect={setSelectedLineId} />
+          <ProductionHotProjectsGrid />
         </TabsContent>
 
         <TabsContent value="scheduling" className="space-y-6">
@@ -90,35 +90,11 @@ export const ProductionLinePanel = () => {
         </TabsContent>
 
         <TabsContent value="bom" className="space-y-6">
-          {selectedLineId ? (
-            <BOMManagement productId={selectedLineId} />
-          ) : (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <FontAwesomeIcon icon="sitemap" className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Select a Production Line</h3>
-                <p className="text-muted-foreground">
-                  Please select a production line to manage its Bill of Materials
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          <BOMManagement />
         </TabsContent>
 
         <TabsContent value="mrp" className="space-y-6">
-          {selectedLineId ? (
-            <MaterialRequirementsPlanning productionLineId={selectedLineId} />
-          ) : (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <FontAwesomeIcon icon="chart-line" className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Select a Production Line</h3>
-                <p className="text-muted-foreground">
-                  Please select a production line to view material requirements planning
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          <MaterialRequirementsPlanning />
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-6">
