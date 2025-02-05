@@ -13,6 +13,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { Project } from "@/types/manufacturing";
 import { format } from "date-fns";
 import { AddColumnDialog, CustomColumn } from "./AddColumnDialog";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface ProjectTableViewProps {
   projects: Project[];
@@ -34,21 +35,50 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [customValues, setCustomValues] = useState<Record<string, Record<string, string>>>({});
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const queryClient = useQueryClient();
+
+  // Save custom columns mutation
+  const saveCustomColumnsMutation = useMutation({
+    mutationFn: async (data: { 
+      columns: CustomColumn[], 
+      values: Record<string, Record<string, string>> 
+    }) => {
+      const response = await fetch('/api/manufacturing/projects/custom-columns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to save custom columns');
+      return response.json();
+    },
+    onMutate: () => {
+      setIsSyncing(true);
+    },
+    onSettled: () => {
+      setTimeout(() => setIsSyncing(false), 1000);
+    }
+  });
 
   // Handle custom column value changes
   const handleCustomValueChange = (projectId: string, columnId: string, value: string) => {
-    setCustomValues(prev => ({
-      ...prev,
+    const newValues = {
+      ...customValues,
       [projectId]: {
-        ...(prev[projectId] || {}),
+        ...(customValues[projectId] || {}),
         [columnId]: value
       }
-    }));
+    };
+    setCustomValues(newValues);
+    saveCustomColumnsMutation.mutate({ columns: customColumns, values: newValues });
   };
 
   // Add new custom column
   const handleAddColumn = (column: CustomColumn) => {
-    setCustomColumns(prev => [...prev, column]);
+    const newColumns = [...customColumns, column];
+    setCustomColumns(newColumns);
+    saveCustomColumnsMutation.mutate({ columns: newColumns, values: customValues });
   };
 
   // Sort and filter projects
@@ -156,11 +186,16 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-sm"
         />
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <Button onClick={() => setShowAddColumn(true)}>
             <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
             Add Column
           </Button>
+          {isSyncing ? (
+            <FontAwesomeIcon icon="cloud-arrow-up" className="h-4 w-4 text-muted-foreground animate-pulse" />
+          ) : (
+            <FontAwesomeIcon icon="cloud-check" className="h-4 w-4 text-green-500" />
+          )}
           <Button>
             <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
             Export

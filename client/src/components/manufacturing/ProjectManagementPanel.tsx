@@ -14,14 +14,15 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as z from "zod";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ProductionTimeline } from './ProductionTimeline';
 import { ResourceManagementPanel } from './ResourceManagementPanel';
 import { Project, ProjectStatus } from "@/types/manufacturing";
 import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faUsers, faLocationArrow } from "@fortawesome/free-solid-svg-icons";
 import { ProjectMapView } from "./production/ProjectMapView";
-import { ProjectTableView } from "./production/ProjectTableView"; // Import the new component
+import { ProjectTableView } from "./production/ProjectTableView";
+import {Label} from "@/components/ui/label"
 
 
 function formatDate(dateString?: string) {
@@ -174,7 +175,6 @@ const formSchema = z.object({
 
 const ProjectCreateDialog = ({ project, onClose }: { project?: Project, onClose?: () => void }) => (
   <div>
-    {/* Implement your ProjectCreateDialog here */}
     {project && <p>Editing Project: {project.projectNumber}</p>}
     {onClose && <button onClick={onClose}>Close</button>}
   </div>
@@ -463,7 +463,6 @@ export function ProjectManagementPanel() {
     updateProjectMutation.mutate(formattedData);
   };
 
-  // Add a mutation for updating notes
   const updateNotesMutation = useMutation({
     mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
       const response = await fetch(`/api/manufacturing/projects/${id}/notes`, {
@@ -498,6 +497,18 @@ export function ProjectManagementPanel() {
 
   const handleEditProject = (project: Project) => {
     setSelectedProject(project);
+    form.reset({
+      projectNumber: project.projectNumber,
+      location: project.location || '',
+      team: project.team || '',
+      contractDate: formatDateForInput(project.contractDate),
+      ntcTesting: formatDateForInput(project.ntcTesting),
+      qcStart: formatDateForInput(project.qcStart),
+      executiveReview: formatDateForInput(project.executiveReview),
+      ship: formatDateForInput(project.ship),
+      delivery: formatDateForInput(project.delivery),
+      notes: project.notes || ''
+    });
     setShowEditDialog(true);
   };
 
@@ -532,7 +543,6 @@ export function ProjectManagementPanel() {
             <FontAwesomeIcon icon={faFileImport} className="h-4 w-4" />
             Import Excel
           </Button>
-          {/* <ProjectCreateDialog /> */}
         </div>
       </div>
 
@@ -880,7 +890,7 @@ export function ProjectManagementPanel() {
                               <div className="space-y-2">
                                 <div className="flex justify-between">
                                   <span>Fabrication Start:</span>
-                                                                 <span>{formatDate(selectedProject.fabricationStart)}</span>
+                                  <span>{formatDate(selectedProject.fabricationStart)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Assembly Start:</span>
@@ -1039,16 +1049,59 @@ export function ProjectManagementPanel() {
       </AlertDialog>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Project Details</DialogTitle>
+            <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
-          {selectedProject && (
-            <ProjectCreateDialog
-              project={selectedProject}
-              onClose={() => setShowEditDialog(false)}
-            />
-          )}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Project Number</Label>
+                  <Input {...form.register("projectNumber")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Location</Label>
+                  <Input {...form.register("location")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Team</Label>
+                  <Input {...form.register("team")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contract Date</Label>
+                  <Input type="date" {...form.register("contractDate")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>NTC Testing</Label>
+                  <Input type="date" {...form.register("ntcTesting")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>QC Start</Label>
+                  <Input type="date" {...form.register("qcStart")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Executive Review</Label>
+                  <Input type="date" {...form.register("executiveReview")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ship Date</Label>
+                  <Input type="date" {...form.register("ship")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delivery Date</Label>
+                  <Input type="date" {...form.register("delivery")} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <RichTextEditor content={form.getValues("notes")} onChange={(content) => form.setValue("notes", content)} />
+              </div>
+              <DialogFooter>
+                <Button type="submit">Save Changes</Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
