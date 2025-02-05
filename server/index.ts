@@ -109,9 +109,7 @@ app.use((req, res, next) => {
         return;
       }
 
-      wsServer.handleUpgrade(request, socket, head, (ws) => {
-        wsServer.emit('connection', ws, request);
-      });
+      wsServer.engine.handleUpgrade(request, socket, head);
     });
 
     // Register routes after WebSocket setup
