@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
   faBrain, 
@@ -9,7 +10,8 @@ import {
   faChartLine,
   faExclamationTriangle,
   faCheckCircle,
-  faRocket
+  faRocket,
+  faKey
 } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { analyzeDealPotential, getSalesRecommendations, type DealInsight, type SalesRecommendations } from "@/lib/ai/salesInsights";
@@ -53,17 +55,50 @@ interface AIInsightsDashboardProps {
 }
 
 export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashboardProps) {
-  const { data: dealInsights, isLoading: dealInsightsLoading } = useQuery({
+  const { data: dealInsights, isLoading: dealInsightsLoading, error: dealError } = useQuery({
     queryKey: ['dealInsights', currentDeal?.id],
     queryFn: () => analyzeDealPotential(currentDeal),
-    enabled: !!currentDeal
+    enabled: !!currentDeal,
+    retry: 1
   });
 
-  const { data: salesInsights, isLoading: salesInsightsLoading } = useQuery({
+  const { data: salesInsights, isLoading: salesInsightsLoading, error: salesError } = useQuery({
     queryKey: ['salesInsights'],
     queryFn: () => getSalesRecommendations(salesData),
-    enabled: !!salesData
+    enabled: !!salesData,
+    retry: 1
   });
+
+  // Check for API key error
+  const hasApiKeyError = (dealError as Error)?.message?.includes('OPENAI_API_KEY') || 
+                        (salesError as Error)?.message?.includes('OPENAI_API_KEY');
+
+  if (hasApiKeyError) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertTitle className="flex items-center gap-2">
+            <FontAwesomeIcon icon={faKey} className="text-destructive" />
+            OpenAI API Key Required
+          </AlertTitle>
+          <AlertDescription className="mt-2">
+            <p className="mb-4">
+              To enable AI-powered sales insights, please provide your OpenAI API key. 
+              You can get this from your OpenAI account:
+            </p>
+            <ol className="list-decimal pl-4 space-y-2">
+              <li>Go to <a href="https://platform.openai.com/api-keys" className="text-primary underline" target="_blank" rel="noopener noreferrer">OpenAI API Keys</a></li>
+              <li>Create a new secret key</li>
+              <li>Add the key to your environment variables</li>
+            </ol>
+            <p className="mt-4">
+              Contact your system administrator to configure the API key.
+            </p>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -131,6 +166,13 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
                     </Alert>
                   )}
                 </>
+              ) : dealError && !hasApiKeyError ? (
+                <Alert>
+                  <AlertTitle>Error Loading Insights</AlertTitle>
+                  <AlertDescription>
+                    Unable to load deal insights. Please try again later.
+                  </AlertDescription>
+                </Alert>
               ) : null}
             </CardContent>
           </Card>
@@ -178,6 +220,13 @@ export function AIInsightsDashboard({ currentDeal, salesData }: AIInsightsDashbo
                   </ul>
                 </div>
               </>
+            ) : salesError && !hasApiKeyError ? (
+              <Alert>
+                <AlertTitle>Error Loading Recommendations</AlertTitle>
+                <AlertDescription>
+                  Unable to load sales recommendations. Please try again later.
+                </AlertDescription>
+              </Alert>
             ) : null}
           </CardContent>
         </Card>
