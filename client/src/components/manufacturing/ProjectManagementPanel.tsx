@@ -9,21 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import * as z from "zod";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ProductionTimeline } from './ProductionTimeline';
-import { ResourceManagementPanel } from './ResourceManagementPanel';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Project, ProjectStatus } from "@/types/manufacturing";
-import { faArrowUp, faArrowDown, faFolder, faCheckCircle, faCircleDot, faEdit, faLocationDot, faRotateLeft, faFileImport, faUsers, faLocationArrow } from "@fortawesome/free-solid-svg-icons";
-import { ProjectMapView } from "./production/ProjectMapView";
-import { ProjectTableView } from "./production/ProjectTableView";
-import {Label} from "@/components/ui/label"
-
+import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
+import { z } from "zod";
 
 function formatDate(dateString?: string) {
   if (!dateString) return '-';
@@ -154,9 +145,21 @@ const defaultFormValues = {
   ntcTesting: "",
   qcStart: "",
   executiveReview: "",
+  executiveReviewTime: "",
   ship: "",
   delivery: "",
-  notes: ""
+  notes: "",
+  meAssigned: "",
+  meCadProgress: 0,
+  eeAssigned: "",
+  eeDesignProgress: 0,
+  itAssigned: "",
+  itDesignProgress: 0,
+  ntcAssigned: "",
+  ntcDesignProgress: 0,
+  fabricationStart: "",
+  assemblyStart: "",
+  wrapGraphics: ""
 };
 
 const formSchema = z.object({
@@ -167,9 +170,21 @@ const formSchema = z.object({
   ntcTesting: z.string().optional(),
   qcStart: z.string().optional(),
   executiveReview: z.string().optional(),
+  executiveReviewTime: z.string().optional(),
   ship: z.string().optional(),
   delivery: z.string().optional(),
   notes: z.string().optional(),
+  meAssigned: z.string().optional(),
+  meCadProgress: z.number().optional(),
+  eeAssigned: z.string().optional(),
+  eeDesignProgress: z.number().optional(),
+  itAssigned: z.string().optional(),
+  itDesignProgress: z.number().optional(),
+  ntcAssigned: z.string().optional(),
+  ntcDesignProgress: z.number().optional(),
+  fabricationStart: z.string().optional(),
+  assemblyStart: z.string().optional(),
+  wrapGraphics: z.string().optional()
 });
 
 
@@ -242,7 +257,10 @@ export function ProjectManagementPanel() {
         ...(project.qcStart && { qcStart: new Date(project.qcStart).toISOString() }),
         ...(project.executiveReview && { executiveReview: new Date(project.executiveReview).toISOString() }),
         ...(project.ship && { ship: new Date(project.ship).toISOString() }),
-        ...(project.delivery && { delivery: new Date(project.delivery).toISOString() })
+        ...(project.delivery && { delivery: new Date(project.delivery).toISOString() }),
+        ...(project.fabricationStart && { fabricationStart: new Date(project.fabricationStart).toISOString() }),
+        ...(project.assemblyStart && { assemblyStart: new Date(project.assemblyStart).toISOString() }),
+        ...(project.wrapGraphics && { wrapGraphics: new Date(project.wrapGraphics).toISOString() })
       };
 
       console.log('Sending API request with data:', cleanedData);
@@ -505,9 +523,22 @@ export function ProjectManagementPanel() {
       ntcTesting: formatDateForInput(project.ntcTesting),
       qcStart: formatDateForInput(project.qcStart),
       executiveReview: formatDateForInput(project.executiveReview),
+      executiveReviewTime: project.executiveReview ? new Date(project.executiveReview).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '',
       ship: formatDateForInput(project.ship),
       delivery: formatDateForInput(project.delivery),
-      notes: project.notes || ''
+      notes: project.notes || '',
+      meAssigned: project.meAssigned || '',
+      meCadProgress: project.meCadProgress || 0,
+      eeAssigned: project.eeAssigned || '',
+      eeDesignProgress: project.eeDesignProgress || 0,
+      itAssigned: project.itAssigned || '',
+      itDesignProgress: project.itDesignProgress || 0,
+      ntcAssigned: project.ntcAssigned || '',
+      ntcDesignProgress: project.ntcDesignProgress || 0,
+      fabricationStart: formatDateForInput(project.fabricationStart),
+      assemblyStart: formatDateForInput(project.assemblyStart),
+      wrapGraphics: formatDateForInput(project.wrapGraphics)
+
     });
     setShowEditDialog(true);
   };
@@ -842,7 +873,6 @@ export function ProjectManagementPanel() {
                         <div className="mx-auto max-w-[95%]">
                           <ProductionTimeline project={selectedProject} />
                         </div>
-
                         <div className="grid grid-cols-2 gap-4">
                           <Card>
                             <CardHeader>
@@ -1049,59 +1079,135 @@ export function ProjectManagementPanel() {
       </AlertDialog>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-[800px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Project Number</Label>
-                  <Input {...form.register("projectNumber")} />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>ME Assigned</Label>
+                    <Select value={form.getValues("meAssigned")} onValueChange={(value) => form.setValue("meAssigned", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select ME" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Kevin Elliott">Kevin Elliott</SelectItem>
+                        <SelectItem value="N/A">N/A</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>ME CAD %</Label>
+                    <Input type="number" {...form.register("meCadProgress")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>EE Assigned</Label>
+                    <Select value={form.getValues("eeAssigned")} onValueChange={(value) => form.setValue("eeAssigned", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select EE" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Nick S">Nick S</SelectItem>
+                        <SelectItem value="N/A">N/A</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>EE Design/Orders %</Label>
+                    <Input type="number" {...form.register("eeDesignProgress")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>IT Assigned</Label>
+                    <Select value={form.getValues("itAssigned")} onValueChange={(value) => form.setValue("itAssigned", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select IT" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="N/A">N/A</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>IT Design/Orders %</Label>
+                    <Input type="number" {...form.register("itDesignProgress")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>NTC Assigned</Label>
+                    <Select value={form.getValues("ntcAssigned")} onValueChange={(value) => form.setValue("ntcAssigned", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select NTC" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="N/A">N/A</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>NTC Design/Orders %</Label>
+                    <Input type="number" {...form.register("ntcDesignProgress")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fabrication Start</Label>
+                    <Input type="date" {...form.register("fabricationStart")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Assembly Start</Label>
+                    <Input type="date" {...form.register("assemblyStart")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Wrap/Graphics</Label>
+                    <Input type="date" {...form.register("wrapGraphics")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>NTC Testing</Label>
+                    <Input type="date" {...form.register("ntcTesting")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>QC Start</Label>
+                    <Input type="date" {...form.register("qcStart")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>QC Days</Label>
+                    <div className={`text-sm font-medium ${getDaysColor(calculateQCDays(selectedProject))}`}>
+                      {calculateQCDays(selectedProject)} days
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Executive Review</Label>
+                    <div className="flex gap-2">
+                      <Input type="date" {...form.register("executiveReview")} />
+                      <Input type="time" {...form.register("executiveReviewTime")} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Ship</Label>
+                    <Input type="date" {...form.register("ship")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Delivery</Label>
+                    <Input type="date" {...form.register("delivery")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>NTC Days</Label>
+                    <div className={`text-sm font-medium ${getDaysColor(calculateNTCDays(selectedProject))}`}>
+                      {calculateNTCDays(selectedProject)} days
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Location</Label>
-                  <Input {...form.register("location")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Team</Label>
-                  <Input {...form.register("team")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Contract Date</Label>
-                  <Input type="date" {...form.register("contractDate")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>NTC Testing</Label>
-                  <Input type="date" {...form.register("ntcTesting")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>QC Start</Label>
-                  <Input type="date" {...form.register("qcStart")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Executive Review</Label>
-                  <Input type="date" {...form.register("executiveReview")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ship Date</Label>
-                  <Input type="date" {...form.register("ship")} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Delivery Date</Label>
-                  <Input type="date" {...form.register("delivery")} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <RichTextEditor content={form.getValues("notes")} onChange={(content) => form.setValue("notes", content)} />
-              </div>
-              <DialogFooter>
-                <Button type="submit">Save Changes</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+              </form>
+            </Form>
+          </div>
+          <DialogFooter className="border-t p-4 mt-4">
+            <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={form.handleSubmit(handleSubmit)}>
+              Update Project
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
