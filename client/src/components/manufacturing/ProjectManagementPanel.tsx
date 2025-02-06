@@ -954,6 +954,7 @@ export function ProjectManagementPanel() {
                                 </div>
                               )}
                             </div>
+                          </div>
                         </div>
                       ) : (
                         <div>Select a project to view details</div>
