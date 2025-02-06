@@ -1,5 +1,4 @@
 import { Container, CosmosClient, Database } from "@azure/cosmos";
-import { BlobServiceClient } from "@azure/storage-blob";
 import { randomUUID } from "crypto";
 import type { ServiceTicket, CustomerFeedbackItem } from "@/types/field-service";
 
@@ -8,8 +7,6 @@ export class FieldServiceManager {
   private database!: Database;
   private ticketsContainer!: Container;
   private feedbackContainer!: Container;
-  private blobServiceClient: BlobServiceClient;
-  private fieldServiceBlobContainer: string = "field-service-data";
 
   constructor() {
     if (!process.env.NOMAD_AZURE_COSMOS_ENDPOINT || !process.env.NOMAD_AZURE_COSMOS_KEY) {
@@ -20,36 +17,29 @@ export class FieldServiceManager {
       endpoint: process.env.NOMAD_AZURE_COSMOS_ENDPOINT,
       key: process.env.NOMAD_AZURE_COSMOS_KEY
     });
-
-    // Initialize Blob Storage Client
-    const connectionString = process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING;
-    if (!connectionString) {
-      throw new Error("Azure Storage connection string not found");
-    }
-    this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
   }
 
   async initialize() {
     try {
+      console.log("Initializing field service database...");
+
       // Initialize Cosmos DB
       this.database = await this.client.databases.createIfNotExists({
         id: "field-service"
       }).then(response => response.database);
 
+      console.log("Database initialized, creating containers...");
+
       // Initialize containers
       this.ticketsContainer = await this.database.containers.createIfNotExists({
         id: "tickets",
-        partitionKey: "/customer.company"
+        partitionKey: "/customer/company"
       }).then(response => response.container);
 
       this.feedbackContainer = await this.database.containers.createIfNotExists({
         id: "feedback",
         partitionKey: "/ticketId"
       }).then(response => response.container);
-
-      // Initialize Blob Container
-      const containerClient = this.blobServiceClient.getContainerClient(this.fieldServiceBlobContainer);
-      await containerClient.createIfNotExists();
 
       console.log("Field service manager initialized successfully");
     } catch (error) {
@@ -59,19 +49,27 @@ export class FieldServiceManager {
   }
 
   async createTicket(ticketData: Omit<ServiceTicket, "id" | "createdAt" | "updatedAt">): Promise<ServiceTicket> {
-    const timestamp = new Date().toISOString();
-    const id = randomUUID();
+    try {
+      console.log("Creating new ticket:", ticketData);
 
-    const newTicket: ServiceTicket = {
-      id,
-      ...ticketData,
-      status: ticketData.status || 'open',
-      createdAt: timestamp,
-      updatedAt: timestamp
-    };
+      const timestamp = new Date().toISOString();
+      const id = randomUUID();
 
-    await this.ticketsContainer.items.create(newTicket);
-    return newTicket;
+      const newTicket: ServiceTicket = {
+        id,
+        ...ticketData,
+        status: ticketData.status || 'open',
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+
+      const { resource } = await this.ticketsContainer.items.create(newTicket);
+      console.log("Ticket created successfully:", resource);
+      return resource!;
+    } catch (error) {
+      console.error("Error creating ticket:", error);
+      throw error;
+    }
   }
 
   async updateTicket(id: string, company: string, updates: Partial<ServiceTicket>): Promise<ServiceTicket> {
@@ -111,19 +109,26 @@ export class FieldServiceManager {
   }
 
   async listTickets(querySpec?: any): Promise<ServiceTicket[]> {
-    const query = querySpec || {
-      query: "SELECT * FROM c ORDER BY c.updatedAt DESC"
-    };
+    try {
+      console.log("Fetching tickets with query:", querySpec);
 
-    const { resources } = await this.ticketsContainer.items
-      .query<ServiceTicket>(query)
-      .fetchAll();
+      const query = querySpec || {
+        query: "SELECT * FROM c ORDER BY c.updatedAt DESC"
+      };
 
-    return resources;
+      const { resources } = await this.ticketsContainer.items
+        .query<ServiceTicket>(query)
+        .fetchAll();
+
+      console.log(`Retrieved ${resources.length} tickets`);
+      return resources;
+    } catch (error) {
+      console.error("Error listing tickets:", error);
+      throw error;
+    }
   }
 
   async bulkCreateTickets(tickets: Array<Omit<ServiceTicket, "id" | "createdAt" | "updatedAt">>): Promise<ServiceTicket[]> {
-    const timestamp = new Date().toISOString();
     const createdTickets: ServiceTicket[] = [];
 
     for (const ticketData of tickets) {
@@ -133,7 +138,6 @@ export class FieldServiceManager {
 
     return createdTickets;
   }
-
   async analyzePriority(ticket: ServiceTicket): Promise<ServiceTicket> {
     // TODO: Implement AI analysis logic here
     const timestamp = new Date().toISOString();
@@ -154,7 +158,7 @@ export class FieldServiceManager {
       estimatedResolutionTime: 4, // hours
       lastAnalyzed: timestamp
     };
-
+    
     return this.updateTicket(ticket.id, ticket.customer.company, { aiAnalysis });
   }
 }
