@@ -606,10 +606,32 @@ export function ProjectManagementPanel() {
     };
 
     try {
+      const response = await fetch(`/api/manufacturing/projects/${formattedData.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formattedData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update project: ${response.statusText}`);
+      }
+
       await updateProjectMutation.mutateAsync(formattedData);
+      queryClient.invalidateQueries(['/api/manufacturing/projects']);
       setShowEditDialog(false);
+      toast({
+        title: "Success",
+        description: "Project updated successfully"
+      });
     } catch (error) {
       console.error('Failed to update project:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update project",
+        variant: "destructive"
+      });
     }
   };
 
