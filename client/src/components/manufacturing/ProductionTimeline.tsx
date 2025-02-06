@@ -44,12 +44,9 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     return date instanceof Date && !isNaN(date.getTime());
   };
 
-  // Format date as MM/DD/YYYY
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
+  // Display dates exactly as stored in project data without timezone manipulation
+  const displayDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-');
     return `${month}/${day}/${year}`;
   };
 
@@ -86,7 +83,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
   ].filter(event => isValidDate(event.date))
    .map(event => ({
      ...event,
-     formattedDate: event.date ? formatDate(event.date) : ''
+     formattedDate: event.date ? displayDate(event.date) : ''
    }));
 
   if (timelineEvents.length === 0) return null;
