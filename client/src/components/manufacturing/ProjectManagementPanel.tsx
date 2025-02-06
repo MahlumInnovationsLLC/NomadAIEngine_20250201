@@ -7,9 +7,9 @@ import { ProductionTimeline } from "./ProductionTimeline";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { 
-  AlertDialog, 
-  AlertDialogContent, 
+import {
+  AlertDialog,
+  AlertDialogContent,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogDescription,
@@ -18,17 +18,17 @@ import {
   AlertDialogAction
 } from "@/components/ui/alert-dialog";
 import { ResourceManagementPanel } from "./ResourceManagementPanel";
-import { 
-  faFolder, 
-  faCircleDot, 
-  faCheckCircle, 
-  faEdit, 
-  faRotateLeft, 
-  faLocationDot, 
-  faGrid2, 
-  faTable, 
-  faArrowUp, 
-  faArrowDown, 
+import {
+  faFolder,
+  faCircleDot,
+  faCheckCircle,
+  faEdit,
+  faRotateLeft,
+  faLocationDot,
+  faGrid2,
+  faTable,
+  faArrowUp,
+  faArrowDown,
   faFileImport,
   faUsers,
   faPlus,
@@ -243,8 +243,15 @@ export function ProjectManagementPanel() {
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<"location" | "qcStart" | "ship" | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [sortConfig, setSortConfig] = useState<{
+    primary: "location" | "qcStart" | "ship" | null;
+    secondary: "qcStart" | "ship" | null;
+    direction: "asc" | "desc";
+  }>({
+    primary: "ship", // Default sort by ship date
+    secondary: null,
+    direction: "asc"  // Closest dates first
+  });
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
@@ -398,12 +405,31 @@ export function ProjectManagementPanel() {
   };
 
   const handleSort = (field: "location" | "qcStart" | "ship") => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("desc");
-    }
+    setSortConfig(current => {
+      // If clicking the same primary field, just toggle direction
+      if (current.primary === field) {
+        return {
+          ...current,
+          direction: current.direction === "asc" ? "desc" : "asc"
+        };
+      }
+
+      // If sorting by location, use ship date as secondary sort
+      if (field === "location") {
+        return {
+          primary: field,
+          secondary: "ship",
+          direction: "asc"
+        };
+      }
+
+      // For date fields, clear secondary sort
+      return {
+        primary: field,
+        secondary: null,
+        direction: "asc"
+      };
+    });
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -482,22 +508,30 @@ export function ProjectManagementPanel() {
       (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     ))
     .sort((a, b) => {
-      if (!sortField) return 0;
+      const direction = sortConfig.direction === "asc" ? 1 : -1;
 
-      if (sortField === "location") {
+      // Primary sort
+      if (sortConfig.primary === "location") {
         const aLocation = (a.location || '').toLowerCase();
         const bLocation = (b.location || '').toLowerCase();
-        return sortDirection === "asc"
-          ? aLocation.localeCompare(bLocation)
-          : bLocation.localeCompare(aLocation);
+        const locationCompare = aLocation.localeCompare(bLocation);
+
+        // If locations are different, return the comparison
+        if (locationCompare !== 0) return locationCompare * direction;
+
+        // If locations are same and we have a secondary sort field, use it
+        if (sortConfig.secondary === "ship" || sortConfig.secondary === "qcStart") {
+          const aDate = a[sortConfig.secondary] ? new Date(a[sortConfig.secondary]).getTime() : Infinity;
+          const bDate = b[sortConfig.secondary] ? new Date(b[sortConfig.secondary]).getTime() : Infinity;
+          return (aDate - bDate) * direction;
+        }
+      } else if (sortConfig.primary === "ship" || sortConfig.primary === "qcStart") {
+        const aDate = a[sortConfig.primary] ? new Date(a[sortConfig.primary]).getTime() : Infinity;
+        const bDate = b[sortConfig.primary] ? new Date(b[sortConfig.primary]).getTime() : Infinity;
+        return (aDate - bDate) * direction;
       }
 
-      const aDate = a[sortField] ? new Date(a[sortField]).getTime() : sortDirection === "asc" ? Infinity : -Infinity;
-      const bDate = b[sortField] ? new Date(b[sortField]).getTime() : sortDirection === "asc" ? Infinity : -Infinity;
-
-      return sortDirection === "asc"
-        ? aDate - bDate
-        : bDate - aDate;
+      return 0;
     });
 
   const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -526,7 +560,7 @@ export function ProjectManagementPanel() {
 
     console.log('Form submitted with data:', data);
     updateDaysCalculations(data);
-    
+
     const formattedData = {
       ...data,
       id: selectedProject.id,
@@ -584,7 +618,7 @@ export function ProjectManagementPanel() {
         ntcTesting: formatDateForInput(projectData.ntcTesting),
         qcStart: formatDateForInput(projectData.qcStart),
         executiveReview: formatDateForInput(projectData.executiveReview),
-        executiveReviewTime: projectData.executiveReview ? new Date(projectData.executiveReview).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '',
+        executiveReviewTime: projectData.executiveReview ? new Date(projectData.executiveReview).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
         ship: formatDateForInput(projectData.ship),
         delivery: formatDateForInput(projectData.delivery),
         notes: projectData.notes || '',
@@ -786,10 +820,17 @@ export function ProjectManagementPanel() {
                           onClick={() => handleSort("location")}
                         >
                           Location
-                          <FontAwesomeIcon
-                            icon={sortField === "location" ? (sortDirection === "asc" ? faArrowUp : faArrowDown) : faArrowDown}
-                            className={`ml-2 h-4 w-4 ${sortField === "location" ? 'opacity-100' : 'opacity-40'}`}
-                          />
+                          {sortConfig.primary === "location" && (
+                            <div className="flex items-center gap-1 ml-1">
+                              <FontAwesomeIcon
+                                icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {sortConfig.secondary === "ship" ? "(Ship)" : "(QC)"}
+                              </span>
+                            </div>
+                          )}
                         </Button>
                         <Button
                           variant="outline"
@@ -798,10 +839,12 @@ export function ProjectManagementPanel() {
                           onClick={() => handleSort("qcStart")}
                         >
                           QC Date
-                          <FontAwesomeIcon
-                            icon={sortField === "qcStart" ? (sortDirection === "asc" ? faArrowUp : faArrowDown) : faArrowDown}
-                            className={`ml-2 h-4 w-4 ${sortField === "qcStart" ? 'opacity-100' : 'opacity-40'}`}
-                          />
+                          {sortConfig.primary === "qcStart" && (
+                            <FontAwesomeIcon
+                              icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
+                              className="h-4 w-4 ml-2"
+                            />
+                          )}
                         </Button>
                         <Button
                           variant="outline"
@@ -810,10 +853,12 @@ export function ProjectManagementPanel() {
                           onClick={() => handleSort("ship")}
                         >
                           Ship Date
-                          <FontAwesomeIcon
-                            icon={sortField === "ship" ? (sortDirection === "asc" ? faArrowUp : faArrowDown) : faArrowDown}
-                            className={`ml-2 h-4 w-4 ${sortField === "ship" ? 'opacity-100' : 'opacity-40'}`}
-                          />
+                          {sortConfig.primary === "ship" && (
+                            <FontAwesomeIcon
+                              icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
+                              className="h-4 w-4 ml-2"
+                            />
+                          )}
                         </Button>
                       </div>
                       <div className="space-y-2">
@@ -861,7 +906,7 @@ export function ProjectManagementPanel() {
                           <span>{selectedProject.projectNumber}</span>
                           <div className="flex gap-2">
                             <Button variant="outline" onClick={() => setShowEditDialog(true)}>
-                              <FontAwesomeIcon icon={faEdit} className="mr-2" />
+                              <FontAwesomeIcon icon={faEdit} className="mr-2"/>
                               Edit
                             </Button>
                             <div className="flex gap-2">
@@ -1234,9 +1279,9 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>NTC Testing</Label>
-                    <Input 
-                      type="date" 
-                      {...form.register("ntcTesting")} 
+                    <Input
+                      type="date"
+                      {...form.register("ntcTesting")}
                       onChange={(e) => {
                         form.setValue("ntcTesting", e.target.value);
                         updateDaysCalculations(form.getValues());
