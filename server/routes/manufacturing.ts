@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import qualityRoutes from './manufacturing/quality';
 import projectRoutes from './manufacturing/projects';
 import resourceRoutes from './manufacturing/resources';
+import dailyRequirementRoutes from './manufacturing/daily-requirements';
 import { ProjectStatus } from "@/types/manufacturing";
 
 const router = Router();
@@ -21,6 +22,7 @@ const router = Router();
 router.use('/quality', qualityRoutes);
 router.use('/projects', projectRoutes);
 router.use('/resources', resourceRoutes);
+router.use('/daily-requirements', dailyRequirementRoutes);
 
 // Reset project status to automatic
 router.post("/projects/:id/reset-status", async (req, res) => {
