@@ -261,6 +261,7 @@ export function ProjectManagementPanel() {
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [activeView, setActiveView] = useState<"list" | "map" | "table">("list");
+  const [locationFilter, setLocationFilter] = useState<"ALL" | "LIBBY" | "CFALLS">("ALL");
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -406,7 +407,6 @@ export function ProjectManagementPanel() {
 
   const handleSort = (field: "location" | "qcStart" | "ship") => {
     setSortConfig(current => {
-      // If clicking the same primary field, just toggle direction
       if (current.primary === field) {
         return {
           ...current,
@@ -414,7 +414,6 @@ export function ProjectManagementPanel() {
         };
       }
 
-      // If sorting by location, use ship date as secondary sort by default
       if (field === "location") {
         return {
           primary: field,
@@ -425,7 +424,6 @@ export function ProjectManagementPanel() {
         };
       }
 
-      // For date fields, clear secondary sort
       return {
         primary: field,
         secondary: null,
@@ -505,28 +503,31 @@ export function ProjectManagementPanel() {
   };
 
   const filteredAndSortedProjects = projects
-    .filter(project => (
-      (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-    ))
+    .filter(project => {
+      const matchesSearch = (
+        (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (project.projectNumber?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+      );
+
+      const matchesLocation = locationFilter === "ALL" ? true :
+        (project.location || '').toUpperCase() === locationFilter;
+
+      return matchesSearch && matchesLocation;
+    })
     .sort((a, b) => {
       const direction = sortConfig.direction === "asc" ? 1 : -1;
 
-      // Primary sort
       if (sortConfig.primary === "location") {
         const aLocation = (a.location || '').toLowerCase();
         const bLocation = (b.location || '').toLowerCase();
         const locationCompare = aLocation.localeCompare(bLocation);
 
-        // If locations are different, return the comparison
         if (locationCompare !== 0) return locationCompare * direction;
 
-        // If locations are same and we have a secondary sort field, use it
         if (sortConfig.secondary === "ship" || sortConfig.secondary === "qcStart") {
           const aDate = a[sortConfig.secondary];
           const bDate = b[sortConfig.secondary];
 
-          // Push null dates to the bottom
           if (!aDate && !bDate) return 0;
           if (!aDate) return 1;
           if (!bDate) return -1;
@@ -537,7 +538,6 @@ export function ProjectManagementPanel() {
         const aDate = a[sortConfig.primary];
         const bDate = b[sortConfig.primary];
 
-        // Push null dates to the bottom
         if (!aDate && !bDate) return 0;
         if (!aDate) return 1;
         if (!bDate) return -1;
@@ -618,7 +618,6 @@ export function ProjectManagementPanel() {
 
   const handleEditProject = async (project: Project) => {
     try {
-      // Fetch latest project data
       const response = await fetch(`/api/manufacturing/projects/${project.id}`);
       if (!response.ok) throw new Error('Failed to fetch project details');
       const projectData = await response.json();
@@ -661,7 +660,6 @@ export function ProjectManagementPanel() {
   const handleViewProject = (project: Project) => {
     setSelectedProject(project);
   };
-
 
   if (isLoading) {
     return (
@@ -819,61 +817,58 @@ export function ProjectManagementPanel() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="Search projects..."
-                        className="mb-2"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                      <div className="flex gap-2 mb-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleSort("location")}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Search projects..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+
+                        <Select
+                          value={locationFilter}
+                          onValueChange={(value: "ALL" | "LIBBY" | "CFALLS") => setLocationFilter(value)}
                         >
-                          Location
-                          {sortConfig.primary === "location" && (
-                            <div className="flex items-center gap-1 ml-1">
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Filter by location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ALL">All Locations</SelectItem>
+                            <SelectItem value="LIBBY">Libby</SelectItem>
+                            <SelectItem value="CFALLS">CFalls</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <div className="flex gap-2 mb-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleSort("qcStart")}
+                          >
+                            QC Date
+                            {sortConfig.primary === "qcStart" && (
                               <FontAwesomeIcon
                                 icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
-                                className="h-4 w-4"
+                                className="h-4 w-4 ml-2"
                               />
-                              <span className="text-xs text-muted-foreground">
-                                {`(${sortConfig.secondary === "ship" ? "Ship" : "QC"} Date)`}
-                              </span>
-                            </div>
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleSort("qcStart")}
-                        >
-                          QC Date
-                          {sortConfig.primary === "qcStart" && (
-                            <FontAwesomeIcon
-                              icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
-                              className="h-4 w-4 ml-2"
-                            />
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleSort("ship")}
-                        >
-                          Ship Date
-                          {sortConfig.primary === "ship" && (
-                            <FontAwesomeIcon
-                              icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
-                              className="h-4 w-4 ml-2"
-                            />
-                          )}
-                        </Button>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleSort("ship")}
+                          >
+                            Ship Date
+                            {sortConfig.primary === "ship" && (
+                              <FontAwesomeIcon
+                                icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
+                                className="h-4 w-4 ml-2"
+                              />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         {filteredAndSortedProjects.map((project) => (
@@ -906,7 +901,8 @@ export function ProjectManagementPanel() {
                               </div>
                             </div>
                           </Button>
-                        ))}                      </div>
+                        ))}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
