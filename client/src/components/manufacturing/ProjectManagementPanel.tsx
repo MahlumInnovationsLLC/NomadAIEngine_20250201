@@ -179,6 +179,8 @@ const defaultFormValues = {
   location: "",
   team: "",
   contractDate: "",
+  dpasRating: "",
+  chassisEta: "",
   ntcTesting: "",
   qcStart: "",
   executiveReview: "",
@@ -204,6 +206,8 @@ const formSchema = z.object({
   location: z.string().optional(),
   team: z.string().optional(),
   contractDate: z.string().optional(),
+  dpasRating: z.string().optional(),
+  chassisEta: z.string().optional(),
   ntcTesting: z.string().optional(),
   qcStart: z.string().optional(),
   executiveReview: z.string().optional(),
@@ -575,11 +579,11 @@ export function ProjectManagementPanel() {
     if (!selectedProject) return;
 
     console.log('Form submitted with data:', data);
-    
+
     // Calculate days before formatting data
     const ntcDays = data.ntcTesting && data.qcStart ? 
       calculateWorkingDays(new Date(data.ntcTesting), new Date(data.qcStart)) : 0;
-    
+
     const qcDays = data.qcStart && data.executiveReview ? 
       calculateWorkingDays(new Date(data.qcStart), new Date(data.executiveReview)) : 0;
 
@@ -589,6 +593,8 @@ export function ProjectManagementPanel() {
       location: data.location,
       team: data.team,
       contractDate: data.contractDate,
+      dpasRating: data.dpasRating,
+      chassisEta: data.chassisEta,
       ntcTesting: data.ntcTesting,
       qcStart: data.qcStart,
       executiveReview: data.executiveReview,
@@ -668,6 +674,8 @@ export function ProjectManagementPanel() {
         location: projectData.location || '',
         team: projectData.team || '',
         contractDate: formatDateForInput(projectData.contractDate),
+        dpasRating: projectData.dpasRating || '',
+        chassisEta: projectData.chassisEta || '',
         ntcTesting: formatDateForInput(projectData.ntcTesting),
         qcStart: formatDateForInput(projectData.qcStart),
         executiveReview: formatDateForInput(projectData.executiveReview),
@@ -903,8 +911,7 @@ export function ProjectManagementPanel() {
                             Ship Date
                             {sortConfig.primary === "ship" && (
                               <FontAwesomeIcon
-                                icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
-                                className="h-4 w-4 ml-2"
+                                icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}                                className="h-4 w-4 ml-2"
                               />
                             )}
                           </Button>
@@ -1250,6 +1257,39 @@ export function ProjectManagementPanel() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-4">
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Project Number</Label>
+                    <Input {...form.register("projectNumber")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Location</Label>
+                    <Select onValueChange={(value) => form.setValue("location", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Libby">Libby</SelectItem>
+                        <SelectItem value="CFalls">CFalls</SelectItem>
+                        <SelectItem value="FSW">FSW</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Team</Label>
+                    <Input {...form.register("team")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contract Date</Label>
+                    <Input type="date" {...form.register("contractDate")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>DPAS Rating</Label>
+                    <Input {...form.register("dpasRating")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Chassis ETA</Label>
+                    <Input {...form.register("chassisEta")} />
+                  </div>
                   <div className="space-y-2">
                     <Label>ME Assigned</Label>
                     <Input {...form.register("meAssigned")} />
