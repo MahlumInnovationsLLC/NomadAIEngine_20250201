@@ -249,7 +249,45 @@ export function ProjectCreateDialog({ project, onClose }: ProjectCreateDialogPro
             <DialogTitle>{project ? 'Edit Project' : 'Create New Project'}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit((data) => {
+  if (project) {
+    // Update existing project
+    const formattedData = {
+      id: project.id,
+      ...data
+    };
+    try {
+      fetch(`/api/manufacturing/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formattedData)
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to update project');
+        }
+        return response.json();
+      }).then(() => {
+        toast({
+          title: "Success",
+          description: "Project updated successfully"
+        });
+        onClose?.();
+      }).catch(error => {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      });
+    } catch (error) {
+      console.error('Error updating project:', error);
+    }
+  } else {
+    onSubmit(data);
+  }
+})} className="space-y-6">
               <div className="grid grid-cols-3 gap-4">
                 {/* Basic Info */}
                 <FormField
