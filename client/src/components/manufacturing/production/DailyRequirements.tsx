@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/lib/azure/project-service";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
 
 interface DailyRequirement {
   id: string;
