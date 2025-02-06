@@ -221,7 +221,9 @@ const formSchema = z.object({
   ntcDesignProgress: z.number().optional(),
   fabricationStart: z.string().optional(),
   assemblyStart: z.string().optional(),
-  wrapGraphics: z.string().optional()
+  wrapGraphics: z.string().optional(),
+  ntcDays: z.number().optional(),
+  qcDays: z.number().optional()
 });
 
 
@@ -557,14 +559,14 @@ export function ProjectManagementPanel() {
   const updateDaysCalculations = (data: z.infer<typeof formSchema>) => {
     if (data.ntcTesting && data.qcStart) {
       const ntcDays = calculateWorkingDays(data.ntcTesting, data.qcStart);
-      form.setValue("ntcDays", ntcDays.toString());
+      data.ntcDays = ntcDays;
     }
 
     if (data.qcStart && (data.executiveReview || data.ship)) {
       const endDate = data.executiveReview || data.ship;
       if (endDate) {
         const qcDays = calculateWorkingDays(data.qcStart, endDate);
-        form.setValue("qcDays", qcDays.toString());
+        data.qcDays = qcDays;
       }
     }
   };
@@ -1297,7 +1299,10 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>QC Start</Label>
-                    <Input type="date" {...form.register("qcStart")} />
+                    <Input type="date" {...form.register("qcStart")} onChange={(e) => {
+                        form.setValue("qcStart", e.target.value);
+                        updateDaysCalculations(form.getValues());
+                      }} />
                   </div>
                   <div className="space-y-2">
                     <Label>QC Days</Label>
