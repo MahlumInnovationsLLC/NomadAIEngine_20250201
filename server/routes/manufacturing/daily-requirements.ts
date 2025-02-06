@@ -41,6 +41,32 @@ router.get("/", async (req, res) => {
 });
 
 // Create new requirement
+router.patch("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const blobClient = containerClient.getBlockBlobClient(`${id}.json`);
+    const downloadResponse = await blobClient.download();
+    const currentData = JSON.parse(await streamToString(downloadResponse.readableStreamBody));
+    
+    const updatedRequirement = {
+      ...currentData,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    await blobClient.upload(JSON.stringify(updatedRequirement), JSON.stringify(updatedRequirement).length, {
+      blobHTTPHeaders: { blobContentType: "application/json" }
+    });
+
+    res.json(updatedRequirement);
+  } catch (error) {
+    console.error("Error updating requirement:", error);
+    res.status(500).json({ error: "Failed to update requirement" });
+  }
+});
+
 router.post("/", async (req, res) => {
   try {
     const requirement = {

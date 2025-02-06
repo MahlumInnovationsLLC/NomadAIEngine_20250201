@@ -1,4 +1,3 @@
-
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/lib/azure/project-service";
+import { toast } from "@/components/ui/use-toast";
 
 interface DailyRequirement {
   id: string;
@@ -20,6 +20,7 @@ interface DailyRequirement {
   notes: string;
   status: 'OPEN' | 'CLOSED';
   group: 'Production' | 'Libby' | 'ME' | 'EE' | 'IT' | 'Supply Chain' | 'NTC' | 'QA';
+  assigned: string; // Added assigned field
 }
 
 interface AddRequirementFormData {
@@ -29,15 +30,16 @@ interface AddRequirementFormData {
   needByDate: string;
   notes: string;
   group: DailyRequirement['group'];
+  assigned: string; // Added assigned field
 }
 
 export function DailyRequirements() {
   const [selectedGroup, setSelectedGroup] = useState<string>('Production');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { data: projects = [] } = useProjects();
-  
+
   const queryClient = useQueryClient();
-  
+
   const { data: requirements = [], isError } = useQuery<DailyRequirement[]>({
     queryKey: ['/api/manufacturing/daily-requirements'],
     queryFn: async () => {
@@ -60,11 +62,11 @@ export function DailyRequirements() {
           status: 'OPEN',
         }),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to create requirement');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -83,6 +85,30 @@ export function DailyRequirements() {
       });
     }
   });
+
+  const updateRequirement = async (id: string, updates: Partial<DailyRequirement>) => {
+    try {
+      const response = await fetch(`/api/manufacturing/daily-requirements/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update requirement ${id}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/daily-requirements'] });
+    } catch (error) {
+      console.error("Error updating requirement:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update requirement",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleSubmit = (data: AddRequirementFormData) => {
     createRequirementMutation.mutate(data);
@@ -132,6 +158,7 @@ export function DailyRequirements() {
                       <Input placeholder="Description of Issue" />
                       <Input type="date" />
                       <Input placeholder="Notes" />
+                      <Input placeholder="Assigned To" /> {/* Added Assigned To field */}
                       <Button type="submit">Save Requirement</Button>
                     </form>
                   </DialogContent>
@@ -147,6 +174,7 @@ export function DailyRequirements() {
                       <TableHead>Description</TableHead>
                       <TableHead>Need By</TableHead>
                       <TableHead>Notes</TableHead>
+                      <TableHead>Assigned</TableHead> {/* Added Assigned column */}
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -157,11 +185,30 @@ export function DailyRequirements() {
                         <TableCell>{new Date(req.date).toLocaleDateString()}</TableCell>
                         <TableCell>{req.requester}</TableCell>
                         <TableCell>{req.projectId}</TableCell>
-                        <TableCell>{req.issueDescription}</TableCell>
-                        <TableCell>{new Date(req.needByDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{req.notes}</TableCell>
                         <TableCell>
-                          <Select defaultValue={req.status}>
+                          <Input
+                            defaultValue={req.issueDescription}
+                            onBlur={(e) => updateRequirement(req.id, { issueDescription: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>{new Date(req.needByDate).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <Input
+                            defaultValue={req.notes}
+                            onBlur={(e) => updateRequirement(req.id, { notes: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            defaultValue={req.assigned}
+                            onBlur={(e) => updateRequirement(req.id, { assigned: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            defaultValue={req.status}
+                            onValueChange={(value) => updateRequirement(req.id, { status: value as 'OPEN' | 'CLOSED' })}
+                          >
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
