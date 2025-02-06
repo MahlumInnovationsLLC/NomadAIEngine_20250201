@@ -731,6 +731,10 @@ export function ProjectManagementPanel() {
     setSelectedProject(project);
   };
 
+  const initializeEditForm = (project: Project) => {
+    handleEditProject(project);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -891,8 +895,7 @@ export function ProjectManagementPanel() {
                       <div className="space-y-2">
                         <Input
                           placeholder="Search projects..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
+                          value={searchQuery}                          onChange={(e) => setSearchQuery(e.target.value)}
                         />
 
                         <Select
@@ -983,7 +986,7 @@ export function ProjectManagementPanel() {
                         <div className="flex justify-between items-center">
                           <span>{selectedProject.projectNumber}</span>
                           <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => setShowEditDialog(true)}>
+                            <Button variant="outline" onClick={() => initializeEditForm(selectedProject)}>
                               <FontAwesomeIcon icon={faEdit} className="mr-2"/>
                               Edit
                             </Button>
