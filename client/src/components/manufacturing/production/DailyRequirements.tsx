@@ -253,12 +253,9 @@ export function DailyRequirements() {
                             variant="ghost" 
                             size="sm"
                             onClick={() => {
-                              // Open dialog for editing
-                              setEditingRequirement(req);
-                              setShowEditDialog(true);
-                            }}
-                          >
-                            Edit
+                              try {
+                                setEditingRequirement(req);
+                                setShowEditDialog(true);
                                 toast({
                                   title: "Success",
                                   description: "Requirement updated successfully"
@@ -272,7 +269,7 @@ export function DailyRequirements() {
                               }
                             }}
                           >
-                            {req.status === 'OPEN' ? 'Close' : 'Reopen'}
+                            Edit
                           </Button>
                         </TableCell>
                       </TableRow>
