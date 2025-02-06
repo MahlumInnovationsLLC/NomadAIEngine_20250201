@@ -42,7 +42,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 const projectSchema = z.object({
   projectNumber: z.string().min(1, "Project number is required"),
-  location: z.string().min(1, "Location is required"),
+  location: z.string().optional(),
   team: z.string().nullable().optional(),
   contractDate: z.string().nullable().optional(),
   dpasRating: z.string().nullable().optional(),
@@ -63,11 +63,12 @@ const projectSchema = z.object({
   wrapGraphics: z.string().nullable().optional(),
   ntcTesting: z.string().nullable().optional(),
   qcStart: z.string().nullable().optional(),
-  qcDays: z.string().nullable().optional(),
+  qcDays: z.number().nullable().optional(),
   executiveReview: z.string().nullable().optional(),
   ship: z.string().nullable().optional(),
   delivery: z.string().nullable().optional(),
-  notes: z.string().nullable().optional()
+  notes: z.string().nullable().optional(),
+  ntcDays: z.number().nullable().optional()
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -141,10 +142,11 @@ export function ProjectCreateDialog({ project, onClose }: ProjectCreateDialogPro
       wrapGraphics: project?.wrapGraphics || '',
       ntcTesting: project?.ntcTesting || '',
       qcStart: project?.qcStart || '',
-      qcDays: project?.qcDays || '',
+      qcDays: project?.qcDays || null,
       executiveReview: project?.executiveReview || '',
       ship: project?.ship || '',
-      delivery: project?.delivery || ''
+      delivery: project?.delivery || '',
+      ntcDays: project?.ntcDays || null
     }
   });
 
@@ -155,16 +157,22 @@ export function ProjectCreateDialog({ project, onClose }: ProjectCreateDialogPro
 
   const qcStart = form.watch("qcStart");
   const executiveReview = form.watch("executiveReview");
-  const qcDays = form.watch("qcDays");
+  const ntcTesting = form.watch("ntcTesting");
 
   useEffect(() => {
     if (qcStart && executiveReview) {
       const startDate = new Date(qcStart);
-      const endDate = new Date(executiveReview.split('T')[0]);
+      const endDate = new Date(executiveReview);
       const days = getBusinessDays(startDate, endDate);
-      form.setValue("qcDays", days.toString());
+      form.setValue("qcDays", days);
     }
-  }, [qcStart, executiveReview, form]);
+    if (ntcTesting && qcStart) {
+        const startDate = new Date(ntcTesting);
+        const endDate = new Date(qcStart);
+        const days = getBusinessDays(startDate, endDate);
+        form.setValue("ntcDays", days);
+    }
+  }, [qcStart, executiveReview, ntcTesting, form]);
 
     const projectMutation = useMutation({
     mutationFn: async (data: ProjectFormValues) => {
@@ -611,6 +619,19 @@ export function ProjectCreateDialog({ project, onClose }: ProjectCreateDialogPro
                       <FormLabel>Executive Review</FormLabel>
                        <FormControl>
                         <Input type="datetime-local" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="ntcDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>NTC Days</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
