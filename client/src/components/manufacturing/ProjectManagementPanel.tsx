@@ -575,7 +575,13 @@ export function ProjectManagementPanel() {
     if (!selectedProject) return;
 
     console.log('Form submitted with data:', data);
-    updateDaysCalculations(data);
+    
+    // Calculate days before formatting data
+    const ntcDays = data.ntcTesting && data.qcStart ? 
+      calculateWorkingDays(new Date(data.ntcTesting), new Date(data.qcStart)) : 0;
+    
+    const qcDays = data.qcStart && data.executiveReview ? 
+      calculateWorkingDays(new Date(data.qcStart), new Date(data.executiveReview)) : 0;
 
     const formattedData = {
       id: selectedProject.id,
@@ -601,8 +607,8 @@ export function ProjectManagementPanel() {
       fabricationStart: data.fabricationStart,
       assemblyStart: data.assemblyStart,
       wrapGraphics: data.wrapGraphics,
-      ntcDays: data.ntcDays,
-      qcDays: data.qcDays
+      ntcDays: ntcDays.toString(),
+      qcDays: qcDays.toString()
     };
 
     try {
@@ -1298,7 +1304,8 @@ export function ProjectManagementPanel() {
                         const qcStart = form.getValues("qcStart");
                         if (e.target.value && qcStart) {
                           const days = calculateWorkingDays(new Date(e.target.value), new Date(qcStart));
-                          form.setValue("ntcDays", days, { shouldValidate: true });
+                          form.setValue("ntcDays", days.toString());
+                          console.log('Updated NTC Days:', days);
                         }
                       }} 
                     />
