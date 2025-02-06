@@ -8,8 +8,8 @@ import { Equipment, FloorPlan } from "@db/schema";
 import FacilityDashboard from "@/components/facility/FacilityDashboard";
 
 // Lazy load components
-const EquipmentList = lazy(() => import("@/components/club/EquipmentList"));
-const FloorPlanView = lazy(() => import("@/components/club/FloorPlanView"));
+const EquipmentList = lazy(() => import("@/components/facility/EquipmentList"));
+const FloorPlanView = lazy(() => import("@/components/facility/FloorPlanView"));
 const EquipmentUsagePrediction = lazy(() => import("@/components/facility/EquipmentUsagePrediction"));
 const EquipmentComparisonDashboard = lazy(() => import("@/components/facility/EquipmentComparisonDashboard"));
 const EquipmentPerformanceReport = lazy(() => import("@/components/facility/EquipmentPerformanceReport"));
