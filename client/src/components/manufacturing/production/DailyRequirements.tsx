@@ -6,9 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/lib/azure/project-service";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface DailyRequirement {
   id: string;
@@ -210,7 +212,9 @@ export function DailyRequirements() {
                       <TableRow key={req.id}>
                         <TableCell>{new Date(req.date).toLocaleDateString()}</TableCell>
                         <TableCell>{req.requester}</TableCell>
-                        <TableCell>{req.projectId}</TableCell>
+                        <TableCell>
+                          {projects.find(p => p.id === req.projectId)?.projectNumber || 'Unknown Project'}
+                        </TableCell>
                         <TableCell>
                           <Input
                             defaultValue={req.issueDescription}
@@ -219,7 +223,8 @@ export function DailyRequirements() {
                         </TableCell>
                         <TableCell>{new Date(req.needByDate).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          <Input
+                          <Textarea
+                            className="min-h-[100px]"
                             defaultValue={req.notes}
                             onBlur={(e) => updateRequirement(req.id, { notes: e.target.value })}
                           />
@@ -249,10 +254,12 @@ export function DailyRequirements() {
                             variant="ghost" 
                             size="sm"
                             onClick={() => {
-                              try {
-                                updateRequirement(req.id, { 
-                                  status: req.status === 'OPEN' ? 'CLOSED' : 'OPEN' 
-                                });
+                              // Open dialog for editing
+                              setEditingRequirement(req);
+                              setShowEditDialog(true);
+                            }}
+                          >
+                            Edit
                                 toast({
                                   title: "Success",
                                   description: "Requirement updated successfully"
