@@ -28,6 +28,7 @@ const ManufacturingControlPage = lazy(() => import("./pages/ManufacturingControl
 const MarketingControl = lazy(() => import("./pages/MarketingControl"));
 const MaterialHandling = lazy(() => import("./components/material/MaterialDashboard"));
 const SalesControl = lazy(() => import("./pages/SalesControl"));
+const FacilityControlPage = lazy(() => import("./pages/FacilityControlPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const DocumentManagementPage = lazy(() => import("./pages/DocumentManagement"));
 const TrainingModulePage = lazy(() => import("./pages/TrainingModule"));
@@ -114,6 +115,7 @@ function App() {
                   <Route path="/sales-control" component={() => <ProtectedRoute component={SalesControl} />} />
                   <Route path="/marketing-control" component={() => <ProtectedRoute component={MarketingControl} />} />
                   <Route path="/material-handling" component={() => <ProtectedRoute component={MaterialHandling} />} />
+                  <Route path="/facility-control" component={() => <ProtectedRoute component={FacilityControlPage} />} />
                   <Route path="/field-service" component={() => <ProtectedRoute component={FieldServiceDashboard} />} />
                   <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
                   <Route path="/admin/support/:id" component={() => <ProtectedRoute component={TicketDetailsPage} />} />

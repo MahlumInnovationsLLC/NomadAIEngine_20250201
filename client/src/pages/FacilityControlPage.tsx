@@ -4,18 +4,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import type { Equipment, FloorPlan } from "@db/schema";
-import FacilityDashboard from "@/components/club/facility/FacilityDashboard";
+import { Equipment, FloorPlan } from "@db/schema";
+import FacilityDashboard from "@/components/facility/FacilityDashboard";
 
 // Lazy load components
-const EquipmentList = lazy(() => import("@/components/club/EquipmentList"));
-const FloorPlanView = lazy(() => import("@/components/club/FloorPlanView"));
-const EquipmentUsagePrediction = lazy(() => import("@/components/club/EquipmentUsagePrediction"));
-const EquipmentComparisonDashboard = lazy(() => import("@/components/club/EquipmentComparisonDashboard"));
-const EquipmentPerformanceReport = lazy(() => import("@/components/club/EquipmentPerformanceReport"));
-const MaintenanceScheduler = lazy(() => import("@/components/club/MaintenanceScheduler"));
-const MaintenanceTimeline = lazy(() => import("@/components/club/MaintenanceTimeline"));
-const TroubleshootingGuide = lazy(() => import("@/components/club/TroubleshootingGuide"));
+const EquipmentList = lazy(() => import("@/components/facility/EquipmentList"));
+const FloorPlanView = lazy(() => import("@/components/facility/FloorPlanView"));
+const EquipmentUsagePrediction = lazy(() => import("@/components/facility/EquipmentUsagePrediction"));
+const EquipmentComparisonDashboard = lazy(() => import("@/components/facility/EquipmentComparisonDashboard"));
+const EquipmentPerformanceReport = lazy(() => import("@/components/facility/EquipmentPerformanceReport"));
+const MaintenanceScheduler = lazy(() => import("@/components/facility/MaintenanceScheduler"));
+const MaintenanceTimeline = lazy(() => import("@/components/facility/MaintenanceTimeline"));
+const TroubleshootingGuide = lazy(() => import("@/components/facility/TroubleshootingGuide"));
 
 // Loading spinner component
 const LoadingSpinner = () => (
@@ -95,7 +95,7 @@ export default function FacilityControlPage() {
                   onEquipmentSelect={handleEquipmentSelect}
                   selectedEquipment={selectedEquipment}
                 />
-                
+
                 {showingPrediction && selectedEquipment.length === 1 && (
                   <EquipmentUsagePrediction equipmentId={selectedEquipment[0].id} />
                 )}
@@ -112,7 +112,9 @@ export default function FacilityControlPage() {
               <MaintenanceScheduler equipment={equipment} />
               <MaintenanceTimeline equipment={equipment} />
             </div>
-            <TroubleshootingGuide equipment={selectedEquipment[0]} />
+            {selectedEquipment.length > 0 && (
+              <TroubleshootingGuide equipment={selectedEquipment[0]} />
+            )}
           </Suspense>
         </TabsContent>
 
