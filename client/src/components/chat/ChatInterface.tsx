@@ -145,7 +145,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           />
           <Label htmlFor="mode-toggle" className="flex items-center gap-2">
             <FontAwesomeIcon 
-              icon={mode === 'web-search' ? "globe-pointer" : "brain-circuit"} 
+              icon={mode === 'web-search' ? "globe" : "brain"} 
               className="h-4 w-4 text-muted-foreground"
             />
             {mode === 'web-search' ? 'Web Search' : 'AI Engine Chat'}

@@ -4,6 +4,8 @@ import {
   faFileUpload,
   faSpinner,
   faBrain,
+  faGlobe,
+  faPaperPlane,
   faRobot,
   faUser,
   faPaperPlane,
@@ -88,6 +90,9 @@ import { faWindows } from '@fortawesome/free-brands-svg-icons';
 
 // Add all icons to the library
 library.add(
+  faBrain,
+  faGlobe,
+  faPaperPlane,
   faBold,
   faItalic,
   faHeading,
