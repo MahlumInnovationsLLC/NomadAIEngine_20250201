@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import type { FeedbackFormTemplate, FeedbackRequest } from "@/types/field-service";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,6 +32,7 @@ const templateFormSchema = z.object({
     type: z.enum(["rating", "text", "multiple_choice", "checkbox"]),
     required: z.boolean(),
     category: z.enum(["product", "service", "communication", "timeliness", "other"]),
+    options: z.array(z.string()).optional(),
   })).min(1, "At least one question is required"),
 });
 
@@ -55,8 +56,22 @@ export function FeedbackManagement() {
     defaultValues: {
       name: "",
       description: "",
-      questions: [],
+      questions: [
+        {
+          text: "",
+          type: "rating",
+          required: true,
+          category: "service",
+          options: [],
+        },
+      ],
     },
+  });
+
+  // Initialize questions field array
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "questions",
   });
 
   const requestForm = useForm<z.infer<typeof requestFormSchema>>({
@@ -121,13 +136,19 @@ export function FeedbackManagement() {
     },
   });
 
-  // Add template creation mutation
   const createTemplate = useMutation({
     mutationFn: async (data: z.infer<typeof templateFormSchema>) => {
       const response = await fetch('/api/field-service/feedback/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          version: 1,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          reviewStatus: 'draft',
+        }),
       });
       if (!response.ok) throw new Error('Failed to create template');
       return response.json();
@@ -375,8 +396,136 @@ export function FeedbackManagement() {
                   </FormItem>
                 )}
               />
-              {/* Questions array field to be implemented */}
-              <Button type="submit">Create Template</Button>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-sm font-medium">Questions</h4>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({
+                      text: "",
+                      type: "rating",
+                      required: true,
+                      category: "service",
+                      options: [],
+                    })}
+                  >
+                    <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                    Add Question
+                  </Button>
+                </div>
+
+                {fields.map((field, index) => (
+                  <div key={field.id} className="space-y-4 p-4 border rounded-lg relative">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => remove(index)}
+                    >
+                      <FontAwesomeIcon icon="times" className="h-4 w-4" />
+                    </Button>
+
+                    <FormField
+                      control={form.control}
+                      name={`questions.${index}.text`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Question Text</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="How would you rate our service?" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`questions.${index}.type`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Question Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="rating">Rating</SelectItem>
+                                <SelectItem value="text">Text</SelectItem>
+                                <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                                <SelectItem value="checkbox">Checkbox</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`questions.${index}.category`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Category</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="product">Product</SelectItem>
+                                <SelectItem value="service">Service</SelectItem>
+                                <SelectItem value="communication">Communication</SelectItem>
+                                <SelectItem value="timeliness">Timeliness</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name={`questions.${index}.required`}
+                      render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2">
+                          <FormControl>
+                            <input
+                              type="checkbox"
+                              checked={field.value}
+                              onChange={field.onChange}
+                              className="h-4 w-4 rounded border-gray-300"
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">Required question</FormLabel>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <Button type="submit" disabled={createTemplate.isPending}>
+                {createTemplate.isPending ? (
+                  <>
+                    <FontAwesomeIcon icon="spinner" className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Template'
+                )}
+              </Button>
             </form>
           </Form>
         </DialogContent>
