@@ -11,8 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useProjects } from "@/lib/azure/project-service";
 import { useToast } from "@/hooks/use-toast";
 
-const { toast } = useToast();
-
 interface DailyRequirement {
   id: string;
   date: string;
@@ -37,6 +35,7 @@ interface AddRequirementFormData {
 }
 
 export function DailyRequirements() {
+  const { toast } = useToast();
   const [selectedGroup, setSelectedGroup] = useState<string>('Production');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { data: projects = [] } = useProjects();
