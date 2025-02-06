@@ -559,14 +559,14 @@ export function ProjectManagementPanel() {
   const updateDaysCalculations = (data: z.infer<typeof formSchema>) => {
     if (data.ntcTesting && data.qcStart) {
       const ntcDays = calculateWorkingDays(data.ntcTesting, data.qcStart);
-      data.ntcDays = ntcDays.toString();
+      form.setValue("ntcDays", ntcDays.toString(), { shouldValidate: true });
     }
 
     if (data.qcStart && (data.executiveReview || data.ship)) {
       const endDate = data.executiveReview || data.ship;
       if (endDate) {
         const qcDays = calculateWorkingDays(data.qcStart, endDate);
-        data.qcDays = qcDays.toString();
+        form.setValue("qcDays", qcDays.toString(), { shouldValidate: true });
       }
     }
   };
@@ -1288,21 +1288,38 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>NTC Testing</Label>
-                    <Input
-                      type="date"
-                      {...form.register("ntcTesting")}
+                    <Input 
+                      type="date" 
+                      {...form.register("ntcTesting")} 
                       onChange={(e) => {
-                        form.setValue("ntcTesting", e.target.value);
-                        updateDaysCalculations(form.getValues());
-                      }}
+                        form.setValue("ntcTesting", e.target.value, { shouldValidate: true });
+                        const qcStart = form.getValues("qcStart");
+                        if (e.target.value && qcStart) {
+                          const days = calculateWorkingDays(new Date(e.target.value), new Date(qcStart));
+                          form.setValue("ntcDays", days, { shouldValidate: true });
+                        }
+                      }} 
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>QC Start</Label>
-                    <Input type="date" {...form.register("qcStart")} onChange={(e) => {
-                        form.setValue("qcStart", e.target.value);
-                        updateDaysCalculations(form.getValues());
-                      }} />
+                    <Input 
+                      type="date" 
+                      {...form.register("qcStart")} 
+                      onChange={(e) => {
+                        form.setValue("qcStart", e.target.value, { shouldValidate: true });
+                        const ntcTesting = form.getValues("ntcTesting");
+                        const executiveReview = form.getValues("executiveReview");
+                        if (ntcTesting && e.target.value) {
+                          const ntcDays = calculateWorkingDays(new Date(ntcTesting), new Date(e.target.value));
+                          form.setValue("ntcDays", ntcDays, { shouldValidate: true });
+                        }
+                        if (e.target.value && executiveReview) {
+                          const qcDays = calculateWorkingDays(new Date(e.target.value), new Date(executiveReview));
+                          form.setValue("qcDays", qcDays, { shouldValidate: true });
+                        }
+                      }} 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>QC Days</Label>
