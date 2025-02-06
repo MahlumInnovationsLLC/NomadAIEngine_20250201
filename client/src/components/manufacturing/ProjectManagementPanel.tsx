@@ -633,14 +633,17 @@ export function ProjectManagementPanel() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowImportDialog(true)}
-            className="gap-2"
-          >
-            <FontAwesomeIcon icon="file-import" className="h-4 w-4" />
-            Import Excel
-          </Button>
+          <div className="flex gap-2">
+            <ProjectCreateDialog />
+            <Button
+              variant="outline"
+              onClick={() => setShowImportDialog(true)}
+              className="gap-2"
+            >
+              <FontAwesomeIcon icon="file-import" className="h-4 w-4" />
+              Import Excel
+            </Button>
+          </div>
         </div>
       </div>
 
