@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import type { Project } from "@/types/manufacturing";
-import { format } from "date-fns";
 
 interface ProductionTimelineProps {
   project: Project;
@@ -45,10 +44,31 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     return date instanceof Date && !isNaN(date.getTime());
   };
 
-  // Display dates exactly as stored in project data
-  const displayDate = (dateStr: string) => {
-    // Split the date string to get only the date part
-    return dateStr.split('T')[0].split('-').join('/');
+  // Format date as MM/DD/YYYY
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
+
+  // Calculate working days between two dates (excluding weekends)
+  const calculateWorkingDays = (start: string, end: string): number => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    let days = 0;
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+      const dayOfWeek = current.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip weekends (0 = Sunday, 6 = Saturday)
+        days++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    return days;
   };
 
   const today = new Date();
@@ -66,7 +86,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
   ].filter(event => isValidDate(event.date))
    .map(event => ({
      ...event,
-     formattedDate: event.date ? displayDate(event.date) : ''
+     formattedDate: event.date ? formatDate(event.date) : ''
    }));
 
   if (timelineEvents.length === 0) return null;
@@ -111,7 +131,13 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
     const needsOffset = position - prevPosition < 15;
 
-    return { ...event, position, needsOffset };
+    // Calculate working days to next milestone
+    const nextEvent = timelineEvents[index + 1];
+    const workingDays = nextEvent?.date && event.date
+      ? calculateWorkingDays(event.date, nextEvent.date)
+      : null;
+
+    return { ...event, position, needsOffset, workingDays };
   });
 
   return (
@@ -160,21 +186,37 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
           {/* Timeline events */}
           {eventPositions.map((event, index) => (
-            <div
-              key={`${event.type}-${index}`}
-              className="absolute"
-              style={{
-                left: `${event.position}%`,
-                transform: 'translateX(-50%)',
-                top: event.needsOffset ? '-24px' : '0'
-              }}
-            >
-              <div className={`w-3 h-3 rounded-full ${
-                event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
-              }`} />
-              <div className={`absolute ${event.needsOffset ? 'top-4' : '-bottom-8'} left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs`}>
-                {`${event.label} (${event.formattedDate})`}
+            <div key={`${event.type}-${index}`}>
+              {/* Event dot and label */}
+              <div
+                className="absolute"
+                style={{
+                  left: `${event.position}%`,
+                  transform: 'translateX(-50%)',
+                  top: event.needsOffset ? '-24px' : '0'
+                }}
+              >
+                <div className={`w-3 h-3 rounded-full ${
+                  event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
+                }`} />
+                <div className={`absolute ${event.needsOffset ? 'top-4' : '-bottom-8'} left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs`}>
+                  {`${event.label} (${event.formattedDate})`}
+                </div>
               </div>
+
+              {/* Working days between milestones */}
+              {event.workingDays && index < eventPositions.length - 1 && (
+                <div 
+                  className="absolute text-xs text-gray-500"
+                  style={{
+                    left: `${(event.position + eventPositions[index + 1].position) / 2}%`,
+                    transform: 'translateX(-50%)',
+                    top: '-20px'
+                  }}
+                >
+                  {event.workingDays} working days
+                </div>
+              )}
             </div>
           ))}
         </div>
