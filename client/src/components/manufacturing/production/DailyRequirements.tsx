@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/lib/azure/project-service";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface DailyRequirement {
   id: string;
@@ -151,10 +152,22 @@ export function DailyRequirements() {
                         needByDate: formData.get('needByDate'),
                         notes: formData.get('notes'),
                         assigned: formData.get('assigned'),
-                        requester: "User",
+                        requester: formData.get('requester'),
                         group: selectedGroup,
                       };
-                      await createRequirementMutation.mutateAsync(data);
+                      try {
+                        await createRequirementMutation.mutateAsync(data);
+                        toast({
+                          title: "Success",
+                          description: "Requirement added successfully"
+                        });
+                      } catch (error) {
+                        toast({
+                          title: "Error",
+                          description: "Failed to add requirement",
+                          variant: "destructive"
+                        });
+                      }
                     }}>
                       <Select name="projectId" required>
                         <SelectTrigger>
@@ -163,11 +176,12 @@ export function DailyRequirements() {
                         <SelectContent>
                           {projects.map(project => (
                             <SelectItem key={project.id} value={project.id}>
-                              {project.projectNumber}
+                              {project.projectNumber || 'Unknown Project'}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      <Input name="requester" placeholder="Requester Name" required />
                       <Input name="issueDescription" placeholder="Description of Issue" required />
                       <Input name="needByDate" type="date" required />
                       <Input name="notes" placeholder="Notes" />
@@ -232,7 +246,29 @@ export function DailyRequirements() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm">Edit</Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => {
+                              try {
+                                updateRequirement(req.id, { 
+                                  status: req.status === 'OPEN' ? 'CLOSED' : 'OPEN' 
+                                });
+                                toast({
+                                  title: "Success",
+                                  description: "Requirement updated successfully"
+                                });
+                              } catch (error) {
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to update requirement",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                          >
+                            {req.status === 'OPEN' ? 'Close' : 'Reopen'}
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
