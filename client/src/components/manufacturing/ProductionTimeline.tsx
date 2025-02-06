@@ -45,9 +45,10 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     return date instanceof Date && !isNaN(date.getTime());
   };
 
-  const formatDateLabel = (date: string) => {
-    const d = new Date(date);
-    return format(d, 'MM/dd/yyyy');
+  // Display dates exactly as stored in project data
+  const displayDate = (dateStr: string) => {
+    // Split the date string to get only the date part
+    return dateStr.split('T')[0].split('-').join('/');
   };
 
   const today = new Date();
@@ -55,7 +56,6 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
   const hasShipped = project.ship && new Date(project.ship) <= today;
 
-  // Only include events with valid dates and use raw project dates
   const timelineEvents = [
     { date: project.fabricationStart, label: 'Fabrication Start', type: 'fab' },
     { date: project.assemblyStart, label: 'Assembly Start', type: 'assembly' },
@@ -66,10 +66,9 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
   ].filter(event => isValidDate(event.date))
    .map(event => ({
      ...event,
-     formattedDate: event.date ? formatDateLabel(event.date) : ''
+     formattedDate: event.date ? displayDate(event.date) : ''
    }));
 
-  // If no valid events, don't render timeline
   if (timelineEvents.length === 0) return null;
 
   const startDateTimeline = timelineEvents[0]?.date 
@@ -98,7 +97,6 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
       : `${diffDays} days until ${nextMilestone.label}`;
   }
 
-  // Calculate milestone positions and detect overlaps
   const eventPositions = timelineEvents.map((event, index) => {
     if (!event.date) return { ...event, position: 0, needsOffset: false };
 
@@ -137,17 +135,17 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
               style={{ 
                 left: `${progress}%`, 
                 transform: 'translateX(-50%)',
-                top: '-24px'
+                top: '-3px'  // Position directly on the timeline
               }}
             >
               {daysMessage && (
-                <div className="absolute -top-6 whitespace-nowrap text-center w-full">
+                <div className="absolute -top-8 whitespace-nowrap text-center">
                   <div className="text-red-500 text-sm font-medium animate-pulse">
                     {daysMessage}
                   </div>
                 </div>
               )}
-              <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+              <div className="w-4 h-4 bg-red-500 rounded-full -mt-1 animate-pulse" />
             </div>
           )}
 
