@@ -906,13 +906,12 @@ export function ProjectManagementPanel() {
                               </div>
                             </div>
                           </Button>
-                        ))}
-                      </div>
+                        ))}                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="colspan-9">
+                <Card className="col-span-9">
                   <CardHeader>
                     <CardTitle>
                       {selectedProject ? (
@@ -923,52 +922,22 @@ export function ProjectManagementPanel() {
                               <FontAwesomeIcon icon={faEdit} className="mr-2"/>
                               Edit
                             </Button>
-                            <div className="flex gap-2">
-                              <Select
-                                value={selectedProject?.status || "NOT STARTED"}
-                                onValueChange={(value: ProjectStatus) => handleStatusChange(value)}
-                              >
-                                <SelectTrigger className="w-[200px]">
-                                  <SelectValue>
-                                    <div className={`px-3 py-1 rounded-full text-white font-semibold text-lg ${getStatusColor(selectedProject?.status || "NOT STARTED")}`}>
-                                      {selectedProject?.status || "NOT STARTED"}
-                                    </div>
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="NOT STARTED">NOT STARTED</SelectItem>
-                                  <SelectItem value="IN FAB">IN FAB</SelectItem>
-                                  <SelectItem value="IN ASSEMBLY">IN ASSEMBLY</SelectItem>
-                                  <SelectItem value="IN WRAP">IN WRAP</SelectItem>
-                                  <SelectItem value="IN NTC TESTING">IN NTC TESTING</SelectItem>
-                                  <SelectItem value="IN QC">IN QC</SelectItem>
-                                  <SelectItem value="COMPLETED">COMPLETED</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {selectedProject?.manualStatus && (
-                              <div className="flex flex-col items-end gap-1">
-                                <div className="text-red-500 text-sm font-medium">
-                                  WARNING: Force Edited
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-muted-foreground hover:text-primary"
-                                  onClick={() => handleResetStatus(selectedProject.id)}
-                                >
-                                  <FontAwesomeIcon icon={faRotateLeft} className="mr-2 h-3 w-3" />
-                                  Reset to Automatic
-                                </Button>
-                              </div>
-                            )}
+                            <Button
+                              variant="outline"
+                              onClick={() => handleResetStatus(selectedProject.id)}
+                              disabled={!selectedProject.manualStatus}
+                            >
+                              <FontAwesomeIcon icon={faRotateLeft} className="mr-2"/>
+                              Reset Status
+                            </Button>
                           </div>
                         </div>
                       ) : (
-                        "Select a Project"
+                        "Select a project to view details"
                       )}
                     </CardTitle>
                   </CardHeader>
+
                   <CardContent>
                     {selectedProject ? (
                       <div className="space-y-6">
