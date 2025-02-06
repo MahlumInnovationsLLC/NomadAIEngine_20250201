@@ -17,6 +17,30 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import type { FeedbackFormTemplate, FeedbackRequest } from "@/types/field-service";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { z } from "zod";
+
+const templateFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+  questions: z.array(z.object({
+    text: z.string().min(1, "Question text is required"),
+    type: z.enum(["rating", "text", "multiple_choice", "checkbox"]),
+    required: z.boolean(),
+    category: z.enum(["product", "service", "communication", "timeliness", "other"]),
+  })).min(1, "At least one question is required"),
+});
+
+const requestFormSchema = z.object({
+  customerName: z.string().min(1, "Customer name is required"),
+  customerEmail: z.string().email("Invalid email address"),
+  templateId: z.string().min(1, "Template is required"),
+  deliveryMethod: z.enum(["email", "sms", "portal"]),
+});
 
 export function FeedbackManagement() {
   const [showNewTemplate, setShowNewTemplate] = useState(false);
@@ -25,17 +49,34 @@ export function FeedbackManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch templates
+  // Form initialization
+  const form = useForm<z.infer<typeof templateFormSchema>>({
+    resolver: zodResolver(templateFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      questions: [],
+    },
+  });
+
+  const requestForm = useForm<z.infer<typeof requestFormSchema>>({
+    resolver: zodResolver(requestFormSchema),
+    defaultValues: {
+      customerName: "",
+      customerEmail: "",
+      templateId: "",
+      deliveryMethod: "email",
+    },
+  });
+
   const { data: templates = [] } = useQuery<FeedbackFormTemplate[]>({
     queryKey: ['/api/field-service/feedback/templates'],
   });
 
-  // Fetch feedback requests
   const { data: requests = [] } = useQuery<FeedbackRequest[]>({
     queryKey: ['/api/field-service/feedback/requests'],
   });
 
-  // Send feedback request mutation
   const sendRequest = useMutation({
     mutationFn: async (data: Partial<FeedbackRequest>) => {
       const response = await fetch('/api/field-service/feedback/requests', {
@@ -63,7 +104,6 @@ export function FeedbackManagement() {
     },
   });
 
-  // Send reminder mutation
   const sendReminder = useMutation({
     mutationFn: async (requestId: string) => {
       const response = await fetch(`/api/field-service/feedback/requests/${requestId}/remind`, {
@@ -81,11 +121,39 @@ export function FeedbackManagement() {
     },
   });
 
-  // Calculate metrics
+  // Add template creation mutation
+  const createTemplate = useMutation({
+    mutationFn: async (data: z.infer<typeof templateFormSchema>) => {
+      const response = await fetch('/api/field-service/feedback/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to create template');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/field-service/feedback/templates'] });
+      toast({
+        title: "Success",
+        description: "Feedback template created successfully",
+      });
+      setShowNewTemplate(false);
+      form.reset();
+    },
+    onError: (err) => {
+      toast({
+        title: "Error",
+        description: "Failed to create feedback template: " + err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const metrics = {
     totalRequests: requests.length,
     completedRequests: requests.filter(r => r.status === 'completed').length,
-    responseRate: requests.length ? 
+    responseRate: requests.length ?
       (requests.filter(r => r.status === 'completed').length / requests.length) * 100 : 0,
     averageResponseTime: requests
       .filter(r => r.completedAt)
@@ -117,7 +185,6 @@ export function FeedbackManagement() {
         </div>
       </div>
 
-      {/* Metrics */}
       <div className="grid grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
@@ -165,7 +232,6 @@ export function FeedbackManagement() {
         </Card>
       </div>
 
-      {/* Main Content */}
       <Card>
         <CardContent className="pt-6">
           <Tabs defaultValue="templates">
@@ -238,8 +304,8 @@ export function FeedbackManagement() {
                       <TableCell>
                         <Badge variant={
                           request.status === 'completed' ? 'default' :
-                          request.status === 'expired' ? 'destructive' :
-                          'secondary'
+                            request.status === 'expired' ? 'destructive' :
+                              'secondary'
                         }>
                           {request.status}
                         </Badge>
@@ -274,8 +340,146 @@ export function FeedbackManagement() {
         </CardContent>
       </Card>
 
-      {/* Template Dialog would go here */}
-      {/* Send Request Dialog would go here */}
+      <Dialog open={showNewTemplate} onOpenChange={setShowNewTemplate}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Create New Feedback Template</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit((data) => {
+              createTemplate.mutate(data);
+            })} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Template Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Customer Service Feedback" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Feedback form for evaluating our customer service" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {/* Questions array field to be implemented */}
+              <Button type="submit">Create Template</Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSendRequest} onOpenChange={setShowSendRequest}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Send Feedback Request</DialogTitle>
+          </DialogHeader>
+          <Form {...requestForm}>
+            <form onSubmit={requestForm.handleSubmit((data) => {
+              sendRequest.mutate(data);
+            })} className="space-y-4">
+              <FormField
+                control={requestForm.control}
+                name="customerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Customer Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={requestForm.control}
+                name="customerEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Customer Email</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={requestForm.control}
+                name="templateId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Feedback Template</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a template" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {templates.map(template => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={requestForm.control}
+                name="deliveryMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Delivery Method</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select delivery method" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="sms">SMS</SelectItem>
+                        <SelectItem value="portal">Customer Portal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" disabled={sendRequest.isPending}>
+                {sendRequest.isPending ? (
+                  <>
+                    <FontAwesomeIcon icon="spinner" className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <FontAwesomeIcon icon="paper-plane" className="mr-2 h-4 w-4" />
+                    Send Request
+                  </>
+                )}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
