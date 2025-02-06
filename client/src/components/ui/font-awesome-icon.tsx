@@ -3,6 +3,9 @@ import { FontAwesomeIcon as FAIcon } from '@fortawesome/react-fontawesome';
 import { IconDefinition, IconName, IconPrefix } from '@fortawesome/fontawesome-svg-core';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
+  faBrainCircuit,
+  faGlobePointer,
+  faPaperPlane,
   faBold,
   faItalic,
   faHeading,
@@ -131,6 +134,9 @@ export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
 }
 
 const iconMap: Record<string, IconDefinition> = {
+  'brain-circuit': faBrainCircuit,
+  'globe-pointer': faGlobePointer,
+  'paper-plane': faPaperPlane,
   'bold': faBold,
   'italic': faItalic,
   'heading': faHeading,
