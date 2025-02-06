@@ -670,7 +670,7 @@ export function ProjectManagementPanel() {
 
       setSelectedProject(projectData);
       form.reset({
-        projectNumber: projectData.projectNumber,
+        projectNumber: projectData.projectNumber || '',
         location: projectData.location || '',
         team: projectData.team || '',
         contractDate: formatDateForInput(projectData.contractDate),
@@ -1263,7 +1263,10 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>Location</Label>
-                    <Select onValueChange={(value) => form.setValue("location", value)}>
+                    <Select 
+                      defaultValue={form.getValues("location")} 
+                      onValueChange={(value) => form.setValue("location", value)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select location" />
                       </SelectTrigger>
