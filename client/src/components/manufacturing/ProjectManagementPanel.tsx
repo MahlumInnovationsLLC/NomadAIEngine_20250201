@@ -926,7 +926,34 @@ export function ProjectManagementPanel() {
                               <FontAwesomeIcon icon={faRotateLeft} className="mr-2"/>
                               Reset Status
                             </Button>
-                          </div>
+                            <div className="flex gap-2">
+                              <Select
+                                value={selectedProject?.status || "NOT STARTED"}
+                                onValueChange={(value: ProjectStatus) => handleStatusChange(value)}
+                              >
+                                <SelectTrigger className="w-[200px]">
+                                  <SelectValue>
+                                    <div className={`px-3 py-1 rounded-full text-white ${getStatusColor(selectedProject?.status || "NOT STARTED")}`}>
+                                      {selectedProject?.status || "NOT STARTED"}
+                                    </div>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="NOT STARTED">NOT STARTED</SelectItem>
+                                  <SelectItem value="IN FAB">IN FAB</SelectItem>
+                                  <SelectItem value="IN ASSEMBLY">IN ASSEMBLY</SelectItem>
+                                  <SelectItem value="IN WRAP">IN WRAP</SelectItem>
+                                  <SelectItem value="IN NTC TESTING">IN NTC TESTING</SelectItem>
+                                  <SelectItem value="IN QC">IN QC</SelectItem>
+                                  <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {selectedProject?.manualStatus && (
+                                <div className="text-red-500 text-sm font-medium">
+                                  (Manual Override)
+                                </div>
+                              )}
+                            </div>
                         </div>
                       ) : (
                         "Select a project to view details"
