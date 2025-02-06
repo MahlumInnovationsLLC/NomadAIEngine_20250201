@@ -50,8 +50,21 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     { date: project.wrapGraphics, label: 'Wrap/Graphics', type: 'wrap' },
     { date: project.ntcTesting, label: 'NTC Testing', type: 'ntc' },
     { date: project.qcStart, label: 'QC Start', type: 'qc' },
-    { date: project.ship, label: 'Ship', type: 'ship' },
+    { 
+      date: project.ship, 
+      label: isShipped(project.ship) ? 'SHIPPED' : 'Ship', 
+      type: 'ship' 
+    },
   ].filter(event => isValidDate(event.date));
+
+  function isShipped(dateStr?: string): boolean {
+    if (!dateStr) return false;
+    const shipDate = new Date(dateStr);
+    const today = new Date();
+    shipDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    return today > shipDate;
+  }
 
   // If no valid events, don't render timeline
   if (timelineEvents.length === 0) return null;
