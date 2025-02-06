@@ -24,9 +24,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { CustomerFeedbackItem, ServiceStats } from "@/types/field-service";
 import { FeedbackManagement } from "./FeedbackManagement";
+import { QualityMetricsDashboard } from "./QualityMetricsDashboard";
 
 export function CustomerFeedback() {
-  const [selectedView, setSelectedView] = useState<'overview' | 'details' | 'actions' | 'management'>('overview');
+  const [selectedView, setSelectedView] = useState<'overview' | 'details' | 'actions' | 'management' | 'quality'>('overview');
 
   const { data: feedbackItems = [] } = useQuery<CustomerFeedbackItem[]>({
     queryKey: ['/api/field-service/feedback'],
@@ -118,10 +119,11 @@ export function CustomerFeedback() {
       <Card>
         <CardContent className="pt-6">
           <Tabs value={selectedView} onValueChange={(value: string) => setSelectedView(value as any)}>
-            <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsList className="grid w-full grid-cols-5 mb-4">
               <TabsTrigger value="overview">Overview & Trends</TabsTrigger>
               <TabsTrigger value="details">Detailed Feedback</TabsTrigger>
               <TabsTrigger value="actions">Corrective Actions</TabsTrigger>
+              <TabsTrigger value="quality">Quality Metrics</TabsTrigger>
               <TabsTrigger value="management">Feedback Management</TabsTrigger>
             </TabsList>
 
@@ -220,6 +222,10 @@ export function CustomerFeedback() {
                   )}
                 </TableBody>
               </Table>
+            </TabsContent>
+
+            <TabsContent value="quality">
+              <QualityMetricsDashboard />
             </TabsContent>
 
             <TabsContent value="management">
