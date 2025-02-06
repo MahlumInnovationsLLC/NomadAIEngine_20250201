@@ -956,7 +956,7 @@ export function ProjectManagementPanel() {
                             </div>
                         </div>
                       ) : (
-                        "Select a project to view details"
+                        <div>Select a project to view details</div>
                       )}
                     </CardTitle>
                   </CardHeader>
