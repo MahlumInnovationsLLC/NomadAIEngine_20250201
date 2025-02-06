@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -14,19 +14,71 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 import type { ServiceTicket } from "@/types/field-service";
+import { AITicketAnalysis } from "./AITicketAnalysis";
 
 export function TicketManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<ServiceTicket | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: tickets, isLoading } = useQuery<ServiceTicket[]>({
     queryKey: ['/api/field-service/tickets'],
+  });
+
+  // Mutation for assigning technician
+  const assignTechnician = useMutation({
+    mutationFn: async ({ ticketId, technicianId }: { ticketId: string, technicianId: string }) => {
+      const response = await fetch(`/api/field-service/tickets/${ticketId}/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ technicianId }),
+      });
+      if (!response.ok) throw new Error('Failed to assign technician');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/field-service/tickets'] });
+      toast({
+        title: "Success",
+        description: "Technician assigned successfully",
+      });
+      setSelectedTicket(null);
+    },
+  });
+
+  // Mutation for updating priority
+  const updatePriority = useMutation({
+    mutationFn: async ({ ticketId, priority }: { ticketId: string, priority: ServiceTicket['priority'] }) => {
+      const response = await fetch(`/api/field-service/tickets/${ticketId}/priority`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority }),
+      });
+      if (!response.ok) throw new Error('Failed to update priority');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/field-service/tickets'] });
+      toast({
+        title: "Success",
+        description: "Ticket priority updated successfully",
+      });
+    },
   });
 
   const filteredTickets = tickets?.filter(ticket => {
@@ -34,9 +86,9 @@ export function TicketManagement() {
       ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.productInfo.serialNumber.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesStatus = !statusFilter || ticket.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -56,7 +108,7 @@ export function TicketManagement() {
         <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight">Service Tickets</h2>
           <p className="text-muted-foreground">
-            Manage and track field service requests and issues
+            AI-powered ticket management and assignment system
           </p>
         </div>
         <Button className="gap-2">
@@ -111,6 +163,7 @@ export function TicketManagement() {
                 <TableHead>Customer</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Priority</TableHead>
+                <TableHead>AI Score</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -137,11 +190,22 @@ export function TicketManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    {ticket.aiAnalysis && (
+                      <Badge variant="secondary">
+                        {(ticket.aiAnalysis.priorityScore * 100).toFixed(0)}%
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {new Date(ticket.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <FontAwesomeIcon icon="eye" className="h-4 w-4" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedTicket(ticket)}
+                    >
+                      <FontAwesomeIcon icon="robot" className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -150,6 +214,32 @@ export function TicketManagement() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* AI Analysis Dialog */}
+      <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Ticket Analysis - {selectedTicket?.id}</DialogTitle>
+          </DialogHeader>
+          {selectedTicket && (
+            <AITicketAnalysis
+              ticket={selectedTicket}
+              onAssign={(technicianId) => {
+                assignTechnician.mutate({
+                  ticketId: selectedTicket.id,
+                  technicianId,
+                });
+              }}
+              onOverridePriority={(priority) => {
+                updatePriority.mutate({
+                  ticketId: selectedTicket.id,
+                  priority,
+                });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

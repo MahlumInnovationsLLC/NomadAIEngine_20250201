@@ -37,6 +37,36 @@ export interface ServiceTicket {
   createdAt: string;
   updatedAt: string;
   resolution?: string;
+  aiAnalysis?: {
+    priorityScore: number;
+    suggestedPriority: 'low' | 'medium' | 'high' | 'critical';
+    confidenceScore: number;
+    factors: Array<{
+      factor: string;
+      impact: number;
+      description: string;
+    }>;
+    suggestedTechnicians: Array<{
+      technicianId: string;
+      matchScore: number;
+      reasons: string[];
+    }>;
+    keywords: string[];
+    category: string;
+    estimatedResolutionTime: number;
+    lastAnalyzed: string;
+  };
+  autoAssignment?: {
+    status: 'pending' | 'completed' | 'failed';
+    attemptCount: number;
+    lastAttempt: string;
+    assignmentHistory: Array<{
+      timestamp: string;
+      technicianId: string;
+      status: 'accepted' | 'declined' | 'timeout';
+      reason?: string;
+    }>;
+  };
 }
 
 export interface CustomerFeedbackItem {
