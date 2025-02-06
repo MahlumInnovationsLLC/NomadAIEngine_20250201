@@ -1,6 +1,6 @@
-
 import { useState, useEffect } from "react";
 import type { Project } from "@/types/manufacturing";
+import { format } from "date-fns";
 
 interface ProductionTimelineProps {
   project: Project;
@@ -43,6 +43,10 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     return date instanceof Date && !isNaN(date.getTime());
   };
 
+  const formatDateLabel = (date: string) => {
+    return format(new Date(date), 'MM/dd/yyyy');
+  };
+
   // Only include events with valid dates
   const timelineEvents = [
     { date: project.fabricationStart, label: 'Fabrication Start', type: 'fab' },
@@ -50,27 +54,18 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     { date: project.wrapGraphics, label: 'Wrap/Graphics', type: 'wrap' },
     { date: project.ntcTesting, label: 'NTC Testing', type: 'ntc' },
     { date: project.qcStart, label: 'QC Start', type: 'qc' },
-    { 
-      date: project.ship, 
-      label: isShipped(project.ship) ? 'SHIPPED' : 'Ship', 
-      type: 'ship' 
-    },
-  ].filter(event => isValidDate(event.date));
-
-  function isShipped(dateStr?: string): boolean {
-    if (!dateStr) return false;
-    const shipDate = new Date(dateStr);
-    const today = new Date();
-    shipDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return today > shipDate;
-  }
+    { date: project.ship, label: 'Ship', type: 'ship' },
+  ].filter(event => isValidDate(event.date))
+   .map(event => ({
+     ...event,
+     formattedDate: event.date ? formatDateLabel(event.date) : ''
+   }));
 
   // If no valid events, don't render timeline
   if (timelineEvents.length === 0) return null;
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Normalize to start of day
+  today.setHours(0, 0, 0, 0);
 
   const startDateTimeline = timelineEvents[0]?.date 
     ? new Date(timelineEvents[0].date)
@@ -88,52 +83,17 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
       (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
 
-    // Check if this position is too close to the previous milestone
     const prevPosition = index > 0 && timelineEvents[index - 1].date
       ? ((new Date(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) / 
          (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
       : -20;
 
-    const needsOffset = position - prevPosition < 15; // If milestones are less than 15% apart
+    const needsOffset = position - prevPosition < 15;
 
     return { ...event, position, needsOffset };
   });
 
-  const isSameDay = (date1: Date, date2: Date) => {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
-  };
-
-  // Find next upcoming milestone
-  const nextMilestone = timelineEvents.find(event => {
-    if (!event.date) return false;
-    const eventDate = new Date(event.date);
-    eventDate.setHours(0, 0, 0, 0); // Normalize to start of day
-    return eventDate >= today;
-  });
-
-  // Calculate days message
-  let daysMessage = '';
-  if (project.ship) {
-    const shipDate = new Date(project.ship);
-    shipDate.setHours(0, 0, 0, 0); // Normalize to start of day
-    const todayNormalized = new Date();
-    todayNormalized.setHours(0, 0, 0, 0); // Normalize today to start of day
-    
-    const shipDateStr = shipDate.toISOString().split('T')[0];
-    const todayStr = todayNormalized.toISOString().split('T')[0];
-    
-    if (shipDateStr === todayStr) {
-      daysMessage = 'SHIPPING TODAY';
-    } else if (todayStr > shipDateStr) {
-      daysMessage = 'SHIPPED';
-    } else {
-      const diffTime = shipDate.getTime() - todayNormalized.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      daysMessage = `${diffDays} days until shipping`;
-    }
-  }
+  const hasShipped = project.ship && new Date(project.ship) <= today;
 
   return (
     <div className="mx-auto max-w-[95%]">
@@ -147,17 +107,14 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
             style={{ width: `${progress}%` }}
           />
 
-          {/* Current date indicator with shipping status */}
-          <div className="absolute" style={{ left: `${progress}%`, transform: 'translateX(-50%)' }}>
-            {daysMessage && (
-              <div className="absolute -top-10 whitespace-nowrap text-center">
-                <div className="text-red-500 text-sm font-medium animate-pulse">
-                  {daysMessage}
-                </div>
-              </div>
-            )}
-            <div className="w-4 h-4 bg-red-500 rounded-full -mt-1 animate-pulse" />
-          </div>
+          {/* Shipped indicator */}
+          {hasShipped && (
+            <div className="absolute w-full text-center" style={{ top: '-2rem' }}>
+              <span className="text-2xl font-bold text-red-500 animate-pulse">
+                SHIPPED
+              </span>
+            </div>
+          )}
 
           {/* Timeline events */}
           {eventPositions.map((event, index) => (
@@ -174,7 +131,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
                 event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
               }`} />
               <div className={`absolute ${event.needsOffset ? 'top-4' : '-bottom-8'} left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs`}>
-                {event.label}
+                {`${event.label} (${event.formattedDate})`}
               </div>
             </div>
           ))}
