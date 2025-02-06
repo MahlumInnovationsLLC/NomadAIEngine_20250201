@@ -506,10 +506,27 @@ export function ProjectManagementPanel() {
     return date.toISOString().split('T')[0];
   };
 
+  const updateDaysCalculations = (data: z.infer<typeof formSchema>) => {
+    if (data.ntcTesting && data.qcStart) {
+      const ntcDays = calculateWorkingDays(data.ntcTesting, data.qcStart);
+      form.setValue("ntcDays", ntcDays.toString());
+    }
+
+    if (data.qcStart && (data.executiveReview || data.ship)) {
+      const endDate = data.executiveReview || data.ship;
+      if (endDate) {
+        const qcDays = calculateWorkingDays(data.qcStart, endDate);
+        form.setValue("qcDays", qcDays.toString());
+      }
+    }
+  };
+
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     if (!selectedProject) return;
 
     console.log('Form submitted with data:', data);
+    updateDaysCalculations(data);
+    
     const formattedData = {
       ...data,
       id: selectedProject.id,
@@ -1213,7 +1230,14 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>NTC Testing</Label>
-                    <Input type="date" {...form.register("ntcTesting")} />
+                    <Input 
+                      type="date" 
+                      {...form.register("ntcTesting")} 
+                      onChange={(e) => {
+                        form.setValue("ntcTesting", e.target.value);
+                        updateDaysCalculations(form.getValues());
+                      }}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>QC Start</Label>
