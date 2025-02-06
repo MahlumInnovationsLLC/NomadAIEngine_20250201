@@ -134,6 +134,13 @@ export default function Navbar() {
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
+            <NavigationMenuItem>
+              <Link href="/field-service">
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  Field Service & Warranty
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
 
