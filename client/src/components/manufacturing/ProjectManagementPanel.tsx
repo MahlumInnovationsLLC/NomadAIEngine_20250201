@@ -579,52 +579,35 @@ export function ProjectManagementPanel() {
 
     const formattedData = {
       id: selectedProject.id,
-      projectNumber: data.projectNumber || selectedProject.projectNumber,
-      location: data.location || selectedProject.location,
-      team: data.team || selectedProject.team,
-      contractDate: data.contractDate || selectedProject.contractDate,
-      ntcTesting: data.ntcTesting || selectedProject.ntcTesting,
-      qcStart: data.qcStart || selectedProject.qcStart,
-      executiveReview: data.executiveReview || selectedProject.executiveReview,
-      executiveReviewTime: data.executiveReviewTime || selectedProject.executiveReviewTime,
-      ship: data.ship || selectedProject.ship,
-      delivery: data.delivery || selectedProject.delivery,
-      notes: data.notes || selectedProject.notes || '',
-      meAssigned: data.meAssigned || selectedProject.meAssigned,
-      meCadProgress: Number(data.meCadProgress) || selectedProject.meCadProgress,
-      eeAssigned: data.eeAssigned || selectedProject.eeAssigned,
-      eeDesignProgress: Number(data.eeDesignProgress) || selectedProject.eeDesignProgress,
-      itAssigned: data.itAssigned || selectedProject.itAssigned,
-      itDesignProgress: Number(data.itDesignProgress) || selectedProject.itDesignProgress,
-      ntcAssigned: data.ntcAssigned || selectedProject.ntcAssigned,
-      ntcDesignProgress: Number(data.ntcDesignProgress) || selectedProject.ntcDesignProgress,
-      fabricationStart: data.fabricationStart || selectedProject.fabricationStart,
-      assemblyStart: data.assemblyStart || selectedProject.assemblyStart,
-      wrapGraphics: data.wrapGraphics || selectedProject.wrapGraphics,
+      projectNumber: data.projectNumber,
+      location: data.location,
+      team: data.team,
+      contractDate: data.contractDate,
+      ntcTesting: data.ntcTesting,
+      qcStart: data.qcStart,
+      executiveReview: data.executiveReview,
+      executiveReviewTime: data.executiveReviewTime,
+      ship: data.ship,
+      delivery: data.delivery,
+      notes: data.notes,
+      meAssigned: data.meAssigned,
+      meCadProgress: Number(data.meCadProgress || 0),
+      eeAssigned: data.eeAssigned,
+      eeDesignProgress: Number(data.eeDesignProgress || 0),
+      itAssigned: data.itAssigned,
+      itDesignProgress: Number(data.itDesignProgress || 0),
+      ntcAssigned: data.ntcAssigned,
+      ntcDesignProgress: Number(data.ntcDesignProgress || 0),
+      fabricationStart: data.fabricationStart,
+      assemblyStart: data.assemblyStart,
+      wrapGraphics: data.wrapGraphics,
       ntcDays: data.ntcDays,
       qcDays: data.qcDays
     };
 
     try {
-      const response = await fetch(`/api/manufacturing/projects/${formattedData.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formattedData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update project: ${response.statusText}`);
-      }
-
       await updateProjectMutation.mutateAsync(formattedData);
-      queryClient.invalidateQueries(['/api/manufacturing/projects']);
       setShowEditDialog(false);
-      toast({
-        title: "Success",
-        description: "Project updated successfully"
-      });
     } catch (error) {
       console.error('Failed to update project:', error);
       toast({
