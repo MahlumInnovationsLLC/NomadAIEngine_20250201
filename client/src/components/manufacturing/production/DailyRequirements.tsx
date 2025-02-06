@@ -250,28 +250,61 @@ export function DailyRequirements() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => {
-                              try {
-                                //setEditingRequirement(req);
-                                //setShowEditDialog(true);
-                                toast({
-                                  title: "Success",
-                                  description: "Requirement updated successfully"
-                                });
-                              } catch (error) {
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to update requirement",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                          >
-                            Edit
-                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                Edit
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Edit Requirement</DialogTitle>
+                              </DialogHeader>
+                              <form className="space-y-4" onSubmit={async (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                try {
+                                  await updateRequirement(req.id, {
+                                    requester: formData.get('requester') as string,
+                                    projectId: formData.get('projectId') as string,
+                                    issueDescription: formData.get('issueDescription') as string,
+                                    needByDate: formData.get('needByDate') as string,
+                                    notes: formData.get('notes') as string,
+                                    assigned: formData.get('assigned') as string,
+                                  });
+                                  toast({
+                                    title: "Success",
+                                    description: "Requirement updated successfully"
+                                  });
+                                } catch (error) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to update requirement",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}>
+                                <Select name="projectId" defaultValue={req.projectId}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select Project" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {projects.map(project => (
+                                      <SelectItem key={project.id} value={project.id}>
+                                        {project.projectNumber || 'Unknown Project'}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Input name="requester" placeholder="Requester Name" defaultValue={req.requester} />
+                                <Input name="issueDescription" placeholder="Description of Issue" defaultValue={req.issueDescription} />
+                                <Input name="needByDate" type="date" defaultValue={req.needByDate.split('T')[0]} />
+                                <Textarea name="notes" placeholder="Notes" defaultValue={req.notes} className="min-h-[100px]" />
+                                <Input name="assigned" placeholder="Assigned To" defaultValue={req.assigned} />
+                                <Button type="submit">Save Changes</Button>
+                              </form>
+                            </DialogContent>
+                          </Dialog>
                         </TableCell>
                       </TableRow>
                     ))}
