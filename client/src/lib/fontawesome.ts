@@ -1,5 +1,5 @@
 import { library } from '@fortawesome/fontawesome-svg-core';
-import { faPaperPlane, faSync, faMagic } from '@fortawesome/pro-light-svg-icons';
+import { faPaperPlane, faSync, faMagic, faGlobePointer, faBrainCircuit } from '@fortawesome/pro-light-svg-icons';
 import { 
   faFileUpload,
   faSpinner,
@@ -92,6 +92,8 @@ import { faWindows } from '@fortawesome/free-brands-svg-icons';
 library.add(
   faBrain,
   faGlobe,
+  faGlobePointer,
+  faBrainCircuit,
   faPaperPlane,
   faBold,
   faItalic,
