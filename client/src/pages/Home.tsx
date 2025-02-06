@@ -133,6 +133,79 @@ export default function Home() {
             Start Chat
           </Button>
         </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'file-lines']} className="h-5 w-5" />
+            Document Control
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Manage training documents, SOPs, and quality control documentation.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/docmanage')}
+          >
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Open Documents
+          </Button>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'wrench']} className="h-5 w-5" />
+            Field Service
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Manage service tickets, technicians, and field operations.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/field-service')}
+          >
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Open Field Service
+          </Button>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'building']} className="h-5 w-5" />
+            Club Control
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Manage facility maintenance, equipment, and club operations.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/club-control')}
+          >
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Open Club Control
+          </Button>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={['fal', 'boxes-stacked']} className="h-5 w-5" />
+            Material Handling
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Track inventory, manage materials, and optimize supply chain operations.
+          </p>
+          <Button 
+            size="lg" 
+            className="w-full"
+            onClick={() => navigate('/material-handling')}
+          >
+            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            Open Material Handling
+          </Button>
+        </Card>
+
       </div>
     </div>
   );
