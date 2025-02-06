@@ -579,28 +579,28 @@ export function ProjectManagementPanel() {
 
     const formattedData = {
       id: selectedProject.id,
-      projectNumber: data.projectNumber,
-      location: data.location,
-      team: data.team,
-      contractDate: data.contractDate,
-      ntcTesting: data.ntcTesting,
-      qcStart: data.qcStart,
-      executiveReview: data.executiveReview,
-      executiveReviewTime: data.executiveReviewTime,
-      ship: data.ship,
-      delivery: data.delivery,
+      projectNumber: data.projectNumber || selectedProject.projectNumber,
+      location: data.location || selectedProject.location,
+      team: data.team || selectedProject.team,
+      contractDate: data.contractDate || selectedProject.contractDate,
+      ntcTesting: data.ntcTesting || selectedProject.ntcTesting,
+      qcStart: data.qcStart || selectedProject.qcStart,
+      executiveReview: data.executiveReview || selectedProject.executiveReview,
+      executiveReviewTime: data.executiveReviewTime || selectedProject.executiveReviewTime,
+      ship: data.ship || selectedProject.ship,
+      delivery: data.delivery || selectedProject.delivery,
       notes: data.notes || selectedProject.notes || '',
-      meAssigned: data.meAssigned,
-      meCadProgress: Number(data.meCadProgress),
-      eeAssigned: data.eeAssigned,
-      eeDesignProgress: Number(data.eeDesignProgress),
-      itAssigned: data.itAssigned,
-      itDesignProgress: Number(data.itDesignProgress),
-      ntcAssigned: data.ntcAssigned,
-      ntcDesignProgress: Number(data.ntcDesignProgress),
-      fabricationStart: data.fabricationStart,
-      assemblyStart: data.assemblyStart,
-      wrapGraphics: data.wrapGraphics,
+      meAssigned: data.meAssigned || selectedProject.meAssigned,
+      meCadProgress: Number(data.meCadProgress) || selectedProject.meCadProgress,
+      eeAssigned: data.eeAssigned || selectedProject.eeAssigned,
+      eeDesignProgress: Number(data.eeDesignProgress) || selectedProject.eeDesignProgress,
+      itAssigned: data.itAssigned || selectedProject.itAssigned,
+      itDesignProgress: Number(data.itDesignProgress) || selectedProject.itDesignProgress,
+      ntcAssigned: data.ntcAssigned || selectedProject.ntcAssigned,
+      ntcDesignProgress: Number(data.ntcDesignProgress) || selectedProject.ntcDesignProgress,
+      fabricationStart: data.fabricationStart || selectedProject.fabricationStart,
+      assemblyStart: data.assemblyStart || selectedProject.assemblyStart,
+      wrapGraphics: data.wrapGraphics || selectedProject.wrapGraphics,
       ntcDays: data.ntcDays,
       qcDays: data.qcDays
     };
@@ -1241,15 +1241,7 @@ export function ProjectManagementPanel() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>ME Assigned</Label>
-                    <Select value={form.getValues("meAssigned")} onValueChange={(value) => form.setValue("meAssigned", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select ME" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Kevin Elliott">Kevin Elliott</SelectItem>
-                        <SelectItem value="N/A">N/A</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input {...form.register("meAssigned")} />
                   </div>
                   <div className="space-y-2">
                     <Label>ME CAD %</Label>
@@ -1257,15 +1249,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>EE Assigned</Label>
-                    <Select value={form.getValues("eeAssigned")} onValueChange={(value) => form.setValue("eeAssigned", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select EE" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Nick S">Nick S</SelectItem>
-                        <SelectItem value="N/A">N/A</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input {...form.register("eeAssigned")} />
                   </div>
                   <div className="space-y-2">
                     <Label>EE Design/Orders %</Label>
@@ -1273,14 +1257,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>IT Assigned</Label>
-                    <Select value={form.getValues("itAssigned")} onValueChange={(value) => form.setValue("itAssigned", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select IT" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="N/A">N/A</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input {...form.register("itAssigned")} />
                   </div>
                   <div className="space-y-2">
                     <Label>IT Design/Orders %</Label>
@@ -1288,14 +1265,7 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>NTC Assigned</Label>
-                    <Select value={form.getValues("ntcAssigned")} onValueChange={(value) => form.setValue("ntcAssigned", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select NTC" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="N/A">N/A</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input {...form.register("ntcAssigned")} />
                   </div>
                   <div className="space-y-2">
                     <Label>NTC Design/Orders %</Label>
