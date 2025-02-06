@@ -695,7 +695,7 @@ export function ProjectManagementPanel() {
         assemblyStart: formatDateForInput(projectData.assemblyStart),
         wrapGraphics: formatDateForInput(projectData.wrapGraphics),
         ntcDays: projectData.ntcDays || '',
-        qcDays: projectData.qcDays || ''
+        qcDays: projectData.qcDays || '',
         dpasRating: projectData.dpasRating || '',
         chassisEta: projectData.chassisEta || '',
         ntcTesting: formatDateForInput(projectData.ntcTesting),
