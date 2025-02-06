@@ -1,5 +1,6 @@
 import { Container, CosmosClient } from "@azure/cosmos";
 import type { FloorPlan, ProjectLocation } from "@/types/manufacturing";
+import { useQuery } from '@tanstack/react-query';
 
 let container: Container | null = null;
 let floorPlansContainer: Container | null = null;
@@ -126,3 +127,16 @@ export async function updateProjectLocation(projectLocation: ProjectLocation) {
   const { resource } = await container.items.upsert(projectLocation);
   return resource;
 }
+
+export const useProjects = () => {
+  return useQuery({
+    queryKey: ['/api/manufacturing/projects'],
+    queryFn: async () => {
+      const response = await fetch('/api/manufacturing/projects');
+      if (!response.ok) {
+        throw new Error('Failed to fetch projects');
+      }
+      return response.json();
+    }
+  });
+};
