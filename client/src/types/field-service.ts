@@ -67,6 +67,11 @@ export interface CustomerFeedbackItem {
   categories: string[];
   createdAt: string;
   sentiment: 'positive' | 'neutral' | 'negative';
+  requestId?: string; // Link to the FeedbackRequest if generated from a form
+  responses?: Array<{
+    questionId: string;
+    response: string | number | boolean | string[];
+  }>;
   iso9001: {
     processDate: string;
     status: 'new' | 'under_review' | 'processed' | 'closed';
@@ -119,4 +124,37 @@ export interface WarrantyClaim {
     type: string;
     url: string;
   }>;
+}
+
+export interface FeedbackFormTemplate {
+  id: string;
+  name: string;
+  description: string;
+  questions: Array<{
+    id: string;
+    type: 'rating' | 'text' | 'multiple_choice' | 'checkbox';
+    text: string;
+    required: boolean;
+    options?: string[];
+    category: 'product' | 'service' | 'communication' | 'timeliness' | 'other';
+  }>;
+  isActive: boolean;
+  createdAt: string;
+  lastModified: string;
+}
+
+export interface FeedbackRequest {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  templateId: string;
+  status: 'sent' | 'delivered' | 'completed' | 'expired';
+  sentAt: string;
+  completedAt?: string;
+  expiresAt: string;
+  remindersSent: number;
+  lastReminderAt?: string;
+  ticketId?: string;
+  responseId?: string;
 }

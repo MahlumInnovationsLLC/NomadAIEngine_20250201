@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -23,10 +23,10 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { CustomerFeedbackItem, ServiceStats } from "@/types/field-service";
+import { FeedbackManagement } from "./FeedbackManagement";
 
 export function CustomerFeedback() {
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month');
-  const [selectedView, setSelectedView] = useState<'overview' | 'details' | 'actions'>('overview');
+  const [selectedView, setSelectedView] = useState<'overview' | 'details' | 'actions' | 'management'>('overview');
 
   const { data: feedbackItems = [] } = useQuery<CustomerFeedbackItem[]>({
     queryKey: ['/api/field-service/feedback'],
@@ -118,10 +118,11 @@ export function CustomerFeedback() {
       <Card>
         <CardContent className="pt-6">
           <Tabs value={selectedView} onValueChange={(value: string) => setSelectedView(value as any)}>
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className="grid w-full grid-cols-4 mb-4">
               <TabsTrigger value="overview">Overview & Trends</TabsTrigger>
               <TabsTrigger value="details">Detailed Feedback</TabsTrigger>
               <TabsTrigger value="actions">Corrective Actions</TabsTrigger>
+              <TabsTrigger value="management">Feedback Management</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
@@ -219,6 +220,10 @@ export function CustomerFeedback() {
                   )}
                 </TableBody>
               </Table>
+            </TabsContent>
+
+            <TabsContent value="management">
+              <FeedbackManagement />
             </TabsContent>
           </Tabs>
         </CardContent>
