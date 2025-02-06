@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Project } from '@/types/manufacturing';
-import { format } from 'date-fns';
+import { useState, useEffect } from "react";
+import type { Project } from "@/types/manufacturing";
+import { format } from "date-fns";
 
 interface ProductionTimelineProps {
   project: Project;
@@ -46,7 +46,8 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
   };
 
   const formatDateLabel = (date: string) => {
-    return format(new Date(date), 'MM/dd/yyyy');
+    const d = new Date(date);
+    return format(d, 'MM/dd/yyyy');
   };
 
   const today = new Date();
@@ -54,7 +55,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
 
   const hasShipped = project.ship && new Date(project.ship) <= today;
 
-  // Only include events with valid dates
+  // Only include events with valid dates and use raw project dates
   const timelineEvents = [
     { date: project.fabricationStart, label: 'Fabrication Start', type: 'fab' },
     { date: project.assemblyStart, label: 'Assembly Start', type: 'assembly' },
@@ -132,7 +133,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
           {/* Current date indicator with days until next milestone */}
           {!hasShipped && (
             <div 
-              className="absolute" 
+              className="absolute flex flex-col items-center" 
               style={{ 
                 left: `${progress}%`, 
                 transform: 'translateX(-50%)',
