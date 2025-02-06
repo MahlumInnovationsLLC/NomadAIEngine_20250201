@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Equipment, FloorPlan } from "@db/schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import FloorPlanEditor from "./FloorPlanEditor";
+import { io } from "socket.io-client";
 
 interface FloorPlanViewProps {
   floorPlan: FloorPlan | null;
@@ -23,13 +24,30 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [telemetryData, setTelemetryData] = useState<Record<string, any>>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<any>(null);
   const queryClient = useQueryClient();
 
-  const dimensions = {
-    width: floorPlan?.dimensions?.width || 800,
-    height: floorPlan?.dimensions?.height || 600
-  };
+  const dimensions = floorPlan?.dimensions || { width: 800, height: 600 };
+
+  // Connect to WebSocket for real-time telemetry updates
+  useEffect(() => {
+    socketRef.current = io(window.location.origin);
+
+    socketRef.current.on('telemetry-update', (data: { equipmentId: string; metrics: any }) => {
+      setTelemetryData(prev => ({
+        ...prev,
+        [data.equipmentId]: data.metrics
+      }));
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, []);
 
   const updateFloorPlanMutation = useMutation({
     mutationFn: async (updates: Partial<FloorPlan>) => {
@@ -48,7 +66,7 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
   });
 
   const updateEquipmentPositionMutation = useMutation({
-    mutationFn: async ({ id, position }: { id: number; position: { x: number; y: number } }) => {
+    mutationFn: async ({ id, position }: { id: string; position: { x: number; y: number } }) => {
       const response = await fetch(`/api/equipment/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -99,7 +117,7 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
   const handleEquipmentMove = async (equipmentId: number, newPosition: { x: number; y: number }) => {
     try {
       await updateEquipmentPositionMutation.mutateAsync({
-        id: equipmentId,
+        id: equipmentId.toString(),
         position: newPosition,
       });
     } catch (error) {
@@ -107,11 +125,43 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
     }
   };
 
+  const getEquipmentStatus = (equipment: Equipment) => {
+    const telemetry = telemetryData[equipment.id];
+
+    if (!equipment.deviceConnectionStatus || equipment.deviceConnectionStatus === 'disconnected') {
+      return 'disconnected';
+    }
+
+    if (equipment.status === 'maintenance') {
+      return 'maintenance';
+    }
+
+    if (telemetry?.alerts?.some((alert: any) => alert.severity === 'critical')) {
+      return 'error';
+    }
+
+    if (telemetry?.alerts?.some((alert: any) => alert.severity === 'warning')) {
+      return 'warning';
+    }
+
+    return 'active';
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-500';
+      case 'maintenance': return 'bg-yellow-500';
+      case 'warning': return 'bg-orange-500';
+      case 'error': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
         <div className="text-lg font-semibold">
-          {floorPlan?.name || "Default Layout"}
+          {floorPlan?.name || "Facility Layout"}
         </div>
         <div className="flex gap-2">
           {!isEditing && (
@@ -121,9 +171,6 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
               </Button>
               <Button variant="outline" size="icon" onClick={() => handleZoom(-0.1)}>
                 <FontAwesomeIcon icon="magnifying-glass-minus" className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon">
-                <FontAwesomeIcon icon="arrows-up-down-left-right" className="h-4 w-4" />
               </Button>
             </>
           )}
@@ -190,6 +237,8 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
               {equipment.map((item) => {
                 if (!item.position) return null;
                 const pos = item.position as { x: number; y: number };
+                const status = getEquipmentStatus(item);
+                const telemetry = telemetryData[item.id];
 
                 return (
                   <Tooltip key={item.id}>
@@ -204,17 +253,26 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
                       >
                         <div className={`
                           h-4 w-4 rounded-full
-                          ${item.status === 'active' ? 'bg-green-500' : 
-                            item.status === 'maintenance' ? 'bg-yellow-500' : 'bg-red-500'}
-                          animate-pulse
+                          ${getStatusColor(status)}
+                          ${status === 'active' ? 'animate-pulse' : ''}
                         `} />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
                       <div className="text-sm">
                         <div className="font-semibold">{item.name}</div>
-                        <div>Status: {item.status}</div>
+                        <div>Status: {status}</div>
                         <div>Health: {item.healthScore}%</div>
+                        {telemetry && (
+                          <div className="mt-1 space-y-1">
+                            {Object.entries(telemetry.metrics || {}).map(([key, value]) => (
+                              <div key={key} className="flex justify-between gap-2">
+                                <span>{key}:</span>
+                                <span className="font-mono">{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </TooltipContent>
                   </Tooltip>
@@ -222,20 +280,20 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
               })}
             </TooltipProvider>
 
-            {/* Example room layouts */}
+            {/* Facility zones */}
             <div className="absolute inset-0 pointer-events-none">
               <svg width={dimensions.width} height={dimensions.height}>
-                {/* Room outlines */}
+                {/* Zone outlines */}
                 <rect x="50" y="50" width="200" height="150" 
                   fill="none" stroke="currentColor" strokeOpacity={0.2} />
                 <rect x="300" y="50" width="250" height="200" 
                   fill="none" stroke="currentColor" strokeOpacity={0.2} />
                 <rect x="50" y="250" width="300" height="200" 
                   fill="none" stroke="currentColor" strokeOpacity={0.2} />
-                {/* Room labels */}
-                <text x="60" y="70" className="text-xs fill-current opacity-50">Cardio Area</text>
-                <text x="310" y="70" className="text-xs fill-current opacity-50">Weight Training</text>
-                <text x="60" y="270" className="text-xs fill-current opacity-50">Group Fitness</text>
+                {/* Zone labels */}
+                <text x="60" y="70" className="text-xs fill-current opacity-50">Production Area</text>
+                <text x="310" y="70" className="text-xs fill-current opacity-50">Assembly Line</text>
+                <text x="60" y="270" className="text-xs fill-current opacity-50">Storage Zone</text>
               </svg>
             </div>
           </div>
