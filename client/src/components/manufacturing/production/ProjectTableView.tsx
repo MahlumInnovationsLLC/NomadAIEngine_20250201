@@ -382,7 +382,16 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => onEdit?.(project)}
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`/api/manufacturing/projects/${project.id}`);
+                          if (!response.ok) throw new Error('Failed to fetch project details');
+                          const projectData = await response.json();
+                          onEdit?.(projectData);
+                        } catch (error) {
+                          console.error('Error fetching project:', error);
+                        }
+                      }}
                     >
                       <FontAwesomeIcon icon="edit" className="h-4 w-4" />
                     </Button>
