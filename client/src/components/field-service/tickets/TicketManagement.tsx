@@ -28,6 +28,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { ServiceTicket } from "@/types/field-service";
 import { AITicketAnalysis } from "./AITicketAnalysis";
+import { CreateTicketDialog } from "./CreateTicketDialog";
+import { ImportTicketsDialog } from "./ImportTicketsDialog";
 
 export function TicketManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,12 +37,13 @@ export function TicketManagement() {
   const [selectedTicket, setSelectedTicket] = useState<ServiceTicket | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   const { data: tickets, isLoading } = useQuery<ServiceTicket[]>({
     queryKey: ['/api/field-service/tickets'],
   });
 
-  // Mutation for assigning technician
   const assignTechnician = useMutation({
     mutationFn: async ({ ticketId, technicianId }: { ticketId: string, technicianId: string }) => {
       const response = await fetch(`/api/field-service/tickets/${ticketId}/assign`, {
@@ -61,7 +64,6 @@ export function TicketManagement() {
     },
   });
 
-  // Mutation for updating priority
   const updatePriority = useMutation({
     mutationFn: async ({ ticketId, priority }: { ticketId: string, priority: ServiceTicket['priority'] }) => {
       const response = await fetch(`/api/field-service/tickets/${ticketId}/priority`, {
@@ -81,8 +83,61 @@ export function TicketManagement() {
     },
   });
 
+  const createTicket = useMutation({
+    mutationFn: async (data: Partial<ServiceTicket>) => {
+      const response = await fetch('/api/field-service/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to create ticket');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/field-service/tickets'] });
+      toast({
+        title: "Success",
+        description: "Ticket created successfully",
+      });
+      setShowCreateDialog(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create ticket",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const importTickets = useMutation({
+    mutationFn: async (tickets: Partial<ServiceTicket>[]) => {
+      const response = await fetch('/api/field-service/tickets/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tickets }),
+      });
+      if (!response.ok) throw new Error('Failed to import tickets');
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/field-service/tickets'] });
+      toast({
+        title: "Success",
+        description: `Successfully imported ${variables.length} tickets`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to import tickets",
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredTickets = tickets?.filter(ticket => {
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.productInfo.serialNumber.toLowerCase().includes(searchQuery.toLowerCase());
@@ -111,10 +166,16 @@ export function TicketManagement() {
             AI-powered ticket management and assignment system
           </p>
         </div>
-        <Button className="gap-2">
-          <FontAwesomeIcon icon="plus" className="h-4 w-4" />
-          New Ticket
-        </Button>
+        <div className="space-x-2">
+          <Button className="gap-2" onClick={() => setShowCreateDialog(true)}>
+            <FontAwesomeIcon icon="plus" className="h-4 w-4" />
+            New Ticket
+          </Button>
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+            <FontAwesomeIcon icon="file-import" className="h-4 w-4 mr-2" />
+            Import from Excel
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-4 items-center">
@@ -182,9 +243,9 @@ export function TicketManagement() {
                   <TableCell>
                     <Badge variant={
                       ticket.priority === 'critical' ? 'destructive' :
-                      ticket.priority === 'high' ? 'default' :
-                      ticket.priority === 'medium' ? 'secondary' :
-                      'outline'
+                        ticket.priority === 'high' ? 'default' :
+                          ticket.priority === 'medium' ? 'secondary' :
+                            'outline'
                     }>
                       {ticket.priority}
                     </Badge>
@@ -215,7 +276,6 @@ export function TicketManagement() {
         </CardContent>
       </Card>
 
-      {/* AI Analysis Dialog */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -240,6 +300,18 @@ export function TicketManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      <CreateTicketDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSubmit={(data) => createTicket.mutate(data)}
+      />
+
+      <ImportTicketsDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImport={(tickets) => importTickets.mutate(tickets)}
+      />
     </div>
   );
 }
