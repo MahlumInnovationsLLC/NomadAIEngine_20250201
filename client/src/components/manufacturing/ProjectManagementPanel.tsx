@@ -222,8 +222,8 @@ const formSchema = z.object({
   fabricationStart: z.string().optional(),
   assemblyStart: z.string().optional(),
   wrapGraphics: z.string().optional(),
-  ntcDays: z.number().optional(),
-  qcDays: z.number().optional()
+  ntcDays: z.string().optional(),
+  qcDays: z.string().optional()
 });
 
 
@@ -559,14 +559,14 @@ export function ProjectManagementPanel() {
   const updateDaysCalculations = (data: z.infer<typeof formSchema>) => {
     if (data.ntcTesting && data.qcStart) {
       const ntcDays = calculateWorkingDays(data.ntcTesting, data.qcStart);
-      data.ntcDays = ntcDays;
+      data.ntcDays = ntcDays.toString();
     }
 
     if (data.qcStart && (data.executiveReview || data.ship)) {
       const endDate = data.executiveReview || data.ship;
       if (endDate) {
         const qcDays = calculateWorkingDays(data.qcStart, endDate);
-        data.qcDays = qcDays;
+        data.qcDays = qcDays.toString();
       }
     }
   };
@@ -906,7 +906,7 @@ export function ProjectManagementPanel() {
                         ))}
                       </div>
                     </div>
-                  </CardContent>
+                  </</CardContent>
                 </Card>
 
                 <Card className="col-span-9">
