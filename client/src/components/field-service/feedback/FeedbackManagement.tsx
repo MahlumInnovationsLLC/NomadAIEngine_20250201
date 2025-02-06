@@ -23,6 +23,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { z } from "zod";
+import crypto from 'crypto';
 
 const templateFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -33,7 +34,19 @@ const templateFormSchema = z.object({
     required: z.boolean(),
     category: z.enum(["product", "service", "communication", "timeliness", "other"]),
     options: z.array(z.string()).optional(),
+    id: z.string().optional(),
+    iso9001Category: z.string().optional(),
+    validationRules: z.object({
+      minLength: z.number().optional(),
+      maxLength: z.number().optional(),
+      pattern: z.string().optional(),
+      minValue: z.number().optional(),
+      maxValue: z.number().optional(),
+    }).optional(),
   })).min(1, "At least one question is required"),
+  version: z.number().optional(),
+  isActive: z.boolean().optional(),
+  reviewStatus: z.enum(["draft", "under_review", "approved", "archived"]).optional(),
 });
 
 const requestFormSchema = z.object({
@@ -50,7 +63,6 @@ export function FeedbackManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Form initialization
   const form = useForm<z.infer<typeof templateFormSchema>>({
     resolver: zodResolver(templateFormSchema),
     defaultValues: {
@@ -68,7 +80,6 @@ export function FeedbackManagement() {
     },
   });
 
-  // Initialize questions field array
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "questions",
@@ -138,19 +149,40 @@ export function FeedbackManagement() {
 
   const createTemplate = useMutation({
     mutationFn: async (data: z.infer<typeof templateFormSchema>) => {
+      const templateData: Partial<FeedbackFormTemplate> = {
+        ...data,
+        id: crypto.randomUUID(),
+        version: 1,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        reviewStatus: 'draft',
+        versionHistory: [{
+          version: 1,
+          modifiedAt: new Date().toISOString(),
+          modifiedBy: 'system',
+          changes: 'Initial creation'
+        }],
+        questions: data.questions.map(q => ({
+          ...q,
+          id: crypto.randomUUID(),
+          validationRules: q.validationRules || {},
+          iso9001Category: q.iso9001Category || q.category,
+        })),
+        nextReviewDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
+      };
+
       const response = await fetch('/api/field-service/feedback/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          version: 1,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          lastModified: new Date().toISOString(),
-          reviewStatus: 'draft',
-        }),
+        body: JSON.stringify(templateData),
       });
-      if (!response.ok) throw new Error('Failed to create template');
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create template');
+      }
+
       return response.json();
     },
     onSuccess: () => {
@@ -162,10 +194,10 @@ export function FeedbackManagement() {
       setShowNewTemplate(false);
       form.reset();
     },
-    onError: (err) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to create feedback template: " + err.message,
+        description: error.message || "Failed to create feedback template",
         variant: "destructive",
       });
     },
@@ -368,7 +400,16 @@ export function FeedbackManagement() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => {
-              createTemplate.mutate(data);
+              try {
+                createTemplate.mutate(data);
+              } catch (error) {
+                console.error('Form submission error:', error);
+                toast({
+                  title: "Error",
+                  description: "Invalid form data. Please check all required fields.",
+                  variant: "destructive",
+                });
+              }
             })} className="space-y-4">
               <FormField
                 control={form.control}
