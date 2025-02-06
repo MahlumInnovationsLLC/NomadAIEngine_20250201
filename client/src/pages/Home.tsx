@@ -172,37 +172,19 @@ export default function Home() {
 
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'building']} className="h-5 w-5" />
-            Club Control
+            <FontAwesomeIcon icon={['fal', 'industry-windows']} className="h-5 w-5" />
+            Facility Control
           </h2>
           <p className="text-muted-foreground mb-6">
-            Manage facility maintenance, equipment, and club operations.
+            Manage facility maintenance, equipment, and preventative maintenance operations.
           </p>
           <Button 
             size="lg" 
             className="w-full"
-            onClick={() => navigate('/club-control')}
+            onClick={() => navigate('/facility-control')}
           >
             <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
-            Open Club Control
-          </Button>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'boxes-stacked']} className="h-5 w-5" />
-            Material Handling
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            Track inventory, manage materials, and optimize supply chain operations.
-          </p>
-          <Button 
-            size="lg" 
-            className="w-full"
-            onClick={() => navigate('/material-handling')}
-          >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
-            Open Material Handling
+            Open Facility Control
           </Button>
         </Card>
 

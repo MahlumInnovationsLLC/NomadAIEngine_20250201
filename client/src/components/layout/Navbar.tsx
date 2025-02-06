@@ -93,6 +93,13 @@ export default function Navbar() {
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
+              <Link href="/facility-control">
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  Facility Control
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
               <Link href="/chat">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                   Chat
