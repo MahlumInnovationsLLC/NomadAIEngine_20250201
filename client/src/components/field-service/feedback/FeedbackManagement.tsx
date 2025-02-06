@@ -63,6 +63,24 @@ export function FeedbackManagement() {
     },
   });
 
+  // Send reminder mutation
+  const sendReminder = useMutation({
+    mutationFn: async (requestId: string) => {
+      const response = await fetch(`/api/field-service/feedback/requests/${requestId}/remind`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to send reminder');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/field-service/feedback/requests'] });
+      toast({
+        title: "Success",
+        description: "Reminder sent successfully",
+      });
+    },
+  });
+
   // Calculate metrics
   const metrics = {
     totalRequests: requests.length,
@@ -237,12 +255,14 @@ export function FeedbackManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={request.status !== 'sent'}
-                          onClick={() => {
-                            // Send reminder logic
-                          }}
+                          disabled={request.status !== 'sent' || request.remindersSent >= 3}
+                          onClick={() => sendReminder.mutate(request.id)}
                         >
-                          <FontAwesomeIcon icon="bell" className="h-4 w-4" />
+                          <FontAwesomeIcon icon={
+                            sendReminder.isPending && sendReminder.variables === request.id
+                              ? "spinner"
+                              : "bell"
+                          } className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>

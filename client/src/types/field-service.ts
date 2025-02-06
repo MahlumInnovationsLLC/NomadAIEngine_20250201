@@ -39,26 +39,6 @@ export interface ServiceTicket {
   resolution?: string;
 }
 
-export interface Technician {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  specialization: string[];
-  status: 'available' | 'on_call' | 'off_duty';
-  currentLocation?: {
-    lat: number;
-    lng: number;
-    lastUpdated: string;
-  };
-  assignments: string[]; // Array of ticket IDs
-  certifications: Array<{
-    name: string;
-    issuedDate: string;
-    expiryDate: string;
-  }>;
-}
-
 export interface CustomerFeedbackItem {
   id: string;
   ticketId: string;
@@ -67,7 +47,7 @@ export interface CustomerFeedbackItem {
   categories: string[];
   createdAt: string;
   sentiment: 'positive' | 'neutral' | 'negative';
-  requestId?: string; // Link to the FeedbackRequest if generated from a form
+  requestId?: string; 
   responses?: Array<{
     questionId: string;
     response: string | number | boolean | string[];
@@ -89,47 +69,24 @@ export interface CustomerFeedbackItem {
     impactLevel: 'low' | 'medium' | 'high';
     resolutionPriority: 'low' | 'medium' | 'high';
     qualityMetrics: {
-      responseTime: number; // in hours
-      resolutionTime: number; // in hours
+      responseTime: number; 
+      resolutionTime: number; 
       followUpCount: number;
     };
   };
-}
-
-export interface WarrantyClaim {
-  id: string;
-  ticketId?: string;
-  productInfo: {
-    serialNumber: string;
-    model: string;
-    purchaseDate: string;
-    warrantyExpiration: string;
-  };
-  claimDetails: {
-    description: string;
-    partsClaimed: Array<{
-      partNumber: string;
-      description: string;
-      quantity: number;
-      cost: number;
-    }>;
-    laborHours: number;
-    totalCost: number;
-  };
-  status: 'pending' | 'approved' | 'rejected' | 'processing';
-  submittedAt: string;
-  processedAt?: string;
-  documents: Array<{
-    id: string;
-    type: string;
-    url: string;
-  }>;
 }
 
 export interface FeedbackFormTemplate {
   id: string;
   name: string;
   description: string;
+  version: number;
+  versionHistory: Array<{
+    version: number;
+    modifiedAt: string;
+    modifiedBy: string;
+    changes: string;
+  }>;
   questions: Array<{
     id: string;
     type: 'rating' | 'text' | 'multiple_choice' | 'checkbox';
@@ -137,10 +94,24 @@ export interface FeedbackFormTemplate {
     required: boolean;
     options?: string[];
     category: 'product' | 'service' | 'communication' | 'timeliness' | 'other';
+    iso9001Category?: string;
+    validationRules?: {
+      minLength?: number;
+      maxLength?: number;
+      pattern?: string;
+      minValue?: number;
+      maxValue?: number;
+    };
   }>;
   isActive: boolean;
   createdAt: string;
   lastModified: string;
+  reviewStatus: 'draft' | 'under_review' | 'approved' | 'archived';
+  approvedBy?: string;
+  approvalDate?: string;
+  nextReviewDate: string;
+  applicableProducts?: string[];
+  targetAudience?: string[];
 }
 
 export interface FeedbackRequest {
@@ -149,6 +120,7 @@ export interface FeedbackRequest {
   customerName: string;
   customerEmail: string;
   templateId: string;
+  templateVersion: number;
   status: 'sent' | 'delivered' | 'completed' | 'expired';
   sentAt: string;
   completedAt?: string;
@@ -157,4 +129,15 @@ export interface FeedbackRequest {
   lastReminderAt?: string;
   ticketId?: string;
   responseId?: string;
+  deliveryMethod: 'email' | 'sms' | 'portal';
+  iso9001: {
+    processOwner: string;
+    priority: 'low' | 'medium' | 'high';
+    category: string;
+    followUpRequired: boolean;
+    followUpDate?: string;
+    qualityReviewStatus?: 'pending' | 'reviewed' | 'approved';
+    reviewedBy?: string;
+    reviewDate?: string;
+  };
 }
