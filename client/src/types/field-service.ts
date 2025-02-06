@@ -3,6 +3,16 @@ export interface ServiceStats {
   activeTechnicians: number;
   pendingClaims: number;
   satisfactionScore: number;
+  feedbackMetrics: {
+    totalFeedback: number;
+    averageRating: number;
+    responseRate: number;
+    trendsLastMonth: {
+      positive: number;
+      neutral: number;
+      negative: number;
+    };
+  };
 }
 
 export interface ServiceTicket {
@@ -57,6 +67,28 @@ export interface CustomerFeedbackItem {
   categories: string[];
   createdAt: string;
   sentiment: 'positive' | 'neutral' | 'negative';
+  iso9001: {
+    processDate: string;
+    status: 'new' | 'under_review' | 'processed' | 'closed';
+    correctiveActions?: Array<{
+      id: string;
+      description: string;
+      assignedTo: string;
+      dueDate: string;
+      status: 'open' | 'in_progress' | 'completed';
+      completionDate?: string;
+      effectiveness?: string;
+    }>;
+    reviewNotes?: string;
+    satisfactionCategory: 'product' | 'service' | 'communication' | 'timeliness' | 'other';
+    impactLevel: 'low' | 'medium' | 'high';
+    resolutionPriority: 'low' | 'medium' | 'high';
+    qualityMetrics: {
+      responseTime: number; // in hours
+      resolutionTime: number; // in hours
+      followUpCount: number;
+    };
+  };
 }
 
 export interface WarrantyClaim {
