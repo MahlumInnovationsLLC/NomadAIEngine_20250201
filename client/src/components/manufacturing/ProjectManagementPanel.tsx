@@ -693,6 +693,28 @@ export function ProjectManagementPanel() {
         ntcDesignProgress: projectData.ntcDesignProgress || 0,
         fabricationStart: formatDateForInput(projectData.fabricationStart),
         assemblyStart: formatDateForInput(projectData.assemblyStart),
+        wrapGraphics: formatDateForInput(projectData.wrapGraphics),
+        ntcDays: projectData.ntcDays || '',
+        qcDays: projectData.qcDays || ''
+        dpasRating: projectData.dpasRating || '',
+        chassisEta: projectData.chassisEta || '',
+        ntcTesting: formatDateForInput(projectData.ntcTesting),
+        qcStart: formatDateForInput(projectData.qcStart),
+        executiveReview: formatDateForInput(projectData.executiveReview),
+        executiveReviewTime: projectData.executiveReview ? new Date(projectData.executiveReview).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        ship: formatDateForInput(projectData.ship),
+        delivery: formatDateForInput(projectData.delivery),
+        notes: projectData.notes || '',
+        meAssigned: projectData.meAssigned || '',
+        meCadProgress: projectData.meCadProgress || 0,
+        eeAssigned: projectData.eeAssigned || '',
+        eeDesignProgress: projectData.eeDesignProgress || 0,
+        itAssigned: projectData.itAssigned || '',
+        itDesignProgress: projectData.itDesignProgress || 0,
+        ntcAssigned: projectData.ntcAssigned || '',
+        ntcDesignProgress: projectData.ntcDesignProgress || 0,
+        fabricationStart: formatDateForInput(projectData.fabricationStart),
+        assemblyStart: formatDateForInput(projectData.assemblyStart),
         wrapGraphics: formatDateForInput(projectData.wrapGraphics)
       });
       setShowEditDialog(true);
