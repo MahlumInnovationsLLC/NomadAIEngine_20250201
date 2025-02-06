@@ -22,12 +22,23 @@ interface DailyRequirement {
   group: 'Production' | 'Libby' | 'ME' | 'EE' | 'IT' | 'Supply Chain' | 'NTC' | 'QA';
 }
 
+interface AddRequirementFormData {
+  requester: string;
+  projectId: string;
+  issueDescription: string;
+  needByDate: string;
+  notes: string;
+  group: DailyRequirement['group'];
+}
+
 export function DailyRequirements() {
   const [selectedGroup, setSelectedGroup] = useState<string>('Production');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { data: projects = [] } = useProjects();
   
-  const { data: requirements = [] } = useQuery<DailyRequirement[]>({
+  const queryClient = useQueryClient();
+  
+  const { data: requirements = [], isError } = useQuery<DailyRequirement[]>({
     queryKey: ['/api/manufacturing/daily-requirements'],
     queryFn: async () => {
       const response = await fetch('/api/manufacturing/daily-requirements');
@@ -35,6 +46,47 @@ export function DailyRequirements() {
       return response.json();
     }
   });
+
+  const createRequirementMutation = useMutation({
+    mutationFn: async (data: AddRequirementFormData) => {
+      const response = await fetch('/api/manufacturing/daily-requirements', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          date: new Date().toISOString(),
+          status: 'OPEN',
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create requirement');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/daily-requirements'] });
+      setShowAddDialog(false);
+      toast({
+        title: "Success",
+        description: "Requirement added successfully"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add requirement",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleSubmit = (data: AddRequirementFormData) => {
+    createRequirementMutation.mutate(data);
+  };
 
   const groups = ['Production', 'Libby', 'ME', 'EE', 'IT', 'Supply Chain', 'NTC', 'QA'];
 
