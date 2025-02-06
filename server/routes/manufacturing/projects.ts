@@ -272,7 +272,13 @@ router.get("/:id", async (req, res) => {
     const blobClient = containerClient.getBlockBlobClient(`${req.params.id}.json`);
     const downloadResponse = await blobClient.download();
     const projectData = await streamToString(downloadResponse.readableStreamBody);
-    res.json(JSON.parse(projectData));
+    try {
+      const parsedData = JSON.parse(projectData.trim());
+      res.json(parsedData);
+    } catch (error) {
+      console.error("Error parsing project data:", error);
+      res.status(500).json({ error: "Invalid project data format" });
+    }
   } catch (error: any) {
     if (error.statusCode === 404) {
       res.status(404).json({ error: "Project not found" });
