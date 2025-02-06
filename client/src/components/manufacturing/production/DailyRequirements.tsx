@@ -1,11 +1,33 @@
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useProjects } from "@/lib/azure/project-service";
+
+interface DailyRequirement {
+  id: string;
+  date: string;
+  requester: string;
+  projectId: string;
+  issueDescription: string;
+  needByDate: string;
+  notes: string;
+  status: 'OPEN' | 'CLOSED';
+  group: 'Production' | 'Libby' | 'ME' | 'EE' | 'IT' | 'Supply Chain' | 'NTC' | 'QA';
+}
 
 export function DailyRequirements() {
-  const { data: dailyReqs = [] } = useQuery({
+  const [selectedGroup, setSelectedGroup] = useState<string>('Production');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const { data: projects = [] } = useProjects();
+  
+  const { data: requirements = [] } = useQuery<DailyRequirement[]>({
     queryKey: ['/api/manufacturing/daily-requirements'],
     queryFn: async () => {
       const response = await fetch('/api/manufacturing/daily-requirements');
@@ -14,76 +36,101 @@ export function DailyRequirements() {
     }
   });
 
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Production Requirements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dailyReqs.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Critical Materials</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">
-              {dailyReqs.filter(r => r.status === 'critical').length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Labor Hours</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dailyReqs.reduce((acc, curr) => acc + (curr.laborHours || 0), 0)}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+  const groups = ['Production', 'Libby', 'ME', 'EE', 'IT', 'Supply Chain', 'NTC', 'QA'];
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Daily Production Requirements</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Materials Required</TableHead>
-                <TableHead>Labor Hours</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dailyReqs.map((req, index) => (
-                <TableRow key={index}>
-                  <TableCell>{req.projectNumber}</TableCell>
-                  <TableCell>{req.stage}</TableCell>
-                  <TableCell>{req.materialsRequired}</TableCell>
-                  <TableCell>{req.laborHours}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      req.status === 'ready' ? 'bg-green-100 text-green-800' :
-                      req.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {req.status.toUpperCase()}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+  const filteredRequirements = requirements.filter(req => req.group === selectedGroup);
+
+  return (
+    <div className="space-y-4">
+      <Tabs defaultValue="Production" onValueChange={setSelectedGroup}>
+        <TabsList className="grid grid-cols-4 lg:grid-cols-8 gap-2">
+          {groups.map(group => (
+            <TabsTrigger key={group} value={group} className="text-xs md:text-sm">
+              {group}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {groups.map(group => (
+          <TabsContent key={group} value={group}>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>{group} Requirements</CardTitle>
+                <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+                  <DialogTrigger asChild>
+                    <Button>Add Requirement</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Requirement</DialogTitle>
+                    </DialogHeader>
+                    <form className="space-y-4">
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map(project => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.projectNumber}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input placeholder="Description of Issue" />
+                      <Input type="date" />
+                      <Input placeholder="Notes" />
+                      <Button type="submit">Save Requirement</Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Requester</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Need By</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRequirements.map((req) => (
+                      <TableRow key={req.id}>
+                        <TableCell>{new Date(req.date).toLocaleDateString()}</TableCell>
+                        <TableCell>{req.requester}</TableCell>
+                        <TableCell>{req.projectId}</TableCell>
+                        <TableCell>{req.issueDescription}</TableCell>
+                        <TableCell>{new Date(req.needByDate).toLocaleDateString()}</TableCell>
+                        <TableCell>{req.notes}</TableCell>
+                        <TableCell>
+                          <Select defaultValue={req.status}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="OPEN">OPEN</SelectItem>
+                              <SelectItem value="CLOSED">CLOSED</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">Edit</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   );
 }
