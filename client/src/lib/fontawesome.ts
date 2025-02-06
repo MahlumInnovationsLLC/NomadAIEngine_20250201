@@ -14,7 +14,6 @@ import {
   faSitemap,
   faFire,
   faCalendarDay,
-  faWindows,
   faHardDrive,
   faChartMixed,
   faGraduationCap,
@@ -84,6 +83,8 @@ import {
   faListOl
 
 } from '@fortawesome/pro-light-svg-icons';
+import { faWindows } from '@fortawesome/free-brands-svg-icons';
+
 
 // Add all icons to the library
 library.add(
