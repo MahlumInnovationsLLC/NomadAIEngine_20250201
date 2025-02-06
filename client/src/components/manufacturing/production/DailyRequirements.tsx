@@ -142,8 +142,21 @@ export function DailyRequirements() {
                     <DialogHeader>
                       <DialogTitle>Add New Requirement</DialogTitle>
                     </DialogHeader>
-                    <form className="space-y-4">
-                      <Select>
+                    <form className="space-y-4" onSubmit={async (e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      const data = {
+                        projectId: formData.get('projectId'),
+                        issueDescription: formData.get('issueDescription'),
+                        needByDate: formData.get('needByDate'),
+                        notes: formData.get('notes'),
+                        assigned: formData.get('assigned'),
+                        requester: "User",
+                        group: selectedGroup,
+                      };
+                      await createRequirementMutation.mutateAsync(data);
+                    }}>
+                      <Select name="projectId" required>
                         <SelectTrigger>
                           <SelectValue placeholder="Select Project" />
                         </SelectTrigger>
@@ -155,10 +168,10 @@ export function DailyRequirements() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Input placeholder="Description of Issue" />
-                      <Input type="date" />
-                      <Input placeholder="Notes" />
-                      <Input placeholder="Assigned To" /> {/* Added Assigned To field */}
+                      <Input name="issueDescription" placeholder="Description of Issue" required />
+                      <Input name="needByDate" type="date" required />
+                      <Input name="notes" placeholder="Notes" />
+                      <Input name="assigned" placeholder="Assigned To" />
                       <Button type="submit">Save Requirement</Button>
                     </form>
                   </DialogContent>
