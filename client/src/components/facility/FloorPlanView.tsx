@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import FloorPlanEditor from "./FloorPlanEditor";
 import { io } from "socket.io-client";
 
 interface FloorPlanViewProps {
@@ -160,7 +161,7 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
         <div className="text-lg font-semibold">
-          {floorPlan?.name || "Manufacturing Floor Layout"}
+          {floorPlan?.name || "Facility Layout"}
         </div>
         <div className="flex gap-2">
           {!isEditing && (
@@ -183,112 +184,121 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
         </div>
       </div>
 
-      <div
-        ref={containerRef}
-        className="relative overflow-hidden border rounded-lg bg-background"
-        style={{ height: dimensions.height }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
+      {isEditing ? (
+        <FloorPlanEditor
+          floorPlan={floorPlan}
+          equipment={equipment}
+          onSave={handleSaveFloorPlan}
+          onEquipmentMove={handleEquipmentMove}
+        />
+      ) : (
         <div
-          className="absolute"
-          style={{
-            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-            transformOrigin: "0 0",
-          }}
+          ref={containerRef}
+          className="relative overflow-hidden border rounded-lg bg-background"
+          style={{ height: dimensions.height }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
-          {/* Grid background */}
-          <svg 
-            width={dimensions.width}
-            height={dimensions.height}
-            className="pointer-events-none"
+          <div
+            className="absolute"
+            style={{
+              transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+              transformOrigin: "0 0",
+            }}
           >
-            <defs>
-              <pattern
-                id="grid"
-                width={20}
-                height={20}
-                patternUnits="userSpaceOnUse"
-              >
-                <path
-                  d="M 20 0 L 0 0 0 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeOpacity={0.1}
-                />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-
-          {/* Equipment markers */}
-          <TooltipProvider>
-            {equipment.map((item) => {
-              if (!item.position) return null;
-              const pos = item.position as { x: number; y: number };
-              const status = getEquipmentStatus(item);
-              const telemetry = telemetryData[item.id];
-
-              return (
-                <Tooltip key={item.id}>
-                  <TooltipTrigger asChild>
-                    <div
-                      className="absolute cursor-pointer"
-                      style={{
-                        left: pos.x,
-                        top: pos.y,
-                        transform: `scale(${1/scale})`,
-                      }}
-                    >
-                      <div className={`
-                        h-4 w-4 rounded-full
-                        ${getStatusColor(status)}
-                        ${status === 'active' ? 'animate-pulse' : ''}
-                      `} />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="text-sm">
-                      <div className="font-semibold">{item.name}</div>
-                      <div>Status: {status}</div>
-                      <div>Health: {item.healthScore}%</div>
-                      {telemetry && (
-                        <div className="mt-1 space-y-1">
-                          {Object.entries(telemetry.metrics || {}).map(([key, value]) => (
-                            <div key={key} className="flex justify-between gap-2">
-                              <span>{key}:</span>
-                              <span className="font-mono">{value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </TooltipProvider>
-
-          {/* Manufacturing zones */}
-          <div className="absolute inset-0 pointer-events-none">
-            <svg width={dimensions.width} height={dimensions.height}>
-              {/* Zone outlines */}
-              <rect x="50" y="50" width="200" height="150" 
-                fill="none" stroke="currentColor" strokeOpacity={0.2} />
-              <rect x="300" y="50" width="250" height="200" 
-                fill="none" stroke="currentColor" strokeOpacity={0.2} />
-              <rect x="50" y="250" width="300" height="200" 
-                fill="none" stroke="currentColor" strokeOpacity={0.2} />
-              {/* Zone labels */}
-              <text x="60" y="70" className="text-xs fill-current opacity-50">Production Area</text>
-              <text x="310" y="70" className="text-xs fill-current opacity-50">Assembly Line</text>
-              <text x="60" y="270" className="text-xs fill-current opacity-50">Storage Zone</text>
+            {/* Grid background */}
+            <svg 
+              width={dimensions.width}
+              height={dimensions.height}
+              className="pointer-events-none"
+            >
+              <defs>
+                <pattern
+                  id="grid"
+                  width={floorPlan?.gridSize || 20}
+                  height={floorPlan?.gridSize || 20}
+                  patternUnits="userSpaceOnUse"
+                >
+                  <path
+                    d={`M ${floorPlan?.gridSize || 20} 0 L 0 0 0 ${floorPlan?.gridSize || 20}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeOpacity={0.1}
+                  />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
             </svg>
+
+            {/* Equipment markers */}
+            <TooltipProvider>
+              {equipment.map((item) => {
+                if (!item.position) return null;
+                const pos = item.position as { x: number; y: number };
+                const status = getEquipmentStatus(item);
+                const telemetry = telemetryData[item.id];
+
+                return (
+                  <Tooltip key={item.id}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="absolute cursor-pointer"
+                        style={{
+                          left: pos.x,
+                          top: pos.y,
+                          transform: `scale(${1/scale})`,
+                        }}
+                      >
+                        <div className={`
+                          h-4 w-4 rounded-full
+                          ${getStatusColor(status)}
+                          ${status === 'active' ? 'animate-pulse' : ''}
+                        `} />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-sm">
+                        <div className="font-semibold">{item.name}</div>
+                        <div>Status: {status}</div>
+                        <div>Health: {item.healthScore}%</div>
+                        {telemetry && (
+                          <div className="mt-1 space-y-1">
+                            {Object.entries(telemetry.metrics || {}).map(([key, value]) => (
+                              <div key={key} className="flex justify-between gap-2">
+                                <span>{key}:</span>
+                                <span className="font-mono">{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </TooltipProvider>
+
+            {/* Facility zones */}
+            <div className="absolute inset-0 pointer-events-none">
+              <svg width={dimensions.width} height={dimensions.height}>
+                {/* Zone outlines */}
+                <rect x="50" y="50" width="200" height="150" 
+                  fill="none" stroke="currentColor" strokeOpacity={0.2} />
+                <rect x="300" y="50" width="250" height="200" 
+                  fill="none" stroke="currentColor" strokeOpacity={0.2} />
+                <rect x="50" y="250" width="300" height="200" 
+                  fill="none" stroke="currentColor" strokeOpacity={0.2} />
+                {/* Zone labels */}
+                <text x="60" y="70" className="text-xs fill-current opacity-50">Production Area</text>
+                <text x="310" y="70" className="text-xs fill-current opacity-50">Assembly Line</text>
+                <text x="60" y="270" className="text-xs fill-current opacity-50">Storage Zone</text>
+              </svg>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
