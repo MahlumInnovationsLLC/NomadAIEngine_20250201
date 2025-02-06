@@ -573,7 +573,18 @@ export function ProjectCreateDialog({ project, onClose }: ProjectCreateDialogPro
                     <FormItem>
                       <FormLabel>NTC Testing</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          onChange={(e) => {
+                            field.onChange(e);
+                            const qcStart = form.getValues("qcStart");
+                            if (e.target.value && qcStart) {
+                              const days = getBusinessDays(new Date(e.target.value), new Date(qcStart));
+                              form.setValue("ntcDays", days);
+                            }
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -586,7 +597,23 @@ export function ProjectCreateDialog({ project, onClose }: ProjectCreateDialogPro
                     <FormItem>
                       <FormLabel>QC Start</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          onChange={(e) => {
+                            field.onChange(e);
+                            const ntcTesting = form.getValues("ntcTesting");
+                            const executiveReview = form.getValues("executiveReview");
+                            if (ntcTesting && e.target.value) {
+                              const ntcDays = getBusinessDays(new Date(ntcTesting), new Date(e.target.value));
+                              form.setValue("ntcDays", ntcDays);
+                            }
+                            if (e.target.value && executiveReview) {
+                              const qcDays = getBusinessDays(new Date(e.target.value), new Date(executiveReview));
+                              form.setValue("qcDays", qcDays);
+                            }
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
