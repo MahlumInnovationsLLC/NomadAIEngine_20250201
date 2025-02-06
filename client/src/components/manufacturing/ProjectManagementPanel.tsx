@@ -578,12 +578,39 @@ export function ProjectManagementPanel() {
     updateDaysCalculations(data);
 
     const formattedData = {
-      ...data,
       id: selectedProject.id,
-      notes: data.notes || selectedProject.notes || ''
+      projectNumber: data.projectNumber,
+      location: data.location,
+      team: data.team,
+      contractDate: data.contractDate,
+      ntcTesting: data.ntcTesting,
+      qcStart: data.qcStart,
+      executiveReview: data.executiveReview,
+      executiveReviewTime: data.executiveReviewTime,
+      ship: data.ship,
+      delivery: data.delivery,
+      notes: data.notes || selectedProject.notes || '',
+      meAssigned: data.meAssigned,
+      meCadProgress: Number(data.meCadProgress),
+      eeAssigned: data.eeAssigned,
+      eeDesignProgress: Number(data.eeDesignProgress),
+      itAssigned: data.itAssigned,
+      itDesignProgress: Number(data.itDesignProgress),
+      ntcAssigned: data.ntcAssigned,
+      ntcDesignProgress: Number(data.ntcDesignProgress),
+      fabricationStart: data.fabricationStart,
+      assemblyStart: data.assemblyStart,
+      wrapGraphics: data.wrapGraphics,
+      ntcDays: data.ntcDays,
+      qcDays: data.qcDays
     };
 
-    updateProjectMutation.mutate(formattedData);
+    try {
+      await updateProjectMutation.mutateAsync(formattedData);
+      setShowEditDialog(false);
+    } catch (error) {
+      console.error('Failed to update project:', error);
+    }
   };
 
   const updateNotesMutation = useMutation({
