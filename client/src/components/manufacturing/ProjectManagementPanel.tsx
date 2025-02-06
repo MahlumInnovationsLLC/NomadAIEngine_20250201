@@ -906,7 +906,7 @@ export function ProjectManagementPanel() {
                         ))}
                       </div>
                     </div>
-                  </</CardContent>
+                  </CardContent>
                 </Card>
 
                 <Card className="col-span-9">
