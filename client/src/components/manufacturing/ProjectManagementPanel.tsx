@@ -414,11 +414,13 @@ export function ProjectManagementPanel() {
         };
       }
 
-      // If sorting by location, use ship date as secondary sort
+      // If sorting by location, use ship date as secondary sort by default
       if (field === "location") {
         return {
           primary: field,
-          secondary: "ship",
+          secondary: current.primary === "location" ?
+            (current.secondary === "ship" ? "qcStart" : "ship") : // Toggle between ship and qc
+            "ship", // Default to ship
           direction: "asc"
         };
       }
@@ -521,14 +523,26 @@ export function ProjectManagementPanel() {
 
         // If locations are same and we have a secondary sort field, use it
         if (sortConfig.secondary === "ship" || sortConfig.secondary === "qcStart") {
-          const aDate = a[sortConfig.secondary] ? new Date(a[sortConfig.secondary]).getTime() : Infinity;
-          const bDate = b[sortConfig.secondary] ? new Date(b[sortConfig.secondary]).getTime() : Infinity;
-          return (aDate - bDate) * direction;
+          const aDate = a[sortConfig.secondary];
+          const bDate = b[sortConfig.secondary];
+
+          // Push null dates to the bottom
+          if (!aDate && !bDate) return 0;
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+
+          return (new Date(aDate).getTime() - new Date(bDate).getTime()) * direction;
         }
       } else if (sortConfig.primary === "ship" || sortConfig.primary === "qcStart") {
-        const aDate = a[sortConfig.primary] ? new Date(a[sortConfig.primary]).getTime() : Infinity;
-        const bDate = b[sortConfig.primary] ? new Date(b[sortConfig.primary]).getTime() : Infinity;
-        return (aDate - bDate) * direction;
+        const aDate = a[sortConfig.primary];
+        const bDate = b[sortConfig.primary];
+
+        // Push null dates to the bottom
+        if (!aDate && !bDate) return 0;
+        if (!aDate) return 1;
+        if (!bDate) return -1;
+
+        return (new Date(aDate).getTime() - new Date(bDate).getTime()) * direction;
       }
 
       return 0;
@@ -827,7 +841,7 @@ export function ProjectManagementPanel() {
                                 className="h-4 w-4"
                               />
                               <span className="text-xs text-muted-foreground">
-                                {sortConfig.secondary === "ship" ? "(Ship)" : "(QC)"}
+                                {`(${sortConfig.secondary === "ship" ? "Ship" : "QC"} Date)`}
                               </span>
                             </div>
                           )}
@@ -898,7 +912,7 @@ export function ProjectManagementPanel() {
                   </CardContent>
                 </Card>
 
-                <Card className="col-span-9">
+                <Card className="colspan-9">
                   <CardHeader>
                     <CardTitle>
                       {selectedProject ? (
