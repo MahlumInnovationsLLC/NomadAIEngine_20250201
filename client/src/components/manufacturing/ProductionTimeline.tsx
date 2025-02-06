@@ -26,7 +26,13 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
       return;
     }
 
+    // Adjust dates to local timezone to prevent off-by-one issues
+    startDate.setMinutes(startDate.getMinutes() + startDate.getTimezoneOffset());
+    endDate.setMinutes(endDate.getMinutes() + endDate.getTimezoneOffset());
+
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const totalDuration = endDate.getTime() - startDate.getTime();
     const elapsed = today.getTime() - startDate.getTime();
     const calculatedProgress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
@@ -42,6 +48,11 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     return date instanceof Date && !isNaN(date.getTime());
   };
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const hasShipped = project.ship && new Date(project.ship) <= today;
+
   // Only include events with valid dates
   const timelineEvents = [
     { date: project.fabricationStart, label: 'Fabrication Start', type: 'fab' },
@@ -55,10 +66,9 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
   // If no valid events, don't render timeline
   if (timelineEvents.length === 0) return null;
 
-  const today = new Date();
   const startDateTimeline = timelineEvents[0]?.date 
     ? new Date(timelineEvents[0].date)
-    : new Date();
+    : today;
 
   const endDateTimeline = timelineEvents[timelineEvents.length - 1]?.date
     ? new Date(timelineEvents[timelineEvents.length - 1].date)
@@ -69,6 +79,8 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     if (!event.date) return { ...event, position: 0, needsOffset: false };
 
     const eventDate = new Date(event.date);
+    eventDate.setMinutes(eventDate.getMinutes() + eventDate.getTimezoneOffset());
+
     const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
       (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
 
@@ -78,36 +90,10 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
          (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
       : -20;
 
-    const needsOffset = position - prevPosition < 15; // If milestones are less than 15% apart
+    const needsOffset = position - prevPosition < 15;
 
     return { ...event, position, needsOffset };
   });
-
-  const isSameDay = (date1: Date, date2: Date) => {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
-  };
-
-  // Find next upcoming milestone
-  const nextMilestone = timelineEvents.find(event => {
-    if (!event.date) return false;
-    const eventDate = new Date(event.date);
-    return eventDate >= today;
-  });
-
-  // Calculate days message
-  let daysMessage = '';
-  if (nextMilestone?.date) {
-    const eventDate = new Date(nextMilestone.date);
-    if (isSameDay(today, eventDate)) {
-      daysMessage = nextMilestone.type === 'ship' ? 'SHIPPING TODAY' : `${nextMilestone.label} TODAY`;
-    } else {
-      const diffTime = eventDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      daysMessage = `${diffDays} days until ${nextMilestone.label}`;
-    }
-  }
 
   return (
     <div className="mx-auto max-w-[95%]">
@@ -117,93 +103,40 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
         <div className="absolute h-2 w-full bg-gray-200 rounded">
           {/* Progress bar */}
           <div 
-            className="absolute h-full bg-blue-500 rounded transition-all duration-1000 ease-in-out"
-            style={{ width: `${progress}%` }}
+            className={`absolute h-full rounded transition-all duration-1000 ease-in-out ${
+              hasShipped ? 'bg-green-500' : 'bg-blue-500'
+            }`}
+            style={{ width: hasShipped ? '100%' : `${progress}%` }}
           />
 
-          {/* Current date indicator with days until next milestone */}
-          <div className="absolute" style={{ left: `${progress}%`, transform: 'translateX(-50%)' }}>
-            {daysMessage && (
-              <div className="absolute -top-10 whitespace-nowrap text-center">
-                <div className="text-red-500 text-sm font-medium animate-pulse">
-                  {daysMessage}
-                </div>
-              </div>
-            )}
-            <div className="w-4 h-4 bg-red-500 rounded-full -mt-1 animate-pulse" />
-          </div>
+          {/* Shipped indicator */}
+          {hasShipped && (
+            <div className="absolute w-full text-center" style={{ top: '-2rem' }}>
+              <span className="text-2xl font-bold text-red-500 animate-pulse">
+                SHIPPED
+              </span>
+            </div>
+          )}
 
           {/* Timeline events */}
-          {eventPositions.map((event, index) => {
-            // Calculate days to next milestone
-            const nextEvent = timelineEvents[index + 1];
-            const daysToNext = nextEvent?.date && event.date
-              ? Math.ceil((new Date(nextEvent.date).getTime() - new Date(event.date).getTime()) / (1000 * 60 * 60 * 24))
-              : null;
-
-            return (
-              <div key={event.type}>
-                {/* Event dot */}
-                <div 
-                  className="absolute flex flex-col items-center"
-                  style={{ 
-                    left: `${event.position}%`,
-                    transform: 'translateX(-50%)'
-                  }}
-                >
-                  {/* The dot */}
-                  <div className={`w-3 h-3 rounded-full -mt-0.5 ${
-                    event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
-                  }`} />
-
-                  {/* Connecting line for offset labels */}
-                  {event.needsOffset && (
-                    <div 
-                      className="w-px bg-gray-300"
-                      style={{
-                        height: '1rem',
-                        transform: 'translateY(2px)'
-                      }}
-                    />
-                  )}
-
-                  {/* Label container with improved boundary handling */}
-                  <div 
-                    className={`absolute whitespace-nowrap ${
-                      event.position < 10 ? 'origin-left left-0 translate-x-0' :
-                      event.position > 90 ? 'origin-right right-0 translate-x-0' :
-                      'transform -translate-x-1/2'
-                    }`}
-                    style={{
-                      top: event.needsOffset ? '1.5rem' : '0.75rem',
-                      left: event.position < 10 || event.position > 90 ? 'auto' : `${event.position}%`
-                    }}
-                  >
-                    <div className="text-xs font-medium">
-                      {event.label}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {event.date ? new Date(event.date).toLocaleDateString() : ''}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Days between milestones */}
-                {daysToNext && (
-                  <div 
-                    className="absolute text-xs text-gray-500"
-                    style={{
-                      left: `${(event.position + (eventPositions[index + 1]?.position || 0)) / 2}%`,
-                      transform: 'translateX(-50%)',
-                      marginTop: '-1rem'
-                    }}
-                  >
-                    {daysToNext} days
-                  </div>
-                )}
+          {eventPositions.map((event, index) => (
+            <div
+              key={`${event.type}-${index}`}
+              className="absolute"
+              style={{
+                left: `${event.position}%`,
+                transform: 'translateX(-50%)',
+                top: event.needsOffset ? '-24px' : '0'
+              }}
+            >
+              <div className={`w-3 h-3 rounded-full ${
+                event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
+              }`} />
+              <div className={`absolute ${event.needsOffset ? 'top-4' : '-bottom-8'} left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs`}>
+                {`${event.label} (${event.date ? new Date(event.date).toLocaleDateString() : ''})`}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
     </div>
