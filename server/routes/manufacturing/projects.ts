@@ -289,6 +289,38 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Update project
+router.patch("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    console.log('Updating project:', id, 'with:', updates);
+
+    // Get current project
+    const blobClient = containerClient.getBlockBlobClient(`${id}.json`);
+    const downloadResponse = await blobClient.download();
+    const currentProjectData = await streamToString(downloadResponse.readableStreamBody);
+    const currentProject = JSON.parse(currentProjectData);
+
+    // Merge updates with current project
+    const updatedProject = {
+      ...currentProject,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Upload updated project
+    await blobClient.upload(JSON.stringify(updatedProject), JSON.stringify(updatedProject).length, {
+      blobHTTPHeaders: { blobContentType: "application/json" }
+    });
+
+    res.json(updatedProject);
+  } catch (error) {
+    console.error("Error updating project:", error);
+    res.status(500).json({ error: "Failed to update project" });
+  }
+});
+
 // Helper function to convert stream to string
 async function streamToString(readableStream: NodeJS.ReadableStream | undefined): Promise<string> {
   if (!readableStream) {
