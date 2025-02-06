@@ -105,13 +105,18 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
   if (project.ship) {
     const shipDate = new Date(project.ship);
     shipDate.setHours(0, 0, 0, 0); // Normalize to start of day
+    const todayNormalized = new Date();
+    todayNormalized.setHours(0, 0, 0, 0); // Normalize today to start of day
     
-    if (isSameDay(today, shipDate)) {
+    const shipDateStr = shipDate.toISOString().split('T')[0];
+    const todayStr = todayNormalized.toISOString().split('T')[0];
+    
+    if (shipDateStr === todayStr) {
       daysMessage = 'SHIPPING TODAY';
-    } else if (today > shipDate) {
+    } else if (todayStr > shipDateStr) {
       daysMessage = 'SHIPPED';
     } else {
-      const diffTime = shipDate.getTime() - today.getTime();
+      const diffTime = shipDate.getTime() - todayNormalized.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       daysMessage = `${diffDays} days until shipping`;
     }
