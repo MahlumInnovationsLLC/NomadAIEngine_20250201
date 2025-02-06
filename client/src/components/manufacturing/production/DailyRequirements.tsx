@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useProjects } from "@/lib/azure/project-service";
 import { useToast } from "@/hooks/use-toast";
 
+const { toast } = useToast();
+
 interface DailyRequirement {
   id: string;
   date: string;
@@ -254,8 +256,8 @@ export function DailyRequirements() {
                             size="sm"
                             onClick={() => {
                               try {
-                                setEditingRequirement(req);
-                                setShowEditDialog(true);
+                                //setEditingRequirement(req);
+                                //setShowEditDialog(true);
                                 toast({
                                   title: "Success",
                                   description: "Requirement updated successfully"
