@@ -7,7 +7,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-
 // Loading spinner component
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center h-32">
@@ -55,7 +54,7 @@ export default function FacilityControlPage() {
       </div>
 
       <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-9 lg:w-[1200px]">
+        <TabsList className="flex flex-wrap gap-2 mb-6">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
@@ -173,24 +172,26 @@ export default function FacilityControlPage() {
                   <Building3DEditor />
                 </div>
                 <div className="space-y-6">
-                  <Button
-                    className="w-full"
-                    onClick={() => setShowModelUploader(!showModelUploader)}
-                  >
-                    <FontAwesomeIcon
-                      icon={['fal', 'upload']}
-                      className="h-4 w-4 mr-2"
-                    />
-                    Upload Equipment Model
-                  </Button>
-                  {showModelUploader && (
-                    <ModelUploader
-                      onSuccess={(url) => {
-                        // Handle successful upload
-                        setShowModelUploader(false);
-                      }}
-                    />
-                  )}
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">3D Model Tools</h3>
+                    <Button
+                      className="w-full mb-4"
+                      onClick={() => setShowModelUploader(!showModelUploader)}
+                    >
+                      <FontAwesomeIcon
+                        icon={['fal', 'upload']}
+                        className="h-4 w-4 mr-2"
+                      />
+                      Upload Equipment Model
+                    </Button>
+                    {showModelUploader && (
+                      <ModelUploader
+                        onSuccess={(url) => {
+                          setShowModelUploader(false);
+                        }}
+                      />
+                    )}
+                  </Card>
                 </div>
               </div>
             </div>
