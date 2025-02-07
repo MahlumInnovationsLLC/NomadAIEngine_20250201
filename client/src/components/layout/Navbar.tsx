@@ -95,7 +95,7 @@ export default function Navbar() {
             <NavigationMenuItem>
               <Link href="/facility-control">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Facility Control
+                  Facility
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
@@ -109,28 +109,28 @@ export default function Navbar() {
             <NavigationMenuItem>
               <Link href="/docmanage">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Document Training & Control
+                  Document Training & 
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
               <Link href="/manufacturing-control">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Manufacturing Control
+                  Manufacturing
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
               <Link href="/sales-control">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Sales Control
+                  Sales
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
               <Link href="/marketing-control">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Marketing Control
+                  Marketing
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>
