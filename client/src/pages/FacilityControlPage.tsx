@@ -126,6 +126,23 @@ export default function FacilityControlPage() {
         <TabsContent value="3d-view">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="space-y-6">
+              <div className="flex gap-2">
+                <Button
+                  variant={view3DMode === 'asset' ? 'default' : 'outline'}
+                  onClick={() => setView3DMode('asset')}
+                >
+                  <FontAwesomeIcon icon={['fal', 'cube']} className="h-4 w-4 mr-2" />
+                  Asset Viewer
+                </Button>
+                <Button
+                  variant={view3DMode === 'building' ? 'default' : 'outline'}
+                  onClick={() => setView3DMode('building')}
+                >
+                  <FontAwesomeIcon icon={['fal', 'building']} className="h-4 w-4 mr-2" />
+                  Building Editor
+                </Button>
+              </div>
+
               {view3DMode === 'asset' ? (
                 <>
                   <Card className="p-4">
