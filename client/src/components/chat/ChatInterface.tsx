@@ -222,10 +222,10 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
                           <p {...props} className="mb-4 leading-relaxed" />
                         ),
                         ul: ({ node, ...props }) => (
-                          <ul {...props} className="list-disc pl-4 mb-4 space-y-1" />
+                          <ul {...props} className="list-disc pl-4 mb-4 space-y-2" />
                         ),
                         li: ({ node, ...props }) => (
-                          <li {...props} className="mb-1" />
+                          <li {...props} className="mb-2 text-sm" />
                         ),
                         hr: ({ node, ...props }) => (
                           <hr {...props} className="my-4 border-muted-foreground/20" />

@@ -96,7 +96,7 @@ router.post("/web-search", async (req, res) => {
 
     // Format the response with better markdown and spacing
     const formattedResponse = citations.length > 0
-      ? `${response}\n\n---\n\n**Sources:**\n${citations.map((url, i) => `* [Source ${i + 1}](${url})`).join('\n')}`
+      ? `${response}\n\n---\n\n**Sources:**\n${citations.map((url, i) => `* [${url}](${url}) [${i + 1}]`).join('\n')}`
       : response;
 
     res.json({ response: formattedResponse });
