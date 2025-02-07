@@ -60,12 +60,16 @@ router.post("/web-search", async (req, res) => {
         Focus on manufacturing, industrial processes, facility management, and enterprise operations.
         Cite your sources when providing information.` 
       },
-      ...(Array.isArray(history) ? history : []),
+      ...(history?.filter(msg => ["user", "assistant"].includes(msg.role)) || []),
       { role: "user", content: message }
     ];
 
-    const response = await getWebSearchCompletion(messages);
-    res.json(response);
+    const { response, citations } = await getWebSearchCompletion(messages);
+    res.json({ 
+      response: citations.length > 0 
+        ? `${response}\n\nSources:\n${citations.map((url: string, i: number) => `[${i + 1}] ${url}`).join('\n')}` 
+        : response
+    });
   } catch (error) {
     console.error("Error in web search:", error);
     res.status(500).json({ 

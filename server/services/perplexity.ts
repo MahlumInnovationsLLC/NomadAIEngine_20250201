@@ -1,7 +1,7 @@
 const apiKey = process.env["PERPLEXITY_API_KEY"];
 
 interface Message {
-  role: string;
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -18,25 +18,24 @@ export async function getWebSearchCompletion(messages: Message[]) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "llama-3.1-sonar-small-128k-online",
+        model: "sonar-medium-online",
         messages,
         temperature: 0.2,
         top_p: 0.9,
         max_tokens: 1000,
         frequency_penalty: 1,
         presence_penalty: 0,
-        search_domain_filter: [], // Allow all domains
-        search_recency_filter: "month",
         return_citations: true,
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Perplexity API error: ${response.statusText}`);
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || `Perplexity API error: ${response.statusText}`);
     }
 
     const data = await response.json();
-    
+
     if (!data?.choices?.[0]?.message?.content) {
       throw new Error('Invalid response format from Perplexity');
     }
