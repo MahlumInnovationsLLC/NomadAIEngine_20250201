@@ -83,7 +83,6 @@ function CameraControls({ onReset }: { onReset: () => void }) {
       enableRotate
       minDistance={2}
       maxDistance={10}
-      onChange={handleReset}
     />
   );
 }
@@ -119,7 +118,7 @@ export default function AssetViewer3D({ equipment }: AssetViewerProps) {
               onClick={() => setWireframe(!wireframe)}
             >
               <FontAwesomeIcon 
-                icon={['fal', wireframe ? 'cube' : 'cube-wireframe']} 
+                icon={['fal', 'cube']} 
                 className="h-4 w-4 mr-2"
               />
               {wireframe ? 'Solid' : 'Wireframe'}
