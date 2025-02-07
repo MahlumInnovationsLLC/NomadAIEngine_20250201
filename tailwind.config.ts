@@ -79,6 +79,19 @@ export default {
           "0%, 100%": { transform: "translateX(0)" },
           "25%": { transform: "translateX(-5px)" },
           "75%": { transform: "translateX(5px)" }
+        },
+        "spin-slow": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" }
+        },
+        "spin-reverse": {
+          "0%": { transform: "rotate(360deg)" },
+          "100%": { transform: "rotate(0deg)" }
+        },
+        "spin-shake": {
+          "0%, 100%": { transform: "rotate(0deg)" },
+          "25%": { transform: "rotate(-20deg)" },
+          "75%": { transform: "rotate(20deg)" }
         }
       },
       animation: {
@@ -86,6 +99,10 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         "bounce": "bounce 1s ease-in-out infinite",
         "shake": "shake 0.5s ease-in-out infinite",
+        "spin-slow": "spin-slow 3s linear infinite",
+        "spin": "spin-slow 1s linear infinite",
+        "spin-reverse": "spin-reverse 2s linear infinite",
+        "spin-shake": "spin-shake 0.5s ease-in-out infinite",
       },
     },
   },
