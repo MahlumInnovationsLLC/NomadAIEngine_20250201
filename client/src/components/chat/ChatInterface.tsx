@@ -215,20 +215,23 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
                             {...props} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-primary hover:underline"
+                            className="text-primary hover:underline font-medium"
                           />
                         ),
                         p: ({ node, ...props }) => (
                           <p {...props} className="mb-4 leading-relaxed" />
                         ),
                         ul: ({ node, ...props }) => (
-                          <ul {...props} className="list-disc pl-4 mb-4" />
+                          <ul {...props} className="list-disc pl-4 mb-4 space-y-1" />
                         ),
                         li: ({ node, ...props }) => (
                           <li {...props} className="mb-1" />
                         ),
                         hr: ({ node, ...props }) => (
                           <hr {...props} className="my-4 border-muted-foreground/20" />
+                        ),
+                        strong: ({ node, ...props }) => (
+                          <strong {...props} className="font-semibold text-primary" />
                         )
                       }}
                     >
