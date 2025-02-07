@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Equipment, FloorPlan } from "@db/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+
 
 // Loading spinner component
 const LoadingSpinner = () => (
@@ -23,10 +25,13 @@ const MaintenanceProcedureLibrary = lazy(() => import("@/components/facility/mai
 const PartsInventoryManager = lazy(() => import("@/components/facility/maintenance/PartsInventoryManager"));
 const MaintenanceMetricsDashboard = lazy(() => import("@/components/facility/maintenance/MaintenanceMetricsDashboard"));
 const AssetViewer3D = lazy(() => import("@/components/facility/asset-visualization/AssetViewer3D"));
+const Building3DEditor = lazy(() => import("@/components/facility/asset-visualization/Building3DEditor"));
+const ModelUploader = lazy(() => import("@/components/facility/asset-visualization/ModelUploader"));
 
 export default function FacilityControlPage() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [showModelUploader, setShowModelUploader] = useState(false);
 
   const { data: equipment = [], isLoading: isLoadingEquipment } = useQuery<Equipment[]>({
     queryKey: ['/api/equipment'],
@@ -60,6 +65,7 @@ export default function FacilityControlPage() {
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="3d-view">3D View</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
+          <TabsTrigger value="building-editor">Building Editor</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
@@ -156,6 +162,38 @@ export default function FacilityControlPage() {
                 maintenanceOnly={true}
               />
             </Card>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="building-editor">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="grid gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <Building3DEditor />
+                </div>
+                <div className="space-y-6">
+                  <Button
+                    className="w-full"
+                    onClick={() => setShowModelUploader(!showModelUploader)}
+                  >
+                    <FontAwesomeIcon
+                      icon={['fal', 'upload']}
+                      className="h-4 w-4 mr-2"
+                    />
+                    Upload Equipment Model
+                  </Button>
+                  {showModelUploader && (
+                    <ModelUploader
+                      onSuccess={(url) => {
+                        // Handle successful upload
+                        setShowModelUploader(false);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
           </Suspense>
         </TabsContent>
       </Tabs>
