@@ -9,23 +9,24 @@ export default function MarketingControl() {
       <div className="p-8 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <h1 className="text-3xl font-bold mb-2">Marketing Control</h1>
         <p className="text-muted-foreground mb-4">
-            Manage your marketing campaigns and analytics
-          </p>
-        </div>
+          Manage your marketing campaigns and analytics
+        </p>
       </div>
 
-      <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
-        </TabsList>
-        <TabsContent value="dashboard" className="space-y-4">
-          <MarketingDashboard />
-        </TabsContent>
-        <TabsContent value="calendar" className="space-y-4">
-          <MarketingCalendar />
-        </TabsContent>
-      </Tabs>
+      <div className="p-4">
+        <Tabs defaultValue="dashboard" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+          </TabsList>
+          <TabsContent value="dashboard" className="space-y-4">
+            <MarketingDashboard />
+          </TabsContent>
+          <TabsContent value="calendar" className="space-y-4">
+            <MarketingCalendar />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
