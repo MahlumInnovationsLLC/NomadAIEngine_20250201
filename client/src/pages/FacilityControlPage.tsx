@@ -16,6 +16,8 @@ const LoadingSpinner = () => (
 const EquipmentDashboard = lazy(() => import("@/components/facility/manufacturing/EquipmentDashboard"));
 const MaintenanceScheduler = lazy(() => import("@/components/facility/manufacturing/MaintenanceScheduler"));
 const AssetLifecycleManager = lazy(() => import("@/components/facility/manufacturing/AssetLifecycleManager"));
+const WorkOrderManager = lazy(() => import("@/components/facility/maintenance/WorkOrderManager"));
+const MaintenanceRequestManager = lazy(() => import("@/components/facility/maintenance/MaintenanceRequestManager"));
 
 export default function FacilityControlPage() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -42,16 +44,34 @@ export default function FacilityControlPage() {
       </div>
 
       <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[800px]">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
-          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="assets">Asset Health</TabsTrigger>
+          <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
+          <TabsTrigger value="requests">Requests</TabsTrigger>
+          <TabsTrigger value="maintenance">PM Schedule</TabsTrigger>
+          <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
               <EquipmentDashboard equipment={equipment} />
+            </div>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="work-orders">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="grid gap-6">
+              <WorkOrderManager equipment={equipment} />
+            </div>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="requests">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="grid gap-6">
+              <MaintenanceRequestManager />
             </div>
           </Suspense>
         </TabsContent>
