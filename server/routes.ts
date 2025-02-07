@@ -1780,7 +1780,7 @@ export function registerRoutes(app: express.Application): Server {
       });
     } catch (error) {
       console.error("Error syncing with Outlook:", error);
-      res.status500).json({ error: "Failed to sync with Outlook calendar" });
+      res.status(500).json({ error: "Failed to sync with Outlook calendar" });
     }
   });
   // Add member update endpoint
