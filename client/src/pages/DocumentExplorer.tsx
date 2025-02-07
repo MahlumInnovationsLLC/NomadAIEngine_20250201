@@ -18,7 +18,7 @@ export default function DocumentExplorer() {
     return (
       <div>
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
-          <div className="px-4">
+          <div className="px-4 text-left">
             <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
             <p className="text-muted-foreground mb-4">
               Browse and manage documents with advanced training and workflow control.
@@ -40,7 +40,7 @@ export default function DocumentExplorer() {
         transition={{ duration: 0.3 }}
       >
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6">
-          <div className="px-4">
+          <div className="px-4 text-left">
             <h1 className="text-3xl font-bold mb-1">Document Training & Control</h1>
             <p className="text-muted-foreground mb-4">
               Browse and manage documents with advanced training and workflow control.
