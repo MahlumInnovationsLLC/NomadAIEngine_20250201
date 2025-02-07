@@ -31,6 +31,7 @@ export default function FacilityControlPage() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [showModelUploader, setShowModelUploader] = useState(false);
+  const [view3DMode, setView3DMode] = useState<'asset' | 'building'>('asset');
 
   const { data: equipment = [], isLoading: isLoadingEquipment } = useQuery<Equipment[]>({
     queryKey: ['/api/equipment'],
@@ -64,7 +65,6 @@ export default function FacilityControlPage() {
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="3d-view">3D View</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
-          <TabsTrigger value="building-editor">Building Editor</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
@@ -126,26 +126,70 @@ export default function FacilityControlPage() {
         <TabsContent value="3d-view">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
+              <div className="flex gap-2 mb-4">
+                <Button
+                  variant={view3DMode === 'asset' ? 'default' : 'outline'}
+                  onClick={() => setView3DMode('asset')}
+                >
+                  <FontAwesomeIcon icon={['fal', 'cube']} className="h-4 w-4 mr-2" />
+                  Asset Viewer
+                </Button>
+                <Button
+                  variant={view3DMode === 'building' ? 'default' : 'outline'}
+                  onClick={() => setView3DMode('building')}
+                >
+                  <FontAwesomeIcon icon={['fal', 'building']} className="h-4 w-4 mr-2" />
+                  Building Editor
+                </Button>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                  <AssetViewer3D equipment={selectedEquipment || undefined} />
+                  {view3DMode === 'asset' ? (
+                    <AssetViewer3D equipment={selectedEquipment || undefined} />
+                  ) : (
+                    <Building3DEditor />
+                  )}
                 </div>
                 <div>
-                  <Card className="p-6">
-                    <h3 className="text-lg font-semibold mb-4">Equipment List</h3>
-                    <div className="space-y-2">
-                      {equipment.map((eq) => (
-                        <Button
-                          key={eq.id}
-                          variant={selectedEquipment?.id === eq.id ? "default" : "outline"}
-                          className="w-full justify-start"
-                          onClick={() => setSelectedEquipment(eq)}
-                        >
-                          {eq.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </Card>
+                  {view3DMode === 'asset' ? (
+                    <Card className="p-6">
+                      <h3 className="text-lg font-semibold mb-4">Equipment List</h3>
+                      <div className="space-y-2">
+                        {equipment.map((eq) => (
+                          <Button
+                            key={eq.id}
+                            variant={selectedEquipment?.id === eq.id ? "default" : "outline"}
+                            className="w-full justify-start"
+                            onClick={() => setSelectedEquipment(eq)}
+                          >
+                            {eq.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </Card>
+                  ) : (
+                    <Card className="p-6">
+                      <h3 className="text-lg font-semibold mb-4">3D Model Tools</h3>
+                      <Button
+                        className="w-full mb-4"
+                        onClick={() => setShowModelUploader(!showModelUploader)}
+                      >
+                        <FontAwesomeIcon
+                          icon={['fal', 'upload']}
+                          className="h-4 w-4 mr-2"
+                        />
+                        Upload Equipment Model
+                      </Button>
+                      {showModelUploader && (
+                        <ModelUploader
+                          onSuccess={(url) => {
+                            setShowModelUploader(false);
+                          }}
+                        />
+                      )}
+                    </Card>
+                  )}
                 </div>
               </div>
             </div>
@@ -161,40 +205,6 @@ export default function FacilityControlPage() {
                 maintenanceOnly={true}
               />
             </Card>
-          </Suspense>
-        </TabsContent>
-
-        <TabsContent value="building-editor">
-          <Suspense fallback={<LoadingSpinner />}>
-            <div className="grid gap-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <Building3DEditor />
-                </div>
-                <div className="space-y-6">
-                  <Card className="p-6">
-                    <h3 className="text-lg font-semibold mb-4">3D Model Tools</h3>
-                    <Button
-                      className="w-full mb-4"
-                      onClick={() => setShowModelUploader(!showModelUploader)}
-                    >
-                      <FontAwesomeIcon
-                        icon={['fal', 'upload']}
-                        className="h-4 w-4 mr-2"
-                      />
-                      Upload Equipment Model
-                    </Button>
-                    {showModelUploader && (
-                      <ModelUploader
-                        onSuccess={(url) => {
-                          setShowModelUploader(false);
-                        }}
-                      />
-                    )}
-                  </Card>
-                </div>
-              </div>
-            </div>
           </Suspense>
         </TabsContent>
       </Tabs>
