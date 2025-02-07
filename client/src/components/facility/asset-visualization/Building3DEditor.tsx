@@ -273,7 +273,7 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
               size="sm"
               onClick={() => setGridSnap(gridSnap === 1 ? 0.5 : gridSnap === 0.5 ? 0.25 : 1)}
             >
-              <FontAwesomeIcon icon={['fas', 'grid']} className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon={['fal', 'grid']} className="h-4 w-4 mr-2" />
               Grid: {gridSnap}m
             </Button>
             <Button 
@@ -281,7 +281,7 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
               size="sm"
               onClick={handleUndo}
             >
-              <FontAwesomeIcon icon={['fas', 'undo']} className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon={['fal', 'undo']} className="h-4 w-4 mr-2" />
               Undo
             </Button>
             {selectedComponentId && (
@@ -290,7 +290,7 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
                 size="sm"
                 onClick={() => setShowMaterialLibrary(!showMaterialLibrary)}
               >
-                <FontAwesomeIcon icon={['fas', 'palette']} className="h-4 w-4 mr-2" />
+                <FontAwesomeIcon icon={['fal', 'palette']} className="h-4 w-4 mr-2" />
                 Material
               </Button>
             )}
@@ -299,15 +299,27 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
               size="sm"
               onClick={() => onSave?.(components)}
             >
-              <FontAwesomeIcon icon={['fas', 'save']} className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon={['fal', 'save']} className="h-4 w-4 mr-2" />
               Save Building
             </Button>
           </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
+        <div className="flex gap-6">
+          <div className="w-[200px] shrink-0">
+            <ComponentLibrary
+              selectedType={selectedType}
+              onSelectType={setSelectedType}
+              onAddComponent={handleAddComponent}
+            />
+            {showMaterialLibrary && selectedComponent && (
+              <div className="mt-4">
+                <MaterialPreviewLibrary onSelect={handleMaterialSelect} />
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
             <div className="w-full h-[600px] relative rounded-lg overflow-hidden border">
               <Canvas shadows>
                 <PerspectiveCamera makeDefault position={[10, 10, 10]} />
@@ -337,16 +349,6 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
                 ))}
               </Canvas>
             </div>
-          </div>
-          <div className="space-y-4">
-            <ComponentLibrary
-              selectedType={selectedType}
-              onSelectType={setSelectedType}
-              onAddComponent={handleAddComponent}
-            />
-            {showMaterialLibrary && selectedComponent && (
-              <MaterialPreviewLibrary onSelect={handleMaterialSelect} />
-            )}
           </div>
         </div>
       </CardContent>
