@@ -18,7 +18,6 @@ import MRBList from "./quality/MRBList";
 import AuditList from "./quality/AuditList";
 import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
 
-
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
   const [qmsActiveView, setQmsActiveView] = useState("inspections");
@@ -37,12 +36,6 @@ export const QualityControlPanel = () => {
   const { data: qualityAudits, refetch: refetchAudits } = useQuery<QualityAudit[]>({
     queryKey: ['/api/manufacturing/quality/audits'],
   });
-
-  const auditTemplates = [
-    { id: 1, name: 'ISO 9001 Audit', standard: 'ISO 9001', version: '2015' },
-    { id: 2, name: 'Internal Audit', standard: 'Company Internal', version: '1.0' },
-    // Add more templates as needed
-  ];
 
   return (
     <div className="space-y-4">
@@ -141,7 +134,6 @@ export const QualityControlPanel = () => {
                   <TabsTrigger value="capa">CAPA</TabsTrigger>
                   <TabsTrigger value="scar">SCAR</TabsTrigger>
                   <TabsTrigger value="mrb">MRB</TabsTrigger>
-                  <TabsTrigger value="audits">Audits</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="inspections">
@@ -163,9 +155,6 @@ export const QualityControlPanel = () => {
                 <TabsContent value="mrb">
                   <MRBList />
                 </TabsContent>
-                <TabsContent value="audits">
-                  <AuditList audits={qualityAudits || []} />
-                </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
@@ -178,6 +167,7 @@ export const QualityControlPanel = () => {
         <TabsContent value="defects">
           <DefectAnalytics />
         </TabsContent>
+
         <TabsContent value="audits">
           <Card>
             <CardHeader>
