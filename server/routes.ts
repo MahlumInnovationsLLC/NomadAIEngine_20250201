@@ -33,6 +33,7 @@ import {
   uploadEquipmentImage
 } from './services/azure/equipment_service';
 import projectsRouter from "./routes/manufacturing/projects";
+import trainingRouter from "./routes/training"; // Add this import
 // Initialize Cosmos DB client
 const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
 const cosmosDatabase = cosmosClient.database("NomadAIEngineDB");
@@ -882,7 +883,7 @@ export function registerRoutes(app: express.Application): Server {
   });
   app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
     try {
-const { title, description, startDate, endDate, type, status, location } = req.body;
+      const { title, description, startDate, endDate, type, status, location } = req.body;
       // Validate required fields
       if (!title || !startDate || !type) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -935,6 +936,851 @@ const { title, description, startDate, endDate, type, status, location } = req.b
     } catch (error) {
       console.error("Error syncing with Outlook:", error);
       res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+    }
+  });
+  // Add member update endpoint
+  app.patch("/api/members/:memberId", async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const updates = req.body;
+      const updatedMember = await updateMemberData(memberId, updates);
+      res.json(updatedMember);
+    } catch (error) {
+      console.error("Error updating member:", error);
+      res.status(500).json({ error: "Failed to update member data" });
+    }
+  });
+  // Add member search endpoint
+  app.get("/api/members", async (req, res) => {
+    try {
+      const searchTerm = req.query.search as string;
+      const filters = {
+        membershipType: req.query.membershipType as string,
+        status: req.query.status as string
+      };
+      const members = await searchMembers(searchTerm, filters);
+      res.json(members);
+    } catch (error) {
+      console.error("Error searching members:", error);
+      res.status(500).json({ error: "Failed to search members" });
+    }
+  });
+  // Add health report generation endpoint
+  app.post("/api/health-report", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Mock data for demonstration - replace with actual data fetching
+      const metrics = [
+        {
+          name: "Steps",
+          value: 8432,
+          unit: "steps",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Heart Rate",
+          value: 72,
+          unit: "bpm",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Sleep",
+          value: 7.5,
+          unit: "hours",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Calories",
+          value: 2250,
+          unit: "kcal",
+          date: new Date().toISOString()
+        }
+      ];
+      const achievements = [
+        {
+          name: "Fitness Warrior",
+          description: "Complete 10 workouts in a month",
+          completedAt: "2025-01-20",
+          progress: 100
+        },
+        {
+          name: "Consistency King",
+          description: "Log in for 7 consecutive days",
+          progress: 85
+        },
+        {
+          name: "Health Champion",
+          description: "Maintain heart rate zones during workouts",
+          progress: 60
+        }
+      ];
+      const filename = await generateHealthReport(userId, metrics, achievements);
+      res.json({
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
+      });
+    } catch (error) {
+      console.error("Error generating health report:", error);
+      res.status(500).json({
+        error: "Failed to generate health report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  // Add calendar event endpoints
+  app.get("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      // Get events from database
+      const events = await db.query.marketingEvents.findMany({
+        where: and(
+          startDate ? gte(marketingEvents.startDate, startDate) : undefined,
+          endDate ? lte(marketingEvents.endDate, endDate) : undefined
+        ),
+        orderBy: [marketingEvents.startDate]
+      });
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+  app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title, description, startDate, endDate, type, status, location } = req.body;
+      // Validate required fields
+      if (!title || !startDate || !type) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      // Create new event
+      const [event] = await db
+        .insert(marketingEvents)
+        .values({
+          title,
+          description,
+          startDate: new Date(startDate),
+          endDate: endDate ? new Date(endDate) : null,
+          type,
+          status: status || 'scheduled',
+          createdBy: req.user?.id || 'system',
+          location
+        })
+        .returning();
+      // Broadcast event to connected clients
+      wsServer.broadcastToRoom('calendar', {
+        type: 'calendar_event_created',
+        data: event
+      });
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ error: "Failed to create calendar event" });
+    }
+  });
+  app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const sampleOutlookEvent = {
+        id: "outlook-1",
+        title: "Marketing Team Meeting",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 3600000),
+        type: "meeting",
+        status: "scheduled",
+        outlookEventId: "123456"
+      };
+      res.json({
+        message: "Calendar synced with Outlook",
+        syncedEvents: [sampleOutlookEvent]
+      });
+    } catch (error) {
+      console.error("Error syncing with Outlook:", error);
+      res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+    }
+  });
+  // Add member update endpoint
+  app.patch("/api/members/:memberId", async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const updates = req.body;
+      const updatedMember = await updateMemberData(memberId, updates);
+      res.json(updatedMember);
+    } catch (error) {
+      console.error("Error updating member:", error);
+      res.status(500).json({ error: "Failed to update member data" });
+    }
+  });
+  // Add member search endpoint
+  app.get("/api/members", async (req, res) => {
+    try {
+      const searchTerm = req.query.search as string;
+      const filters = {
+        membershipType: req.query.membershipType as string,
+        status: req.query.status as string
+      };
+      const members = await searchMembers(searchTerm, filters);
+      res.json(members);
+    } catch (error) {
+      console.error("Error searching members:", error);
+      res.status(500).json({ error: "Failed to search members" });
+    }
+  });
+  // Add health report generation endpoint
+  app.post("/api/health-report", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Mock data for demonstration - replace with actual data fetching
+      const metrics = [
+        {
+          name: "Steps",
+          value: 8432,
+          unit: "steps",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Heart Rate",
+          value: 72,
+          unit: "bpm",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Sleep",
+          value: 7.5,
+          unit: "hours",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Calories",
+          value: 2250,
+          unit: "kcal",
+          date: new Date().toISOString()
+        }
+      ];
+      const achievements = [
+        {
+          name: "Fitness Warrior",
+          description: "Complete 10 workouts in a month",
+          completedAt: "2025-01-20",
+          progress: 100
+        },
+        {
+          name: "Consistency King",
+          description: "Log in for 7 consecutive days",
+          progress: 85
+        },
+        {
+          name: "Health Champion",
+          description: "Maintain heart rate zones during workouts",
+          progress: 60
+        }
+      ];
+      const filename = await generateHealthReport(userId, metrics, achievements);
+      res.json({
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
+      });
+    } catch (error) {
+      console.error("Error generating health report:", error);
+      res.status(500).json({
+        error: "Failed to generate health report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  // Add calendar event endpoints
+  app.get("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      // Get events from database
+      const events = await db.query.marketingEvents.findMany({
+        where: and(
+          startDate ? gte(marketingEvents.startDate, startDate) : undefined,
+          endDate ? lte(marketingEvents.endDate, endDate) : undefined
+        ),
+        orderBy: [marketingEvents.startDate]
+      });
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+  app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title, description, startDate, endDate, type, status, location } = req.body;
+      // Validate required fields
+      if (!title || !startDate || !type) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      // Create new event
+      const [event] = await db
+        .insert(marketingEvents)
+        .values({
+          title,
+          description,
+          startDate: new Date(startDate),
+          endDate: endDate ? new Date(endDate) : null,
+          type,
+          status: status || 'scheduled',
+          createdBy: req.user?.id || 'system',
+          location
+        })
+        .returning();
+      // Broadcast event to connected clients
+      wsServer.broadcastToRoom('calendar', {
+        type: 'calendar_event_created',
+        data: event
+      });
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ error: "Failed to create calendar event" });
+    }
+  });
+  app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const sampleOutlookEvent = {
+        id: "outlook-1",
+        title: "Marketing Team Meeting",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 3600000),
+        type: "meeting",
+        status: "scheduled",
+        outlookEventId: "123456"
+      };
+      res.json({
+        message: "Calendar synced with Outlook",
+        syncedEvents: [sampleOutlookEvent]
+      });
+    } catch (error) {
+      console.error("Error syncing with Outlook:", error);
+      res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+    }
+  });
+  // Add member update endpoint
+  app.patch("/api/members/:memberId", async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const updates = req.body;
+      const updatedMember = await updateMemberData(memberId, updates);
+      res.json(updatedMember);
+    } catch (error) {
+      console.error("Error updating member:", error);
+      res.status(500).json({ error: "Failed to update member data" });
+    }
+  });
+  // Add member search endpoint
+  app.get("/api/members", async (req, res) => {
+    try {
+      const searchTerm = req.query.search as string;
+      const filters = {
+        membershipType: req.query.membershipType as string,
+        status: req.query.status as string
+      };
+      const members = await searchMembers(searchTerm, filters);
+      res.json(members);
+    } catch (error) {
+      console.error("Error searching members:", error);
+      res.status(500).json({ error: "Failed to search members" });
+    }
+  });
+  // Add health report generation endpoint
+  app.post("/api/health-report", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Mock data for demonstration - replace with actual data fetching
+      const metrics = [
+        {
+          name: "Steps",
+          value: 8432,
+          unit: "steps",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Heart Rate",
+          value: 72,
+          unit: "bpm",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Sleep",
+          value: 7.5,
+          unit: "hours",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Calories",
+          value: 2250,
+          unit: "kcal",
+          date: new Date().toISOString()
+        }
+      ];
+      const achievements = [
+        {
+          name: "Fitness Warrior",
+          description: "Complete 10 workouts in a month",
+          completedAt: "2025-01-20",
+          progress: 100
+        },
+        {
+          name: "Consistency King",
+          description: "Log in for 7 consecutive days",
+          progress: 85
+        },
+        {
+          name: "Health Champion",
+          description: "Maintain heart rate zones during workouts",
+          progress: 60
+        }
+      ];
+      const filename = await generateHealthReport(userId, metrics, achievements);
+      res.json({
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
+      });
+    } catch (error) {
+      console.error("Error generating health report:", error);
+      res.status(500).json({
+        error: "Failed to generate health report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  // Add calendar event endpoints
+  app.get("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      // Get events from database
+      const events = await db.query.marketingEvents.findMany({
+        where: and(
+          startDate ? gte(marketingEvents.startDate, startDate) : undefined,
+          endDate ? lte(marketingEvents.endDate, endDate) : undefined
+        ),
+        orderBy: [marketingEvents.startDate]
+      });
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+  app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title, description, startDate, endDate, type, status, location } = req.body;
+      // Validate required fields
+      if (!title || !startDate || !type) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      // Create new event
+      const [event] = await db
+        .insert(marketingEvents)
+        .values({
+          title,
+          description,
+          startDate: new Date(startDate),
+          endDate: endDate ? new Date(endDate) : null,
+          type,
+          status: status || 'scheduled',
+          createdBy: req.user?.id || 'system',
+          location
+        })
+        .returning();
+      // Broadcast event to connected clients
+      wsServer.broadcastToRoom('calendar', {
+        type: 'calendar_event_created',
+        data: event
+      });
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ error: "Failed to create calendar event" });
+    }
+  });
+  app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const sampleOutlookEvent = {
+        id: "outlook-1",
+        title: "Marketing Team Meeting",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 3600000),
+        type: "meeting",
+        status: "scheduled",
+        outlookEventId: "123456"
+      };
+      res.json({
+        message: "Calendar synced with Outlook",
+        syncedEvents: [sampleOutlookEvent]
+      });
+    } catch (error) {
+      console.error("Error syncing with Outlook:", error);
+      res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+    }
+  });
+  // Add member update endpoint
+  app.patch("/api/members/:memberId", async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const updates = req.body;
+      const updatedMember = await updateMemberData(memberId, updates);
+      res.json(updatedMember);
+    } catch (error) {
+      console.error("Error updating member:", error);
+      res.status(500).json({ error: "Failed to update member data" });
+    }
+  });
+  // Add member search endpoint
+  app.get("/api/members", async (req, res) => {
+    try {
+      const searchTerm = req.query.search as string;
+      const filters = {
+        membershipType: req.query.membershipType as string,
+        status: req.query.status as string
+      };
+      const members = await searchMembers(searchTerm, filters);
+      res.json(members);
+    } catch (error) {
+      console.error("Error searching members:", error);
+      res.status(500).json({ error: "Failed to search members" });
+    }
+  });
+  // Add health report generation endpoint
+  app.post("/api/health-report", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Mock data for demonstration - replace with actual data fetching
+      const metrics = [
+        {
+          name: "Steps",
+          value: 8432,
+          unit: "steps",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Heart Rate",
+          value: 72,
+          unit: "bpm",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Sleep",
+          value: 7.5,
+          unit: "hours",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Calories",
+          value: 2250,
+          unit: "kcal",
+          date: new Date().toISOString()
+        }
+      ];
+      const achievements = [
+        {
+          name: "Fitness Warrior",
+          description: "Complete 10 workouts in a month",
+          completedAt: "2025-01-20",
+          progress: 100
+        },
+        {
+          name: "Consistency King",
+          description: "Log in for 7 consecutive days",
+          progress: 85
+        },
+        {
+          name: "Health Champion",
+          description: "Maintain heart rate zones during workouts",
+          progress: 60
+        }
+      ];
+      const filename = await generateHealthReport(userId, metrics, achievements);
+      res.json({
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
+      });
+    } catch (error) {
+      console.error("Error generating health report:", error);
+      res.status(500).json({
+        error: "Failed to generate health report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  // Add calendar event endpoints
+  app.get("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      // Get events from database
+      const events = await db.query.marketingEvents.findMany({
+        where: and(
+          startDate ? gte(marketingEvents.startDate, startDate) : undefined,
+          endDate ? lte(marketingEvents.endDate, endDate) : undefined
+        ),
+        orderBy: [marketingEvents.startDate]
+      });
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+  app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title, description, startDate, endDate, type, status, location } = req.body;
+      // Validate required fields
+      if (!title || !startDate || !type) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      // Create new event
+      const [event] = await db
+        .insert(marketingEvents)
+        .values({
+          title,
+          description,
+          startDate: new Date(startDate),
+          endDate: endDate ? new Date(endDate) : null,
+          type,
+          status: status || 'scheduled',
+          createdBy: req.user?.id || 'system',
+          location
+        })
+        .returning();
+      // Broadcast event to connected clients
+      wsServer.broadcastToRoom('calendar', {
+        type: 'calendar_event_created',
+        data: event
+      });
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ error: "Failed to create calendar event" });
+    }
+  });
+  app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const sampleOutlookEvent = {
+        id: "outlook-1",
+        title: "Marketing Team Meeting",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 3600000),
+        type: "meeting",
+        status: "scheduled",
+        outlookEventId: "123456"
+      };
+      res.json({
+        message: "Calendar synced with Outlook",
+        syncedEvents: [sampleOutlookEvent]
+      });
+    } catch (error) {
+      console.error("Error syncing with Outlook:", error);
+      res.status(500).json({ error: "Failed to sync with Outlook calendar" });
+    }
+  });
+  // Add member update endpoint
+  app.patch("/api/members/:memberId", async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const updates = req.body;
+      const updatedMember = await updateMemberData(memberId, updates);
+      res.json(updatedMember);
+    } catch (error) {
+      console.error("Error updating member:", error);
+      res.status(500).json({ error: "Failed to update member data" });
+    }
+  });
+  // Add member search endpoint
+  app.get("/api/members", async (req, res) => {
+    try {
+      const searchTerm = req.query.search as string;
+      const filters = {
+        membershipType: req.query.membershipType as string,
+        status: req.query.status as string
+      };
+      const members = await searchMembers(searchTerm, filters);
+      res.json(members);
+    } catch (error) {
+      console.error("Error searching members:", error);
+      res.status(500).json({ error: "Failed to search members" });
+    }
+  });
+  // Add health report generation endpoint
+  app.post("/api/health-report", async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Mock data for demonstration - replace with actual data fetching
+      const metrics = [
+        {
+          name: "Steps",
+          value: 8432,
+          unit: "steps",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Heart Rate",
+          value: 72,
+          unit: "bpm",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Sleep",
+          value: 7.5,
+          unit: "hours",
+          date: new Date().toISOString()
+        },
+        {
+          name: "Calories",
+          value: 2250,
+          unit: "kcal",
+          date: new Date().toISOString()
+        }
+      ];
+      const achievements = [
+        {
+          name: "Fitness Warrior",
+          description: "Complete 10 workouts in a month",
+          completedAt: "2025-01-20",
+          progress: 100
+        },
+        {
+          name: "Consistency King",
+          description: "Log in for 7 consecutive days",
+          progress: 85
+        },
+        {
+          name: "Health Champion",
+          description: "Maintain heart rate zones during workouts",
+          progress: 60
+        }
+      ];
+      const filename = await generateHealthReport(userId, metrics, achievements);
+      res.json({
+        success: true,
+        filename,
+        downloadUrl: `/uploads/${filename}`
+      });
+    } catch (error) {
+      console.error("Error generating health report:", error);
+      res.status(500).json({
+        error: "Failed to generate health report",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  // Add calendar event endpoints
+  app.get("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      // Get events from database
+      const events = await db.query.marketingEvents.findMany({
+        where: and(
+          startDate ? gte(marketingEvents.startDate, startDate) : undefined,
+          endDate ? lte(marketingEvents.endDate, endDate) : undefined
+        ),
+        orderBy: [marketingEvents.startDate]
+      });
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+  app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title, description, startDate, endDate, type, status, location } = req.body;
+      // Validate required fields
+      if (!title || !startDate || !type) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      // Create new event
+      const [event] = await db
+        .insert(marketingEvents)
+        .values({
+          title,
+          description,
+          startDate: new Date(startDate),
+          endDate: endDate ? new Date(endDate) : null,
+          type,
+          status: status || 'scheduled',
+          createdBy: req.user?.id || 'system',
+          location
+        })
+        .returning();
+      // Broadcast event to connected clients
+      wsServer.broadcastToRoom('calendar', {
+        type: 'calendar_event_created',
+        data: event
+      });
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      res.status(500).json({ error: "Failed to create calendar event" });
+    }
+  });
+  app.post("/api/marketing/calendar/sync-outlook", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      // Simulate Outlook sync for now (will be replaced with actual Microsoft Graph API integration)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const sampleOutlookEvent = {
+        id: "outlook-1",
+        title: "Marketing Team Meeting",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 3600000),
+        type: "meeting",
+        status: "scheduled",
+        outlookEventId: "123456"
+      };
+      res.json({
+        message: "Calendar synced with Outlook",
+        syncedEvents: [sampleOutlookEvent]
+      });
+    } catch (error) {
+      console.error("Error syncing with Outlook:", error);
+      res.status500).json({ error: "Failed to sync with Outlook calendar" });
     }
   });
   // Add member update endpoint
@@ -1198,6 +2044,7 @@ const { title, description, startDate, endDate, type, status, location } = req.b
       res.status(500).json({ error: "Failed to fetch materials" });
     }
   });
+  app.use("/api/training", trainingRouter); // Add this line
   const httpServer = createServer(app);
   return httpServer;
 }

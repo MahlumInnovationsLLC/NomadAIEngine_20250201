@@ -22,6 +22,16 @@ import {
 } from 'recharts';
 import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
+import { IconName } from "@fortawesome/fontawesome-svg-core";
+
+// Add achievement icon mapping
+const achievementIconMap: { [key: string]: IconName } = {
+  'trophy': 'trophy',
+  'shield-check': 'shield',
+  'users': 'users',
+  'bolt': 'bolt',
+  'star': 'star'
+};
 
 interface AnalyticsData {
   completionRates: {
@@ -250,7 +260,7 @@ export function TrainingAnalytics() {
                 >
                   <div className="flex items-center gap-4">
                     <FontAwesomeIcon
-                      icon={achievement.icon}
+                      icon={achievementIconMap[achievement.icon] || 'trophy'}
                       className={`h-8 w-8 ${
                         achievement.earned ? 'text-green-500' : 'text-gray-400'
                       }`}
