@@ -1,8 +1,12 @@
 import express from 'express';
 import { getChatCompletion } from '../services/azure-openai';
 import { getWebSearchCompletion } from '../services/perplexity';
+import { CosmosClient } from "@azure/cosmos";
 
 const router = express.Router();
+const client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING || "");
+const databaseId = "NomadAIEngineDB";
+const containerId = "nomadaidatacontainer";
 
 // General AI Chat
 router.post("/chat", async (req, res) => {
@@ -35,15 +39,19 @@ router.post("/chat", async (req, res) => {
 
     const response = await getChatCompletion(messages);
 
-    // Add database source citations
-    const databaseSources = [
-      "Manufacturing Process Database",
-      "Equipment Maintenance Records",
-      "Quality Control Metrics",
-      "Facility Management System"
-    ];
+    // Query the database for relevant documents based on the response content
+    const container = client.database(databaseId).container(containerId);
+    const querySpec = {
+      query: "SELECT c.id, c.title, c.source FROM c WHERE c.type = 'standard' AND c.standard_type = 'ISO9001'"
+    };
+    const { resources: documents } = await container.items.query(querySpec).fetchAll();
 
-    const formattedResponse = `${response}\n\n---\n\n**Data Sources:**\n${databaseSources.map((source, i) => `* Azure Cosmos DB: ${source} [${i + 1}]`).join('\n')}`;
+    // Format the response with actual document citations
+    const formattedResponse = documents.length > 0 
+      ? `${response}\n\n---\n\n**Data Sources:**\n${documents.map((doc, i) => 
+          `* [${doc.title}](${doc.source}) [${i + 1}]`
+        ).join('\n')}`
+      : response;
 
     res.json({ response: formattedResponse });
   } catch (error) {
