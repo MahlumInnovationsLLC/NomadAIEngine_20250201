@@ -18,6 +18,7 @@ import MRBList from "./quality/MRBList";
 import AuditList from "./quality/AuditList";
 import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
 import { auditTemplates } from "@/templates/qualityTemplates";
+import AuditAnalytics from "./quality/AuditAnalytics";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
@@ -180,6 +181,7 @@ export const QualityControlPanel = () => {
                   <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
                   <TabsTrigger value="in-progress">In Progress</TabsTrigger>
                   <TabsTrigger value="completed">Completed</TabsTrigger>
+                  <TabsTrigger value="analytics">Analytics</TabsTrigger>
                   <TabsTrigger value="templates">Templates</TabsTrigger>
                 </TabsList>
                 <TabsContent value="upcoming">
@@ -200,6 +202,9 @@ export const QualityControlPanel = () => {
                     type="completed"
                   />
                 </TabsContent>
+                <TabsContent value="analytics">
+                  <AuditAnalytics />
+                </TabsContent>
                 <TabsContent value="templates">
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -212,7 +217,14 @@ export const QualityControlPanel = () => {
                             <p className="text-sm text-muted-foreground mb-4">
                               {template.standard} - Version {template.version}
                             </p>
-                            <Button variant="outline" className="w-full">
+                            <Button 
+                              variant="outline" 
+                              className="w-full"
+                              onClick={() => {
+                                setShowCreateAuditDialog(true);
+                                // We'll implement template selection later
+                              }}
+                            >
                               Use Template
                             </Button>
                           </CardContent>
