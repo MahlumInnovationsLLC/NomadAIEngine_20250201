@@ -14,12 +14,14 @@ import qualityRoutes from './manufacturing/quality';
 import projectRoutes from './manufacturing/projects';
 import resourceRoutes from './manufacturing/resources';
 import dailyRequirementRoutes from './manufacturing/daily-requirements';
+import auditRoutes from './manufacturing/quality/audits';
 import { ProjectStatus } from "@/types/manufacturing";
 
 const router = Router();
 
 // Register routes
 router.use('/quality', qualityRoutes);
+router.use('/quality/audits', auditRoutes); // Added audit routes
 router.use('/projects', projectRoutes);
 router.use('/resources', resourceRoutes);
 router.use('/daily-requirements', dailyRequirementRoutes);

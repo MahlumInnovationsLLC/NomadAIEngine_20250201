@@ -44,9 +44,14 @@ export default function AuditAnalytics() {
   });
 
   if (trendsError || insightsError) {
+    console.error('Audit analytics error:', trendsError || insightsError);
     return (
       <div className="p-4 bg-destructive/10 text-destructive rounded-md">
         Error loading audit analytics. Please try again later.
+        <p className="text-sm mt-2">
+          {trendsError instanceof Error ? trendsError.message : ''}
+          {insightsError instanceof Error ? insightsError.message : ''}
+        </p>
       </div>
     );
   }

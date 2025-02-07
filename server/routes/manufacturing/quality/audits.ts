@@ -1,17 +1,24 @@
 import { Router } from 'express';
 import { OpenAI } from 'openai';
-import { container } from '../../../cosmosdb';
+import { CosmosClient } from '@azure/cosmos';
 
 const router = Router();
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// Initialize Cosmos DB client
+const cosmosClient = new CosmosClient(process.env.COSMOS_CONNECTION_STRING || '');
+const database = cosmosClient.database('NomadAIEngineDB');
+const container = database.container('quality-management');
+
 // Get audit trends data
 router.get('/trends', async (req, res) => {
   try {
     const { resources: audits } = await container.items
-      .query("SELECT * FROM c WHERE c.type = 'audit' ORDER BY c.createdAt DESC")
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'audit' ORDER BY c.createdAt DESC"
+      })
       .fetchAll();
 
     // Process audits to generate trend data
@@ -27,7 +34,9 @@ router.get('/trends', async (req, res) => {
 router.get('/insights', async (req, res) => {
   try {
     const { resources: audits } = await container.items
-      .query("SELECT * FROM c WHERE c.type = 'audit' ORDER BY c.createdAt DESC")
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'audit' ORDER BY c.createdAt DESC"
+      })
       .fetchAll();
 
     const insights = await generateAIInsights(audits);
@@ -39,13 +48,19 @@ router.get('/insights', async (req, res) => {
 });
 
 // Helper function to process audit trends
-function processAuditTrends(audits) {
-  const monthlyData = {};
-  
+function processAuditTrends(audits: any[]): any {
+  const monthlyData: Record<string, {
+    month: string;
+    observations: number;
+    minorNonConformities: number;
+    majorNonConformities: number;
+    opportunities: number;
+  }> = {};
+
   audits.forEach(audit => {
     const date = new Date(audit.createdAt);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    
+
     if (!monthlyData[monthKey]) {
       monthlyData[monthKey] = {
         month: monthKey,
@@ -55,9 +70,9 @@ function processAuditTrends(audits) {
         opportunities: 0
       };
     }
-    
+
     // Count findings by type
-    audit.findings?.forEach(finding => {
+    audit.findings?.forEach((finding: any) => {
       switch (finding.type) {
         case 'observation':
           monthlyData[monthKey].observations++;
@@ -74,12 +89,16 @@ function processAuditTrends(audits) {
       }
     });
   });
-  
+
   return Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));
 }
 
 // Helper function to generate AI insights using OpenAI
-async function generateAIInsights(audits) {
+async function generateAIInsights(audits: any[]): Promise<any[]> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is not configured');
+  }
+
   // Prepare audit data for analysis
   const auditSummary = audits.map(audit => ({
     date: audit.createdAt,
@@ -89,38 +108,43 @@ async function generateAIInsights(audits) {
     status: audit.status
   }));
 
-  // Generate insights using OpenAI
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o", // newest OpenAI model released May 13, 2024
-    messages: [
-      {
-        role: "system",
-        content: "You are an expert quality auditor. Analyze the audit data and provide insights in JSON format with categories: trends, risks, and improvements."
-      },
-      {
-        role: "user",
-        content: JSON.stringify(auditSummary)
-      }
-    ],
-    response_format: { type: "json_object" }
-  });
+  try {
+    // Generate insights using OpenAI
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // newest OpenAI model released May 13, 2024
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert quality auditor. Analyze the audit data and provide insights in JSON format with categories: trends, risks, and improvements."
+        },
+        {
+          role: "user",
+          content: JSON.stringify(auditSummary)
+        }
+      ],
+      response_format: { type: "json_object" }
+    });
 
-  // Parse and structure the insights
-  const aiResponse = JSON.parse(response.choices[0].message.content);
-  
-  // Transform insights into structured format
-  return Object.entries(aiResponse).flatMap(([category, items]) =>
-    items.map((item, index) => ({
-      id: `${category}-${index}`,
-      category,
-      title: item.title,
-      description: item.description,
-      confidence: item.confidence || 0.8,
-      recommendation: item.recommendation,
-      relatedFindings: item.relatedFindings || [],
-      timestamp: new Date().toISOString()
-    }))
-  );
+    // Parse and structure the insights
+    const aiResponse = JSON.parse(response.choices[0].message.content);
+
+    // Transform insights into structured format
+    return Object.entries(aiResponse).flatMap(([category, items]: [string, any]) =>
+      items.map((item: any, index: number) => ({
+        id: `${category}-${index}`,
+        category,
+        title: item.title,
+        description: item.description,
+        confidence: item.confidence || 0.8,
+        recommendation: item.recommendation,
+        relatedFindings: item.relatedFindings || [],
+        timestamp: new Date().toISOString()
+      }))
+    );
+  } catch (error) {
+    console.error('Error generating AI insights:', error);
+    throw new Error('Failed to generate AI insights');
+  }
 }
 
 export default router;
