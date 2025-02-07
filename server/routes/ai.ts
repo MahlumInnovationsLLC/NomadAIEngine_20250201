@@ -8,6 +8,55 @@ const client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING || ""
 const databaseId = "NomadAIEngineDB";
 const containerId = "nomadaidatacontainer";
 
+async function getRelevantDocuments(content: string) {
+  try {
+    const database = client.database(databaseId);
+    const container = database.container(containerId);
+
+    // Verify container exists and is accessible
+    try {
+      await container.read();
+    } catch (error) {
+      console.error('Container read error:', error);
+      return [];
+    }
+
+    // Query all documents and filter by relevance
+    const querySpec = {
+      query: `
+        SELECT c.id, c.title, c.source, c.content, c.type 
+        FROM c 
+        WHERE IS_DEFINED(c.title) 
+        AND IS_DEFINED(c.content)
+        AND IS_DEFINED(c.type)
+      `
+    };
+
+    const { resources: documents } = await container.items
+      .query(querySpec)
+      .fetchAll();
+
+    if (documents.length === 0) {
+      console.warn('No documents found in container');
+      return [];
+    }
+
+    // Filter documents based on content relevance
+    // This is a simple keyword matching - could be enhanced with more sophisticated relevance scoring
+    const relevantDocs = documents.filter(doc => {
+      const docContent = (doc.content || '').toLowerCase();
+      const searchContent = content.toLowerCase();
+      return docContent.includes(searchContent) || searchContent.includes(docContent);
+    });
+
+    console.log(`Found ${relevantDocs.length} relevant documents out of ${documents.length} total`);
+    return relevantDocs;
+  } catch (error) {
+    console.error('Error in getRelevantDocuments:', error);
+    return [];
+  }
+}
+
 // General AI Chat
 router.post("/chat", async (req, res) => {
   try {
@@ -21,35 +70,30 @@ router.post("/chat", async (req, res) => {
       { 
         role: "system", 
         content: `You are the Nomad AI Engine, an intelligent assistant for the Nomad AI Enterprise Platform.
-        You have been trained on manufacturing processes, facility management, and enterprise operations.
-        Format your responses with proper markdown for readability. Use bullet points and sections where appropriate.
-        Your expertise includes:
-        - Manufacturing processes and optimization
-        - Quality control and assurance
-        - Equipment maintenance and reliability
-        - Facility management and operations
-        - Supply chain and inventory management
-        - Production planning and scheduling
-        - Safety protocols and compliance
-        Provide clear, concise, and accurate responses based on your training data.` 
+        You have been trained on all manufacturing, operations, and facility management data available in our system.
+        Your knowledge encompasses:
+        - Manufacturing processes and standards
+        - Quality control procedures and ISO standards
+        - Equipment specifications and maintenance
+        - Facility management protocols
+        - Supply chain operations
+        - Production planning
+        - Safety and compliance documentation
+        - Standard operating procedures
+        Format responses with proper markdown for readability.
+        When citing information, reference the specific document sources from our database.` 
       },
       ...(Array.isArray(history) ? history : []),
       { role: "user", content: message }
     ];
 
     const response = await getChatCompletion(messages);
-
-    // Query the database for relevant documents based on the response content
-    const container = client.database(databaseId).container(containerId);
-    const querySpec = {
-      query: "SELECT c.id, c.title, c.source FROM c WHERE c.type = 'standard' AND c.standard_type = 'ISO9001'"
-    };
-    const { resources: documents } = await container.items.query(querySpec).fetchAll();
+    const documents = await getRelevantDocuments(response);
 
     // Format the response with actual document citations
     const formattedResponse = documents.length > 0 
       ? `${response}\n\n---\n\n**Data Sources:**\n${documents.map((doc, i) => 
-          `* [${doc.title}](${doc.source}) [${i + 1}]`
+          `* ${doc.title} (${doc.type}) [${i + 1}]`
         ).join('\n')}`
       : response;
 
