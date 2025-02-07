@@ -32,7 +32,7 @@ export default function MaintenanceScheduler({ equipment }: MaintenanceScheduler
     <Card>
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
-          <span>Maintenance Schedule</span>
+          <span>Preventative Maintenance Schedule</span>
           <div className="flex gap-2">
             <Button 
               variant={filterStatus === 'all' ? 'default' : 'outline'} 
@@ -59,56 +59,91 @@ export default function MaintenanceScheduler({ equipment }: MaintenanceScheduler
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Equipment</TableHead>
-              <TableHead>Last Maintenance</TableHead>
-              <TableHead>Next Due</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredEquipment.map((eq) => {
-              const daysSinceLastMaintenance = eq.lastMaintenance
-                ? Math.floor((new Date().getTime() - new Date(eq.lastMaintenance).getTime()) / (1000 * 60 * 60 * 24))
-                : Infinity;
-              const status = daysSinceLastMaintenance > 90 ? 'overdue' : 'pending';
+        <div className="space-y-6">
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">Scheduled This Week</div>
+                <div className="text-2xl font-bold">{maintenanceSchedule?.thisWeek || 0}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">Upcoming (30 Days)</div>
+                <div className="text-2xl font-bold">{maintenanceSchedule?.upcoming || 0}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">Overdue Tasks</div>
+                <div className="text-2xl font-bold text-red-500">{maintenanceSchedule?.overdue || 0}</div>
+              </CardContent>
+            </Card>
+          </div>
 
-              return (
-                <TableRow key={eq.id}>
-                  <TableCell className="font-medium">{eq.name}</TableCell>
-                  <TableCell>
-                    {eq.lastMaintenance 
-                      ? formatDistanceToNow(new Date(eq.lastMaintenance), { addSuffix: true })
-                      : 'Never'
-                    }
-                  </TableCell>
-                  <TableCell>
-                    {eq.lastMaintenance 
-                      ? formatDistanceToNow(new Date(new Date(eq.lastMaintenance).getTime() + 90 * 24 * 60 * 60 * 1000))
-                      : 'Immediate'
-                    }
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant="outline" 
-                      className={status === 'overdue' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'}
-                    >
-                      {status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <FontAwesomeIcon icon={['fal', 'wrench']} className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Equipment</TableHead>
+                <TableHead>Last Maintenance</TableHead>
+                <TableHead>Next Due</TableHead>
+                <TableHead>Maintenance Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredEquipment.map((eq) => {
+                const daysSinceLastMaintenance = eq.lastMaintenance
+                  ? Math.floor((new Date().getTime() - new Date(eq.lastMaintenance).getTime()) / (1000 * 60 * 60 * 24))
+                  : Infinity;
+                const status = daysSinceLastMaintenance > 90 ? 'overdue' : 'pending';
+                const maintenanceType = eq.maintenanceType || 'Regular Service';
+
+                return (
+                  <TableRow key={eq.id}>
+                    <TableCell className="font-medium">{eq.name}</TableCell>
+                    <TableCell>
+                      {eq.lastMaintenance 
+                        ? formatDistanceToNow(new Date(eq.lastMaintenance), { addSuffix: true })
+                        : 'Never'
+                      }
+                    </TableCell>
+                    <TableCell>
+                      {eq.lastMaintenance 
+                        ? formatDistanceToNow(new Date(new Date(eq.lastMaintenance).getTime() + 90 * 24 * 60 * 60 * 1000))
+                        : 'Immediate'
+                      }
+                    </TableCell>
+                    <TableCell>{maintenanceType}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline" 
+                        className={
+                          status === 'overdue' 
+                            ? 'bg-red-500/10 text-red-500' 
+                            : 'bg-yellow-500/10 text-yellow-500'
+                        }
+                      >
+                        {status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm">
+                          <FontAwesomeIcon icon={['fal', 'calendar']} className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <FontAwesomeIcon icon={['fal', 'wrench']} className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

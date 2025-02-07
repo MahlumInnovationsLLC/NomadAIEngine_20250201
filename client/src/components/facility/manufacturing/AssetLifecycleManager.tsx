@@ -10,25 +10,29 @@ import type { Equipment } from "@db/schema";
 interface AssetLifecycleManagerProps {
   equipment?: Equipment[];
   showFullDashboard?: boolean;
+  maintenanceOnly?: boolean;
 }
 
-export default function AssetLifecycleManager({ equipment = [], showFullDashboard = false }: AssetLifecycleManagerProps) {
-  const [activeView, setActiveView] = useState<'overview' | 'depreciation' | 'roi'>('overview');
+export default function AssetLifecycleManager({ 
+  equipment = [], 
+  showFullDashboard = false,
+  maintenanceOnly = false 
+}: AssetLifecycleManagerProps) {
+  const [activeView, setActiveView] = useState<'overview' | 'history'>('overview');
 
-  const { data: assetMetrics } = useQuery({
-    queryKey: ['/api/assets/metrics'],
+  const { data: maintenanceHistory } = useQuery({
+    queryKey: ['/api/maintenance/history'],
     enabled: showFullDashboard,
   });
 
   const getAssetHealth = (eq: Equipment) => {
-    // Calculate asset health based on age, maintenance history, and performance
-    const age = new Date().getFullYear() - (eq.modelYear || new Date().getFullYear());
+    // Calculate asset health based on maintenance history
     const lastMaintenance = eq.lastMaintenance 
       ? Math.floor((new Date().getTime() - new Date(eq.lastMaintenance).getTime()) / (1000 * 60 * 60 * 24))
       : 365;
-    
-    if (age > 10 || lastMaintenance > 180) return 'critical';
-    if (age > 7 || lastMaintenance > 90) return 'warning';
+
+    if (lastMaintenance > 180) return 'critical';
+    if (lastMaintenance > 90) return 'warning';
     return 'good';
   };
 
@@ -36,7 +40,7 @@ export default function AssetLifecycleManager({ equipment = [], showFullDashboar
     <Card>
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
-          <span>Asset Lifecycle Management</span>
+          <span>Equipment Health & Maintenance History</span>
           <div className="flex gap-2">
             <Button 
               variant={activeView === 'overview' ? 'default' : 'outline'} 
@@ -46,18 +50,11 @@ export default function AssetLifecycleManager({ equipment = [], showFullDashboar
               Overview
             </Button>
             <Button 
-              variant={activeView === 'depreciation' ? 'default' : 'outline'} 
+              variant={activeView === 'history' ? 'default' : 'outline'} 
               size="sm"
-              onClick={() => setActiveView('depreciation')}
+              onClick={() => setActiveView('history')}
             >
-              Depreciation
-            </Button>
-            <Button 
-              variant={activeView === 'roi' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setActiveView('roi')}
-            >
-              ROI Analysis
+              Maintenance History
             </Button>
           </div>
         </CardTitle>
@@ -65,29 +62,27 @@ export default function AssetLifecycleManager({ equipment = [], showFullDashboar
       <CardContent>
         {activeView === 'overview' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Card>
                 <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Total Assets</div>
+                  <div className="text-sm text-muted-foreground">Total Equipment</div>
                   <div className="text-2xl font-bold">{equipment.length}</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Asset Value</div>
-                  <div className="text-2xl font-bold">$2.4M</div>
+                  <div className="text-sm text-muted-foreground">Needs Maintenance</div>
+                  <div className="text-2xl font-bold text-yellow-500">
+                    {equipment.filter(eq => getAssetHealth(eq) === 'warning').length}
+                  </div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Critical Assets</div>
-                  <div className="text-2xl font-bold text-yellow-500">4</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">End-of-Life</div>
-                  <div className="text-2xl font-bold text-red-500">2</div>
+                  <div className="text-sm text-muted-foreground">Critical Status</div>
+                  <div className="text-2xl font-bold text-red-500">
+                    {equipment.filter(eq => getAssetHealth(eq) === 'critical').length}
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -95,20 +90,17 @@ export default function AssetLifecycleManager({ equipment = [], showFullDashboar
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Asset</TableHead>
+                  <TableHead>Equipment</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Health</TableHead>
-                  <TableHead>Age</TableHead>
-                  <TableHead>Value</TableHead>
+                  <TableHead>Health Status</TableHead>
+                  <TableHead>Last Maintenance</TableHead>
+                  <TableHead>Service History</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {equipment.map((eq) => {
                   const health = getAssetHealth(eq);
-                  const age = eq.modelYear 
-                    ? `${new Date().getFullYear() - eq.modelYear} years`
-                    : 'Unknown';
 
                   return (
                     <TableRow key={eq.id}>
@@ -128,19 +120,18 @@ export default function AssetLifecycleManager({ equipment = [], showFullDashboar
                           {health}
                         </Badge>
                       </TableCell>
-                      <TableCell>{age}</TableCell>
                       <TableCell>
-                        {eq.purchasePrice 
-                          ? new Intl.NumberFormat('en-US', { 
-                              style: 'currency', 
-                              currency: 'USD' 
-                            }).format(eq.purchasePrice)
-                          : 'N/A'
+                        {eq.lastMaintenance 
+                          ? new Date(eq.lastMaintenance).toLocaleDateString()
+                          : 'Never'
                         }
                       </TableCell>
                       <TableCell>
+                        {eq.maintenanceCount || 0} services
+                      </TableCell>
+                      <TableCell>
                         <Button variant="ghost" size="sm">
-                          <FontAwesomeIcon icon={['fal', 'chart-line']} className="h-4 w-4" />
+                          <FontAwesomeIcon icon={['fal', 'history']} className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -151,17 +142,30 @@ export default function AssetLifecycleManager({ equipment = [], showFullDashboar
           </div>
         )}
 
-        {activeView === 'depreciation' && (
-          <div className="grid gap-4">
-            <h3 className="text-lg font-semibold">Asset Depreciation Analysis</h3>
-            {/* Add depreciation charts and analysis here */}
-          </div>
-        )}
-
-        {activeView === 'roi' && (
-          <div className="grid gap-4">
-            <h3 className="text-lg font-semibold">Return on Investment Analysis</h3>
-            {/* Add ROI analysis dashboard here */}
+        {activeView === 'history' && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Maintenance History</h3>
+            <div className="space-y-4">
+              {maintenanceHistory?.map((record: any) => (
+                <Card key={record.id} className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-medium">{record.equipmentName}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(record.date).toLocaleDateString()} - {record.type}
+                      </p>
+                      <p className="mt-2">{record.description}</p>
+                    </div>
+                    <Badge 
+                      variant="outline" 
+                      className="bg-blue-500/10 text-blue-500"
+                    >
+                      {record.technician}
+                    </Badge>
+                  </div>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

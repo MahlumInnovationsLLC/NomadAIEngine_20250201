@@ -21,24 +21,31 @@ export default function EquipmentDashboard({ equipment, showDetails = false }: E
     enabled: showDetails,
   });
 
+  const getMaintenanceStatus = (eq: Equipment) => {
+    if (!eq.lastMaintenance) return "overdue";
+    const daysSinceLastMaintenance = Math.floor(
+      (new Date().getTime() - new Date(eq.lastMaintenance).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysSinceLastMaintenance > 90) return "overdue";
+    if (daysSinceLastMaintenance > 60) return "due-soon";
+    return "up-to-date";
+  };
+
   const getStatusColor = (status: string) => {
     const colors = {
-      active: "bg-green-500",
-      maintenance: "bg-yellow-500",
-      offline: "bg-red-500",
-      error: "bg-red-700"
+      "up-to-date": "bg-green-500",
+      "due-soon": "bg-yellow-500",
+      "overdue": "bg-red-500"
     };
     return colors[status as keyof typeof colors] || "bg-gray-500";
   };
 
-  const getMaintenanceUrgency = (equipment: Equipment) => {
-    if (!equipment.lastMaintenance) return "high";
-    const daysSinceLastMaintenance = Math.floor(
-      (new Date().getTime() - new Date(equipment.lastMaintenance).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    if (daysSinceLastMaintenance > 90) return "high";
-    if (daysSinceLastMaintenance > 60) return "medium";
-    return "low";
+  const getNextMaintenanceDate = (eq: Equipment) => {
+    if (!eq.lastMaintenance) return "Immediate";
+    const lastMaintenance = new Date(eq.lastMaintenance);
+    const nextMaintenance = new Date(lastMaintenance);
+    nextMaintenance.setDate(nextMaintenance.getDate() + 90); // 90 days maintenance interval
+    return formatDistanceToNow(nextMaintenance, { addSuffix: true });
   };
 
   return (
@@ -46,7 +53,7 @@ export default function EquipmentDashboard({ equipment, showDetails = false }: E
       <Card>
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
-            <span>Manufacturing Equipment Overview</span>
+            <span>Equipment Maintenance Overview</span>
             <Button variant="outline" className="gap-2">
               <FontAwesomeIcon icon={['fal', 'plus']} />
               Add Equipment
@@ -58,47 +65,46 @@ export default function EquipmentDashboard({ equipment, showDetails = false }: E
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Last Maintenance</TableHead>
-                <TableHead>Uptime</TableHead>
+                <TableHead>Next Due</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {equipment.map((eq) => (
-                <TableRow key={eq.id}>
-                  <TableCell className="font-medium">{eq.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`${getStatusColor(eq.status)} text-white`}>
-                      {eq.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{eq.equipmentType?.name || 'Unknown'}</TableCell>
-                  <TableCell>
-                    {eq.lastMaintenance ? (
-                      <span className="flex items-center gap-2">
-                        <Badge variant="outline" className={`bg-${getMaintenanceUrgency(eq)}`}>
-                          {formatDistanceToNow(new Date(eq.lastMaintenance))} ago
-                        </Badge>
-                      </span>
-                    ) : (
-                      <Badge variant="outline" className="bg-red-500">Never</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{eq.uptime ? `${eq.uptime}%` : 'N/A'}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedEquipmentId(eq.id)}>
-                        <FontAwesomeIcon icon={['fal', 'wrench']} className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <FontAwesomeIcon icon={['fal', 'chart-line']} className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {equipment.map((eq) => {
+                const maintenanceStatus = getMaintenanceStatus(eq);
+                return (
+                  <TableRow key={eq.id}>
+                    <TableCell className="font-medium">{eq.name}</TableCell>
+                    <TableCell>{eq.equipmentTypeId}</TableCell>
+                    <TableCell>
+                      {eq.lastMaintenance ? (
+                        formatDistanceToNow(new Date(eq.lastMaintenance), { addSuffix: true })
+                      ) : (
+                        'Never'
+                      )}
+                    </TableCell>
+                    <TableCell>{getNextMaintenanceDate(eq)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`${getStatusColor(maintenanceStatus)} text-white`}>
+                        {maintenanceStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedEquipmentId(eq.id)}>
+                          <FontAwesomeIcon icon={['fal', 'wrench']} className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <FontAwesomeIcon icon={['fal', 'history']} className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -120,25 +126,25 @@ export default function EquipmentDashboard({ equipment, showDetails = false }: E
 
           <Card>
             <CardHeader>
-              <CardTitle>Average Uptime</CardTitle>
+              <CardTitle>Overdue Maintenance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {maintenanceStats?.averageUptime || 0}%
+              <div className="text-2xl font-bold text-red-500">
+                {maintenanceStats?.overdue || 0}
               </div>
-              <p className="text-muted-foreground">Across all equipment</p>
+              <p className="text-muted-foreground">Critical maintenance needed</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Critical Issues</CardTitle>
+              <CardTitle>Maintenance Compliance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-500">
-                {maintenanceStats?.criticalIssues || 0}
+              <div className="text-2xl font-bold text-green-500">
+                {maintenanceStats?.complianceRate || 0}%
               </div>
-              <p className="text-muted-foreground">Requiring immediate attention</p>
+              <p className="text-muted-foreground">Overall maintenance adherence</p>
             </CardContent>
           </Card>
         </div>

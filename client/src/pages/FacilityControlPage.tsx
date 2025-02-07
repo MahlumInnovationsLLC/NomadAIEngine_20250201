@@ -12,12 +12,9 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Lazy load manufacturing-focused components
+// Lazy load maintenance-focused components
 const EquipmentDashboard = lazy(() => import("@/components/facility/manufacturing/EquipmentDashboard"));
-const PropertyAssetView = lazy(() => import("@/components/facility/manufacturing/PropertyAssetView"));
 const MaintenanceScheduler = lazy(() => import("@/components/facility/manufacturing/MaintenanceScheduler"));
-const ProductionLineStatus = lazy(() => import("@/components/facility/manufacturing/ProductionLineStatus"));
-const QualityControlCenter = lazy(() => import("@/components/facility/manufacturing/QualityControlCenter"));
 const AssetLifecycleManager = lazy(() => import("@/components/facility/manufacturing/AssetLifecycleManager"));
 
 export default function FacilityControlPage() {
@@ -38,47 +35,23 @@ export default function FacilityControlPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Manufacturing Facility Control</h1>
+        <h1 className="text-3xl font-bold">Facility Maintenance Control</h1>
         <p className="text-muted-foreground">
-          Comprehensive manufacturing facility and equipment management platform
+          Comprehensive equipment maintenance and preventative maintenance management
         </p>
       </div>
 
       <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6 lg:w-[800px]">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="equipment">Equipment</TabsTrigger>
-          <TabsTrigger value="production">Production</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+          <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="quality">Quality</TabsTrigger>
-          <TabsTrigger value="assets">Assets</TabsTrigger>
+          <TabsTrigger value="assets">Asset Health</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
               <EquipmentDashboard equipment={equipment} />
-              <ProductionLineStatus />
-            </div>
-          </Suspense>
-        </TabsContent>
-
-        <TabsContent value="equipment">
-          <Suspense fallback={<LoadingSpinner />}>
-            <Card className="p-6">
-              <EquipmentDashboard 
-                equipment={equipment} 
-                showDetails={true}
-              />
-            </Card>
-          </Suspense>
-        </TabsContent>
-
-        <TabsContent value="production">
-          <Suspense fallback={<LoadingSpinner />}>
-            <div className="grid gap-6">
-              <ProductionLineStatus />
-              <QualityControlCenter />
             </div>
           </Suspense>
         </TabsContent>
@@ -87,23 +60,19 @@ export default function FacilityControlPage() {
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
               <MaintenanceScheduler equipment={equipment} />
-              <AssetLifecycleManager equipment={equipment} />
             </div>
-          </Suspense>
-        </TabsContent>
-
-        <TabsContent value="quality">
-          <Suspense fallback={<LoadingSpinner />}>
-            <QualityControlCenter showFullDashboard={true} />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="assets">
           <Suspense fallback={<LoadingSpinner />}>
-            <div className="grid gap-6">
-              <PropertyAssetView floorPlan={floorPlan} />
-              <AssetLifecycleManager showFullDashboard={true} />
-            </div>
+            <Card className="p-6">
+              <AssetLifecycleManager 
+                equipment={equipment} 
+                showFullDashboard={true}
+                maintenanceOnly={true}
+              />
+            </Card>
           </Suspense>
         </TabsContent>
       </Tabs>
