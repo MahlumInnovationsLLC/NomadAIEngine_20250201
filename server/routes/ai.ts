@@ -52,38 +52,50 @@ router.post("/web-search", async (req, res) => {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    // Ensure proper message ordering for Perplexity API
+    // Start with system message only
     const messages = [
       { 
         role: "system", 
-        content: `You are a web search assistant focusing on manufacturing and industrial topics.
-        Provide factual, up-to-date information based on web sources.
-        Focus on manufacturing, industrial processes, facility management, and enterprise operations.
-        Cite your sources when providing information.` 
+        content: "You are a web search assistant focusing on manufacturing and industrial topics. Provide factual, up-to-date information based on web sources. Focus on manufacturing, industrial processes, facility management, and enterprise operations. Cite your sources when providing information."
       }
     ];
 
-    // Add history messages ensuring alternating pattern
+    // Process history to ensure alternating pattern
     if (history && Array.isArray(history)) {
-      const filteredHistory = history.filter(msg => 
-        msg.role === "user" || msg.role === "assistant"
-      );
+      let lastRole = "system";
+      const validRoles = ["user", "assistant"];
 
-      // Ensure alternating pattern
-      for (let i = 0; i < filteredHistory.length; i++) {
-        if (i === 0 && filteredHistory[i].role !== "user") continue;
-        if (i > 0 && filteredHistory[i].role === filteredHistory[i-1].role) continue;
-        messages.push(filteredHistory[i]);
+      for (const msg of history) {
+        // Only process valid role messages
+        if (!validRoles.includes(msg.role)) continue;
+
+        // Ensure alternation: after user comes assistant, after assistant comes user
+        if (
+          (lastRole === "system" && msg.role === "user") ||
+          (lastRole === "user" && msg.role === "assistant") ||
+          (lastRole === "assistant" && msg.role === "user")
+        ) {
+          messages.push({ role: msg.role, content: msg.content });
+          lastRole = msg.role;
+        }
+      }
+
+      // If the last message wasn't from the user, we can't add the new user message
+      if (lastRole === "user") {
+        messages.push({ role: "assistant", content: history[history.length - 1].content });
+        lastRole = "assistant";
       }
     }
 
-    // Add the new user message
-    messages.push({ role: "user", content: message });
+    // Only add the new user message if the last message wasn't from a user
+    if (messages[messages.length - 1].role !== "user") {
+      messages.push({ role: "user", content: message });
+    }
 
     const { response, citations } = await getWebSearchCompletion(messages);
     res.json({ 
       response: citations.length > 0 
-        ? `${response}\n\nSources:\n${citations.map((url: string, i: number) => `[${i + 1}] ${url}`).join('\n')}` 
+        ? `${response}\n\nSources:\n${citations.map((url, i) => `[${i + 1}] ${url}`).join('\n')}` 
         : response
     });
   } catch (error) {
