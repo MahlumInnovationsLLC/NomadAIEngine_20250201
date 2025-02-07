@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 
 interface ModelUploaderProps {
   onUpload?: (file: File) => void;
@@ -11,6 +12,7 @@ interface ModelUploaderProps {
 
 export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProps) {
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const { toast } = useToast();
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,6 +29,16 @@ export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProp
       return;
     }
 
+    // Validate file size (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 50MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setUploading(true);
       onUpload?.(file);
@@ -34,20 +46,34 @@ export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProp
       const formData = new FormData();
       formData.append('model', file);
 
-      const response = await fetch('/api/upload/model', {
-        method: 'POST',
-        body: formData
-      });
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload/model', true);
 
-      if (!response.ok) throw new Error('Upload failed');
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percentage = (e.loaded / e.total) * 100;
+          setProgress(Math.round(percentage));
+        }
+      };
 
-      const { url } = await response.json();
-      onSuccess?.(url);
+      xhr.onload = async () => {
+        if (xhr.status === 200) {
+          const { url } = JSON.parse(xhr.responseText);
+          onSuccess?.(url);
+          toast({
+            title: "Upload successful",
+            description: "3D model has been uploaded successfully"
+          });
+        } else {
+          throw new Error('Upload failed');
+        }
+      };
 
-      toast({
-        title: "Upload successful",
-        description: "3D model has been uploaded successfully"
-      });
+      xhr.onerror = () => {
+        throw new Error('Upload failed');
+      };
+
+      xhr.send(formData);
     } catch (error) {
       toast({
         title: "Upload failed",
@@ -56,6 +82,7 @@ export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProp
       });
     } finally {
       setUploading(false);
+      setProgress(0);
     }
   };
 
@@ -81,18 +108,26 @@ export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProp
             >
               <div className="space-y-2">
                 <FontAwesomeIcon 
-                  icon={['fal', 'cloud-arrow-up']} 
+                  icon={['fas', 'cloud-upload-alt']} 
                   className="h-8 w-8 text-muted-foreground"
                 />
                 <p className="text-sm font-medium">
                   {uploading ? 'Uploading...' : 'Click to upload 3D model'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Supports GLB and GLTF formats
+                  Supports GLB and GLTF formats (max 50MB)
                 </p>
               </div>
             </label>
           </div>
+          {uploading && (
+            <div className="space-y-2">
+              <Progress value={progress} className="w-full" />
+              <p className="text-sm text-center text-muted-foreground">
+                {progress}% uploaded
+              </p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

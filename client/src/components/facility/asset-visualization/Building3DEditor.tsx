@@ -63,7 +63,7 @@ function BuildingControls({
         size="sm"
         onClick={() => onModeChange('wall')}
       >
-        <FontAwesomeIcon icon={['fal', 'wall']} className="h-4 w-4 mr-2" />
+        <FontAwesomeIcon icon={['fas', 'square']} className="h-4 w-4 mr-2" />
         Wall
       </Button>
       <Button 
@@ -71,7 +71,7 @@ function BuildingControls({
         size="sm"
         onClick={() => onModeChange('door')}
       >
-        <FontAwesomeIcon icon={['fal', 'door-open']} className="h-4 w-4 mr-2" />
+        <FontAwesomeIcon icon={['fas', 'door-open']} className="h-4 w-4 mr-2" />
         Door
       </Button>
       <Button 
@@ -79,7 +79,7 @@ function BuildingControls({
         size="sm"
         onClick={() => onModeChange('window')}
       >
-        <FontAwesomeIcon icon={['fal', 'window']} className="h-4 w-4 mr-2" />
+        <FontAwesomeIcon icon={['fas', 'window']} className="h-4 w-4 mr-2" />
         Window
       </Button>
       <Button 
@@ -87,7 +87,7 @@ function BuildingControls({
         size="sm"
         onClick={() => onModeChange('select')}
       >
-        <FontAwesomeIcon icon={['fal', 'mouse-pointer']} className="h-4 w-4 mr-2" />
+        <FontAwesomeIcon icon={['fas', 'mouse-pointer']} className="h-4 w-4 mr-2" />
         Select
       </Button>
       <Button 
@@ -95,7 +95,7 @@ function BuildingControls({
         size="sm"
         onClick={onUndo}
       >
-        <FontAwesomeIcon icon={['fal', 'undo']} className="h-4 w-4 mr-2" />
+        <FontAwesomeIcon icon={['fas', 'undo']} className="h-4 w-4 mr-2" />
         Undo
       </Button>
     </div>
@@ -105,7 +105,7 @@ function BuildingControls({
 export default function Building3DEditor({ onSave }: BuildingEditorProps) {
   const [editorMode, setEditorMode] = useState<'wall' | 'door' | 'window' | 'select'>('select');
   const [walls, setWalls] = useState<any[]>([]);
-  
+
   const handleAddWall = () => {
     const newWall = {
       id: Date.now(),
@@ -131,7 +131,7 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
               size="sm"
               onClick={() => onSave?.(walls)}
             >
-              <FontAwesomeIcon icon={['fal', 'save']} className="h-4 w-4 mr-2" />
+              <FontAwesomeIcon icon={['fas', 'save']} className="h-4 w-4 mr-2" />
               Save Building
             </Button>
           </div>
@@ -145,7 +145,7 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
             onAddWall={handleAddWall}
             onUndo={handleUndo}
           />
-          
+
           <Canvas shadows>
             <PerspectiveCamera makeDefault position={[10, 10, 10]} />
             <OrbitControls 
