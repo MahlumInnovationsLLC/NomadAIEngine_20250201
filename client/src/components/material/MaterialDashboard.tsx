@@ -29,12 +29,6 @@ export default function MaterialDashboard() {
   return (
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
-        <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <h1 className="text-3xl font-bold mb-4">Material Handling & Supply Chain</h1>
-          <p className="text-muted-foreground mb-4">
-            Comprehensive inventory management and supply chain optimization system
-          </p>
-
           {/* Quick Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
             <Card>
@@ -82,7 +76,6 @@ export default function MaterialDashboard() {
               </CardContent>
             </Card>
           </div>
-        </div>
 
         <Tabs defaultValue="inventory" className="mt-8">
           <TabsList className="grid w-full grid-cols-6 mb-8">
