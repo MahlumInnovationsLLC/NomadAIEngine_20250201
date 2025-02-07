@@ -8,7 +8,20 @@ const client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING || ""
 const databaseId = "NomadAIEngineDB";
 const containerId = "nomadaidatacontainer";
 
-async function getRelevantDocuments(content: string) {
+interface Document {
+  id: string;
+  title: string;
+  source: string;
+  content: string;
+  type: string;
+}
+
+interface Message {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+async function getRelevantDocuments(content: string): Promise<Document[]> {
   try {
     const database = client.database(databaseId);
     const container = database.container(containerId);
@@ -33,7 +46,7 @@ async function getRelevantDocuments(content: string) {
     };
 
     const { resources: documents } = await container.items
-      .query(querySpec)
+      .query<Document>(querySpec)
       .fetchAll();
 
     if (documents.length === 0) {
@@ -42,7 +55,6 @@ async function getRelevantDocuments(content: string) {
     }
 
     // Filter documents based on content relevance
-    // This is a simple keyword matching - could be enhanced with more sophisticated relevance scoring
     const relevantDocs = documents.filter(doc => {
       const docContent = (doc.content || '').toLowerCase();
       const searchContent = content.toLowerCase();
@@ -66,7 +78,7 @@ router.post("/chat", async (req, res) => {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    const messages = [
+    const messages: Message[] = [
       { 
         role: "system", 
         content: `You are the Nomad AI Engine, an intelligent assistant for the Nomad AI Enterprise Platform.
@@ -92,7 +104,7 @@ router.post("/chat", async (req, res) => {
 
     // Format the response with actual document citations
     const formattedResponse = documents.length > 0 
-      ? `${response}\n\n---\n\n**Data Sources:**\n${documents.map((doc, i) => 
+      ? `${response}\n\n---\n\n**Data Sources:**\n${documents.map((doc: Document, i: number) => 
           `* ${doc.title} (${doc.type}) [${i + 1}]`
         ).join('\n')}`
       : response;
@@ -116,8 +128,7 @@ router.post("/web-search", async (req, res) => {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    // Start with system message only
-    const messages = [
+    const messages: Message[] = [
       { 
         role: "system", 
         content: "You are a web search assistant focusing on manufacturing and industrial topics. Provide factual, up-to-date information based on web sources. Focus on manufacturing, industrial processes, facility management, and enterprise operations. Format your responses with proper markdown for readability. Use bullet points and sections where appropriate. Cite your sources when providing information."
@@ -126,32 +137,31 @@ router.post("/web-search", async (req, res) => {
 
     // Process history to ensure alternating pattern
     if (history && Array.isArray(history)) {
-      let lastRole = "system";
-      const validRoles = ["user", "assistant"];
+      let lastRole: Message["role"] = "system";
+      const validRoles: Message["role"][] = ["user", "assistant"];
 
       for (const msg of history) {
-        // Only process valid role messages
-        if (!validRoles.includes(msg.role)) continue;
+        if (!validRoles.includes(msg.role as Message["role"])) continue;
 
-        // Ensure alternation: after user comes assistant, after assistant comes user
         if (
           (lastRole === "system" && msg.role === "user") ||
           (lastRole === "user" && msg.role === "assistant") ||
           (lastRole === "assistant" && msg.role === "user")
         ) {
-          messages.push({ role: msg.role, content: msg.content });
-          lastRole = msg.role;
+          messages.push({ role: msg.role as Message["role"], content: msg.content });
+          lastRole = msg.role as Message["role"];
         }
       }
 
-      // If the last message wasn't from the user, we can't add the new user message
       if (lastRole === "user") {
-        messages.push({ role: "assistant", content: history[history.length - 1].content });
+        messages.push({ 
+          role: "assistant", 
+          content: history[history.length - 1].content 
+        });
         lastRole = "assistant";
       }
     }
 
-    // Only add the new user message if the last message wasn't from a user
     if (messages[messages.length - 1].role !== "user") {
       messages.push({ role: "user", content: message });
     }
@@ -159,8 +169,10 @@ router.post("/web-search", async (req, res) => {
     const { response, citations } = await getWebSearchCompletion(messages);
 
     // Format the response with better markdown and spacing
-    const formattedResponse = citations.length > 0
-      ? `${response}\n\n---\n\n**Sources:**\n${citations.map((url, i) => `* [${url}](${url}) [${i + 1}]`).join('\n')}`
+    const formattedResponse = Array.isArray(citations) && citations.length > 0
+      ? `${response}\n\n---\n\n**Sources:**\n${citations.map((url: string, i: number) => 
+          `* [${url}](${url}) [${i + 1}]`
+        ).join('\n')}`
       : response;
 
     res.json({ response: formattedResponse });
@@ -168,46 +180,6 @@ router.post("/web-search", async (req, res) => {
     console.error("Error in web search:", error);
     res.status(500).json({ 
       error: "Failed to process web search",
-      details: error instanceof Error ? error.message : "Unknown error"
-    });
-  }
-});
-
-// Sales-specific AI Chat
-router.post("/sales-chat", async (req, res) => {
-  try {
-    const { message, history } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ error: "Message is required" });
-    }
-
-    const messages = [
-      { 
-        role: "system", 
-        content: `You are an expert Sales AI Assistant for the Nomad AI Enterprise Platform.
-        You specialize in manufacturing sales, business development, and customer relationship management.
-        Your expertise includes:
-        - Sales strategies and pipeline management
-        - Deal analysis and opportunity assessment
-        - Market trends in manufacturing
-        - Customer relationship management
-        - Competitive analysis
-        - Sales forecasting and metrics
-        - Manufacturing solution selling
-        - Value proposition development
-        Provide strategic, actionable sales insights based on your specialized training.`
-      },
-      ...(Array.isArray(history) ? history : []),
-      { role: "user", content: message }
-    ];
-
-    const response = await getChatCompletion(messages);
-    res.json({ response });
-  } catch (error) {
-    console.error("Error in sales chat:", error);
-    res.status(500).json({ 
-      error: "Failed to process sales chat message",
       details: error instanceof Error ? error.message : "Unknown error"
     });
   }
