@@ -1,5 +1,6 @@
 import express from 'express';
 import { getChatCompletion } from '../services/azure-openai';
+import { getWebSearchCompletion } from '../services/perplexity';
 
 const router = express.Router();
 
@@ -37,6 +38,38 @@ router.post("/chat", async (req, res) => {
     console.error("Error in AI chat:", error);
     res.status(500).json({ 
       error: "Failed to process chat message",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
+// Web Search Chat using Perplexity
+router.post("/web-search", async (req, res) => {
+  try {
+    const { message, history } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const messages = [
+      { 
+        role: "system", 
+        content: `You are a web search assistant focusing on manufacturing and industrial topics.
+        Provide factual, up-to-date information based on web sources.
+        Focus on manufacturing, industrial processes, facility management, and enterprise operations.
+        Cite your sources when providing information.` 
+      },
+      ...(Array.isArray(history) ? history : []),
+      { role: "user", content: message }
+    ];
+
+    const response = await getWebSearchCompletion(messages);
+    res.json(response);
+  } catch (error) {
+    console.error("Error in web search:", error);
+    res.status(500).json({ 
+      error: "Failed to process web search",
       details: error instanceof Error ? error.message : "Unknown error"
     });
   }

@@ -3,6 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/use-chat-history";
@@ -17,6 +19,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [mode, setMode] = useState<ChatMode>("chat");
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -31,7 +34,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
         abortControllerRef.current = new AbortController();
 
-        const response = await fetch('/api/ai/chat', {
+        const endpoint = mode === 'web-search' ? '/api/ai/web-search' : '/api/ai/chat';
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -124,7 +128,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       const data = await response.json();
 
-      // Add system message about document analysis
       addMessages([
         { 
           role: 'system', 
@@ -195,13 +198,27 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       )}
 
       <div className="border-t p-4 bg-background">
+        <div className="flex items-center gap-2 mb-2">
+          <Switch
+            checked={mode === 'web-search'}
+            onCheckedChange={(checked) => setMode(checked ? 'web-search' : 'chat')}
+            id="mode-toggle"
+          />
+          <Label htmlFor="mode-toggle" className="flex items-center gap-2">
+            <FontAwesomeIcon 
+              icon={mode === 'web-search' ? ["fal", "globe"] : ["fal", "brain-circuit"]} 
+              className="h-4 w-4 text-muted-foreground"
+            />
+            {mode === 'web-search' ? 'Web Search' : 'AI Engine Chat'}
+          </Label>
+        </div>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Button
             type="button"
             variant="outline"
             size="icon"
             onClick={() => setShowFileUpload(true)}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || mode === 'web-search'}
             className="shrink-0"
           >
             <FontAwesomeIcon icon={["fal", "file-lines"]} className="h-4 w-4" />
@@ -209,7 +226,10 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about manufacturing, operations, or facility management..."
+            placeholder={mode === 'web-search' 
+              ? "Search the web for manufacturing insights..." 
+              : "Ask about manufacturing, operations, or facility management..."
+            }
             className="flex-1"
             disabled={sendMessage.isPending || isAnalyzing}
           />
