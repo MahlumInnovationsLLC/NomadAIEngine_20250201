@@ -15,14 +15,22 @@ const container = database.container('quality-management');
 // Get all findings
 router.get('/findings', async (req, res) => {
   try {
+    // First, get standalone findings
+    const { resources: standaloneFindings } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'finding'"
+      })
+      .fetchAll();
+
+    // Then, get findings from audits
     const { resources: audits } = await container.items
       .query({
-        query: "SELECT * FROM c WHERE c.type = 'audit' ORDER BY c.createdAt DESC"
+        query: "SELECT * FROM c WHERE c.type = 'audit' AND IS_DEFINED(c.findings)"
       })
       .fetchAll();
 
     // Extract and flatten findings from all audits
-    const findings = audits.flatMap(audit =>
+    const auditFindings = audits.flatMap(audit =>
       audit.findings?.map((finding: any) => ({
         ...finding,
         auditId: audit.id,
@@ -32,7 +40,12 @@ router.get('/findings', async (req, res) => {
       })) || []
     );
 
-    res.json(findings);
+    // Combine both types of findings and sort by creation date
+    const allFindings = [...standaloneFindings, ...auditFindings]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    console.log(`Retrieved ${allFindings.length} findings (${standaloneFindings.length} standalone, ${auditFindings.length} from audits)`);
+    res.json(allFindings);
   } catch (error) {
     console.error('Error fetching findings:', error);
     res.status(500).json({
@@ -91,6 +104,7 @@ router.post('/findings', async (req, res) => {
     const finding = {
       ...req.body,
       id: `finding-${Date.now()}`,
+      type: 'finding',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: 'open'
@@ -115,13 +129,15 @@ router.post('/findings', async (req, res) => {
 
       // Update audit document
       const { resource: updatedAudit } = await container.item(audit.id).replace(audit);
+      console.log('Added finding to audit:', finding.id);
       res.json(finding);
     } else {
-      // Create standalone finding
+      // Create standalone finding document
       const { resource } = await container.items.create({
-        type: 'finding',
-        ...finding
+        ...finding,
+        type: 'finding'
       });
+      console.log('Created standalone finding:', finding.id);
       res.json(resource);
     }
   } catch (error) {

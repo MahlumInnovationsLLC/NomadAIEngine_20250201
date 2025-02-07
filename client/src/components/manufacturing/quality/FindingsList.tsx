@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import type { Finding } from "@/types/manufacturing";
 
 interface SortConfig {
@@ -30,9 +31,17 @@ export default function FindingsList() {
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'createdAt', direction: 'desc' });
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const { data: findings, isLoading, refetch } = useQuery<Finding[]>({
+  const { data: findings = [], isLoading, refetch } = useQuery<Finding[]>({
     queryKey: ['/api/manufacturing/quality/audits/findings'],
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error loading findings",
+        description: error instanceof Error ? error.message : "Failed to load findings"
+      });
+    }
   });
 
   const handleSort = (key: keyof Finding) => {
@@ -43,16 +52,49 @@ export default function FindingsList() {
   };
 
   const filteredAndSortedFindings = findings
-    ?.filter(finding => 
+    .filter(finding => 
       (!departmentFilter || finding.department === departmentFilter) &&
       (!typeFilter || finding.type === typeFilter)
     )
     .sort((a, b) => {
       const direction = sortConfig.direction === 'asc' ? 1 : -1;
-      if (a[sortConfig.key] < b[sortConfig.key]) return -1 * direction;
-      if (a[sortConfig.key] > b[sortConfig.key]) return 1 * direction;
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+
+      if (aValue < bValue) return -1 * direction;
+      if (aValue > bValue) return 1 * direction;
       return 0;
-    }) || [];
+    });
+
+  const handleCreateFinding = async (data: any) => {
+    try {
+      const response = await fetch('/api/manufacturing/quality/audits/findings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create finding: ${response.statusText}`);
+      }
+
+      await refetch();
+      setShowCreateDialog(false);
+      toast({
+        title: "Finding Created",
+        description: "New finding has been successfully created",
+      });
+    } catch (error) {
+      console.error('Error creating finding:', error);
+      toast({
+        variant: "destructive",
+        title: "Error creating finding",
+        description: error instanceof Error ? error.message : "Failed to create finding"
+      });
+    }
+  };
 
   if (isLoading) {
     return <div>Loading findings...</div>;
@@ -73,7 +115,7 @@ export default function FindingsList() {
               <DropdownMenuItem onClick={() => setDepartmentFilter(null)}>
                 All Departments
               </DropdownMenuItem>
-              {Array.from(new Set(findings?.map(f => f.department))).map(dept => (
+              {Array.from(new Set(findings.map(f => f.department))).map(dept => (
                 <DropdownMenuItem key={dept} onClick={() => setDepartmentFilter(dept)}>
                   {dept}
                 </DropdownMenuItem>
@@ -208,6 +250,13 @@ export default function FindingsList() {
               </TableCell>
             </TableRow>
           ))}
+          {filteredAndSortedFindings.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center text-muted-foreground">
+                No findings found
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
 
@@ -215,27 +264,7 @@ export default function FindingsList() {
         <CreateFindingDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
-          onSubmit={async (data) => {
-            try {
-              const response = await fetch('/api/manufacturing/quality/audits/findings', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-              });
-
-              if (!response.ok) {
-                throw new Error(`Failed to create finding: ${response.statusText}`);
-              }
-
-              await refetch();
-              setShowCreateDialog(false);
-            } catch (error) {
-              console.error('Error creating finding:', error);
-              throw error;
-            }
-          }}
+          onSubmit={handleCreateFinding}
         />
       )}
     </Card>
