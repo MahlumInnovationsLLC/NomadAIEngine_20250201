@@ -58,23 +58,17 @@ export default function FindingsList() {
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const { data: findings = [], isLoading, refetch } = useQuery<Finding[]>({
+  const { data: findings = [], isLoading, refetch } = useQuery({
     queryKey: ['findings'],
     queryFn: async () => {
+      console.log('Fetching findings from API...');
       const response = await fetch('/api/manufacturing/quality/audits/findings');
       if (!response.ok) {
         throw new Error('Failed to fetch findings');
       }
-      return response.json();
-    },
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Error loading findings",
-        description: error instanceof Error ? error.message : "Failed to load findings"
-      });
+      const data = await response.json();
+      console.log('Received findings:', data);
+      return data as Finding[];
     }
   });
 
@@ -378,7 +372,7 @@ export default function FindingsList() {
                 </TableCell>
                 <TableCell>{finding.dueDate ? new Date(finding.dueDate).toLocaleDateString() : 'Not set'}</TableCell>
                 <TableCell className={dueDateColor}>
-                  {daysUntilDue === null ? '-' : 
+                  {daysUntilDue === null ? '-' :
                     daysUntilDue < 0 ? `${Math.abs(daysUntilDue)} days overdue` :
                       daysUntilDue === 0 ? 'Due today' :
                         `${daysUntilDue} days left`
