@@ -33,7 +33,7 @@ export default function DocManage() {
               </p>
               <Button 
                 className="w-full flex items-center justify-between"
-                onClick={() => navigate("/docmanage/docmanagement")}
+                onClick={() => navigate("/docmanage/documentcontrol")}
               >
                 Go to Document Management
                 <FontAwesomeIcon icon="chevron-right" className="h-4 w-4 ml-2" />
@@ -55,7 +55,7 @@ export default function DocManage() {
               </p>
               <Button 
                 className="w-full flex items-center justify-between"
-                onClick={() => navigate("/docmanage/training")}
+                onClick={() => navigate("/docmanage/documentexplorer")}
               >
                 <span className="flex items-center gap-2">
                   <FontAwesomeIcon icon="plus" />
