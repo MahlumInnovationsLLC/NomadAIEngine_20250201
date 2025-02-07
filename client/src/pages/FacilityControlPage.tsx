@@ -1,4 +1,3 @@
-
 import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -12,15 +11,13 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Lazy load components
-const EquipmentList = lazy(() => import("@/components/facility/EquipmentList"));
-const FloorPlanView = lazy(() => import("@/components/facility/FloorPlanView"));
-const EquipmentUsagePrediction = lazy(() => import("@/components/facility/EquipmentUsagePrediction"));
-const EquipmentComparisonDashboard = lazy(() => import("@/components/facility/EquipmentComparisonDashboard"));
-const EquipmentPerformanceReport = lazy(() => import("@/components/facility/EquipmentPerformanceReport"));
-const MaintenanceScheduler = lazy(() => import("@/components/facility/MaintenanceScheduler"));
-const MaintenanceTimeline = lazy(() => import("@/components/facility/MaintenanceTimeline"));
-const TroubleshootingGuide = lazy(() => import("@/components/facility/TroubleshootingGuide"));
+// Lazy load manufacturing-focused components
+const EquipmentDashboard = lazy(() => import("@/components/facility/manufacturing/EquipmentDashboard"));
+const PropertyAssetView = lazy(() => import("@/components/facility/manufacturing/PropertyAssetView"));
+const MaintenanceScheduler = lazy(() => import("@/components/facility/manufacturing/MaintenanceScheduler"));
+const ProductionLineStatus = lazy(() => import("@/components/facility/manufacturing/ProductionLineStatus"));
+const QualityControlCenter = lazy(() => import("@/components/facility/manufacturing/QualityControlCenter"));
+const AssetLifecycleManager = lazy(() => import("@/components/facility/manufacturing/AssetLifecycleManager"));
 
 export default function FacilityControlPage() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -40,35 +37,48 @@ export default function FacilityControlPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Facility Control</h1>
+        <h1 className="text-3xl font-bold">Manufacturing Facility Control</h1>
         <p className="text-muted-foreground">
-          Monitor and manage facility equipment and maintenance
+          Comprehensive manufacturing facility and equipment management platform
         </p>
       </div>
 
-      <Tabs defaultValue="dashboard" value={activeTab.toString()} onValueChange={(value: string) => setActiveTab(value)}>
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-6 lg:w-[800px]">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="equipment">Equipment</TabsTrigger>
+          <TabsTrigger value="production">Production</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="quality">Quality</TabsTrigger>
+          <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
           <Suspense fallback={<LoadingSpinner />}>
-            <Card className="p-6">
-              <EquipmentList equipment={equipment} />
-              <FloorPlanView floorPlan={floorPlan} equipment={equipment} />
-            </Card>
+            <div className="grid gap-6">
+              <EquipmentDashboard equipment={equipment} />
+              <ProductionLineStatus />
+            </div>
           </Suspense>
         </TabsContent>
 
         <TabsContent value="equipment">
           <Suspense fallback={<LoadingSpinner />}>
             <Card className="p-6">
-              <EquipmentList equipment={equipment} />
-              <FloorPlanView floorPlan={floorPlan} equipment={equipment} />
+              <EquipmentDashboard 
+                equipment={equipment} 
+                showDetails={true}
+              />
             </Card>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="production">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="grid gap-6">
+              <ProductionLineStatus />
+              <QualityControlCenter />
+            </div>
           </Suspense>
         </TabsContent>
 
@@ -76,18 +86,22 @@ export default function FacilityControlPage() {
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
               <MaintenanceScheduler equipment={equipment} />
-              <MaintenanceTimeline equipment={equipment} />
-              <TroubleshootingGuide equipment={equipment} />
+              <AssetLifecycleManager equipment={equipment} />
             </div>
           </Suspense>
         </TabsContent>
 
-        <TabsContent value="analytics">
+        <TabsContent value="quality">
+          <Suspense fallback={<LoadingSpinner />}>
+            <QualityControlCenter showFullDashboard={true} />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="assets">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
-              <EquipmentUsagePrediction equipment={equipment} />
-              <EquipmentComparisonDashboard equipment={equipment} />
-              <EquipmentPerformanceReport equipment={equipment} />
+              <PropertyAssetView floorPlan={floorPlan} />
+              <AssetLifecycleManager showFullDashboard={true} />
             </div>
           </Suspense>
         </TabsContent>
