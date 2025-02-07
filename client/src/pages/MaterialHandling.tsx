@@ -25,10 +25,8 @@ export default function MaterialHandling() {
             Comprehensive inventory management and supply chain optimization system
           </p>
         </div>
-      </div>
 
-      <div className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 px-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -74,6 +72,9 @@ export default function MaterialHandling() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      <div className="p-4">
         <MaterialDashboard hideStats />
       </div>
     </div>
