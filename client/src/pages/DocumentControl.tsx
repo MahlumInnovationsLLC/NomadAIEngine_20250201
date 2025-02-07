@@ -53,7 +53,7 @@ export default function DocumentControl() {
 
   return (
     <div className="container mx-auto">
-      <div className="p-8 border-b bg-background">
+      <div className="p-8 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
         <p className="text-muted-foreground mb-4">
           Manage your documents, configure training modules, and control document workflows.

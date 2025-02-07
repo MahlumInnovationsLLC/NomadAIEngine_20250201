@@ -12,8 +12,8 @@ export default function ManufacturingControlPage() {
   return (
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
-        <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <h1 className="text-3xl font-bold mb-8">Manufacturing Control</h1>
+        <div className="p-8 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <h1 className="text-3xl font-bold mb-2">Manufacturing Control</h1>
           <p className="text-muted-foreground mb-4">
             Monitor and optimize your vehicle production process with AI-powered insights
           </p>
