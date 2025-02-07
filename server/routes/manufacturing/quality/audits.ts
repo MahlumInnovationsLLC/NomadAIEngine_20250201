@@ -26,24 +26,38 @@ router.get('/trends', async (req, res) => {
     res.json(trendData);
   } catch (error) {
     console.error('Error fetching audit trends:', error);
-    res.status(500).json({ error: 'Failed to fetch audit trends' });
+    res.status(500).json({ 
+      error: 'Failed to fetch audit trends',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 
 // Get AI-generated insights
 router.get('/insights', async (req, res) => {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'OpenAI API key is not configured' });
+    }
+
     const { resources: audits } = await container.items
       .query({
         query: "SELECT * FROM c WHERE c.type = 'audit' ORDER BY c.createdAt DESC"
       })
       .fetchAll();
 
+    if (!audits || audits.length === 0) {
+      return res.json([]);
+    }
+
     const insights = await generateAIInsights(audits);
     res.json(insights);
   } catch (error) {
     console.error('Error generating audit insights:', error);
-    res.status(500).json({ error: 'Failed to generate audit insights' });
+    res.status(500).json({ 
+      error: 'Failed to generate audit insights',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 
@@ -111,7 +125,7 @@ async function generateAIInsights(audits: any[]): Promise<any[]> {
   try {
     // Generate insights using OpenAI
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // newest OpenAI model released May 13, 2024
+      model: "gpt-4", // Using standard GPT-4 model
       messages: [
         {
           role: "system",
@@ -126,7 +140,7 @@ async function generateAIInsights(audits: any[]): Promise<any[]> {
     });
 
     // Parse and structure the insights
-    const aiResponse = JSON.parse(response.choices[0].message.content);
+    const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
 
     // Transform insights into structured format
     return Object.entries(aiResponse).flatMap(([category, items]: [string, any]) =>
@@ -143,7 +157,7 @@ async function generateAIInsights(audits: any[]): Promise<any[]> {
     );
   } catch (error) {
     console.error('Error generating AI insights:', error);
-    throw new Error('Failed to generate AI insights');
+    throw new Error(error instanceof Error ? error.message : 'Failed to generate AI insights');
   }
 }
 
