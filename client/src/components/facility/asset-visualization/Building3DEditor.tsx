@@ -263,95 +263,100 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          <span>Building Editor</span>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setGridSnap(gridSnap === 1 ? 0.5 : gridSnap === 0.5 ? 0.25 : 1)}
-            >
-              <FontAwesomeIcon icon={['fal', 'grid']} className="h-4 w-4 mr-2" />
-              Grid: {gridSnap}m
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleUndo}
-            >
-              <FontAwesomeIcon icon={['fal', 'undo']} className="h-4 w-4 mr-2" />
-              Undo
-            </Button>
-            {selectedComponentId && (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            <span>Building Editor</span>
+            <div className="flex gap-2">
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setShowMaterialLibrary(!showMaterialLibrary)}
+                onClick={() => setGridSnap(gridSnap === 1 ? 0.5 : gridSnap === 0.5 ? 0.25 : 1)}
               >
-                <FontAwesomeIcon icon={['fal', 'palette']} className="h-4 w-4 mr-2" />
-                Material
+                <FontAwesomeIcon icon={['fal', 'grid']} className="h-4 w-4 mr-2" />
+                Grid: {gridSnap}m
               </Button>
-            )}
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onSave?.(components)}
-            >
-              <FontAwesomeIcon icon={['fal', 'save']} className="h-4 w-4 mr-2" />
-              Save Building
-            </Button>
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-6">
-          <div className="w-[200px] shrink-0">
-            <ComponentLibrary
-              selectedType={selectedType}
-              onSelectType={setSelectedType}
-              onAddComponent={handleAddComponent}
-            />
-            {showMaterialLibrary && selectedComponent && (
-              <div className="mt-4">
-                <MaterialPreviewLibrary onSelect={handleMaterialSelect} />
-              </div>
-            )}
-          </div>
-          <div className="flex-1">
-            <div className="w-full h-[600px] relative rounded-lg overflow-hidden border">
-              <Canvas shadows>
-                <PerspectiveCamera makeDefault position={[10, 10, 10]} />
-                <OrbitControls 
-                  enablePan 
-                  enableZoom 
-                  enableRotate
-                  minDistance={5}
-                  maxDistance={20}
-                />
-                <ambientLight intensity={0.5} />
-                <directionalLight 
-                  position={[10, 10, 5]} 
-                  intensity={1}
-                  castShadow
-                />
-                <Environment preset="warehouse" />
-                <EditorGrid />
-                {components.map((component) => (
-                  <BuildingComponent
-                    key={component.id}
-                    component={component}
-                    selected={component.id === selectedComponentId}
-                    onSelect={() => handleComponentSelect(component.id)}
-                    gridSnap={gridSnap}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleUndo}
+              >
+                <FontAwesomeIcon icon={['fal', 'undo']} className="h-4 w-4 mr-2" />
+                Undo
+              </Button>
+              {selectedComponentId && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowMaterialLibrary(!showMaterialLibrary)}
+                >
+                  <FontAwesomeIcon icon={['fal', 'palette']} className="h-4 w-4 mr-2" />
+                  Material
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onSave?.(components)}
+              >
+                <FontAwesomeIcon icon={['fal', 'save']} className="h-4 w-4 mr-2" />
+                Save Building
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-6">
+            <div className="w-[200px] shrink-0">
+              <ComponentLibrary
+                selectedType={selectedType}
+                onSelectType={setSelectedType}
+                onAddComponent={handleAddComponent}
+              />
+            </div>
+            <div className="flex-1">
+              <div className="w-full h-[600px] relative rounded-lg overflow-hidden border">
+                <Canvas shadows>
+                  <PerspectiveCamera makeDefault position={[10, 10, 10]} />
+                  <OrbitControls 
+                    enablePan 
+                    enableZoom 
+                    enableRotate
+                    minDistance={5}
+                    maxDistance={20}
                   />
-                ))}
-              </Canvas>
+                  <ambientLight intensity={0.5} />
+                  <directionalLight 
+                    position={[10, 10, 5]} 
+                    intensity={1}
+                    castShadow
+                  />
+                  <Environment preset="warehouse" />
+                  <EditorGrid />
+                  {components.map((component) => (
+                    <BuildingComponent
+                      key={component.id}
+                      component={component}
+                      selected={component.id === selectedComponentId}
+                      onSelect={() => handleComponentSelect(component.id)}
+                      gridSnap={gridSnap}
+                    />
+                  ))}
+                </Canvas>
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {showMaterialLibrary && selectedComponentId && (
+        <Card className="w-full">
+          <CardContent className="p-6">
+            <MaterialPreviewLibrary onSelect={handleMaterialSelect} />
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
