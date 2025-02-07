@@ -1,6 +1,6 @@
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Environment, useGLTF } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera, Environment, Box, Text } from "@react-three/drei";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +12,32 @@ interface AssetViewerProps {
   modelUrl?: string;
 }
 
-function Model({ url }: { url: string }) {
-  const { scene } = useGLTF(url);
-  return <primitive object={scene} />;
+function PlaceholderModel() {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <group>
+      <Box 
+        args={[1, 1, 1]} 
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+      >
+        <meshStandardMaterial 
+          color={hovered ? "#666" : "#888"} 
+          wireframe={true}
+        />
+      </Box>
+      <Text
+        position={[0, 1.5, 0]}
+        fontSize={0.2}
+        color="#666"
+        anchorX="center"
+        anchorY="middle"
+      >
+        No 3D model available
+      </Text>
+    </group>
+  );
 }
 
 function LoadingFallback() {
@@ -25,7 +48,7 @@ function LoadingFallback() {
   );
 }
 
-export default function AssetViewer3D({ equipment, modelUrl = "/models/default-equipment.glb" }: AssetViewerProps) {
+export default function AssetViewer3D({ equipment }: AssetViewerProps) {
   return (
     <Card className="w-full">
       <CardHeader>
@@ -49,12 +72,12 @@ export default function AssetViewer3D({ equipment, modelUrl = "/models/default-e
               <OrbitControls enablePan enableZoom enableRotate />
               <ambientLight intensity={0.5} />
               <directionalLight position={[10, 10, 5]} intensity={1} />
-              <Model url={modelUrl} />
+              <PlaceholderModel />
               <Environment preset="warehouse" />
             </Canvas>
           </Suspense>
         </div>
-        
+
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
             <h4 className="text-sm font-medium mb-1">Equipment Details</h4>
