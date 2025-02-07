@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreateFindingDialog } from "./dialogs/CreateFindingDialog";
 import {
   Table,
@@ -57,6 +57,7 @@ export default function FindingsList() {
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: findings = [], isLoading, refetch } = useQuery({
     queryKey: ['findings'],
@@ -69,6 +70,17 @@ export default function FindingsList() {
       const data = await response.json();
       console.log('Received findings:', data);
       return data as Finding[];
+    },
+    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    onError: (error) => {
+      console.error('Error fetching findings:', error);
+      toast({
+        variant: "destructive",
+        title: "Error loading findings",
+        description: error instanceof Error ? error.message : "Failed to load findings"
+      });
     }
   });
 
@@ -121,7 +133,13 @@ export default function FindingsList() {
         throw new Error(`Failed to create finding: ${response.statusText}`);
       }
 
+      const result = await response.json();
+      console.log('Created finding:', result);
+
+      // Invalidate and refetch findings
+      await queryClient.invalidateQueries({ queryKey: ['findings'] });
       await refetch();
+
       setShowCreateDialog(false);
       toast({
         title: "Finding Created",
