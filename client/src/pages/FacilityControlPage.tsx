@@ -18,6 +18,8 @@ const MaintenanceScheduler = lazy(() => import("@/components/facility/manufactur
 const AssetLifecycleManager = lazy(() => import("@/components/facility/manufacturing/AssetLifecycleManager"));
 const WorkOrderManager = lazy(() => import("@/components/facility/maintenance/WorkOrderManager"));
 const MaintenanceRequestManager = lazy(() => import("@/components/facility/maintenance/MaintenanceRequestManager"));
+const MaintenanceProcedureLibrary = lazy(() => import("@/components/facility/maintenance/MaintenanceProcedureLibrary"));
+const PartsInventoryManager = lazy(() => import("@/components/facility/maintenance/PartsInventoryManager"));
 
 export default function FacilityControlPage() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -44,11 +46,13 @@ export default function FacilityControlPage() {
       </div>
 
       <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 lg:w-[800px]">
+        <TabsList className="grid w-full grid-cols-7 lg:w-[1000px]">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="maintenance">PM Schedule</TabsTrigger>
+          <TabsTrigger value="procedures">Procedures</TabsTrigger>
+          <TabsTrigger value="inventory">Parts</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
 
@@ -63,7 +67,7 @@ export default function FacilityControlPage() {
         <TabsContent value="work-orders">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
-              <WorkOrderManager equipment={equipment} />
+              <WorkOrderManager equipment={equipment} showFullDashboard={true} />
             </div>
           </Suspense>
         </TabsContent>
@@ -80,6 +84,22 @@ export default function FacilityControlPage() {
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
               <MaintenanceScheduler equipment={equipment} />
+            </div>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="procedures">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="grid gap-6">
+              <MaintenanceProcedureLibrary />
+            </div>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="inventory">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="grid gap-6">
+              <PartsInventoryManager />
             </div>
           </Suspense>
         </TabsContent>
