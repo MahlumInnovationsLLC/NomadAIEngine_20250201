@@ -12,6 +12,13 @@ import { LearningModules } from "@/components/training/LearningModules";
 import { Achievements } from "@/components/training/Achievements";
 import { SkillAssessment } from "@/components/training/SkillAssessment";
 
+interface TrainingStats {
+  totalModules: number;
+  activeTrainees: number;
+  completionRate: number;
+  certificatesIssued: number;
+}
+
 interface TrainingModule {
   id: number;
   title: string;
@@ -38,6 +45,11 @@ export default function TrainingModule() {
   const [activeModule, setActiveModule] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
+  const { data: stats } = useQuery<TrainingStats>({
+    queryKey: ['/api/training/stats'],
+    refetchInterval: 30000,
+  });
+
   const { data: userTraining } = useQuery<UserTraining>({
     queryKey: ['/api/training/current'],
   });
@@ -45,21 +57,80 @@ export default function TrainingModule() {
   return (
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
-        <div className="flex items-center justify-between py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div>
-            <h1 className="text-3xl font-bold">Training Progress</h1>
-            <p className="text-muted-foreground">Track your learning journey and achievements</p>
+        <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <h1 className="text-3xl font-bold mb-4">Training Progress</h1>
+          <p className="text-muted-foreground mb-4">
+            Track your learning journey and achievements
+          </p>
+
+          {/* Quick Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Modules</p>
+                    <h3 className="text-2xl font-bold">{stats?.totalModules || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="book" className="h-8 w-8 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Active Trainees</p>
+                    <h3 className="text-2xl font-bold">{stats?.activeTrainees || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="users" className="h-8 w-8 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Completion Rate</p>
+                    <h3 className="text-2xl font-bold">{stats?.completionRate || 0}%</h3>
+                  </div>
+                  <FontAwesomeIcon icon="chart-line" className="h-8 w-8 text-yellow-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Certificates Issued</p>
+                    <h3 className="text-2xl font-bold">{stats?.certificatesIssued || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="certificate" className="h-8 w-8 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <CreateModuleDialog />
         </div>
 
         <div className="mt-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="learning">Learning Modules</TabsTrigger>
-              <TabsTrigger value="achievements">Achievements</TabsTrigger>
-              <TabsTrigger value="assessment">Skill Assessment</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 mb-8">
+              <TabsTrigger value="overview">
+                <FontAwesomeIcon icon="home" className="mr-2" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="learning">
+                <FontAwesomeIcon icon="book" className="mr-2" />
+                Learning Modules
+              </TabsTrigger>
+              <TabsTrigger value="achievements">
+                <FontAwesomeIcon icon="trophy" className="mr-2" />
+                Achievements
+              </TabsTrigger>
+              <TabsTrigger value="assessment">
+                <FontAwesomeIcon icon="clipboard-check" className="mr-2" />
+                Skill Assessment
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -99,14 +170,14 @@ export default function TrainingModule() {
                         {userTraining?.recentActivities ? (
                           userTraining.recentActivities.map((activity, index) => (
                             <div key={index} className="flex items-center gap-3">
-                              <FontAwesomeIcon 
+                              <FontAwesomeIcon
                                 icon={
                                   activity.type === 'completion' ? 'circle-check' :
-                                  activity.type === 'quiz' ? 'award' : 'circle-plus'
+                                    activity.type === 'quiz' ? 'award' : 'circle-plus'
                                 }
                                 className={`h-4 w-4 ${
                                   activity.type === 'completion' ? 'text-green-500' :
-                                  activity.type === 'quiz' ? 'text-yellow-500' : 'text-blue-500'
+                                    activity.type === 'quiz' ? 'text-yellow-500' : 'text-blue-500'
                                 }`}
                               />
                               <div>
@@ -123,7 +194,6 @@ export default function TrainingModule() {
                   </CardContent>
                 </Card>
               </div>
-
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -151,8 +221,8 @@ export default function TrainingModule() {
                             </div>
                             <span className={`px-2 py-1 rounded text-xs ${
                               module.status === 'completed' ? 'bg-green-100 text-green-700' :
-                              module.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                              'bg-gray-100 text-gray-700'
+                                module.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-gray-100 text-gray-700'
                             }`}>
                               {module.status.replace('_', ' ')}
                             </span>
