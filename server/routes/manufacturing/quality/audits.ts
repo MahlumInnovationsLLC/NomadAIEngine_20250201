@@ -57,12 +57,14 @@ const departmentAbbreviations: Record<string, string> = {
 // Get all findings
 router.get('/findings', async (req, res) => {
   try {
+    console.log('Fetching findings...');
     // First, get standalone findings
     const { resources: standaloneFindings } = await container.items
       .query({
         query: "SELECT * FROM c WHERE c.type = 'finding'"
       })
       .fetchAll();
+    console.log(`Found ${standaloneFindings.length} standalone findings`);
 
     // Then, get findings from audits
     const { resources: audits } = await container.items
@@ -70,6 +72,7 @@ router.get('/findings', async (req, res) => {
         query: "SELECT * FROM c WHERE c.type = 'audit' AND IS_DEFINED(c.findings)"
       })
       .fetchAll();
+    console.log(`Found ${audits.length} audits with findings`);
 
     // Extract and flatten findings from all audits
     const auditFindings = audits.flatMap(audit =>
@@ -81,6 +84,7 @@ router.get('/findings', async (req, res) => {
         updatedAt: finding.updatedAt || audit.updatedAt
       })) || []
     );
+    console.log(`Found ${auditFindings.length} findings in audits`);
 
     // Combine both types of findings and sort by creation date
     const allFindings = [...standaloneFindings, ...auditFindings]
