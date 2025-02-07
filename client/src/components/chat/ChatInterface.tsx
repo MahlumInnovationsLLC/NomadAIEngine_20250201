@@ -3,12 +3,11 @@ import { useMutation } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/use-chat-history";
 import type { Message, ChatMode } from "@/types/chat";
+import FileUpload from "../document/FileUpload";
 
 interface ChatInterfaceProps {
   chatId?: string;
@@ -17,7 +16,7 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [showFileUpload, setShowFileUpload] = useState(false);
-  const [mode, setMode] = useState<ChatMode>("chat");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -61,7 +60,12 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       }
     },
     onSuccess: (response) => {
-      addMessages([{ role: 'assistant', content: response, id: Date.now().toString() }]);
+      addMessages([{ 
+        role: 'assistant', 
+        content: response, 
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString()
+      }]);
       setInput("");
     },
     onError: (error: Error) => {
@@ -77,9 +81,14 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || sendMessage.isPending) return;
+    if (!input.trim() || sendMessage.isPending || isAnalyzing) return;
 
-    const userMessage = { role: 'user' as const, content: input.trim(), id: Date.now().toString() };
+    const userMessage = { 
+      role: 'user' as const, 
+      content: input.trim(), 
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
     addMessages([userMessage]);
 
     try {
@@ -93,6 +102,52 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
+    }
+  };
+
+  const handleFileUpload = async (files: File[]) => {
+    setShowFileUpload(false);
+    setIsAnalyzing(true);
+
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+
+      const response = await fetch('/api/ai/analyze-document', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze document');
+      }
+
+      const data = await response.json();
+
+      // Add system message about document analysis
+      addMessages([
+        { 
+          role: 'system', 
+          content: `Analyzing document${files.length > 1 ? 's' : ''}: ${files.map(f => f.name).join(', ')}`, 
+          id: Date.now().toString(),
+          createdAt: new Date().toISOString()
+        },
+        { 
+          role: 'assistant', 
+          content: data.analysis, 
+          id: (Date.now() + 1).toString(),
+          createdAt: new Date().toISOString()
+        }
+      ]);
+    } catch (error) {
+      console.error('Error analyzing document:', error);
+      toast({
+        title: "Error",
+        description: "Failed to analyze document. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -127,7 +182,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
                 </div>
               </div>
             ))}
-            {sendMessage.isPending && (
+            {(sendMessage.isPending || isAnalyzing) && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <div className="animate-pulse">•</div>
                 <div className="animate-pulse animation-delay-200">•</div>
@@ -141,12 +196,22 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
       <div className="border-t p-4 bg-background">
         <form onSubmit={handleSubmit} className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setShowFileUpload(true)}
+            disabled={isAnalyzing}
+            className="shrink-0"
+          >
+            <FontAwesomeIcon icon={["fal", "file-lines"]} className="h-4 w-4" />
+          </Button>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about manufacturing, operations, or facility management..."
             className="flex-1"
-            disabled={sendMessage.isPending}
+            disabled={sendMessage.isPending || isAnalyzing}
           />
           {sendMessage.isPending ? (
             <Button
@@ -160,7 +225,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           ) : (
             <Button
               type="submit"
-              disabled={!input.trim() || sendMessage.isPending}
+              disabled={!input.trim() || sendMessage.isPending || isAnalyzing}
               className="bg-primary hover:bg-primary/90"
             >
               <FontAwesomeIcon icon={["fal", "paper-plane"]} className="h-4 w-4" />
@@ -168,6 +233,13 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           )}
         </form>
       </div>
+
+      {showFileUpload && (
+        <FileUpload
+          onUpload={handleFileUpload}
+          onClose={() => setShowFileUpload(false)}
+        />
+      )}
     </div>
   );
 }
