@@ -23,7 +23,7 @@ const MaintenanceTimeline = lazy(() => import("@/components/facility/Maintenance
 const TroubleshootingGuide = lazy(() => import("@/components/facility/TroubleshootingGuide"));
 
 export default function FacilityControlPage() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
 
   const { data: equipment = [], isLoading: isLoadingEquipment } = useQuery<Equipment[]>({
     queryKey: ['/api/equipment'],
@@ -46,7 +46,7 @@ export default function FacilityControlPage() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={(value: string) => setActiveTab(value)}>
         <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="equipment">Equipment</TabsTrigger>
