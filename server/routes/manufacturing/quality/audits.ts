@@ -12,6 +12,48 @@ const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_
 const database = cosmosClient.database('NomadAIEngineDB');
 const container = database.container('quality-management');
 
+// Get next finding number
+async function getNextFindingNumber(): Promise<number> {
+  try {
+    const { resources: [counter] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'counter' AND c.name = 'findings'"
+      })
+      .fetchAll();
+
+    if (!counter) {
+      // Create counter if it doesn't exist
+      const newCounter = {
+        id: 'findings-counter',
+        type: 'counter',
+        name: 'findings',
+        value: 1
+      };
+      await container.items.create(newCounter);
+      return 1;
+    }
+
+    // Increment counter
+    counter.value += 1;
+    await container.item(counter.id).replace(counter);
+    return counter.value;
+  } catch (error) {
+    console.error('Error getting next finding number:', error);
+    throw error;
+  }
+}
+
+// Department abbreviations map
+const departmentAbbreviations: Record<string, string> = {
+  'Quality': 'QA',
+  'Production': 'PR',
+  'Engineering': 'EN',
+  'Maintenance': 'MT',
+  'Safety': 'SF',
+  'Operations': 'OP',
+  // Add more departments as needed
+};
+
 // Get all findings
 router.get('/findings', async (req, res) => {
   try {
@@ -55,55 +97,16 @@ router.get('/findings', async (req, res) => {
   }
 });
 
-// Update finding status
-router.put('/findings/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    // Find the audit containing this finding
-    const { resources: [audit] } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'audit' AND ARRAY_CONTAINS(c.findings, { 'id': @findingId }, true)",
-        parameters: [{ name: "@findingId", value: id }]
-      })
-      .fetchAll();
-
-    if (!audit) {
-      return res.status(404).json({ error: 'Finding not found' });
-    }
-
-    // Update the finding
-    const findingIndex = audit.findings.findIndex((f: any) => f.id === id);
-    if (findingIndex === -1) {
-      return res.status(404).json({ error: 'Finding not found in audit' });
-    }
-
-    audit.findings[findingIndex] = {
-      ...audit.findings[findingIndex],
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-
-    // Update the audit document
-    const { resource: updatedAudit } = await container.item(audit.id).replace(audit);
-
-    res.json(updatedAudit.findings[findingIndex]);
-  } catch (error) {
-    console.error('Error updating finding:', error);
-    res.status(500).json({
-      error: 'Failed to update finding',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
 // Add create finding endpoint
 router.post('/findings', async (req, res) => {
   try {
+    const findingNumber = await getNextFindingNumber();
+    const deptAbbr = departmentAbbreviations[req.body.department] || 'OT'; // OT for Other
+    const findingId = `FND-${String(findingNumber).padStart(3, '0')}-${deptAbbr}`;
+
     const finding = {
       ...req.body,
-      id: `finding-${Date.now()}`,
+      id: findingId,
       type: 'finding',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -144,6 +147,110 @@ router.post('/findings', async (req, res) => {
     console.error('Error creating finding:', error);
     res.status(500).json({
       error: 'Failed to create finding',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Update finding
+router.put('/findings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Find the audit containing this finding
+    const { resources: [audit] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'audit' AND ARRAY_CONTAINS(c.findings, { 'id': @findingId }, true)",
+        parameters: [{ name: "@findingId", value: id }]
+      })
+      .fetchAll();
+
+    if (audit) {
+      // Update finding in audit
+      const findingIndex = audit.findings.findIndex((f: any) => f.id === id);
+      if (findingIndex === -1) {
+        return res.status(404).json({ error: 'Finding not found in audit' });
+      }
+
+      audit.findings[findingIndex] = {
+        ...audit.findings[findingIndex],
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+
+      // Update the audit document
+      const { resource: updatedAudit } = await container.item(audit.id).replace(audit);
+      res.json(updatedAudit.findings[findingIndex]);
+    } else {
+      // Update standalone finding
+      const { resources: [finding] } = await container.items
+        .query({
+          query: "SELECT * FROM c WHERE c.type = 'finding' AND c.id = @id",
+          parameters: [{ name: "@id", value: id }]
+        })
+        .fetchAll();
+
+      if (!finding) {
+        return res.status(404).json({ error: 'Finding not found' });
+      }
+
+      const updatedFinding = {
+        ...finding,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+
+      const { resource } = await container.item(finding.id).replace(updatedFinding);
+      res.json(resource);
+    }
+  } catch (error) {
+    console.error('Error updating finding:', error);
+    res.status(500).json({
+      error: 'Failed to update finding',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Delete finding
+router.delete('/findings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find the audit containing this finding
+    const { resources: [audit] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'audit' AND ARRAY_CONTAINS(c.findings, { 'id': @findingId }, true)",
+        parameters: [{ name: "@findingId", value: id }]
+      })
+      .fetchAll();
+
+    if (audit) {
+      // Remove finding from audit
+      audit.findings = audit.findings.filter((f: any) => f.id !== id);
+      await container.item(audit.id).replace(audit);
+    } else {
+      // Delete standalone finding
+      const { resources: [finding] } = await container.items
+        .query({
+          query: "SELECT * FROM c WHERE c.type = 'finding' AND c.id = @id",
+          parameters: [{ name: "@id", value: id }]
+        })
+        .fetchAll();
+
+      if (!finding) {
+        return res.status(404).json({ error: 'Finding not found' });
+      }
+
+      await container.item(finding.id).delete();
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting finding:', error);
+    res.status(500).json({
+      error: 'Failed to delete finding',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

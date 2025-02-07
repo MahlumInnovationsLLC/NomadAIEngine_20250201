@@ -20,6 +20,17 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { Finding } from "@/types/manufacturing";
+import { EditFindingDialog } from "./dialogs/EditFindingDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface SortConfig {
   key: keyof Finding;
@@ -28,6 +39,9 @@ interface SortConfig {
 
 export default function FindingsList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'createdAt', direction: 'desc' });
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -52,7 +66,7 @@ export default function FindingsList() {
   };
 
   const filteredAndSortedFindings = findings
-    .filter(finding => 
+    .filter(finding =>
       (!departmentFilter || finding.department === departmentFilter) &&
       (!typeFilter || finding.type === typeFilter)
     )
@@ -92,6 +106,68 @@ export default function FindingsList() {
         variant: "destructive",
         title: "Error creating finding",
         description: error instanceof Error ? error.message : "Failed to create finding"
+      });
+    }
+  };
+
+  const handleEditFinding = async (data: any) => {
+    if (!selectedFinding) return;
+
+    try {
+      const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update finding: ${response.statusText}`);
+      }
+
+      await refetch();
+      setShowEditDialog(false);
+      setSelectedFinding(null);
+      toast({
+        title: "Finding Updated",
+        description: "Finding has been successfully updated",
+      });
+    } catch (error) {
+      console.error('Error updating finding:', error);
+      toast({
+        variant: "destructive",
+        title: "Error updating finding",
+        description: error instanceof Error ? error.message : "Failed to update finding"
+      });
+    }
+  };
+
+  const handleDeleteFinding = async () => {
+    if (!selectedFinding) return;
+
+    try {
+      const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete finding: ${response.statusText}`);
+      }
+
+      await refetch();
+      setShowDeleteDialog(false);
+      setSelectedFinding(null);
+      toast({
+        title: "Finding Deleted",
+        description: "Finding has been successfully deleted",
+      });
+    } catch (error) {
+      console.error('Error deleting finding:', error);
+      toast({
+        variant: "destructive",
+        title: "Error deleting finding",
+        description: error instanceof Error ? error.message : "Failed to delete finding"
       });
     }
   };
@@ -158,59 +234,59 @@ export default function FindingsList() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead 
+            <TableHead
               className="cursor-pointer"
               onClick={() => handleSort('id')}
             >
               ID {sortConfig.key === 'id' && (
-                <FontAwesomeIcon 
-                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'} 
-                  className="ml-2 h-4 w-4" 
+                <FontAwesomeIcon
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
+                  className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
-            <TableHead 
+            <TableHead
               className="cursor-pointer"
               onClick={() => handleSort('type')}
             >
               Type {sortConfig.key === 'type' && (
-                <FontAwesomeIcon 
-                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'} 
-                  className="ml-2 h-4 w-4" 
+                <FontAwesomeIcon
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
+                  className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
-            <TableHead 
+            <TableHead
               className="cursor-pointer"
               onClick={() => handleSort('department')}
             >
               Department {sortConfig.key === 'department' && (
-                <FontAwesomeIcon 
-                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'} 
-                  className="ml-2 h-4 w-4" 
+                <FontAwesomeIcon
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
+                  className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
             <TableHead>Description</TableHead>
-            <TableHead 
+            <TableHead
               className="cursor-pointer"
               onClick={() => handleSort('status')}
             >
               Status {sortConfig.key === 'status' && (
-                <FontAwesomeIcon 
-                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'} 
-                  className="ml-2 h-4 w-4" 
+                <FontAwesomeIcon
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
+                  className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
-            <TableHead 
+            <TableHead
               className="cursor-pointer"
               onClick={() => handleSort('createdAt')}
             >
               Created {sortConfig.key === 'createdAt' && (
-                <FontAwesomeIcon 
-                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'} 
-                  className="ml-2 h-4 w-4" 
+                <FontAwesomeIcon
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
+                  className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
@@ -224,9 +300,9 @@ export default function FindingsList() {
               <TableCell>
                 <span className={`px-2 py-1 rounded-full text-xs ${
                   finding.type === 'major' ? 'bg-red-100 text-red-800' :
-                  finding.type === 'minor' ? 'bg-yellow-100 text-yellow-800' :
-                  finding.type === 'observation' ? 'bg-blue-100 text-blue-800' :
-                  'bg-green-100 text-green-800'
+                    finding.type === 'minor' ? 'bg-yellow-100 text-yellow-800' :
+                      finding.type === 'observation' ? 'bg-blue-100 text-blue-800' :
+                        'bg-green-100 text-green-800'
                 }`}>
                   {finding.type.charAt(0).toUpperCase() + finding.type.slice(1)}
                 </span>
@@ -236,17 +312,36 @@ export default function FindingsList() {
               <TableCell>
                 <span className={`px-2 py-1 rounded-full text-xs ${
                   finding.status === 'open' ? 'bg-red-100 text-red-800' :
-                  finding.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-green-100 text-green-800'
+                    finding.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
                 }`}>
                   {finding.status.replace('_', ' ').charAt(0).toUpperCase() + finding.status.slice(1)}
                 </span>
               </TableCell>
               <TableCell>{new Date(finding.createdAt).toLocaleDateString()}</TableCell>
               <TableCell>
-                <Button variant="ghost" size="sm">
-                  <FontAwesomeIcon icon="eye" className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFinding(finding);
+                      setShowEditDialog(true);
+                    }}
+                  >
+                    <FontAwesomeIcon icon={['far', 'edit']} className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFinding(finding);
+                      setShowDeleteDialog(true);
+                    }}
+                  >
+                    <FontAwesomeIcon icon={['far', 'trash-alt']} className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -267,6 +362,32 @@ export default function FindingsList() {
           onSubmit={handleCreateFinding}
         />
       )}
+
+      {showEditDialog && selectedFinding && (
+        <EditFindingDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onSubmit={handleEditFinding}
+          finding={selectedFinding}
+        />
+      )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Finding</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this finding? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFinding} className="bg-red-500 hover:bg-red-600">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
