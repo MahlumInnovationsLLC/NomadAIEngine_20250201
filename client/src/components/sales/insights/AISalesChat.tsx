@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { LoadingMascot } from "@/components/ui/loading-mascot";
 
 interface Message {
   role: "user" | "assistant";
@@ -138,10 +139,11 @@ export function AISalesChat() {
               </div>
             ))}
             {(isLoading || isAnalyzing) && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <div className="animate-pulse">•</div>
-                <div className="animate-pulse animation-delay-200">•</div>
-                <div className="animate-pulse animation-delay-400">•</div>
+              <div className="flex items-center justify-center py-4">
+                <LoadingMascot 
+                  size="md"
+                  state={isAnalyzing ? "processing" : "thinking"}
+                />
               </div>
             )}
           </div>

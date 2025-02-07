@@ -11,6 +11,7 @@ import { useChatHistory } from "@/hooks/use-chat-history";
 import ReactMarkdown from 'react-markdown';
 import type { Message, ChatMode } from "@/types/chat";
 import FileUpload from "../document/FileUpload";
+import { LoadingMascot } from "@/components/ui/loading-mascot";
 
 interface ChatInterfaceProps {
   chatId?: string;
@@ -244,10 +245,11 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
               </div>
             ))}
             {(sendMessage.isPending || isAnalyzing) && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <div className="animate-pulse">•</div>
-                <div className="animate-pulse animation-delay-200">•</div>
-                <div className="animate-pulse animation-delay-400">•</div>
+              <div className="flex items-center justify-center py-4">
+                <LoadingMascot 
+                  size="lg"
+                  state={isAnalyzing ? "processing" : "thinking"}
+                />
               </div>
             )}
             <div ref={messagesEndRef} />

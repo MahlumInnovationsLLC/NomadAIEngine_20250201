@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { LoadingMascot } from "@/components/ui/loading-mascot";
 
 interface ChatItem {
   id: string;
@@ -84,7 +85,7 @@ export default function ChatHistorySidebar() {
           </Alert>
         ) : isLoading ? (
           <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <LoadingMascot size="md" state="thinking" />
           </div>
         ) : filteredChats?.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground">
