@@ -67,14 +67,40 @@ interface AnalyticsData {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 export function TrainingAnalytics() {
-  const { data: analytics } = useQuery<AnalyticsData>({
+  const { data: analytics, isLoading, error } = useQuery<AnalyticsData>({
     queryKey: ['/api/training/analytics'],
+    queryFn: async () => {
+      const response = await fetch('/api/training/analytics');
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data');
+      }
+      return response.json();
+    },
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-muted-foreground">Loading analytics data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-red-500">Error loading analytics data. Please try again later.</p>
+      </div>
+    );
+  }
 
   if (!analytics) {
     return (
       <div className="text-center p-8">
-        <p className="text-muted-foreground">Loading analytics...</p>
+        <p className="text-muted-foreground">No analytics data available.</p>
       </div>
     );
   }
