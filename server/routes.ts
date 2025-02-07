@@ -4,12 +4,10 @@ import { createServer, type Server } from "http";
 import { WebSocketServer } from 'ws';
 import { db } from "@db";
 import { CosmosClient } from "@azure/cosmos";
-import {
+import { 
   buildingSystems,
   notifications,
-
-import { warehouses } from '../db/schema';
-
+  warehouses,
   userNotifications,
   facilityNotifications,
   documents,
