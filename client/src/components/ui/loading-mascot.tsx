@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import React from "react";
 
 interface LoadingMascotProps {
@@ -19,24 +20,19 @@ export function LoadingMascot({
   };
 
   const stateClasses = {
-    thinking: "animate-spin-slow",
-    processing: "animate-spin",
-    success: "animate-spin-reverse",
-    error: "animate-spin-shake"
+    thinking: "animate-spin-slow text-primary",
+    processing: "animate-spin text-yellow-500",
+    success: "animate-spin-reverse text-green-500",
+    error: "animate-spin-shake text-red-500"
   };
 
   return (
     <div className={cn("relative inline-block", sizeClasses[size], className)}>
-      <img
-        src="/assets/logo.png"
-        alt="Loading indicator"
+      <FontAwesomeIcon
+        icon={["fal", "brain-circuit"]}
         className={cn(
-          "w-full h-full object-contain",
-          stateClasses[state],
-          state === "thinking" && "text-blue-500",
-          state === "processing" && "text-yellow-500",
-          state === "success" && "text-green-500",
-          state === "error" && "text-red-500"
+          "w-full h-full",
+          stateClasses[state]
         )}
       />
     </div>
