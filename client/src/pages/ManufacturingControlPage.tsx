@@ -7,17 +7,76 @@ import { AnimateTransition } from "@/components/ui/AnimateTransition";
 import { ProductionLinePanel } from "../components/manufacturing/ProductionLinePanel";
 import { QualityControlPanel } from "../components/manufacturing/QualityControlPanel";
 import { ProjectManagementPanel } from "../components/manufacturing/ProjectManagementPanel";
+import { useQuery } from "@tanstack/react-query";
+
+interface ManufacturingStats {
+  activeLines: number;
+  qualityScore: number;
+  efficiency: number;
+  activeProjects: number;
+}
 
 export default function ManufacturingControlPage() {
+  const { data: stats } = useQuery<ManufacturingStats>({
+    queryKey: ['/api/manufacturing/stats'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   return (
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
-        <div className="py-6 border-b">
-          <div className="container px-4">
-            <h1 className="text-3xl font-bold mb-2">Manufacturing Control</h1>
-            <p className="text-muted-foreground">
-              Monitor and optimize your vehicle production process with AI-powered insights
-            </p>
+        <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <h1 className="text-3xl font-bold mb-4">Manufacturing Control</h1>
+          <p className="text-muted-foreground mb-4">
+            Monitor and optimize your vehicle production process with AI-powered insights
+          </p>
+
+          {/* Quick Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Active Lines</p>
+                    <h3 className="text-2xl font-bold">{stats?.activeLines || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="industry" className="h-8 w-8 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Quality Score</p>
+                    <h3 className="text-2xl font-bold">{stats?.qualityScore || 0}%</h3>
+                  </div>
+                  <FontAwesomeIcon icon="check-circle" className="h-8 w-8 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Efficiency Rate</p>
+                    <h3 className="text-2xl font-bold">{stats?.efficiency || 0}%</h3>
+                  </div>
+                  <FontAwesomeIcon icon="gauge-high" className="h-8 w-8 text-yellow-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Active Projects</p>
+                    <h3 className="text-2xl font-bold">{stats?.activeProjects || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="tasks" className="h-8 w-8 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
@@ -31,7 +90,7 @@ export default function ManufacturingControlPage() {
               <FontAwesomeIcon icon="check-circle" className="mr-2" />
               Quality Control
             </TabsTrigger>
-             <TabsTrigger value="projects">
+            <TabsTrigger value="projects">
               <FontAwesomeIcon icon="tasks" className="mr-2" />
               Project Management
             </TabsTrigger>
