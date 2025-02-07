@@ -7,11 +7,17 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageSkeleton } from "@/components/ui/skeleton-loader";
 import { motion, AnimatePresence } from "framer-motion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrainingProgress } from "@/components/training/TrainingProgress";
 
 export default function DocumentExplorer() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const { isLoading } = useQuery({ 
+  const { isLoading, data: stats } = useQuery({ 
     queryKey: ['/api/documents/list'],
+  });
+
+  const { data: trainingModules } = useQuery({ 
+    queryKey: ['/api/training/modules'],
   });
 
   if (isLoading) {
@@ -25,7 +31,6 @@ export default function DocumentExplorer() {
             </p>
           </div>
         </div>
-
         <PageSkeleton />
       </div>
     );
@@ -45,35 +50,61 @@ export default function DocumentExplorer() {
             <p className="text-muted-foreground mb-4">
               Browse and manage documents with advanced training and workflow control.
             </p>
+            <Tabs defaultValue="documents" className="w-full">
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="documents">Documents</TabsTrigger>
+                <TabsTrigger value="training">Training</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FontAwesomeIcon icon="file-lines" className="h-5 w-5" />
-                Document Explorer
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4">
-                <Button onClick={() => setShowUploadDialog(true)}>
-                  <FontAwesomeIcon icon="upload" className="h-4 w-4 mr-2" />
-                  Upload Documents
-                </Button>
-              </div>
-              <FileExplorer />
-              {showUploadDialog && (
-                <FileUpload
-                  onUpload={async () => {
-                    setShowUploadDialog(false);
-                  }}
-                  onClose={() => setShowUploadDialog(false)}
-                />
-              )}
-            </CardContent>
-          </Card>
+          <TabsContent value="documents">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FontAwesomeIcon icon="file-lines" className="h-5 w-5" />
+                  Document Explorer
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <Button onClick={() => setShowUploadDialog(true)}>
+                    <FontAwesomeIcon icon="upload" className="h-4 w-4 mr-2" />
+                    Upload Documents
+                  </Button>
+                </div>
+                <FileExplorer />
+                {showUploadDialog && (
+                  <FileUpload
+                    onUpload={async () => {
+                      setShowUploadDialog(false);
+                    }}
+                    onClose={() => setShowUploadDialog(false)}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="training">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FontAwesomeIcon icon="graduation-cap" className="h-5 w-5" />
+                  Training Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {trainingModules ? (
+                  <TrainingProgress modules={trainingModules} />
+                ) : (
+                  <p className="text-muted-foreground">No training modules available</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </div>
       </motion.div>
     </AnimatePresence>
