@@ -17,6 +17,7 @@ import SCARList from "./quality/SCARList";
 import MRBList from "./quality/MRBList";
 import AuditList from "./quality/AuditList";
 import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
+import { auditTemplates } from "@/templates/qualityTemplates";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
