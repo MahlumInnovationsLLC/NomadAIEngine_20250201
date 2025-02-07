@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Canvas, useThree, Vector3 } from "@react-three/fiber";
 import { 
   OrbitControls, 
@@ -13,7 +13,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import * as THREE from "three";
 
@@ -21,13 +20,29 @@ interface BuildingEditorProps {
   onSave?: (buildingData: any) => void;
 }
 
-interface WallProps {
+type BuildingComponent = {
+  id: number;
+  type: 'wall' | 'door' | 'window' | 'floor' | 'ceiling';
   position: [number, number, number];
-  size: [number, number, number];
   rotation: [number, number, number];
-  onSelect?: () => void;
-  selected?: boolean;
+  size: [number, number, number];
+  color?: string;
+};
+
+interface ComponentLibraryItem {
+  type: BuildingComponent['type'];
+  name: string;
+  icon: string;
+  defaultSize: [number, number, number];
 }
+
+const componentLibrary: ComponentLibraryItem[] = [
+  { type: 'wall', name: 'Wall', icon: 'square', defaultSize: [4, 3, 0.2] },
+  { type: 'door', name: 'Door', icon: 'door-open', defaultSize: [1, 2, 0.1] },
+  { type: 'window', name: 'Window', icon: 'window', defaultSize: [1, 1, 0.1] },
+  { type: 'floor', name: 'Floor', icon: 'layer-group', defaultSize: [4, 0.2, 4] },
+  { type: 'ceiling', name: 'Ceiling', icon: 'square', defaultSize: [4, 0.2, 4] },
+];
 
 function EditorGrid({ size = 20, divisions = 20 }) {
   return (
@@ -62,23 +77,51 @@ function MeasurementLabel({ start, end, text }: { start: Vector3; end: Vector3; 
   );
 }
 
-function Wall({ position, size, rotation, onSelect, selected }: WallProps) {
+function BuildingComponent({ 
+  component,
+  selected,
+  onSelect,
+  gridSnap,
+}: { 
+  component: BuildingComponent;
+  selected: boolean;
+  onSelect: () => void;
+  gridSnap: number;
+}) {
   const [hovered, setHovered] = useState(false);
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  const handlePointerOver = (e: any) => {
+    e.stopPropagation();
+    setHovered(true);
+  };
+
+  const handlePointerOut = (e: any) => {
+    e.stopPropagation();
+    setHovered(false);
+  };
+
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    onSelect();
+  };
+
+  const color = selected ? "#3b82f6" : hovered ? "#666" : "#888";
 
   return (
-    <group 
-      position={position} 
-      rotation={rotation}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect?.();
-      }}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
+    <group
+      position={component.position}
+      rotation={component.rotation}
     >
-      <Box args={size}>
-        <meshStandardMaterial 
-          color={selected ? "#3b82f6" : hovered ? "#666" : "#888"}
+      <Box 
+        ref={meshRef}
+        args={component.size}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+        onClick={handleClick}
+      >
+        <meshStandardMaterial
+          color={color}
           transparent
           opacity={0.8}
         />
@@ -87,120 +130,109 @@ function Wall({ position, size, rotation, onSelect, selected }: WallProps) {
       {(selected || hovered) && (
         <>
           <MeasurementLabel 
-            start={new THREE.Vector3(-size[0]/2, 0, 0)} 
-            end={new THREE.Vector3(size[0]/2, 0, 0)} 
-            text={`${size[0].toFixed(2)}m`}
+            start={new THREE.Vector3(-component.size[0]/2, 0, 0)} 
+            end={new THREE.Vector3(component.size[0]/2, 0, 0)} 
+            text={`${component.size[0].toFixed(1)}m`}
           />
           <MeasurementLabel 
-            start={new THREE.Vector3(0, 0, -size[2]/2)} 
-            end={new THREE.Vector3(0, 0, size[2]/2)} 
-            text={`${size[2].toFixed(2)}m`}
+            start={new THREE.Vector3(0, 0, -component.size[2]/2)} 
+            end={new THREE.Vector3(0, 0, component.size[2]/2)} 
+            text={`${component.size[2].toFixed(1)}m`}
           />
         </>
+      )}
+
+      {selected && (
+        <TransformControls
+          object={meshRef}
+          mode="translate"
+          size={0.5}
+          showX
+          showY
+          showZ
+          snapMode="grid"
+          translationSnap={gridSnap}
+        />
       )}
     </group>
   );
 }
 
-function BuildingControls({ 
-  mode,
-  onModeChange,
-  onAddWall,
-  onUndo,
-  gridSnap,
-  onGridSnapChange,
+function ComponentLibrary({
+  selectedType,
+  onSelectType,
+  onAddComponent,
 }: {
-  mode: 'wall' | 'door' | 'window' | 'select';
-  onModeChange: (mode: 'wall' | 'door' | 'window' | 'select') => void;
-  onAddWall: () => void;
-  onUndo: () => void;
-  gridSnap: number;
-  onGridSnapChange: (snap: number) => void;
+  selectedType: BuildingComponent['type'] | null;
+  onSelectType: (type: BuildingComponent['type']) => void;
+  onAddComponent: () => void;
 }) {
   return (
-    <div className="absolute top-4 left-4 space-y-2">
-      <div className="flex gap-2">
-        <Button 
-          variant={mode === 'wall' ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => onModeChange('wall')}
-        >
-          <FontAwesomeIcon icon={['fas', 'square']} className="h-4 w-4 mr-2" />
-          Wall
-        </Button>
-        <Button 
-          variant={mode === 'door' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => onModeChange('door')}
-        >
-          <FontAwesomeIcon icon={['fas', 'door-open']} className="h-4 w-4 mr-2" />
-          Door
-        </Button>
-        <Button 
-          variant={mode === 'window' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => onModeChange('window')}
-        >
-          <FontAwesomeIcon icon={['fas', 'window']} className="h-4 w-4 mr-2" />
-          Window
-        </Button>
-        <Button 
-          variant={mode === 'select' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => onModeChange('select')}
-        >
-          <FontAwesomeIcon icon={['fas', 'mouse-pointer']} className="h-4 w-4 mr-2" />
-          Select
-        </Button>
+    <Card className="p-4">
+      <h3 className="text-lg font-semibold mb-4">Component Library</h3>
+      <div className="grid grid-cols-2 gap-2">
+        {componentLibrary.map((item) => (
+          <Button
+            key={item.type}
+            variant={selectedType === item.type ? 'default' : 'outline'}
+            className="w-full justify-start"
+            onClick={() => onSelectType(item.type)}
+          >
+            <FontAwesomeIcon icon={['fas', item.icon]} className="h-4 w-4 mr-2" />
+            {item.name}
+          </Button>
+        ))}
       </div>
-
-      <div className="flex gap-2">
-        <Button 
-          variant="outline"
-          size="sm"
-          onClick={() => onGridSnapChange(gridSnap === 1 ? 0.5 : gridSnap === 0.5 ? 0.25 : 1)}
+      {selectedType && (
+        <Button
+          className="w-full mt-4"
+          onClick={onAddComponent}
         >
-          <FontAwesomeIcon icon={['fas', 'grid']} className="h-4 w-4 mr-2" />
-          Grid: {gridSnap}m
+          <FontAwesomeIcon icon={['fas', 'plus']} className="h-4 w-4 mr-2" />
+          Add Component
         </Button>
-        <Button 
-          variant="outline"
-          size="sm"
-          onClick={onUndo}
-        >
-          <FontAwesomeIcon icon={['fas', 'undo']} className="h-4 w-4 mr-2" />
-          Undo
-        </Button>
-      </div>
-    </div>
+      )}
+    </Card>
   );
 }
 
 export default function Building3DEditor({ onSave }: BuildingEditorProps) {
-  const [editorMode, setEditorMode] = useState<'wall' | 'door' | 'window' | 'select'>('select');
-  const [walls, setWalls] = useState<any[]>([]);
-  const [selectedWallId, setSelectedWallId] = useState<number | null>(null);
-  const [gridSnap, setGridSnap] = useState(1); // 1 meter grid snap
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<THREE.Vector3 | null>(null);
+  const [components, setComponents] = useState<BuildingComponent[]>([]);
+  const [selectedComponentId, setSelectedComponentId] = useState<number | null>(null);
+  const [selectedType, setSelectedType] = useState<BuildingComponent['type'] | null>(null);
+  const [gridSnap, setGridSnap] = useState(0.5); // 0.5 meter grid snap
 
-  const handleAddWall = () => {
-    const newWall = {
+  const handleAddComponent = useCallback(() => {
+    if (!selectedType) return;
+
+    const componentInfo = componentLibrary.find(c => c.type === selectedType);
+    if (!componentInfo) return;
+
+    const newComponent: BuildingComponent = {
       id: Date.now(),
-      position: [0, 1.5, 0],
-      size: [0.2, 3, 4],
-      rotation: [0, 0, 0]
+      type: selectedType,
+      position: [0, componentInfo.defaultSize[1] / 2, 0],
+      rotation: [0, 0, 0],
+      size: componentInfo.defaultSize,
     };
-    setWalls([...walls, newWall]);
-  };
+
+    setComponents(prev => [...prev, newComponent]);
+    setSelectedComponentId(newComponent.id);
+  }, [selectedType]);
 
   const handleUndo = () => {
-    setWalls(walls.slice(0, -1));
-    setSelectedWallId(null);
+    setComponents(prev => prev.slice(0, -1));
+    setSelectedComponentId(null);
   };
 
-  const handleWallSelect = (id: number) => {
-    setSelectedWallId(id === selectedWallId ? null : id);
+  const handleComponentSelect = (id: number) => {
+    setSelectedComponentId(id === selectedComponentId ? null : id);
+  };
+
+  const handleDelete = () => {
+    if (selectedComponentId === null) return;
+    setComponents(prev => prev.filter(c => c.id !== selectedComponentId));
+    setSelectedComponentId(null);
   };
 
   return (
@@ -212,7 +244,32 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => onSave?.(walls)}
+              onClick={() => setGridSnap(gridSnap === 1 ? 0.5 : gridSnap === 0.5 ? 0.25 : 1)}
+            >
+              <FontAwesomeIcon icon={['fas', 'grid']} className="h-4 w-4 mr-2" />
+              Grid: {gridSnap}m
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleUndo}
+            >
+              <FontAwesomeIcon icon={['fas', 'undo']} className="h-4 w-4 mr-2" />
+              Undo
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleDelete}
+              disabled={selectedComponentId === null}
+            >
+              <FontAwesomeIcon icon={['fas', 'trash']} className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onSave?.(components)}
             >
               <FontAwesomeIcon icon={['fas', 'save']} className="h-4 w-4 mr-2" />
               Save Building
@@ -221,41 +278,44 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="w-full h-[600px] relative rounded-lg overflow-hidden border">
-          <BuildingControls
-            mode={editorMode}
-            onModeChange={setEditorMode}
-            onAddWall={handleAddWall}
-            onUndo={handleUndo}
-            gridSnap={gridSnap}
-            onGridSnapChange={setGridSnap}
-          />
-
-          <Canvas shadows>
-            <PerspectiveCamera makeDefault position={[10, 10, 10]} />
-            <OrbitControls 
-              enablePan 
-              enableZoom 
-              enableRotate
-              minDistance={5}
-              maxDistance={20}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
+            <div className="w-full h-[600px] relative rounded-lg overflow-hidden border">
+              <Canvas shadows>
+                <PerspectiveCamera makeDefault position={[10, 10, 10]} />
+                <OrbitControls 
+                  enablePan 
+                  enableZoom 
+                  enableRotate
+                  minDistance={5}
+                  maxDistance={20}
+                />
+                <ambientLight intensity={0.5} />
+                <directionalLight 
+                  position={[10, 10, 5]} 
+                  intensity={1}
+                  castShadow
+                />
+                <EditorGrid />
+                {components.map((component) => (
+                  <BuildingComponent
+                    key={component.id}
+                    component={component}
+                    selected={component.id === selectedComponentId}
+                    onSelect={() => handleComponentSelect(component.id)}
+                    gridSnap={gridSnap}
+                  />
+                ))}
+              </Canvas>
+            </div>
+          </div>
+          <div>
+            <ComponentLibrary
+              selectedType={selectedType}
+              onSelectType={setSelectedType}
+              onAddComponent={handleAddComponent}
             />
-            <ambientLight intensity={0.5} />
-            <directionalLight 
-              position={[10, 10, 5]} 
-              intensity={1}
-              castShadow
-            />
-            <EditorGrid />
-            {walls.map((wall) => (
-              <Wall 
-                key={wall.id} 
-                {...wall}
-                selected={wall.id === selectedWallId}
-                onSelect={() => handleWallSelect(wall.id)}
-              />
-            ))}
-          </Canvas>
+          </div>
         </div>
       </CardContent>
     </Card>
