@@ -1,10 +1,27 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar
 } from 'recharts';
+import { Progress } from "@/components/ui/progress";
+import { motion } from "framer-motion";
 
 interface AnalyticsData {
   completionRates: {
@@ -15,16 +32,36 @@ interface AnalyticsData {
   weeklyProgress: Array<{
     week: string;
     completions: number;
+    avgScore: number;
   }>;
   performanceMetrics: {
     averageScore: number;
     totalTime: number;
     completionRate: number;
+    streak: number;
+    totalPoints: number;
   };
-  categoryBreakdown: Array<{
-    name: string;
-    value: number;
+  skillBreakdown: Array<{
+    skill: string;
+    level: number;
+    progress: number;
   }>;
+  achievements: Array<{
+    name: string;
+    earned: boolean;
+    progress: number;
+    description: string;
+    icon: string;
+  }>;
+  learningPath: {
+    currentLevel: number;
+    xpToNextLevel: number;
+    totalXP: number;
+    recentMilestones: Array<{
+      title: string;
+      date: string;
+    }>;
+  };
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
@@ -44,32 +81,32 @@ export function TrainingAnalytics() {
 
   return (
     <div className="space-y-6">
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Top Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Average Score
+              Learning Streak
             </CardTitle>
-            <FontAwesomeIcon icon="trophy" className="h-4 w-4 text-yellow-500" />
+            <FontAwesomeIcon icon="fire" className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analytics.performanceMetrics.averageScore}%
+              {analytics.performanceMetrics.streak} days
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Training Time
+              Total XP
             </CardTitle>
-            <FontAwesomeIcon icon="clock" className="h-4 w-4 text-blue-500" />
+            <FontAwesomeIcon icon="star" className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.round(analytics.performanceMetrics.totalTime / 60)} hrs
+              {analytics.learningPath.totalXP}
             </div>
           </CardContent>
         </Card>
@@ -87,12 +124,30 @@ export function TrainingAnalytics() {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Current Level
+            </CardTitle>
+            <FontAwesomeIcon icon="trophy" className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {analytics.learningPath.currentLevel}
+            </div>
+            <Progress
+              value={(analytics.learningPath.totalXP / analytics.learningPath.xpToNextLevel) * 100}
+              className="h-2 mt-2"
+            />
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Weekly Progress Chart */}
+      {/* Learning Progress Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Weekly Progress</CardTitle>
+          <CardTitle>Learning Progress</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
@@ -100,13 +155,24 @@ export function TrainingAnalytics() {
               <LineChart data={analytics.weeklyProgress}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="week" />
-                <YAxis />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
                 <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey="completions" 
-                  stroke="#8884d8" 
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="completions"
+                  stroke="#8884d8"
                   strokeWidth={2}
+                  name="Completions"
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="avgScore"
+                  stroke="#82ca9d"
+                  strokeWidth={2}
+                  name="Average Score"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -114,36 +180,27 @@ export function TrainingAnalytics() {
         </CardContent>
       </Card>
 
-      {/* Training Status Distribution */}
+      {/* Skills and Achievements */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Training Status Distribution</CardTitle>
+            <CardTitle>Skill Proficiency</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Completed', value: analytics.completionRates.completed },
-                      { name: 'In Progress', value: analytics.completionRates.inProgress },
-                      { name: 'Not Started', value: analytics.completionRates.notStarted },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                <RadarChart outerRadius="80%" data={analytics.skillBreakdown}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="skill" />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                  <Radar
+                    name="Skills"
+                    dataKey="level"
+                    stroke="#8884d8"
                     fill="#8884d8"
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {analytics.categoryBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
+                    fillOpacity={0.6}
+                  />
+                </RadarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
@@ -151,27 +208,74 @@ export function TrainingAnalytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Category Performance</CardTitle>
+            <CardTitle>Recent Achievements</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics.categoryBreakdown}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#8884d8">
-                    {analytics.categoryBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="space-y-4">
+              {analytics.achievements.map((achievement, index) => (
+                <motion.div
+                  key={achievement.name}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`p-4 rounded-lg border ${
+                    achievement.earned ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <FontAwesomeIcon
+                      icon={achievement.icon}
+                      className={`h-8 w-8 ${
+                        achievement.earned ? 'text-green-500' : 'text-gray-400'
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <h3 className="font-medium">{achievement.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {achievement.description}
+                      </p>
+                      {!achievement.earned && (
+                        <Progress
+                          value={achievement.progress}
+                          className="h-1 mt-2"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Milestones */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Milestones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {analytics.learningPath.recentMilestones.map((milestone, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="flex items-center gap-4"
+              >
+                <div className="h-2 w-2 rounded-full bg-primary" />
+                <div>
+                  <p className="font-medium">{milestone.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(milestone.date).toLocaleDateString()}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
