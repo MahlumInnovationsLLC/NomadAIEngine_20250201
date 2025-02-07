@@ -10,6 +10,7 @@ import { LearningModules } from "@/components/training/LearningModules";
 import { SkillAssessment } from "@/components/training/SkillAssessment";
 import { Achievements } from "@/components/training/Achievements";
 import { CreateModuleDialog } from "@/components/training/CreateModuleDialog";
+import { TrainingAnalytics } from "@/components/training/TrainingAnalytics";
 
 interface DocumentStats {
   totalDocuments: number;
@@ -124,12 +125,17 @@ export default function DocumentManagement() {
                     <CardTitle>Training Dashboard</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Tabs defaultValue="modules" className="w-full">
-                      <TabsList className="grid w-full grid-cols-3">
+                    <Tabs defaultValue="analytics" className="w-full">
+                      <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="analytics">Analytics</TabsTrigger>
                         <TabsTrigger value="modules">Learning Modules</TabsTrigger>
                         <TabsTrigger value="achievements">Achievements</TabsTrigger>
                         <TabsTrigger value="assessment">Skill Assessment</TabsTrigger>
                       </TabsList>
+
+                      <TabsContent value="analytics" className="mt-4">
+                        <TrainingAnalytics />
+                      </TabsContent>
 
                       <TabsContent value="modules" className="mt-4">
                         <LearningModules />
