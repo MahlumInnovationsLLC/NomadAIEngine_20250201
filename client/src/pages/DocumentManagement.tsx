@@ -11,11 +11,13 @@ export default function DocumentManagement() {
   return (
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
-        <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <h1 className="text-3xl font-bold mb-4">Document Training & Control</h1>
-          <p className="text-muted-foreground mb-4">
-            Manage, review, and approve documents with advanced training and workflow control.
-          </p>
+        <div className="py-6 border-b">
+          <div className="container px-4">
+            <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
+            <p className="text-muted-foreground">
+              Manage, review, and approve documents with advanced training and workflow control.
+            </p>
+          </div>
         </div>
 
         <div className="px-4 py-6">
