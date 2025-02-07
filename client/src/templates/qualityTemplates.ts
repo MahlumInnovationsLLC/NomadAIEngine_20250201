@@ -1,5 +1,29 @@
 import { QualityFormTemplate } from "@/types/manufacturing";
 
+//Inferring AuditTemplate type from the edited code
+interface AuditTemplate {
+    id: string;
+    name: string;
+    type: "internal" | "certification";
+    standard: string;
+    version: number;
+    isActive: boolean;
+    sections: {
+        id: string;
+        title: string;
+        reference?: string;
+        requirements?: {
+            id: string;
+            text: string;
+            guidance: string;
+            evidenceRequired: string[];
+        }[];
+    }[];
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export const fabInspectionTemplates: QualityFormTemplate[] = [
   {
     id: "fab-subframe-template",
@@ -382,5 +406,169 @@ export const postDeliveryQCTemplates: QualityFormTemplate[] = [
         ]
       }
     ]
+  }
+];
+
+export const auditTemplates: AuditTemplate[] = [
+  {
+    id: "iso9001-internal",
+    name: "ISO 9001:2015 Internal Audit Template",
+    type: "internal",
+    standard: "ISO 9001:2015",
+    version: 1,
+    isActive: true,
+    sections: [
+      {
+        id: "context",
+        title: "Context of the Organization",
+        reference: "4",
+        requirements: [
+          {
+            id: "4.1",
+            text: "Understanding the organization and its context",
+            guidance: "Verify documentation of internal and external issues relevant to strategic direction",
+            evidenceRequired: [
+              "Strategic planning documents",
+              "SWOT analysis",
+              "Risk assessments"
+            ]
+          },
+          {
+            id: "4.2",
+            text: "Understanding needs and expectations of interested parties",
+            guidance: "Check identification and monitoring of stakeholder requirements",
+            evidenceRequired: [
+              "Stakeholder analysis",
+              "Requirements tracking",
+              "Communication records"
+            ]
+          }
+        ]
+      },
+      {
+        id: "leadership",
+        title: "Leadership",
+        reference: "5",
+        requirements: [
+          {
+            id: "5.1",
+            text: "Leadership and commitment",
+            guidance: "Evaluate top management's involvement in QMS",
+            evidenceRequired: [
+              "Management review minutes",
+              "Policy statements",
+              "Resource allocation records"
+            ]
+          },
+          {
+            id: "5.2",
+            text: "Quality Policy",
+            guidance: "Verify policy communication and understanding",
+            evidenceRequired: [
+              "Quality policy document",
+              "Communication records",
+              "Employee interviews"
+            ]
+          }
+        ]
+      },
+      {
+        id: "planning",
+        title: "Planning",
+        reference: "6",
+        requirements: [
+          {
+            id: "6.1",
+            text: "Actions to address risks and opportunities",
+            guidance: "Review risk management process and effectiveness",
+            evidenceRequired: [
+              "Risk registers",
+              "Opportunity assessments",
+              "Action plans"
+            ]
+          },
+          {
+            id: "6.2",
+            text: "Quality objectives and planning",
+            guidance: "Evaluate alignment of objectives with policy",
+            evidenceRequired: [
+              "Quality objectives",
+              "Performance metrics",
+              "Implementation plans"
+            ]
+          }
+        ]
+      }
+    ],
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "iso9001-certification",
+    name: "ISO 9001:2015 Certification Audit Template",
+    type: "certification",
+    standard: "ISO 9001:2015",
+    version: 1,
+    isActive: true,
+    sections: [
+      {
+        id: "qms",
+        title: "Quality Management System",
+        reference: "4.4",
+        requirements: [
+          {
+            id: "4.4.1",
+            text: "QMS Processes",
+            guidance: "Verify process approach implementation",
+            evidenceRequired: [
+              "Process maps",
+              "Process metrics",
+              "Interaction matrices"
+            ]
+          },
+          {
+            id: "4.4.2",
+            text: "Documented Information",
+            guidance: "Check documentation control and retention",
+            evidenceRequired: [
+              "Document control procedure",
+              "Records retention schedule",
+              "Document access logs"
+            ]
+          }
+        ]
+      },
+      {
+        id: "operation",
+        title: "Operation",
+        reference: "8",
+        requirements: [
+          {
+            id: "8.1",
+            text: "Operational planning and control",
+            guidance: "Review process controls and monitoring",
+            evidenceRequired: [
+              "Production plans",
+              "Quality control records",
+              "Process validation reports"
+            ]
+          },
+          {
+            id: "8.5",
+            text: "Production and service provision",
+            guidance: "Evaluate control of production/service delivery",
+            evidenceRequired: [
+              "Work instructions",
+              "Inspection records",
+              "Service delivery records"
+            ]
+          }
+        ]
+      }
+    ],
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];

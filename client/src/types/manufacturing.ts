@@ -630,3 +630,86 @@ export interface ProjectLocation {
   startDate: string;
   endDate?: string;
 }
+
+export interface QualityAudit {
+  id: string;
+  auditNumber: string;
+  type: 'internal' | 'external' | 'supplier' | 'certification';
+  status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+  scope: string;
+  standard: string; // e.g., 'ISO 9001:2015'
+  department: string;
+  leadAuditor: string;
+  auditTeam: string[];
+  scheduledDate: string;
+  completionDate?: string;
+  duration: number; // in hours
+  auditPlan: {
+    objectives: string[];
+    methodology: string;
+    resources: string[];
+    schedule: {
+      activity: string;
+      startTime: string;
+      duration: number;
+      participants: string[];
+    }[];
+  };
+  findings: {
+    id: string;
+    type: 'observation' | 'minor-nc' | 'major-nc' | 'opportunity';
+    description: string;
+    category: string;
+    reference: string; // ISO clause reference
+    evidence: string;
+    status: 'open' | 'in_progress' | 'closed';
+    assignedTo?: string;
+    dueDate?: string;
+    correctiveActionId?: string; // Reference to CAPA if created
+  }[];
+  checklist: {
+    id: string;
+    section: string;
+    requirement: string;
+    reference: string; // ISO clause
+    evidence: string;
+    conformity: 'compliant' | 'non-compliant' | 'partial' | 'not-applicable';
+    notes?: string;
+  }[];
+  attachments: string[];
+  summary: {
+    strengths: string[];
+    weaknesses: string[];
+    opportunities: string[];
+    threats: string[];
+  };
+  nextAuditDate?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
+export interface AuditTemplate {
+  id: string;
+  name: string;
+  type: 'internal' | 'external' | 'supplier' | 'certification';
+  standard: string;
+  version: number;
+  isActive: boolean;
+  sections: {
+    id: string;
+    title: string;
+    reference: string; // ISO clause
+    requirements: {
+      id: string;
+      text: string;
+      guidance: string;
+      evidenceRequired: string[];
+    }[];
+  }[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}

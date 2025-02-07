@@ -10,16 +10,20 @@ import QualityInspectionList from "./quality/QualityInspectionList";
 import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
 import DefectAnalytics from "./quality/DefectAnalytics";
 import { CreateInspectionDialog } from "./quality/dialogs/CreateInspectionDialog";
-import type { QualityInspection, QualityMetrics } from "@/types/manufacturing";
+import type { QualityInspection, QualityMetrics, QualityAudit } from "@/types/manufacturing";
 import NCRList from "./quality/NCRList";
 import CAPAList from "./quality/CAPAList";
 import SCARList from "./quality/SCARList";
 import MRBList from "./quality/MRBList";
+import AuditList from "./quality/AuditList";
+import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
+
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
   const [qmsActiveView, setQmsActiveView] = useState("inspections");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showCreateAuditDialog, setShowCreateAuditDialog] = useState(false);
 
   const { data: qualityMetrics } = useQuery<QualityMetrics>({
     queryKey: ['/api/manufacturing/quality/metrics'],
@@ -27,8 +31,18 @@ export const QualityControlPanel = () => {
 
   const { data: qualityInspections, refetch: refetchInspections } = useQuery<QualityInspection[]>({
     queryKey: ['/api/manufacturing/quality/inspections'],
-    refetchInterval: 30000, // Refresh every 30 seconds to ensure data is current
+    refetchInterval: 30000,
   });
+
+  const { data: qualityAudits, refetch: refetchAudits } = useQuery<QualityAudit[]>({
+    queryKey: ['/api/manufacturing/quality/audits'],
+  });
+
+  const auditTemplates = [
+    { id: 1, name: 'ISO 9001 Audit', standard: 'ISO 9001', version: '2015' },
+    { id: 2, name: 'Internal Audit', standard: 'Company Internal', version: '1.0' },
+    // Add more templates as needed
+  ];
 
   return (
     <div className="space-y-4">
@@ -47,6 +61,10 @@ export const QualityControlPanel = () => {
           <Button onClick={() => setShowCreateDialog(true)}>
             <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
             New Inspection
+          </Button>
+          <Button onClick={() => setShowCreateAuditDialog(true)} variant="secondary">
+            <FontAwesomeIcon icon="clipboard-check" className="mr-2 h-4 w-4" />
+            New Audit
           </Button>
         </div>
       </div>
@@ -99,6 +117,7 @@ export const QualityControlPanel = () => {
           <TabsTrigger value="nomad-qms">Nomad QMS</TabsTrigger>
           <TabsTrigger value="suppliers">Supplier Quality</TabsTrigger>
           <TabsTrigger value="defects">Defect Analysis</TabsTrigger>
+          <TabsTrigger value="audits">Audits</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -122,6 +141,7 @@ export const QualityControlPanel = () => {
                   <TabsTrigger value="capa">CAPA</TabsTrigger>
                   <TabsTrigger value="scar">SCAR</TabsTrigger>
                   <TabsTrigger value="mrb">MRB</TabsTrigger>
+                  <TabsTrigger value="audits">Audits</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="inspections">
@@ -143,6 +163,9 @@ export const QualityControlPanel = () => {
                 <TabsContent value="mrb">
                   <MRBList />
                 </TabsContent>
+                <TabsContent value="audits">
+                  <AuditList audits={qualityAudits || []} />
+                </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
@@ -154,6 +177,62 @@ export const QualityControlPanel = () => {
 
         <TabsContent value="defects">
           <DefectAnalytics />
+        </TabsContent>
+        <TabsContent value="audits">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quality Audits</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="upcoming" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+                  <TabsTrigger value="in-progress">In Progress</TabsTrigger>
+                  <TabsTrigger value="completed">Completed</TabsTrigger>
+                  <TabsTrigger value="templates">Templates</TabsTrigger>
+                </TabsList>
+                <TabsContent value="upcoming">
+                  <AuditList 
+                    audits={qualityAudits?.filter(a => a.status === 'planned') || []} 
+                    type="upcoming"
+                  />
+                </TabsContent>
+                <TabsContent value="in-progress">
+                  <AuditList 
+                    audits={qualityAudits?.filter(a => a.status === 'in_progress') || []} 
+                    type="in-progress"
+                  />
+                </TabsContent>
+                <TabsContent value="completed">
+                  <AuditList 
+                    audits={qualityAudits?.filter(a => a.status === 'completed') || []} 
+                    type="completed"
+                  />
+                </TabsContent>
+                <TabsContent value="templates">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {auditTemplates.map((template) => (
+                        <Card key={template.id}>
+                          <CardHeader>
+                            <CardTitle>{template.name}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              {template.standard} - Version {template.version}
+                            </p>
+                            <Button variant="outline" className="w-full">
+                              Use Template
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
@@ -179,6 +258,34 @@ export const QualityControlPanel = () => {
               setShowCreateDialog(false);
             } catch (error) {
               console.error('Error creating inspection:', error);
+              throw error;
+            }
+          }}
+        />
+      )}
+
+      {showCreateAuditDialog && (
+        <CreateAuditDialog
+          open={showCreateAuditDialog}
+          onOpenChange={setShowCreateAuditDialog}
+          onSubmit={async (data) => {
+            try {
+              const response = await fetch('/api/manufacturing/quality/audits', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+              });
+
+              if (!response.ok) {
+                throw new Error(`Failed to create audit: ${response.statusText}`);
+              }
+
+              await refetchAudits();
+              setShowCreateAuditDialog(false);
+            } catch (error) {
+              console.error('Error creating audit:', error);
               throw error;
             }
           }}
