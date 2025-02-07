@@ -6,11 +6,11 @@ import EquipmentDashboard from "./equipment/EquipmentDashboard";
 import FacilityDashboard from "./facility/FacilityDashboard";
 
 export default function FacilityControlTabs() {
-  const [activeTab, setActiveTab] = useState("equipment");
+  const [activeTab, setActiveTab] = useState<string>("equipment");
 
   return (
     <Card className="p-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs defaultValue="equipment" value={activeTab} onValueChange={(value: string) => setActiveTab(value)} className="space-y-4">
         <TabsList className="grid grid-cols-2 w-[400px]">
           <TabsTrigger value="equipment">Equipment</TabsTrigger>
           <TabsTrigger value="facility">Facility</TabsTrigger>

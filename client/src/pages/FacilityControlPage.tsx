@@ -46,7 +46,7 @@ export default function FacilityControlPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={(value: string) => setActiveTab(value)}>
+      <Tabs defaultValue="dashboard" value={activeTab.toString()} onValueChange={(value: string) => setActiveTab(value)}>
         <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="equipment">Equipment</TabsTrigger>
