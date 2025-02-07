@@ -218,7 +218,21 @@ router.delete('/findings/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Find the audit containing this finding
+    // First, try to find standalone finding
+    const { resources: [finding] } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'finding' AND c.id = @id",
+        parameters: [{ name: "@id", value: id }]
+      })
+      .fetchAll();
+
+    if (finding) {
+      await container.item(id, id).delete(); // Use both id and partitionKey
+      console.log('Deleted standalone finding:', id);
+      return res.json({ success: true });
+    }
+
+    // If not found as standalone, check in audits
     const { resources: [audit] } = await container.items
       .query({
         query: "SELECT * FROM c WHERE c.type = 'audit' AND ARRAY_CONTAINS(c.findings, { 'id': @findingId }, true)",
@@ -229,24 +243,12 @@ router.delete('/findings/:id', async (req, res) => {
     if (audit) {
       // Remove finding from audit
       audit.findings = audit.findings.filter((f: any) => f.id !== id);
-      await container.item(audit.id).replace(audit);
-    } else {
-      // Delete standalone finding
-      const { resources: [finding] } = await container.items
-        .query({
-          query: "SELECT * FROM c WHERE c.type = 'finding' AND c.id = @id",
-          parameters: [{ name: "@id", value: id }]
-        })
-        .fetchAll();
-
-      if (!finding) {
-        return res.status(404).json({ error: 'Finding not found' });
-      }
-
-      await container.item(finding.id).delete();
+      await container.item(audit.id, audit.id).replace(audit);
+      console.log('Removed finding from audit:', id);
+      return res.json({ success: true });
     }
 
-    res.json({ success: true });
+    return res.status(404).json({ error: 'Finding not found' });
   } catch (error) {
     console.error('Error deleting finding:', error);
     res.status(500).json({

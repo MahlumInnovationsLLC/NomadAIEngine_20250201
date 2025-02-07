@@ -31,8 +31,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { faEdit, faTrashAlt } from '@fortawesome/free-regular-svg-icons';
-import { faFilter, faTag, faDownload, faPlus, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
+import {
+  faFilter as falFilter,
+  faTag as falTag,
+  faDownload as falDownload,
+  faPlus as falPlus,
+  faArrowUp as falArrowUp,
+  faArrowDown as falArrowDown,
+  faPenToSquare as falPenToSquare,
+  faTrashCan as falTrashCan,
+} from '@fortawesome/pro-light-svg-icons';
 
 interface SortConfig {
   key: keyof Finding;
@@ -185,7 +193,7 @@ export default function FindingsList() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                <FontAwesomeIcon icon={faFilter} className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon={falFilter} className="mr-2 h-4 w-4" />
                 Department: {departmentFilter || 'All'}
               </Button>
             </DropdownMenuTrigger>
@@ -204,7 +212,7 @@ export default function FindingsList() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                <FontAwesomeIcon icon={faTag} className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon={falTag} className="mr-2 h-4 w-4" />
                 Type: {typeFilter || 'All'}
               </Button>
             </DropdownMenuTrigger>
@@ -223,11 +231,11 @@ export default function FindingsList() {
 
         <div className="space-x-2">
           <Button variant="outline" onClick={() => window.print()}>
-            <FontAwesomeIcon icon={faDownload} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={falDownload} className="mr-2 h-4 w-4" />
             Export
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
-            <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={falPlus} className="mr-2 h-4 w-4" />
             New Finding
           </Button>
         </div>
@@ -242,7 +250,7 @@ export default function FindingsList() {
             >
               ID {sortConfig.key === 'id' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? faArrowUp : faArrowDown}
+                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
                   className="ml-2 h-4 w-4"
                 />
               )}
@@ -253,7 +261,7 @@ export default function FindingsList() {
             >
               Type {sortConfig.key === 'type' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? faArrowUp : faArrowDown}
+                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
                   className="ml-2 h-4 w-4"
                 />
               )}
@@ -264,7 +272,7 @@ export default function FindingsList() {
             >
               Department {sortConfig.key === 'department' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? faArrowUp : faArrowDown}
+                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
                   className="ml-2 h-4 w-4"
                 />
               )}
@@ -276,7 +284,7 @@ export default function FindingsList() {
             >
               Status {sortConfig.key === 'status' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? faArrowUp : faArrowDown}
+                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
                   className="ml-2 h-4 w-4"
                 />
               )}
@@ -287,7 +295,7 @@ export default function FindingsList() {
             >
               Created {sortConfig.key === 'createdAt' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? faArrowUp : faArrowDown}
+                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
                   className="ml-2 h-4 w-4"
                 />
               )}
@@ -331,7 +339,7 @@ export default function FindingsList() {
                       setShowEditDialog(true);
                     }}
                   >
-                    <FontAwesomeIcon icon={faEdit} className="h-4 w-4" />
+                    <FontAwesomeIcon icon={falPenToSquare} className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -341,7 +349,7 @@ export default function FindingsList() {
                       setShowDeleteDialog(true);
                     }}
                   >
-                    <FontAwesomeIcon icon={faTrashAlt} className="h-4 w-4 text-red-500" />
+                    <FontAwesomeIcon icon={falTrashCan} className="h-4 w-4 text-red-500" />
                   </Button>
                 </div>
               </TableCell>
