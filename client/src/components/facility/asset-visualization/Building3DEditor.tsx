@@ -8,7 +8,8 @@ import {
   Box,
   useHelper,
   Line,
-  Text 
+  Text,
+  Environment
 } from "@react-three/drei";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,13 +21,18 @@ interface BuildingEditorProps {
   onSave?: (buildingData: any) => void;
 }
 
+type MaterialPreset = {
+  name: string;
+  properties: THREE.MeshPhysicalMaterialParameters;
+};
+
 type BuildingComponent = {
   id: number;
   type: 'wall' | 'door' | 'window' | 'floor' | 'ceiling';
   position: [number, number, number];
   rotation: [number, number, number];
   size: [number, number, number];
-  color?: string;
+  material?: MaterialPreset;
 };
 
 interface ComponentLibraryItem {
@@ -106,8 +112,6 @@ function BuildingComponent({
     onSelect();
   };
 
-  const color = selected ? "#3b82f6" : hovered ? "#666" : "#888";
-
   return (
     <group
       position={component.position}
@@ -120,11 +124,18 @@ function BuildingComponent({
         onPointerOut={handlePointerOut}
         onClick={handleClick}
       >
-        <meshStandardMaterial
-          color={color}
-          transparent
-          opacity={0.8}
-        />
+        {component.material ? (
+          <meshPhysicalMaterial
+            {...component.material.properties}
+            transparent={component.material.properties.transparent}
+          />
+        ) : (
+          <meshStandardMaterial
+            color={selected ? "#3b82f6" : hovered ? "#666" : "#888"}
+            transparent
+            opacity={0.8}
+          />
+        )}
       </Box>
 
       {(selected || hovered) && (
@@ -200,7 +211,8 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
   const [components, setComponents] = useState<BuildingComponent[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<number | null>(null);
   const [selectedType, setSelectedType] = useState<BuildingComponent['type'] | null>(null);
-  const [gridSnap, setGridSnap] = useState(0.5); // 0.5 meter grid snap
+  const [gridSnap, setGridSnap] = useState(0.5);
+  const [showMaterialLibrary, setShowMaterialLibrary] = useState(false);
 
   const handleAddComponent = useCallback(() => {
     if (!selectedType) return;
@@ -219,6 +231,20 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
     setComponents(prev => [...prev, newComponent]);
     setSelectedComponentId(newComponent.id);
   }, [selectedType]);
+
+  const handleMaterialSelect = (material: MaterialPreset) => {
+    if (selectedComponentId === null) return;
+
+    setComponents(prev => prev.map(component => 
+      component.id === selectedComponentId
+        ? { ...component, material }
+        : component
+    ));
+
+    setShowMaterialLibrary(false);
+  };
+
+  const selectedComponent = components.find(c => c.id === selectedComponentId);
 
   const handleUndo = () => {
     setComponents(prev => prev.slice(0, -1));
@@ -257,15 +283,16 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
               <FontAwesomeIcon icon={['fas', 'undo']} className="h-4 w-4 mr-2" />
               Undo
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleDelete}
-              disabled={selectedComponentId === null}
-            >
-              <FontAwesomeIcon icon={['fas', 'trash']} className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
+            {selectedComponentId && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowMaterialLibrary(!showMaterialLibrary)}
+              >
+                <FontAwesomeIcon icon={['fas', 'palette']} className="h-4 w-4 mr-2" />
+                Material
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="sm"
@@ -296,6 +323,7 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
                   intensity={1}
                   castShadow
                 />
+                <Environment preset="warehouse" />
                 <EditorGrid />
                 {components.map((component) => (
                   <BuildingComponent
@@ -309,12 +337,15 @@ export default function Building3DEditor({ onSave }: BuildingEditorProps) {
               </Canvas>
             </div>
           </div>
-          <div>
+          <div className="space-y-4">
             <ComponentLibrary
               selectedType={selectedType}
               onSelectType={setSelectedType}
               onAddComponent={handleAddComponent}
             />
+            {showMaterialLibrary && selectedComponent && (
+              <MaterialPreviewLibrary onSelect={handleMaterialSelect} />
+            )}
           </div>
         </div>
       </CardContent>
