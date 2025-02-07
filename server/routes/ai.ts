@@ -2,6 +2,7 @@ import express from 'express';
 import { getChatCompletion } from '../services/azure-openai';
 import { getWebSearchCompletion } from '../services/perplexity';
 import { CosmosClient } from "@azure/cosmos";
+import { generateReport } from '../services/document-generator';
 
 const router = express.Router();
 const client = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING || "");
@@ -72,7 +73,7 @@ async function getRelevantDocuments(content: string): Promise<Document[]> {
 // General AI Chat
 router.post("/chat", async (req, res) => {
   try {
-    const { message, history } = req.body;
+    const { message, history, generateDocument = false } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: "Message is required" });
@@ -108,6 +109,27 @@ router.post("/chat", async (req, res) => {
           `* ${doc.title} (${doc.type}) [${i + 1}]`
         ).join('\n')}`
       : response;
+
+    // Generate document if requested
+    if (generateDocument) {
+      try {
+        const documentTitle = `AI Report: ${message.slice(0, 50)}...`;
+        const documentFilename = await generateReport(formattedResponse);
+        return res.json({ 
+          response: formattedResponse,
+          document: {
+            filename: documentFilename,
+            title: documentTitle
+          }
+        });
+      } catch (docError) {
+        console.error("Error generating document:", docError);
+        return res.json({ 
+          response: formattedResponse,
+          documentError: "Failed to generate document"
+        });
+      }
+    }
 
     res.json({ response: formattedResponse });
   } catch (error) {
