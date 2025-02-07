@@ -119,6 +119,7 @@ function App() {
                   <Route path="/field-service" component={() => <ProtectedRoute component={FieldServiceDashboard} />} />
                   <Route path="/admin/support" component={() => <ProtectedRoute component={SupportTickets} />} />
                   <Route path="/admin/support/:id" component={() => <ProtectedRoute component={TicketDetailsPage} />} />
+                  <Route path="/docmanage" component={() => <ProtectedRoute component={DocumentManagementPage} />} /> {/* Added route */}
                   <Route component={NotFound} />
                 </Switch>
               </Suspense>
