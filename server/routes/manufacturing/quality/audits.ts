@@ -8,7 +8,7 @@ const openai = new OpenAI({
 });
 
 // Initialize Cosmos DB client
-const cosmosClient = new CosmosClient(process.env.COSMOS_CONNECTION_STRING || '');
+const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
 const database = cosmosClient.database('NomadAIEngineDB');
 const container = database.container('quality-management');
 
