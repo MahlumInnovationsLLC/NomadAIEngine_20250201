@@ -1,4 +1,3 @@
-
 import { AzureKeyCredential, OpenAIClient } from "@azure/openai";
 
 const apiKey = process.env["NOMAD_AZURE_OPENAI_API_KEY"];
@@ -13,7 +12,7 @@ if (apiKey?.trim() && endpoint?.trim()) {
 
 export async function getChatCompletion(messages: Array<{ role: string; content: string }>) {
   if (!client) {
-    return "I apologize, but the AI service is currently unavailable. Please ensure Azure OpenAI credentials are configured.";
+    throw new Error("Azure OpenAI client not initialized");
   }
 
   try {
@@ -26,9 +25,13 @@ export async function getChatCompletion(messages: Array<{ role: string; content:
       }
     );
 
-    return result.choices[0].message?.content || "I apologize, but I couldn't generate a response.";
+    if (!result?.choices?.[0]?.message?.content) {
+      throw new Error("Invalid response structure from OpenAI");
+    }
+
+    return result.choices[0].message.content;
   } catch (error) {
     console.error("Azure OpenAI Error:", error);
-    throw new Error("Failed to get response from AI model");
+    throw new Error(error instanceof Error ? error.message : "Failed to get response from AI model");
   }
 }
