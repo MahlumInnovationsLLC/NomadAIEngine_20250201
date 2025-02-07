@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/use-chat-history";
+import ReactMarkdown from 'react-markdown';
 import type { Message, ChatMode } from "@/types/chat";
 import FileUpload from "../document/FileUpload";
 
@@ -26,7 +27,6 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const { messages, addMessages, clearMessages } = useChatHistory(chatId);
 
   const getFormattedHistory = () => {
-    // Filter out system messages and ensure alternating pattern
     const history: Message[] = [];
     const chatMessages = messages.filter(msg => msg.role !== "system");
 
@@ -34,10 +34,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
       const currentMsg = chatMessages[i];
       const prevMsg = history[history.length - 1];
 
-      // Skip if this would create two consecutive messages with the same role
       if (prevMsg && prevMsg.role === currentMsg.role) continue;
 
-      // Only add if it maintains the alternating pattern
       if (!prevMsg || 
           (prevMsg.role === "user" && currentMsg.role === "assistant") ||
           (prevMsg.role === "assistant" && currentMsg.role === "user")) {
@@ -204,9 +202,41 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
                 message.role === "user" ? "flex-row-reverse" : "flex-row"
               }`}>
                 <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
-                  message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
+                  message.role === "user" 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-muted prose prose-sm dark:prose-invert"
                 }`}>
-                  {message.content}
+                  {mode === 'web-search' && message.role === 'assistant' ? (
+                    <ReactMarkdown 
+                      className="space-y-4"
+                      components={{
+                        a: ({ node, ...props }) => (
+                          <a 
+                            {...props} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          />
+                        ),
+                        p: ({ node, ...props }) => (
+                          <p {...props} className="mb-4 leading-relaxed" />
+                        ),
+                        ul: ({ node, ...props }) => (
+                          <ul {...props} className="list-disc pl-4 mb-4" />
+                        ),
+                        li: ({ node, ...props }) => (
+                          <li {...props} className="mb-1" />
+                        ),
+                        hr: ({ node, ...props }) => (
+                          <hr {...props} className="my-4 border-muted-foreground/20" />
+                        )
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  ) : (
+                    message.content
+                  )}
                 </div>
               </div>
             ))}

@@ -56,7 +56,7 @@ router.post("/web-search", async (req, res) => {
     const messages = [
       { 
         role: "system", 
-        content: "You are a web search assistant focusing on manufacturing and industrial topics. Provide factual, up-to-date information based on web sources. Focus on manufacturing, industrial processes, facility management, and enterprise operations. Cite your sources when providing information."
+        content: "You are a web search assistant focusing on manufacturing and industrial topics. Provide factual, up-to-date information based on web sources. Focus on manufacturing, industrial processes, facility management, and enterprise operations. Format your responses with proper markdown for readability. Use bullet points and sections where appropriate. Cite your sources when providing information."
       }
     ];
 
@@ -93,11 +93,13 @@ router.post("/web-search", async (req, res) => {
     }
 
     const { response, citations } = await getWebSearchCompletion(messages);
-    res.json({ 
-      response: citations.length > 0 
-        ? `${response}\n\nSources:\n${citations.map((url, i) => `[${i + 1}] ${url}`).join('\n')}` 
-        : response
-    });
+
+    // Format the response with better markdown and spacing
+    const formattedResponse = citations.length > 0
+      ? `${response}\n\n---\n\n**Sources:**\n${citations.map((url, i) => `* [Source ${i + 1}](${url})`).join('\n')}`
+      : response;
+
+    res.json({ response: formattedResponse });
   } catch (error) {
     console.error("Error in web search:", error);
     res.status(500).json({ 
