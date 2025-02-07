@@ -20,6 +20,7 @@ const WorkOrderManager = lazy(() => import("@/components/facility/maintenance/Wo
 const MaintenanceRequestManager = lazy(() => import("@/components/facility/maintenance/MaintenanceRequestManager"));
 const MaintenanceProcedureLibrary = lazy(() => import("@/components/facility/maintenance/MaintenanceProcedureLibrary"));
 const PartsInventoryManager = lazy(() => import("@/components/facility/maintenance/PartsInventoryManager"));
+const MaintenanceMetricsDashboard = lazy(() => import("@/components/facility/maintenance/MaintenanceMetricsDashboard"));
 
 export default function FacilityControlPage() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -46,13 +47,14 @@ export default function FacilityControlPage() {
       </div>
 
       <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7 lg:w-[1000px]">
+        <TabsList className="grid w-full grid-cols-8 lg:w-[1200px]">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="maintenance">PM Schedule</TabsTrigger>
           <TabsTrigger value="procedures">Procedures</TabsTrigger>
           <TabsTrigger value="inventory">Parts</TabsTrigger>
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
 
@@ -104,11 +106,19 @@ export default function FacilityControlPage() {
           </Suspense>
         </TabsContent>
 
+        <TabsContent value="metrics">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="grid gap-6">
+              <MaintenanceMetricsDashboard />
+            </div>
+          </Suspense>
+        </TabsContent>
+
         <TabsContent value="assets">
           <Suspense fallback={<LoadingSpinner />}>
             <Card className="p-6">
-              <AssetLifecycleManager 
-                equipment={equipment} 
+              <AssetLifecycleManager
+                equipment={equipment}
                 showFullDashboard={true}
                 maintenanceOnly={true}
               />
