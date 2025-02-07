@@ -7,6 +7,9 @@ import { CosmosClient } from "@azure/cosmos";
 import {
   buildingSystems,
   notifications,
+
+import { warehouses } from '../db/schema';
+
   userNotifications,
   facilityNotifications,
   documents,
@@ -1164,11 +1167,18 @@ export function registerRoutes(app: express.Application): Server {
   });
   app.get("/api/material/warehouses", async (_req: AuthenticatedRequest, res) => {
     try {
-      const warehouses = await db.select().from(warehouses);
-      res.json(warehouses);
+      const warehousesData = await db
+        .select({
+          id: warehouses.id,
+          name: warehouses.name,
+          location: warehouses.location,
+          capacity: warehouses.capacity
+        })
+        .from(warehouses);
+      res.json(warehousesData);
     } catch (error) {
       console.error("Error fetching warehouses:", error);
-      res.status(500).json({ error: "Failed to fetch warehouses" });
+      res.status(500).json({ error: "Failed to fetch warehouses - Database error" });
     }
   });
   app.post("/api/material/inventory/adjust", async (req: AuthenticatedRequest, res) => {
