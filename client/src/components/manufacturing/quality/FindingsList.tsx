@@ -59,7 +59,16 @@ export default function FindingsList() {
   const { toast } = useToast();
 
   const { data: findings = [], isLoading, refetch } = useQuery<Finding[]>({
-    queryKey: ['/api/manufacturing/quality/audits/findings'],
+    queryKey: ['findings'],
+    queryFn: async () => {
+      const response = await fetch('/api/manufacturing/quality/audits/findings');
+      if (!response.ok) {
+        throw new Error('Failed to fetch findings');
+      }
+      return response.json();
+    },
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     onError: (error) => {
       toast({
         variant: "destructive",
