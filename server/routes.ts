@@ -882,7 +882,7 @@ export function registerRoutes(app: express.Application): Server {
   });
   app.post("/api/marketing/calendar/events", async (req: AuthenticatedRequest, res) => {
     try {
-      const { title, description, startDate, endDate, type, status, location } = req.body;
+const { title, description, startDate, endDate, type, status, location } = req.body;
       // Validate required fields
       if (!title || !startDate || !type) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -1109,162 +1109,93 @@ export function registerRoutes(app: express.Application): Server {
   // Add manufacturing projects routes
   app.use("/api/manufacturing/projects", projectsRouter);
   // Add material handling routes
-  app.get("/api/material/inventory/stats", async (req: AuthenticatedRequest, res) => {
+  app.get("/api/material/stats", async (_req, res) => {
     try {
-      const warehouseId = req.query.warehouseId as string;
-      // Get inventory statistics from the database
-      const query = db.select({
-        totalValue: sql`SUM(unit_price * current_stock)`.mapWith(Number),
-        totalItems: sql`COUNT(*)`.mapWith(Number),
-        lowStockCount: sql`COUNT(CASE WHEN current_stock <= minimum_stock THEN 1 END)`.mapWith(Number),
-        overStockCount: sql`COUNT(CASE WHEN current_stock > reorder_point * 2 THEN 1 END)`.mapWith(Number)
-      }).from(materials);
-      if (warehouseId) {
-        query.where(eq(materials.warehouseId, warehouseId));
-      }
-      const [stats] = await query;
-      // Calculate additional metrics
-      const turnoverQuery = db.select({
-        totalSold: sql`SUM(quantity)`.mapWith(Number)
-      })
-      .from(materialTransactions)
-      .where(eq(materialTransactions.type, 'issue'));
-      const [turnover] = await turnoverQuery;
-      const avgLeadTimeQuery = db.select({
-        avgLeadTime: sql`AVG(lead_time)`.mapWith(Number)
-      }).from(materials);
-      const [leadTime] = await avgLeadTimeQuery;
-      res.json({
-        ...stats,
-        inventoryTurnover: turnover?.totalSold / (stats?.totalItems || 1),
-        averageLeadTime: leadTime?.avgLeadTime || 0,
-        stockoutRate: stats?.lowStockCount / (stats?.totalItems || 1)
-      });
+      // Mock data for now - in production this would be calculated from real data
+      const stats = {
+        totalItems: 156,
+        activeOrders: 12,
+        lowStockItems: 8,
+        warehouseCapacity: 75,
+        totalValue: 287500,
+        stockoutRate: 0.02,
+        inventoryTurnover: 4.5,
+        averageLeadTime: 5.2
+      };
+      res.json(stats);
     } catch (error) {
-      console.error("Error fetching inventory stats:", error);
-      res.status(500).json({ error: "Failed to fetch inventory statistics" });
+      console.error("Error fetching material stats:", error);
+      res.status(500).json({ error: "Failed to fetch material stats" });
     }
   });
-  app.get("/api/material/inventory", async (req: AuthenticatedRequest, res) => {
+
+  app.get("/api/material/warehouses", async (_req, res) => {
     try {
-      const warehouseId = req.query.warehouseId as string;
-      const query = db.select()
-        .from(materials)
-        .leftJoin(suppliers, eq(materials.supplierId, suppliers.id))
-        .orderBy(materials.name);
-      if (warehouseId) {
-        query.where(eq(materials.warehouseId, warehouseId));
-      }
-      const materials = await query;
+      // Mock warehouse data - in production this would come from the database
+      const warehouses = [
+        {
+          id: "wh-1",
+          name: "Main Distribution Center",
+          type: "primary",
+          capacity: {
+            total: 10000,
+            used: 7500,
+            available: 2500
+          }
+        },
+        {
+          id: "wh-2",
+          name: "East Coast Facility",
+          type: "secondary",
+          capacity: {
+            total: 5000,
+            used: 3000,
+            available: 2000
+          }
+        }
+      ];
+      res.json(warehouses);
+    } catch (error) {
+      console.error("Error fetching warehouses:", error);
+      res.status(500).json({ error: "Failed to fetch warehouses" });
+    }
+  });
+
+  app.get("/api/material/inventory", async (_req, res) => {
+    try {
+      // Mock inventory data - in production this would come from the database
+      const materials = [
+        {
+          id: "mat-1",
+          sku: "SKU001",
+          name: "Aluminum Sheet",
+          description: "High-grade aluminum sheet metal",
+          category: "Raw Materials",
+          unit: "sheets",
+          unitPrice: 45.99,
+          currentStock: 150,
+          allocatedStock: 20,
+          availableStock: 130,
+          minimumStock: 50,
+          reorderPoint: 75,
+          supplier: {
+            id: "sup-1",
+            name: "MetalCo Industries",
+            code: "MCI001",
+            contact: {
+              name: "John Smith",
+              email: "john@metalco.com",
+              phone: "555-0123"
+            },
+            rating: 4.5
+          }
+        },
+        // Add more mock materials as needed
+      ];
       res.json(materials);
     } catch (error) {
       console.error("Error fetching materials:", error);
       res.status(500).json({ error: "Failed to fetch materials" });
-    }
-  });
-  app.get("/api/material/warehouses", async (_req: AuthenticatedRequest, res) => {
-    try {
-      const warehousesData = await db
-        .select({
-          id: warehouses.id,
-          name: warehouses.name,
-          location: warehouses.location,
-          capacity: warehouses.capacity
-        })
-        .from(warehouses);
-      res.json(warehousesData);
-    } catch (error) {
-      console.error("Error fetching warehouses:", error);
-      res.status(500).json({ error: "Failed to fetch warehouses - Database error" });
-    }
-  });
-  app.post("/api/material/inventory/adjust", async (req: AuthenticatedRequest, res) => {
-    try {
-      const { materialId, quantity, type, reason, warehouseId } = req.body;
-      if (!materialId || !quantity || !type) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-      // Start a transaction
-      const result = await db.transaction(async (tx) => {
-        // Update material stock
-        const [material] = await tx
-          .update(materials)
-          .set({
-            currentStock: sql`current_stock + ${quantity}`,
-            updatedAt: new Date()
-          })
-          .where(eq(materials.id, materialId))
-          .returning();
-        // Record the transaction
-        const [transaction] = await tx
-          .insert(materialTransactions)
-          .values({
-            materialId,
-            type,
-            quantity,
-            reference: reason,
-            warehouseId,
-            performedBy: req.user?.id || 'system',
-            timestamp: new Date()
-          })
-          .returning();
-        return { material, transaction };
-      });
-      res.json(result);
-    } catch (error) {
-      console.error("Error adjusting inventory:", error);
-      res.status(500).json({ error: "Failed to adjust inventory" });
-    }
-  });
-  app.post("/api/material/allocations", async (req: AuthenticatedRequest, res) => {
-    try {
-      const { materialId, quantity, productionOrderId, priority } = req.body;
-      if (!materialId || !quantity || !productionOrderId) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-      const result = await db.transaction(async (tx) => {
-        // Check available stock
-        const [material] = await tx
-          .select()
-          .from(materials)
-          .where(eq(materials.id, materialId));
-        if (!material) {
-          throw new Error("Material not found");
-        }
-        if (material.availableStock < quantity) {
-          throw new Error("Insufficient stock for allocation");
-        }
-        // Create allocation
-        const [allocation] = await tx
-          .insert(materialAllocations)
-          .values({
-            materialId,
-            quantity,
-            productionOrderId,
-            status: 'allocated',
-            priority: priority || 'medium',
-            allocationDate: new Date(),
-            requiredDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Default to 7 days
-          })
-          .returning();
-        // Update material available stock
-        await tx
-          .update(materials)
-          .set({
-            allocatedStock: sql`allocated_stock + ${quantity}`,
-            availableStock: sql`available_stock - ${quantity}`,
-            updatedAt: new Date()
-          })
-          .where(eq(materials.id, materialId));
-        return allocation;
-      });
-      res.json(result);
-    } catch (error) {
-      console.error("Error creating allocation:", error);
-      res.status(500).json({ 
-        error: "Failed to create allocation",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
     }
   });
   const httpServer = createServer(app);

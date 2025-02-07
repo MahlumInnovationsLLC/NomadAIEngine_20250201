@@ -1,3 +1,15 @@
+// Add MaterialStats interface to the existing types
+export interface MaterialStats {
+  totalItems: number;
+  activeOrders: number;
+  lowStockItems: number;
+  warehouseCapacity: number;
+  totalValue: number;
+  stockoutRate: number;
+  inventoryTurnover: number;
+  averageLeadTime: number;
+}
+
 // Material and Inventory Types
 export interface Material {
   id: string;
