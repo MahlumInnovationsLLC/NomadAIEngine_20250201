@@ -41,6 +41,7 @@ import {
   faPenToSquare as falPenToSquare,
   faTrashCan as falTrashCan,
 } from '@fortawesome/pro-light-svg-icons';
+import { differenceInDays } from 'date-fns';
 
 interface SortConfig {
   key: keyof Finding;
@@ -73,6 +74,19 @@ export default function FindingsList() {
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
+  };
+
+  const getDaysUntilDue = (dueDate: string | undefined) => {
+    if (!dueDate) return null;
+    const days = differenceInDays(new Date(dueDate), new Date());
+    return days;
+  };
+
+  const getDueDateColor = (days: number | null) => {
+    if (days === null) return 'text-muted-foreground';
+    if (days < 0) return 'text-red-500';
+    if (days <= 7) return 'text-yellow-500';
+    return 'text-green-500';
   };
 
   const filteredAndSortedFindings = findings
@@ -268,6 +282,17 @@ export default function FindingsList() {
             </TableHead>
             <TableHead
               className="cursor-pointer"
+              onClick={() => handleSort('priority')}
+            >
+              Severity {sortConfig.key === 'priority' && (
+                <FontAwesomeIcon
+                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
+                  className="ml-2 h-4 w-4"
+                />
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer"
               onClick={() => handleSort('department')}
             >
               Department {sortConfig.key === 'department' && (
@@ -291,73 +316,95 @@ export default function FindingsList() {
             </TableHead>
             <TableHead
               className="cursor-pointer"
-              onClick={() => handleSort('createdAt')}
+              onClick={() => handleSort('dueDate')}
             >
-              Created {sortConfig.key === 'createdAt' && (
+              Due Date {sortConfig.key === 'dueDate' && (
                 <FontAwesomeIcon
                   icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
                   className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
+            <TableHead>Days Left</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredAndSortedFindings.map((finding) => (
-            <TableRow key={finding.id}>
-              <TableCell>{finding.id}</TableCell>
-              <TableCell>
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  finding.type === 'major' ? 'bg-red-100 text-red-800' :
-                    finding.type === 'minor' ? 'bg-yellow-100 text-yellow-800' :
-                      finding.type === 'observation' ? 'bg-blue-100 text-blue-800' :
+          {filteredAndSortedFindings.map((finding) => {
+            const daysUntilDue = getDaysUntilDue(finding.dueDate);
+            const dueDateColor = getDueDateColor(daysUntilDue);
+
+            return (
+              <TableRow key={finding.id}>
+                <TableCell>{finding.id}</TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    finding.type === 'major' ? 'bg-red-100 text-red-800' :
+                      finding.type === 'minor' ? 'bg-yellow-100 text-yellow-800' :
+                        finding.type === 'observation' ? 'bg-blue-100 text-blue-800' :
+                          'bg-green-100 text-green-800'
+                  }`}>
+                    {finding.type.charAt(0).toUpperCase() + finding.type.slice(1)}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    finding.priority === 'high' ? 'bg-red-100 text-red-800' :
+                      finding.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-blue-100 text-blue-800'
+                  }`}>
+                    {finding.priority.charAt(0).toUpperCase() + finding.priority.slice(1)}
+                  </span>
+                </TableCell>
+                <TableCell>{finding.department}</TableCell>
+                <TableCell className="max-w-md truncate">{finding.description}</TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    finding.status === 'open' ? 'bg-red-100 text-red-800' :
+                      finding.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
                         'bg-green-100 text-green-800'
-                }`}>
-                  {finding.type.charAt(0).toUpperCase() + finding.type.slice(1)}
-                </span>
-              </TableCell>
-              <TableCell>{finding.department}</TableCell>
-              <TableCell className="max-w-md truncate">{finding.description}</TableCell>
-              <TableCell>
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  finding.status === 'open' ? 'bg-red-100 text-red-800' :
-                    finding.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
-                }`}>
-                  {finding.status.replace('_', ' ').charAt(0).toUpperCase() + finding.status.slice(1)}
-                </span>
-              </TableCell>
-              <TableCell>{new Date(finding.createdAt).toLocaleDateString()}</TableCell>
-              <TableCell>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedFinding(finding);
-                      setShowEditDialog(true);
-                    }}
-                  >
-                    <FontAwesomeIcon icon={falPenToSquare} className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedFinding(finding);
-                      setShowDeleteDialog(true);
-                    }}
-                  >
-                    <FontAwesomeIcon icon={falTrashCan} className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                  }`}>
+                    {finding.status.replace('_', ' ').charAt(0).toUpperCase() + finding.status.slice(1)}
+                  </span>
+                </TableCell>
+                <TableCell>{finding.dueDate ? new Date(finding.dueDate).toLocaleDateString() : 'Not set'}</TableCell>
+                <TableCell className={dueDateColor}>
+                  {daysUntilDue === null ? '-' : 
+                    daysUntilDue < 0 ? `${Math.abs(daysUntilDue)} days overdue` :
+                      daysUntilDue === 0 ? 'Due today' :
+                        `${daysUntilDue} days left`
+                  }
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFinding(finding);
+                        setShowEditDialog(true);
+                      }}
+                    >
+                      <FontAwesomeIcon icon={falPenToSquare} className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFinding(finding);
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      <FontAwesomeIcon icon={falTrashCan} className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
           {filteredAndSortedFindings.length === 0 && (
             <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground">
+              <TableCell colSpan={9} className="text-center text-muted-foreground">
                 No findings found
               </TableCell>
             </TableRow>
