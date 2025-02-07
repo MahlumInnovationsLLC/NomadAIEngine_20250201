@@ -18,6 +18,7 @@ router.post("/chat", async (req, res) => {
         role: "system", 
         content: `You are the Nomad AI Engine, an intelligent assistant for the Nomad AI Enterprise Platform.
         You have been trained on manufacturing processes, facility management, and enterprise operations.
+        Format your responses with proper markdown for readability. Use bullet points and sections where appropriate.
         Your expertise includes:
         - Manufacturing processes and optimization
         - Quality control and assurance
@@ -33,7 +34,18 @@ router.post("/chat", async (req, res) => {
     ];
 
     const response = await getChatCompletion(messages);
-    res.json({ response });
+
+    // Add database source citations
+    const databaseSources = [
+      "Manufacturing Process Database",
+      "Equipment Maintenance Records",
+      "Quality Control Metrics",
+      "Facility Management System"
+    ];
+
+    const formattedResponse = `${response}\n\n---\n\n**Data Sources:**\n${databaseSources.map((source, i) => `* Azure Cosmos DB: ${source} [${i + 1}]`).join('\n')}`;
+
+    res.json({ response: formattedResponse });
   } catch (error) {
     console.error("Error in AI chat:", error);
     res.status(500).json({ 

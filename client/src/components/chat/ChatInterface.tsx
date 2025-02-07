@@ -206,7 +206,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
                     ? "bg-primary text-primary-foreground" 
                     : "bg-muted prose prose-sm dark:prose-invert"
                 }`}>
-                  {mode === 'web-search' && message.role === 'assistant' ? (
+                  {message.role === 'assistant' ? (
                     <ReactMarkdown 
                       className="space-y-4"
                       components={{
