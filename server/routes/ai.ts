@@ -52,6 +52,7 @@ router.post("/web-search", async (req, res) => {
       return res.status(400).json({ error: "Message is required" });
     }
 
+    // Ensure proper message ordering for Perplexity API
     const messages = [
       { 
         role: "system", 
@@ -59,10 +60,25 @@ router.post("/web-search", async (req, res) => {
         Provide factual, up-to-date information based on web sources.
         Focus on manufacturing, industrial processes, facility management, and enterprise operations.
         Cite your sources when providing information.` 
-      },
-      ...(history?.filter(msg => ["user", "assistant"].includes(msg.role)) || []),
-      { role: "user", content: message }
+      }
     ];
+
+    // Add history messages ensuring alternating pattern
+    if (history && Array.isArray(history)) {
+      const filteredHistory = history.filter(msg => 
+        msg.role === "user" || msg.role === "assistant"
+      );
+
+      // Ensure alternating pattern
+      for (let i = 0; i < filteredHistory.length; i++) {
+        if (i === 0 && filteredHistory[i].role !== "user") continue;
+        if (i > 0 && filteredHistory[i].role === filteredHistory[i-1].role) continue;
+        messages.push(filteredHistory[i]);
+      }
+    }
+
+    // Add the new user message
+    messages.push({ role: "user", content: message });
 
     const { response, citations } = await getWebSearchCompletion(messages);
     res.json({ 

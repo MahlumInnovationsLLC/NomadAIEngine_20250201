@@ -25,6 +25,29 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const { toast } = useToast();
   const { messages, addMessages, clearMessages } = useChatHistory(chatId);
 
+  const getFormattedHistory = () => {
+    // Filter out system messages and ensure alternating pattern
+    const history: Message[] = [];
+    const chatMessages = messages.filter(msg => msg.role !== "system");
+
+    for (let i = 0; i < chatMessages.length; i++) {
+      const currentMsg = chatMessages[i];
+      const prevMsg = history[history.length - 1];
+
+      // Skip if this would create two consecutive messages with the same role
+      if (prevMsg && prevMsg.role === currentMsg.role) continue;
+
+      // Only add if it maintains the alternating pattern
+      if (!prevMsg || 
+          (prevMsg.role === "user" && currentMsg.role === "assistant") ||
+          (prevMsg.role === "assistant" && currentMsg.role === "user")) {
+        history.push(currentMsg);
+      }
+    }
+
+    return history;
+  };
+
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       try {
@@ -35,6 +58,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         abortControllerRef.current = new AbortController();
 
         const endpoint = mode === 'web-search' ? '/api/ai/web-search' : '/api/ai/chat';
+        const history = getFormattedHistory();
+
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 
@@ -43,7 +68,7 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
           },
           body: JSON.stringify({ 
             message: content, 
-            history: messages.map(({ role, content }) => ({ role, content }))
+            history: history.map(({ role, content }) => ({ role, content }))
           }),
           signal: abortControllerRef.current.signal,
         });
