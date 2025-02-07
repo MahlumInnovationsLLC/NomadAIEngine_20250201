@@ -1,13 +1,12 @@
+
 import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card"; // Added from original
+import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { Equipment, FloorPlan } from "@db/schema"; //This line might need adjustment depending on usage
-import FacilityDashboard from "@/components/facility/FacilityDashboard";
+import { Equipment, FloorPlan } from "@db/schema";
+import { LoadingSpinner } from "@/components/ui/skeleton-loader";
 
-// Lazy load components (from original)
+// Lazy load components
 const EquipmentList = lazy(() => import("@/components/facility/EquipmentList"));
 const FloorPlanView = lazy(() => import("@/components/facility/FloorPlanView"));
 const EquipmentUsagePrediction = lazy(() => import("@/components/facility/EquipmentUsagePrediction"));
@@ -17,24 +16,20 @@ const MaintenanceScheduler = lazy(() => import("@/components/facility/Maintenanc
 const MaintenanceTimeline = lazy(() => import("@/components/facility/MaintenanceTimeline"));
 const TroubleshootingGuide = lazy(() => import("@/components/facility/TroubleshootingGuide"));
 
-// Loading spinner component (from original)
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center p-4">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-  </div>
-);
-
 export default function FacilityControlPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  const { data: equipment = [] } = useQuery<Equipment[]>({ // Added from original
+  const { data: equipment = [], isLoading: isLoadingEquipment } = useQuery<Equipment[]>({
     queryKey: ['/api/equipment'],
   });
 
-  const { data: floorPlan } = useQuery<FloorPlan | null>({ // Added from original
+  const { data: floorPlan, isLoading: isLoadingFloorPlan } = useQuery<FloorPlan>({
     queryKey: ['/api/floor-plans/active'],
   });
 
+  if (isLoadingEquipment || isLoadingFloorPlan) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -55,25 +50,28 @@ export default function FacilityControlPage() {
 
         <TabsContent value="dashboard">
           <Suspense fallback={<LoadingSpinner />}>
-            <FacilityDashboard equipment={equipment} floorPlan={floorPlan} /> {/*Added props, assuming they are needed*/}
+            <Card className="p-6">
+              <EquipmentList equipment={equipment} />
+              <FloorPlanView floorPlan={floorPlan} equipment={equipment} />
+            </Card>
           </Suspense>
         </TabsContent>
 
         <TabsContent value="equipment">
           <Suspense fallback={<LoadingSpinner />}>
-            <div className="grid gap-6">
-              <EquipmentList equipment={equipment} /> {/*Added prop*/}
-              <FloorPlanView floorPlan={floorPlan} equipment={equipment} /> {/*Added props*/}
-            </div>
+            <Card className="p-6">
+              <EquipmentList equipment={equipment} />
+              <FloorPlanView floorPlan={floorPlan} equipment={equipment} />
+            </Card>
           </Suspense>
         </TabsContent>
 
         <TabsContent value="maintenance">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
-              <MaintenanceScheduler equipment={equipment} /> {/*Added prop*/}
-              <MaintenanceTimeline equipment={equipment} /> {/*Added prop*/}
-              <TroubleshootingGuide /> {/*This might need an equipment prop*/}
+              <MaintenanceScheduler equipment={equipment} />
+              <MaintenanceTimeline equipment={equipment} />
+              <TroubleshootingGuide equipment={equipment} />
             </div>
           </Suspense>
         </TabsContent>
@@ -81,9 +79,9 @@ export default function FacilityControlPage() {
         <TabsContent value="analytics">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
-              <EquipmentUsagePrediction /> {/*This might need an equipment prop*/}
-              <EquipmentComparisonDashboard /> {/*This might need an equipment prop*/}
-              <EquipmentPerformanceReport /> {/*This might need an equipment prop*/}
+              <EquipmentUsagePrediction equipment={equipment} />
+              <EquipmentComparisonDashboard equipment={equipment} />
+              <EquipmentPerformanceReport equipment={equipment} />
             </div>
           </Suspense>
         </TabsContent>
