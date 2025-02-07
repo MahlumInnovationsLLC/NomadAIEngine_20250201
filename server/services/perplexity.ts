@@ -14,6 +14,7 @@ export async function getWebSearchCompletion(messages: Message[]) {
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
+        'Accept': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
@@ -29,24 +30,29 @@ export async function getWebSearchCompletion(messages: Message[]) {
       })
     });
 
+    const responseData = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.error || `Perplexity API error: ${response.statusText}`);
+      console.error('Perplexity API Error Response:', responseData);
+      throw new Error(
+        responseData.error?.message || 
+        responseData.error || 
+        `Perplexity API error: ${response.statusText}`
+      );
     }
 
-    const data = await response.json();
-
-    if (!data?.choices?.[0]?.message?.content) {
+    if (!responseData?.choices?.[0]?.message?.content) {
+      console.error('Invalid Perplexity Response Format:', responseData);
       throw new Error('Invalid response format from Perplexity');
     }
 
     // Return both the content and citations if available
     return {
-      response: data.choices[0].message.content,
-      citations: data.citations || []
+      response: responseData.choices[0].message.content,
+      citations: responseData.citations || []
     };
   } catch (error) {
-    console.error("Perplexity API Error:", error);
+    console.error("Perplexity API Error Details:", error);
     throw error;
   }
 }
