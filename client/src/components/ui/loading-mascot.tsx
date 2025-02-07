@@ -28,7 +28,7 @@ export function LoadingMascot({
   return (
     <div className={cn("relative inline-block", sizeClasses[size], className)}>
       <img
-        src="/attached_assets/logo.png"
+        src="/assets/logo.png"
         alt="Loading indicator"
         className={cn(
           "w-full h-full object-contain",
