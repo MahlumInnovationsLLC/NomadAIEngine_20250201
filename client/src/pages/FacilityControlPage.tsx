@@ -4,7 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Equipment, FloorPlan } from "@db/schema";
-import { LoadingSpinner } from "@/components/ui/skeleton-loader";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center h-32">
+    <Skeleton className="h-12 w-12 rounded-full" />
+  </div>
+);
 
 // Lazy load components
 const EquipmentList = lazy(() => import("@/components/facility/EquipmentList"));
