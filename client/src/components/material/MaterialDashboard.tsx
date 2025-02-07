@@ -13,7 +13,11 @@ import { ForecastingAnalytics } from "./forecasting/ForecastingAnalytics";
 import { useQuery } from "@tanstack/react-query";
 import type { InventoryStats, SupplyChainMetrics } from "@/types/material";
 
-export default function MaterialDashboard() {
+interface MaterialDashboardProps {
+  hideStats?: boolean;
+}
+
+export default function MaterialDashboard({ hideStats = false }: MaterialDashboardProps) {
   const [selectedWarehouse, setSelectedWarehouse] = useState<string | null>(null);
 
   const { data: inventoryStats } = useQuery<InventoryStats>({
@@ -29,14 +33,14 @@ export default function MaterialDashboard() {
   return (
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
-          {/* Quick Stats Overview */}
+        {!hideStats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Inventory Value</p>
-                    <h3 className="text-2xl font-bold">${inventoryStats?.totalValue.toLocaleString()}</h3>
+                    <h3 className="text-2xl font-bold">${inventoryStats?.totalValue?.toLocaleString()}</h3>
                   </div>
                   <FontAwesomeIcon icon="boxes-stacked" className="h-8 w-8 text-muted-foreground" />
                 </div>
@@ -76,6 +80,7 @@ export default function MaterialDashboard() {
               </CardContent>
             </Card>
           </div>
+        )}
 
         <Tabs defaultValue="inventory" className="mt-8">
           <TabsList className="grid w-full grid-cols-6 mb-8">
