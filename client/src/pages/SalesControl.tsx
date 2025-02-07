@@ -13,11 +13,13 @@ function LoadingFallback() {
 export default function SalesControl() {
   return (
     <div className="container mx-auto">
-      <div className="p-8 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <h1 className="text-3xl font-bold mb-2">Sales Control</h1>
-        <p className="text-muted-foreground mb-4">
-          Manage sales pipelines, analytics, and customer relationships.
-        </p>
+      <div className="py-6 border-b">
+        <div className="container px-4">
+          <h1 className="text-3xl font-bold mb-2">Sales Control</h1>
+          <p className="text-muted-foreground">
+            Manage sales pipelines, analytics, and customer relationships.
+          </p>
+        </div>
       </div>
       <Suspense fallback={<LoadingFallback />}>
         <SalesControlDashboard />
