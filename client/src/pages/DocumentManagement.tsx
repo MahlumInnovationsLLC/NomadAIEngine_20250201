@@ -5,6 +5,8 @@ import { FileExplorer } from "@/components/document/FileExplorer";
 import { DocManage } from "@/components/document/DocManage";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
 import { useQuery } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrainingProgress } from "@/components/training/TrainingProgress";
 
 interface DocumentStats {
   totalDocuments: number;
@@ -13,12 +15,24 @@ interface DocumentStats {
   documentUpdates: number;
 }
 
+interface TrainingModule {
+  id: number;
+  title: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  progress: number;
+  dueDate: string;
+}
+
 export default function DocumentManagement() {
   const [selectedDocument, setSelectedDocument] = useState<number | null>(null);
 
   const { data: stats } = useQuery<DocumentStats>({
     queryKey: ['/api/documents/stats'],
     refetchInterval: 30000,
+  });
+
+  const { data: trainingModules } = useQuery<TrainingModule[]>({
+    queryKey: ['/api/training/modules'],
   });
 
   return (
@@ -77,26 +91,56 @@ export default function DocumentManagement() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Tabs */}
+          <Tabs defaultValue="documents" className="w-full mt-6">
+            <TabsList className="w-full justify-start border-b rounded-none pb-px">
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="training">Training</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div className="px-4 py-6">
-          <div className="grid grid-cols-[30%_70%] gap-6">
-            <Card className="h-[calc(100vh-16rem)]">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FontAwesomeIcon icon="file-lines" className="mr-2 h-5 w-5" />
-                  DocExplorer
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <FileExplorer onSelectDocument={(id) => setSelectedDocument(Number(id))} />
-              </CardContent>
-            </Card>
+          <TabsContent value="documents" className="mt-0">
+            <div className="grid grid-cols-[30%_70%] gap-6">
+              <Card className="h-[calc(100vh-16rem)]">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FontAwesomeIcon icon="file-lines" className="mr-2 h-5 w-5" />
+                    DocExplorer
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FileExplorer onSelectDocument={(id) => setSelectedDocument(Number(id))} />
+                </CardContent>
+              </Card>
 
-            <div className="h-[calc(100vh-16rem)]">
-              <DocManage documentId={selectedDocument} />
+              <div className="h-[calc(100vh-16rem)]">
+                <DocManage documentId={selectedDocument} />
+              </div>
             </div>
-          </div>
+          </TabsContent>
+
+          <TabsContent value="training" className="mt-0">
+            <div className="grid grid-cols-1 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FontAwesomeIcon icon="graduation-cap" className="mr-2 h-5 w-5" />
+                    Training Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {trainingModules ? (
+                    <TrainingProgress modules={trainingModules} />
+                  ) : (
+                    <p className="text-muted-foreground">No training modules available</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </div>
       </div>
     </AnimateTransition>

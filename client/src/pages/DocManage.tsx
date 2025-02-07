@@ -8,40 +8,87 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrainingProgress } from "@/components/training/TrainingProgress";
 import { useQuery } from "@tanstack/react-query";
 
-interface TrainingModule {
-  id: number;
-  title: string;
-  status: 'not_started' | 'in_progress' | 'completed';
-  progress: number;
-  dueDate: string;
+interface DocumentStats {
+  totalDocuments: number;
+  pendingReviews: number;
+  activeTrainings: number;
+  documentUpdates: number;
 }
 
 export default function DocManage() {
   const [, navigate] = useLocation();
-  const { data: trainingModules } = useQuery<TrainingModule[]>({
-    queryKey: ['/api/training/modules'],
+  const { data: stats } = useQuery<DocumentStats>({
+    queryKey: ['/api/documents/stats'],
+    refetchInterval: 30000,
   });
 
   return (
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
-        <div className="py-6 border-b bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/40">
-          <div className="px-4">
-            <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
-            <p className="text-muted-foreground">
-              Manage your documents and track training progress in one centralized platform
-            </p>
-            <Tabs defaultValue="documents" className="mt-6">
-              <TabsList>
-                <TabsTrigger value="documents">Documents</TabsTrigger>
-                <TabsTrigger value="training">Training</TabsTrigger>
-              </TabsList>
-            </Tabs>
+        <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <h1 className="text-3xl font-bold mb-4">Document Training & Control</h1>
+          <p className="text-muted-foreground mb-4">
+            Manage, review, and approve documents with advanced training and workflow control
+          </p>
+
+          {/* Quick Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Documents</p>
+                    <h3 className="text-2xl font-bold">{stats?.totalDocuments || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="file-lines" className="h-8 w-8 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Pending Reviews</p>
+                    <h3 className="text-2xl font-bold">{stats?.pendingReviews || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="clock" className="h-8 w-8 text-yellow-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Active Trainings</p>
+                    <h3 className="text-2xl font-bold">{stats?.activeTrainings || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="graduation-cap" className="h-8 w-8 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Recent Updates</p>
+                    <h3 className="text-2xl font-bold">{stats?.documentUpdates || 0}</h3>
+                  </div>
+                  <FontAwesomeIcon icon="refresh" className="h-8 w-8 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          <Tabs defaultValue="documents" className="w-full mt-6">
+            <TabsList className="w-full justify-start border-b rounded-none pb-px">
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="training">Training</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 px-4">
-          <TabsContent value="documents">
+        <div className="px-4 py-6">
+          <TabsContent value="documents" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="group hover:shadow-lg transition-all">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -64,7 +111,7 @@ export default function DocManage() {
               </CardContent>
             </Card>
 
-            <Card className="mt-6 group hover:shadow-lg transition-all">
+            <Card className="group hover:shadow-lg transition-all">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FontAwesomeIcon icon="folder-tree" className="h-5 w-5" />
@@ -87,37 +134,30 @@ export default function DocManage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="training">
+          <TabsContent value="training" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="group hover:shadow-lg transition-all">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FontAwesomeIcon icon="graduation-cap" className="h-5 w-5" />
-                  Training Progress
+                  Training Modules
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-6">
-                  Track your training progress, complete modules, and earn certifications.
-                  Stay up-to-date with your learning journey.
+                  Access and complete training modules. Track your progress and stay
+                  up-to-date with required training materials.
                 </p>
-                {trainingModules ? (
-                  <div className="mb-6">
-                    <TrainingProgress modules={trainingModules} />
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground mb-6">Loading training modules...</p>
-                )}
                 <Button 
                   className="w-full flex items-center justify-between"
                   onClick={() => navigate("/docmanage/training")}
                 >
-                  View All Training Modules
+                  View Training Modules
                   <FontAwesomeIcon icon="chevron-right" className="h-4 w-4 ml-2" />
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="mt-6 group hover:shadow-lg transition-all">
+            <Card className="group hover:shadow-lg transition-all">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FontAwesomeIcon icon="certificate" className="h-5 w-5" />
