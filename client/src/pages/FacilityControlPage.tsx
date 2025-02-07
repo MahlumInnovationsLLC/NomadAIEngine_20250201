@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Equipment, FloorPlan } from "@db/schema";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 // Loading spinner component
 const LoadingSpinner = () => (
@@ -12,7 +13,7 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Lazy load maintenance-focused components
+// Lazy load components
 const EquipmentDashboard = lazy(() => import("@/components/facility/manufacturing/EquipmentDashboard"));
 const MaintenanceScheduler = lazy(() => import("@/components/facility/manufacturing/MaintenanceScheduler"));
 const AssetLifecycleManager = lazy(() => import("@/components/facility/manufacturing/AssetLifecycleManager"));
@@ -21,9 +22,11 @@ const MaintenanceRequestManager = lazy(() => import("@/components/facility/maint
 const MaintenanceProcedureLibrary = lazy(() => import("@/components/facility/maintenance/MaintenanceProcedureLibrary"));
 const PartsInventoryManager = lazy(() => import("@/components/facility/maintenance/PartsInventoryManager"));
 const MaintenanceMetricsDashboard = lazy(() => import("@/components/facility/maintenance/MaintenanceMetricsDashboard"));
+const AssetViewer3D = lazy(() => import("@/components/facility/asset-visualization/AssetViewer3D"));
 
 export default function FacilityControlPage() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
 
   const { data: equipment = [], isLoading: isLoadingEquipment } = useQuery<Equipment[]>({
     queryKey: ['/api/equipment'],
@@ -47,7 +50,7 @@ export default function FacilityControlPage() {
       </div>
 
       <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8 lg:w-[1200px]">
+        <TabsList className="grid w-full grid-cols-9 lg:w-[1200px]">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
@@ -55,6 +58,7 @@ export default function FacilityControlPage() {
           <TabsTrigger value="procedures">Procedures</TabsTrigger>
           <TabsTrigger value="inventory">Parts</TabsTrigger>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
+          <TabsTrigger value="3d-view">3D View</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
 
@@ -110,6 +114,35 @@ export default function FacilityControlPage() {
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
               <MaintenanceMetricsDashboard />
+            </div>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="3d-view">
+          <Suspense fallback={<LoadingSpinner />}>
+            <div className="grid gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <AssetViewer3D equipment={selectedEquipment || undefined} />
+                </div>
+                <div>
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Equipment List</h3>
+                    <div className="space-y-2">
+                      {equipment.map((eq) => (
+                        <Button
+                          key={eq.id}
+                          variant={selectedEquipment?.id === eq.id ? "default" : "outline"}
+                          className="w-full justify-start"
+                          onClick={() => setSelectedEquipment(eq)}
+                        >
+                          {eq.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </Card>
+                </div>
+              </div>
             </div>
           </Suspense>
         </TabsContent>
