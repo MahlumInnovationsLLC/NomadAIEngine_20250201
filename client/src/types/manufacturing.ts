@@ -707,6 +707,8 @@ export interface AuditTemplate {
       text: string;
       guidance: string;
       evidenceRequired: string[];
+      findingTypes?: ('observation' | 'minor' | 'major' | 'opportunity')[]; // Added finding types
+      requiredFindings?: boolean; // Indicates if findings are required for this requirement
     }[];
   }[];
   createdBy: string;
@@ -734,4 +736,27 @@ export interface Finding {
     author: string;
     timestamp: string;
   }[];
+}
+
+export interface FindingTemplate {
+  id: string;
+  name: string;
+  description: string;
+  fields: {
+    id: string;
+    label: string;
+    type: 'text' | 'select' | 'date' | 'textarea';
+    required: boolean;
+    options?: string[];
+    validation?: {
+      min?: number;
+      max?: number;
+      pattern?: string;
+    };
+  }[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  isActive: boolean;
 }

@@ -85,6 +85,55 @@ router.put('/findings/:id', async (req, res) => {
   }
 });
 
+// Add create finding endpoint
+router.post('/findings', async (req, res) => {
+  try {
+    const finding = {
+      ...req.body,
+      id: `finding-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: 'open'
+    };
+
+    // If auditId is provided, add to existing audit
+    if (finding.auditId) {
+      const { resources: [audit] } = await container.items
+        .query({
+          query: "SELECT * FROM c WHERE c.type = 'audit' AND c.id = @auditId",
+          parameters: [{ name: "@auditId", value: finding.auditId }]
+        })
+        .fetchAll();
+
+      if (!audit) {
+        return res.status(404).json({ error: 'Audit not found' });
+      }
+
+      // Add finding to audit
+      audit.findings = audit.findings || [];
+      audit.findings.push(finding);
+
+      // Update audit document
+      const { resource: updatedAudit } = await container.item(audit.id).replace(audit);
+      res.json(finding);
+    } else {
+      // Create standalone finding
+      const { resource } = await container.items.create({
+        type: 'finding',
+        ...finding
+      });
+      res.json(resource);
+    }
+  } catch (error) {
+    console.error('Error creating finding:', error);
+    res.status(500).json({
+      error: 'Failed to create finding',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+
 // Get audit trends data
 router.get('/trends', async (req, res) => {
   try {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { CreateFindingDialog } from "./dialogs/CreateFindingDialog";
 import {
   Table,
   TableBody,
@@ -25,11 +26,12 @@ interface SortConfig {
 }
 
 export default function FindingsList() {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'createdAt', direction: 'desc' });
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
-  const { data: findings, isLoading } = useQuery<Finding[]>({
+  const { data: findings, isLoading, refetch } = useQuery<Finding[]>({
     queryKey: ['/api/manufacturing/quality/audits/findings'],
   });
 
@@ -99,10 +101,16 @@ export default function FindingsList() {
           </DropdownMenu>
         </div>
 
-        <Button variant="outline" onClick={() => window.print()}>
-          <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
-          Export
-        </Button>
+        <div className="space-x-2">
+          <Button variant="outline" onClick={() => window.print()}>
+            <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            New Finding
+          </Button>
+        </div>
       </div>
 
       <Table>
@@ -202,6 +210,34 @@ export default function FindingsList() {
           ))}
         </TableBody>
       </Table>
+
+      {showCreateDialog && (
+        <CreateFindingDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onSubmit={async (data) => {
+            try {
+              const response = await fetch('/api/manufacturing/quality/audits/findings', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+              });
+
+              if (!response.ok) {
+                throw new Error(`Failed to create finding: ${response.statusText}`);
+              }
+
+              await refetch();
+              setShowCreateDialog(false);
+            } catch (error) {
+              console.error('Error creating finding:', error);
+              throw error;
+            }
+          }}
+        />
+      )}
     </Card>
   );
 }
