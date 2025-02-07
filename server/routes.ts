@@ -7,7 +7,6 @@ import { CosmosClient } from "@azure/cosmos";
 import { 
   buildingSystems,
   notifications,
-  warehouses,
   userNotifications,
   facilityNotifications,
   documents,
