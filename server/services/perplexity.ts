@@ -19,7 +19,7 @@ export async function getWebSearchCompletion(messages: Message[]) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "sonar-medium-online",
+        model: "llama-3.1-sonar-small-128k-online",
         messages,
         temperature: 0.2,
         top_p: 0.9,
