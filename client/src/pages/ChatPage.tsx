@@ -30,11 +30,13 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="p-8 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <h1 className="text-3xl font-bold mb-2">Chat Interface</h1>
-        <p className="text-muted-foreground mb-4">
-          Engage in conversations and manage your chat history.
-        </p>
+      <div className="py-6 border-b">
+        <div className="container px-4">
+          <h1 className="text-3xl font-bold mb-2">Chat Interface</h1>
+          <p className="text-muted-foreground">
+            Engage in conversations and manage your chat history.
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-1">
