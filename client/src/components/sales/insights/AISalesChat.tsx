@@ -30,7 +30,7 @@ export function AISalesChat() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/ai/chat", {
+      const response = await fetch("/api/ai/sales-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage.content, history: messages })
@@ -96,7 +96,7 @@ export function AISalesChat() {
     <Card className="flex flex-col h-[500px]">
       <CardHeader className="border-b">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <FontAwesomeIcon icon="robot" className="text-primary h-5 w-5" />
+          <FontAwesomeIcon icon={["fal", "robot"]} className="text-primary h-5 w-5" />
           Sales AI Assistant
         </CardTitle>
       </CardHeader>
