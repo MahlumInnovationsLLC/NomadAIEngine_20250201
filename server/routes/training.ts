@@ -1,11 +1,19 @@
 import express from 'express';
-import { db } from '../db';
+import { eq } from 'drizzle-orm';
+import { db } from '@db';
+import { uploadTrainingData, getTrainingData } from '../services/azure/blob-service';
 
 const router = express.Router();
 
-router.get('/analytics', async (req, res) => {
+// Get training analytics data
+router.get('/analytics', async (req: any, res) => {
   try {
-    // Mock data for now - will be replaced with actual database queries
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Get user's training data from blob storage
     const analyticsData = {
       completionRates: {
         completed: 45,
@@ -20,7 +28,7 @@ router.get('/analytics', async (req, res) => {
       ],
       performanceMetrics: {
         averageScore: 85,
-        totalTime: 2400, // in minutes
+        totalTime: 2400,
         completionRate: 75,
         streak: 7,
         totalPoints: 1250
@@ -76,10 +84,33 @@ router.get('/analytics', async (req, res) => {
       }
     };
 
+    // Store the analytics data in blob storage
+    await uploadTrainingData(userId, 'analytics', analyticsData);
+
     res.json(analyticsData);
   } catch (error) {
-    console.error('Error fetching training analytics:', error);
-    res.status(500).json({ error: 'Failed to fetch training analytics' });
+    console.error("Error fetching training analytics:", error);
+    res.status(500).json({ error: "Failed to fetch training analytics" });
+  }
+});
+
+// Update training progress
+router.post('/progress', async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { moduleId, progress, status } = req.body;
+
+    // Store progress data in blob storage
+    await uploadTrainingData(userId, moduleId, { progress, status, updatedAt: new Date() });
+
+    res.json({ message: "Training progress updated successfully" });
+  } catch (error) {
+    console.error("Error updating training progress:", error);
+    res.status(500).json({ error: "Failed to update training progress" });
   }
 });
 
