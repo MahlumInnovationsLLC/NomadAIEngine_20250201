@@ -1,13 +1,13 @@
 import { useState, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Sphere, Box } from "@react-three/drei";
+import { OrbitControls, Sphere } from "@react-three/drei";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import * as THREE from "three";
 
-interface MaterialPreviewProps {
+export interface MaterialPreviewProps {
   onSelect?: (material: MaterialPreset) => void;
 }
 
@@ -93,24 +93,12 @@ const materialPresets: MaterialPreset[] = [
       opacity: 1,
       transparent: false
     }
-  },
-  {
-    id: 'red-brick',
-    name: 'Red Brick',
-    type: 'brick',
-    properties: {
-      color: '#8b0000',
-      metalness: 0,
-      roughness: 0.9,
-      opacity: 1,
-      transparent: false
-    }
   }
 ];
 
 function MaterialPreviewScene({ material }: { material: MaterialPreset }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  
+
   return (
     <Canvas shadows camera={{ position: [0, 0, 4] }}>
       <ambientLight intensity={0.5} />
@@ -131,7 +119,7 @@ function MaterialPreviewScene({ material }: { material: MaterialPreset }) {
   );
 }
 
-export default function MaterialPreviewLibrary({ onSelect }: MaterialPreviewProps) {
+export function MaterialPreviewLibrary({ onSelect }: MaterialPreviewProps) {
   const [selectedType, setSelectedType] = useState<MaterialPreset['type'] | 'all'>('all');
   const [hoveredMaterial, setHoveredMaterial] = useState<string | null>(null);
 
@@ -145,7 +133,7 @@ export default function MaterialPreviewLibrary({ onSelect }: MaterialPreviewProp
         <CardTitle className="flex justify-between items-center">
           <span>Material Library</span>
           <div className="flex gap-2">
-            {(['all', 'metal', 'wood', 'glass', 'concrete', 'brick'] as const).map((type) => (
+            {(['all', 'metal', 'wood', 'glass', 'concrete'] as const).map((type) => (
               <Button
                 key={type}
                 variant={selectedType === type ? 'default' : 'outline'}

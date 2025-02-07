@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { MaterialPreviewLibrary } from "./MaterialPreviewLibrary";
 import * as THREE from "three";
 
 interface BuildingEditorProps {
