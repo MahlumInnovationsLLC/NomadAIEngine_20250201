@@ -1,17 +1,17 @@
+
 import { Suspense, lazy } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Equipment } from "@db/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Lazy load the heavy chart components
 const ComparisonChart = lazy(() => import("./charts/ComparisonChart"));
 
 interface EquipmentComparisonDashboardProps {
-  selectedEquipment: Equipment[];
+  selectedEquipment?: Equipment[];
 }
 
-export default function EquipmentComparisonDashboard({ selectedEquipment }: EquipmentComparisonDashboardProps) {
-  if (selectedEquipment.length === 0) {
+export default function EquipmentComparisonDashboard({ selectedEquipment = [] }: EquipmentComparisonDashboardProps) {
+  if (!selectedEquipment || selectedEquipment.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -36,14 +36,14 @@ export default function EquipmentComparisonDashboard({ selectedEquipment }: Equi
       metric: "Usage Rate",
       ...selectedEquipment.reduce((acc, eq) => ({
         ...acc,
-        [eq.name]: Math.round(Math.random() * 100) // Replace with actual usage rate
+        [eq.name]: Math.round(Math.random() * 100)
       }), {})
     },
     {
       metric: "Maintenance Score",
       ...selectedEquipment.reduce((acc, eq) => ({
         ...acc,
-        [eq.name]: eq.maintenanceScore || Math.round(Math.random() * 100) // Replace with actual maintenance score
+        [eq.name]: eq.maintenanceScore || Math.round(Math.random() * 100)
       }), {})
     }
   ];
