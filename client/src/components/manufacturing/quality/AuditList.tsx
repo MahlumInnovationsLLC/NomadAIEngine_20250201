@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,19 +16,21 @@ export default function AuditList({ audits, type = 'upcoming' }: AuditListProps)
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
+              <TableHead>Audit Number</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Standard</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Auditor</TableHead>
+              <TableHead>Lead Auditor</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {audits.map((audit) => (
               <TableRow key={audit.id}>
-                <TableCell>{audit.title}</TableCell>
+                <TableCell>{audit.auditNumber}</TableCell>
+                <TableCell>{audit.type}</TableCell>
                 <TableCell>{audit.standard}</TableCell>
-                <TableCell>{new Date(audit.date).toLocaleDateString()}</TableCell>
+                <TableCell>{new Date(audit.scheduledDate).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <Badge 
                     variant={
@@ -41,12 +42,12 @@ export default function AuditList({ audits, type = 'upcoming' }: AuditListProps)
                     {audit.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{audit.auditor}</TableCell>
+                <TableCell>{audit.leadAuditor}</TableCell>
               </TableRow>
             ))}
             {audits.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   No {type} audits found
                 </TableCell>
               </TableRow>
