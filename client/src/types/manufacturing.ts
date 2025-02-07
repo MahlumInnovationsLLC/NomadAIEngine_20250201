@@ -713,3 +713,25 @@ export interface AuditTemplate {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Finding {
+  id: string;
+  type: 'observation' | 'minor' | 'major' | 'opportunity';
+  description: string;
+  department: string;
+  status: 'open' | 'in_progress' | 'closed';
+  createdAt: string;
+  updatedAt: string;
+  auditId?: string;
+  assignedTo?: string;
+  priority: 'low' | 'medium' | 'high';
+  dueDate?: string;
+  resolution?: string;
+  attachments?: string[];
+  comments?: {
+    id: string;
+    content: string;
+    author: string;
+    timestamp: string;
+  }[];
+}
