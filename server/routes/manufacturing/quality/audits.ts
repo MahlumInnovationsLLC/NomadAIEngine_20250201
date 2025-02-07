@@ -15,28 +15,41 @@ const container = database.container('quality-management');
 // Get next finding number
 async function getNextFindingNumber(): Promise<number> {
   try {
-    const { resources: [counter] } = await container.items
+    console.log('Getting next finding number...');
+    const counterId = 'findings-counter';
+
+    // Try to get the counter document
+    const { resources: counters } = await container.items
       .query({
-        query: "SELECT * FROM c WHERE c.type = 'counter' AND c.name = 'findings'"
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: counterId }]
       })
       .fetchAll();
 
-    if (!counter) {
+    if (counters.length === 0) {
+      console.log('Counter not found, creating new counter...');
       // Create counter if it doesn't exist
       const newCounter = {
-        id: 'findings-counter',
+        id: counterId,
         type: 'counter',
         name: 'findings',
         value: 1
       };
-      await container.items.create(newCounter);
+
+      const { resource: createdCounter } = await container.items.create(newCounter);
+      console.log('Created new counter:', createdCounter);
       return 1;
     }
 
+    const counter = counters[0];
+    console.log('Found existing counter:', counter);
+
     // Increment counter
     counter.value += 1;
-    await container.item(counter.id).replace(counter);
-    return counter.value;
+    const { resource: updatedCounter } = await container.item(counterId, counterId).replace(counter);
+    console.log('Updated counter:', updatedCounter);
+
+    return updatedCounter.value;
   } catch (error) {
     console.error('Error getting next finding number:', error);
     throw error;
@@ -57,29 +70,33 @@ const departmentAbbreviations: Record<string, string> = {
 // Add create finding endpoint
 router.post('/findings', async (req, res) => {
   try {
+    console.log('Creating new finding with data:', req.body);
+
     const findingNumber = await getNextFindingNumber();
+    console.log('Got finding number:', findingNumber);
+
     const deptAbbr = departmentAbbreviations[req.body.department] || 'OT'; // OT for Other
     const findingId = `FND-${String(findingNumber).padStart(3, '0')}-${deptAbbr}`;
 
-    console.log('Creating finding with ID:', findingId);
+    console.log('Generated finding ID:', findingId);
 
     const finding = {
-      ...req.body,
       id: findingId,
       type: 'finding',
+      ...req.body,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: 'open'
     };
 
-    console.log('Finding object to be created:', finding);
+    console.log('Creating finding in database:', finding);
 
-    // Create standalone finding document
     const { resource } = await container.items.create(finding);
-    console.log('Created finding in database:', resource);
+    console.log('Successfully created finding:', resource);
+
     res.json(resource);
   } catch (error) {
-    console.error('Error creating finding:', error);
+    console.error('Detailed error creating finding:', error);
     res.status(500).json({
       error: 'Failed to create finding',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -92,9 +109,8 @@ router.get('/findings', async (req, res) => {
   try {
     console.log('Fetching findings...');
 
-    // Get standalone findings with detailed query
     const findingsQuery = {
-      query: "SELECT * FROM c WHERE c.type = 'finding'",
+      query: "SELECT * FROM c WHERE c.type = 'finding'"
     };
     console.log('Executing query:', findingsQuery);
 
@@ -103,20 +119,6 @@ router.get('/findings', async (req, res) => {
       .fetchAll();
 
     console.log('Raw findings from database:', findings);
-
-    if (findings.length === 0) {
-      console.log('No findings found in database');
-    } else {
-      console.log(`Found ${findings.length} findings`);
-      findings.forEach((finding, index) => {
-        console.log(`Finding ${index + 1}:`, {
-          id: finding.id,
-          type: finding.type,
-          status: finding.status,
-          department: finding.department
-        });
-      });
-    }
 
     res.json(findings);
   } catch (error) {
@@ -134,53 +136,32 @@ router.put('/findings/:id', async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
-    // Find the audit containing this finding
-    const { resources: [audit] } = await container.items
+    console.log('Updating finding:', id, updates);
+
+    const { resources: [finding] } = await container.items
       .query({
-        query: "SELECT * FROM c WHERE c.type = 'audit' AND ARRAY_CONTAINS(c.findings, { 'id': @findingId }, true)",
-        parameters: [{ name: "@findingId", value: id }]
+        query: "SELECT * FROM c WHERE c.type = 'finding' AND c.id = @id",
+        parameters: [{ name: "@id", value: id }]
       })
       .fetchAll();
 
-    if (audit) {
-      // Update finding in audit
-      const findingIndex = audit.findings.findIndex((f: any) => f.id === id);
-      if (findingIndex === -1) {
-        return res.status(404).json({ error: 'Finding not found in audit' });
-      }
-
-      audit.findings[findingIndex] = {
-        ...audit.findings[findingIndex],
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-
-      // Update the audit document
-      const { resource: updatedAudit } = await container.item(audit.id, audit.id).replace(audit);
-      res.json(updatedAudit.findings[findingIndex]);
-    } else {
-      // Update standalone finding
-      const { resources: [finding] } = await container.items
-        .query({
-          query: "SELECT * FROM c WHERE c.type = 'finding' AND c.id = @id",
-          parameters: [{ name: "@id", value: id }]
-        })
-        .fetchAll();
-
-      if (!finding) {
-        return res.status(404).json({ error: 'Finding not found' });
-      }
-
-      const updatedFinding = {
-        ...finding,
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-
-      // Use both id and partitionKey when replacing the item
-      const { resource } = await container.item(finding.id, finding.id).replace(updatedFinding);
-      res.json(resource);
+    if (!finding) {
+      console.log('Finding not found:', id);
+      return res.status(404).json({ error: 'Finding not found' });
     }
+
+    const updatedFinding = {
+      ...finding,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    console.log('Updating finding with data:', updatedFinding);
+
+    const { resource } = await container.item(id, id).replace(updatedFinding);
+    console.log('Successfully updated finding:', resource);
+
+    res.json(resource);
   } catch (error) {
     console.error('Error updating finding:', error);
     res.status(500).json({
@@ -194,38 +175,12 @@ router.put('/findings/:id', async (req, res) => {
 router.delete('/findings/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log('Deleting finding:', id);
 
-    // First, try to find standalone finding
-    const { resources: [finding] } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'finding' AND c.id = @id",
-        parameters: [{ name: "@id", value: id }]
-      })
-      .fetchAll();
+    const { resource } = await container.item(id, id).delete();
+    console.log('Successfully deleted finding:', id);
 
-    if (finding) {
-      await container.item(id, id).delete(); // Use both id and partitionKey
-      console.log('Deleted standalone finding:', id);
-      return res.json({ success: true });
-    }
-
-    // If not found as standalone, check in audits
-    const { resources: [audit] } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'audit' AND ARRAY_CONTAINS(c.findings, { 'id': @findingId }, true)",
-        parameters: [{ name: "@findingId", value: id }]
-      })
-      .fetchAll();
-
-    if (audit) {
-      // Remove finding from audit
-      audit.findings = audit.findings.filter((f: any) => f.id !== id);
-      await container.item(audit.id, audit.id).replace(audit);
-      console.log('Removed finding from audit:', id);
-      return res.json({ success: true });
-    }
-
-    return res.status(404).json({ error: 'Finding not found' });
+    res.json({ success: true });
   } catch (error) {
     console.error('Error deleting finding:', error);
     res.status(500).json({
