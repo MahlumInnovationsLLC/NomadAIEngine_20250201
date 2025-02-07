@@ -6,7 +6,10 @@ import { DocManage } from "@/components/document/DocManage";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrainingProgress } from "@/components/training/TrainingProgress";
+import { LearningModules } from "@/components/training/LearningModules";
+import { SkillAssessment } from "@/components/training/SkillAssessment";
+import { Achievements } from "@/components/training/Achievements";
+import { CreateModuleDialog } from "@/components/training/CreateModuleDialog";
 
 interface DocumentStats {
   totalDocuments: number;
@@ -15,24 +18,12 @@ interface DocumentStats {
   documentUpdates: number;
 }
 
-interface TrainingModule {
-  id: number;
-  title: string;
-  status: 'not_started' | 'in_progress' | 'completed';
-  progress: number;
-  dueDate: string;
-}
-
 export default function DocumentManagement() {
   const [selectedDocument, setSelectedDocument] = useState<number | null>(null);
 
   const { data: stats } = useQuery<DocumentStats>({
     queryKey: ['/api/documents/stats'],
     refetchInterval: 30000,
-  });
-
-  const { data: trainingModules } = useQuery<TrainingModule[]>({
-    queryKey: ['/api/training/modules'],
   });
 
   return (
@@ -95,10 +86,12 @@ export default function DocumentManagement() {
 
         <div className="px-4 py-6">
           <Tabs defaultValue="documents" className="w-full">
-            <TabsList className="w-full justify-start border-b rounded-none pb-px">
-              <TabsTrigger value="documents">Documents</TabsTrigger>
-              <TabsTrigger value="training">Training</TabsTrigger>
-            </TabsList>
+            <div className="flex justify-center mb-6">
+              <TabsList className="grid grid-cols-2 w-[400px]">
+                <TabsTrigger value="documents">Documents</TabsTrigger>
+                <TabsTrigger value="training">Training</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="documents" className="mt-6">
               <div className="grid grid-cols-[30%_70%] gap-6">
@@ -121,20 +114,35 @@ export default function DocumentManagement() {
             </TabsContent>
 
             <TabsContent value="training" className="mt-6">
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid gap-6">
+                <div className="flex justify-end mb-4">
+                  <CreateModuleDialog />
+                </div>
+
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <FontAwesomeIcon icon="graduation-cap" className="mr-2 h-5 w-5" />
-                      Training Progress
-                    </CardTitle>
+                    <CardTitle>Training Dashboard</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {trainingModules ? (
-                      <TrainingProgress modules={trainingModules} />
-                    ) : (
-                      <p className="text-muted-foreground">No training modules available</p>
-                    )}
+                    <Tabs defaultValue="modules" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="modules">Learning Modules</TabsTrigger>
+                        <TabsTrigger value="achievements">Achievements</TabsTrigger>
+                        <TabsTrigger value="assessment">Skill Assessment</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="modules" className="mt-4">
+                        <LearningModules />
+                      </TabsContent>
+
+                      <TabsContent value="achievements" className="mt-4">
+                        <Achievements />
+                      </TabsContent>
+
+                      <TabsContent value="assessment" className="mt-4">
+                        <SkillAssessment />
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
               </div>
