@@ -23,7 +23,7 @@ export async function getWebSearchCompletion(messages: Message[]) {
         messages,
         temperature: 0.2,
         top_p: 0.9,
-        max_tokens: 1000,
+        max_tokens: 2000, // Increased from 1000 to 2000
         frequency_penalty: 1,
         presence_penalty: 0,
         return_citations: true,

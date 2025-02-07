@@ -21,7 +21,7 @@ export async function getChatCompletion(messages: Array<{ role: string; content:
       messages,
       {
         temperature: 0.7,
-        maxTokens: 800,
+        maxTokens: 2000, // Increased from 800 to 2000 to match Perplexity
       }
     );
 
