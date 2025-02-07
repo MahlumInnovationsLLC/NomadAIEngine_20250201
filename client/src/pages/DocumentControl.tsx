@@ -53,47 +53,24 @@ export default function DocumentControl() {
 
   return (
     <div className="container mx-auto">
-      <div className="p-8 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 text-left">
-        <h1 className="text-3xl font-bold mb-2">Document Training & Control</h1>
-        <p className="text-muted-foreground mb-4">
-          Manage your documents, configure training modules, and control document workflows.
+      <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <h1 className="text-3xl font-bold mb-4">Document Training & Control</h1>
+        <p className="text-muted-foreground mb-8">
+          Comprehensive document management and training control system for maintaining organization-wide standards
         </p>
-        <div className="flex justify-center mb-4">
-          <div className="inline-flex rounded-md shadow-sm" role="group">
-            <button
-              onClick={() => window.location.href = '/docmanage/docmanagement'}
-              className={`px-6 py-2 text-sm font-medium border ${
-                location.pathname.includes('docmanagement')
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background hover:bg-secondary"
-              } rounded-l-lg focus:z-10 focus:outline-none`}
-            >
-              DocManagement
-            </button>
-            <button
-              onClick={() => window.location.href = '/docmanage/training'}
-              className={`px-6 py-2 text-sm font-medium border-t border-b border-r ${
-                location.pathname.includes('training')
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background hover:bg-secondary"
-              } rounded-r-lg focus:z-10 focus:outline-none`}
-            >
-              Training Module
-            </button>
-          </div>
+        <Tabs defaultValue="documents" className="w-full max-w-4xl mx-auto">
+          <TabsList className="w-full justify-start border-b rounded-none pb-px">
+            <TabsTrigger value="documents">Overview</TabsTrigger>
+            <TabsTrigger value="workflows">Workflow Templates</TabsTrigger>
+            <TabsTrigger value="training">Training Module</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="px-4 py-6">
+        <div className="mb-8">
+          <SearchInterface />
         </div>
-      </div>
-
-      <div className="mb-8">
-        <SearchInterface />
-      </div>
-
-      <Tabs defaultValue="documents" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="workflows">Workflow Templates</TabsTrigger>
-          <TabsTrigger value="training">Training Module</TabsTrigger>
-        </TabsList>
 
         <TabsContent value="documents" className="space-y-6">
           <div className="grid grid-cols-1 gap-6">
@@ -105,7 +82,7 @@ export default function DocumentControl() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <FileExplorer onSelectDocument={(id) => setSelectedDocumentId(id)} />
+                <FileExplorer onSelectDocument={(id) => setSelectedDocumentId(Number(id))} />
               </CardContent>
             </Card>
 
@@ -168,7 +145,7 @@ export default function DocumentControl() {
             </Card>
           </div>
         </TabsContent>
-      </Tabs>
+      </div>
     </div>
   );
 }

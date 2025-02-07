@@ -1,13 +1,12 @@
-
 import { MaterialDashboard } from "@/components/material/MaterialDashboard";
 
 export default function MaterialHandling() {
   return (
     <div className="container mx-auto">
-      <div className="p-8 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 text-left">
-        <h1 className="text-3xl font-bold mb-2">Material Handling</h1>
-        <p className="text-muted-foreground mb-4">
-          Manage inventory, warehouses, and material movements
+      <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <h1 className="text-3xl font-bold mb-4">Material Handling & Supply Chain</h1>
+        <p className="text-muted-foreground mb-8">
+          Comprehensive inventory management and supply chain optimization system for efficient resource allocation
         </p>
       </div>
 
