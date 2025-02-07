@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import ChatMessage from "./ChatMessage";
-import FileUpload from "../document/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/use-chat-history";
 import type { Message, ChatMode } from "@/types/chat";
@@ -23,51 +21,54 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  // Use the chat history hook instead of local state
   const { messages, addMessages, clearMessages } = useChatHistory(chatId);
 
-  // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       try {
-        // Cancel any existing request
         if (abortControllerRef.current) {
           abortControllerRef.current.abort();
         }
 
-        // Create new AbortController for this request
         abortControllerRef.current = new AbortController();
 
-        const response = await fetch('/api/messages', {
+        const response = await fetch('/api/ai/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, mode }),
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ 
+            message: content, 
+            history: messages.map(({ role, content }) => ({ role, content }))
+          }),
           signal: abortControllerRef.current.signal,
-          credentials: 'include',
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to send message: ${errorText}`);
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.error || `Error: ${response.statusText}`);
         }
 
-        return response.json();
+        const data = await response.json();
+        if (!data || typeof data.response !== 'string') {
+          throw new Error('Invalid response format from server');
+        }
+
+        return data.response;
       } finally {
-        // Clear the abort controller after the request completes or fails
         abortControllerRef.current = null;
       }
     },
-    onSuccess: (newMessages: Message[]) => {
+    onSuccess: (response) => {
+      addMessages([{ role: 'assistant', content: response, id: Date.now().toString() }]);
       setInput("");
-      addMessages(newMessages);
     },
     onError: (error: Error) => {
-      // Only show error toast if it's not an abort error
       if (error.name !== 'AbortError') {
         toast({
           title: "Error",
-          description: error.message,
+          description: error.message || "Failed to get AI response",
           variant: "destructive",
         });
       }
@@ -76,10 +77,13 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || sendMessage.isPending) return;
+
+    const userMessage = { role: 'user' as const, content: input.trim(), id: Date.now().toString() };
+    addMessages([userMessage]);
 
     try {
-      await sendMessage.mutateAsync(input);
+      await sendMessage.mutateAsync(input.trim());
     } catch (error) {
       console.error("Error in handleSubmit:", error);
     }
@@ -92,16 +96,11 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
     }
   };
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
-
-  const handleFileUpload = async (files: File[]) => {
-    setShowFileUpload(false);
-  };
 
   const showWelcome = messages.length === 0;
 
@@ -111,61 +110,43 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">NOMAD AI Engine</h1>
-            <p className="text-muted-foreground">I'm here to help! Ask me anything.</p>
+            <p className="text-muted-foreground">Ask me anything about manufacturing, operations, or facility management!</p>
           </div>
         </div>
       ) : (
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-4 py-4">
-            {messages.map((message, index) => (
-              <div key={`${message.id}-${index}`} className="relative">
-                <ChatMessage
-                  role={message.role}
-                  content={message.content}
-                  citations={message.citations}
-                />
-                {message.role === 'assistant' && index === messages.length - 1 && sendMessage.isPending && (
-                  <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-background/50">
-                    <FontAwesomeIcon icon="rotate" className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                )}
+            {messages.map((message) => (
+              <div key={message.id} className={`flex items-start gap-3 ${
+                message.role === "user" ? "flex-row-reverse" : "flex-row"
+              }`}>
+                <div className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                  message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
+                }`}>
+                  {message.content}
+                </div>
               </div>
             ))}
+            {sendMessage.isPending && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="animate-pulse">•</div>
+                <div className="animate-pulse animation-delay-200">•</div>
+                <div className="animate-pulse animation-delay-400">•</div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       )}
 
       <div className="border-t p-4 bg-background">
-        <div className="flex items-center gap-2 mb-2">
-          <Switch
-            checked={mode === 'web-search'}
-            onCheckedChange={(checked) => setMode(checked ? 'web-search' : 'chat')}
-            id="mode-toggle"
-          />
-          <Label htmlFor="mode-toggle" className="flex items-center gap-2">
-            <FontAwesomeIcon 
-              icon={mode === 'web-search' ? "globe-pointer" : "brain-circuit"} 
-              className="h-4 w-4 text-muted-foreground"
-            />
-            {mode === 'web-search' ? 'Web Search' : 'AI Engine Chat'}
-          </Label>
-        </div>
         <form onSubmit={handleSubmit} className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => setShowFileUpload(true)}
-            className="shrink-0"
-          >
-            <FontAwesomeIcon icon="file-lines" className="h-4 w-4" />
-          </Button>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={mode === 'web-search' ? "Search the web..." : "Type your message..."}
+            placeholder="Ask about manufacturing, operations, or facility management..."
             className="flex-1"
+            disabled={sendMessage.isPending}
           />
           {sendMessage.isPending ? (
             <Button
@@ -173,9 +154,8 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
               onClick={handleStop}
               variant="destructive"
               size="icon"
-              className="aspect-square"
             >
-              <FontAwesomeIcon icon="square" className="h-4 w-4" />
+              <FontAwesomeIcon icon={["fal", "square"]} className="h-4 w-4" />
             </Button>
           ) : (
             <Button
@@ -183,18 +163,11 @@ export default function ChatInterface({ chatId }: ChatInterfaceProps) {
               disabled={!input.trim() || sendMessage.isPending}
               className="bg-primary hover:bg-primary/90"
             >
-              <FontAwesomeIcon icon="paper-plane" className="h-4 w-4" />
+              <FontAwesomeIcon icon={["fal", "paper-plane"]} className="h-4 w-4" />
             </Button>
           )}
         </form>
       </div>
-
-      {showFileUpload && (
-        <FileUpload
-          onUpload={handleFileUpload}
-          onClose={() => setShowFileUpload(false)}
-        />
-      )}
     </div>
   );
 }
