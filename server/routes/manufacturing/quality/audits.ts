@@ -180,7 +180,7 @@ router.put('/findings/:id', async (req, res) => {
       };
 
       // Update the audit document
-      const { resource: updatedAudit } = await container.item(audit.id).replace(audit);
+      const { resource: updatedAudit } = await container.item(audit.id, audit.id).replace(audit);
       res.json(updatedAudit.findings[findingIndex]);
     } else {
       // Update standalone finding
@@ -201,7 +201,8 @@ router.put('/findings/:id', async (req, res) => {
         updatedAt: new Date().toISOString()
       };
 
-      const { resource } = await container.item(finding.id).replace(updatedFinding);
+      // Use both id and partitionKey when replacing the item
+      const { resource } = await container.item(finding.id, finding.id).replace(updatedFinding);
       res.json(resource);
     }
   } catch (error) {
