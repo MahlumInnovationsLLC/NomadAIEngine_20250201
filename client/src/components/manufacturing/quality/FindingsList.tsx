@@ -59,13 +59,14 @@ export default function FindingsList() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: findings = [], isLoading, refetch } = useQuery({
+  const { data: findings = [], isLoading, error, refetch } = useQuery({
     queryKey: ['findings'],
     queryFn: async () => {
       console.log('Fetching findings from API...');
       const response = await fetch('/api/manufacturing/quality/audits/findings');
       if (!response.ok) {
-        throw new Error('Failed to fetch findings');
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Failed to fetch findings');
       }
       const data = await response.json();
       console.log('Received findings:', data);
@@ -74,15 +75,22 @@ export default function FindingsList() {
     refetchInterval: 5000, // Refetch every 5 seconds
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    onError: (error) => {
-      console.error('Error fetching findings:', error);
-      toast({
-        variant: "destructive",
-        title: "Error loading findings",
-        description: error instanceof Error ? error.message : "Failed to load findings"
-      });
-    }
+    retry: 3
   });
+
+  // Show loading state
+  if (isLoading) {
+    return <div className="flex items-center justify-center p-6">Loading findings...</div>;
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="p-6 text-red-500">
+        Error loading findings: {error instanceof Error ? error.message : 'Unknown error'}
+      </div>
+    );
+  }
 
   const handleSort = (key: keyof Finding) => {
     setSortConfig(prev => ({
@@ -114,6 +122,7 @@ export default function FindingsList() {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
 
+      if (!aValue || !bValue) return 0;
       if (aValue < bValue) return -1 * direction;
       if (aValue > bValue) return 1 * direction;
       return 0;
@@ -217,9 +226,6 @@ export default function FindingsList() {
     }
   };
 
-  if (isLoading) {
-    return <div>Loading findings...</div>;
-  }
 
   return (
     <Card className="p-6">

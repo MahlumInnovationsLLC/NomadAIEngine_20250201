@@ -110,17 +110,31 @@ router.get('/findings', async (req, res) => {
     console.log('Fetching findings...');
 
     const findingsQuery = {
-      query: "SELECT * FROM c WHERE c.type = 'finding'"
+      query: "SELECT * FROM c WHERE c.type = 'finding' OR (c.type = 'audit' AND IS_DEFINED(c.findings))"
     };
     console.log('Executing query:', findingsQuery);
 
-    const { resources: findings } = await container.items
+    const { resources } = await container.items
       .query(findingsQuery)
       .fetchAll();
 
-    console.log('Raw findings from database:', findings);
+    console.log('Raw database response:', resources);
 
-    res.json(findings);
+    // Extract findings from both standalone and audit findings
+    const allFindings = resources.flatMap(item => {
+      if (item.type === 'finding') {
+        return [item];
+      } else if (item.type === 'audit' && Array.isArray(item.findings)) {
+        return item.findings.map((finding: any) => ({
+          ...finding,
+          auditId: item.id
+        }));
+      }
+      return [];
+    });
+
+    console.log('Processed findings:', allFindings);
+    res.json(allFindings);
   } catch (error) {
     console.error('Error fetching findings:', error);
     res.status(500).json({
