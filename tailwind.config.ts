@@ -81,8 +81,9 @@ export default {
           "75%": { transform: "translateX(5px)" }
         },
         "spin-slow": {
-          "0%": { transform: "rotate(0deg)" },
-          "100%": { transform: "rotate(360deg)" }
+          "0%": { transform: "rotate(0deg) scale(1)" },
+          "50%": { transform: "rotate(180deg) scale(1.2)" },
+          "100%": { transform: "rotate(360deg) scale(1)" }
         },
         "spin-reverse": {
           "0%": { transform: "rotate(360deg)" },
@@ -99,7 +100,7 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         "bounce": "bounce 1s ease-in-out infinite",
         "shake": "shake 0.5s ease-in-out infinite",
-        "spin-slow": "spin-slow 3s linear infinite",
+        "spin-slow": "spin-slow 1.5s ease-in-out infinite",
         "spin": "spin-slow 1s linear infinite",
         "spin-reverse": "spin-reverse 2s linear infinite",
         "spin-shake": "spin-shake 0.5s ease-in-out infinite",
