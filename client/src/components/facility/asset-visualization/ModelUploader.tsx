@@ -4,16 +4,60 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { useMutation } from "@tanstack/react-query";
 
 interface ModelUploaderProps {
   onUpload?: (file: File) => void;
-  onSuccess?: (url: string) => void;
+  onSuccess?: (modelData: { url: string, modelId: string }) => void;
 }
 
 export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('model', file);
+      formData.append('metadata', JSON.stringify({
+        name: file.name,
+        type: '3d-model',
+        format: file.name.split('.').pop()?.toLowerCase(),
+        uploadedAt: new Date().toISOString()
+      }));
+
+      const response = await fetch('/api/facility/upload-model', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to upload model');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Upload successful",
+        description: "3D model has been uploaded successfully"
+      });
+      onSuccess?.(data);
+      setProgress(0);
+      setUploading(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload model",
+        variant: "destructive"
+      });
+      setProgress(0);
+      setUploading(false);
+    }
+  });
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -43,11 +87,9 @@ export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProp
       setUploading(true);
       onUpload?.(file);
 
-      const formData = new FormData();
-      formData.append('model', file);
-
+      // Create XHR for upload progress
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/upload/model', true);
+      xhr.open('POST', '/api/facility/upload-model');
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -56,14 +98,21 @@ export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProp
         }
       };
 
-      xhr.onload = async () => {
+      // Create FormData and append file
+      const formData = new FormData();
+      formData.append('model', file);
+      formData.append('metadata', JSON.stringify({
+        name: file.name,
+        type: '3d-model',
+        format: file.name.split('.').pop()?.toLowerCase(),
+        uploadedAt: new Date().toISOString()
+      }));
+
+      // Use XHR to upload with progress
+      xhr.onload = () => {
         if (xhr.status === 200) {
-          const { url } = JSON.parse(xhr.responseText);
-          onSuccess?.(url);
-          toast({
-            title: "Upload successful",
-            description: "3D model has been uploaded successfully"
-          });
+          const response = JSON.parse(xhr.responseText);
+          uploadMutation.mutate(file);
         } else {
           throw new Error('Upload failed');
         }
@@ -80,7 +129,6 @@ export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProp
         description: error instanceof Error ? error.message : "Failed to upload model",
         variant: "destructive"
       });
-    } finally {
       setUploading(false);
       setProgress(0);
     }
@@ -108,7 +156,7 @@ export default function ModelUploader({ onUpload, onSuccess }: ModelUploaderProp
             >
               <div className="space-y-2">
                 <FontAwesomeIcon 
-                  icon={['fas', 'cloud-upload-alt']} 
+                  icon={['fal', 'cloud-upload-alt']} 
                   className="h-8 w-8 text-muted-foreground"
                 />
                 <p className="text-sm font-medium">

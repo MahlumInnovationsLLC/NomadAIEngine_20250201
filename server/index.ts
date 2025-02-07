@@ -9,6 +9,7 @@ import manufacturingRoutes from "./routes/manufacturing";
 import inventoryRoutes from "./routes/inventory";
 import aiRoutes from "./routes/ai";
 import salesRoutes from "./routes/sales";
+import facilityRoutes from "./routes/facility";
 
 const app = express();
 app.use(express.json());
@@ -44,6 +45,7 @@ app.use('/api/manufacturing', manufacturingRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/sales', salesRoutes);
+app.use('/api/facility', facilityRoutes);
 
 // Request logging middleware
 app.use((req, res, next) => {
