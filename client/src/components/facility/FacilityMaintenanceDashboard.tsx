@@ -32,21 +32,24 @@ export default function FacilityMaintenanceDashboard() {
   const pendingInspections = inspections?.filter(i => i.status === "pending") || [];
   const criticalSystems = buildingSystems?.filter(s => s.status !== "operational") || [];
 
-  console.log("Building Systems Data:", buildingSystems); // Add logging
+  console.log("Building Systems Data:", buildingSystems); 
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Facility Maintenance</h2>
-          <p className="text-sm text-muted-foreground">
-            Monitor and manage facility maintenance tasks
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="p-8 border-b bg-background">
+        <h2 className="text-3xl font-bold tracking-tight mb-2">Facility Maintenance</h2>
+        <p className="text-muted-foreground mb-4">
+          Monitor and manage facility maintenance tasks
+        </p>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="pool">Pool Maintenance</TabsTrigger>
+          <TabsTrigger value="systems">Building Systems</TabsTrigger>
+          <TabsTrigger value="inspections">Inspections</TabsTrigger>
+        </TabsList>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Pool Status Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pool Status</CardTitle>
@@ -64,7 +67,6 @@ export default function FacilityMaintenanceDashboard() {
           </CardContent>
         </Card>
 
-        {/* Pending Inspections Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Inspections</CardTitle>
@@ -80,7 +82,6 @@ export default function FacilityMaintenanceDashboard() {
           </CardContent>
         </Card>
 
-        {/* System Alerts Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">System Alerts</CardTitle>
@@ -96,16 +97,8 @@ export default function FacilityMaintenanceDashboard() {
       </div>
 
       <Tabs defaultValue={activeView} className="space-y-4" onValueChange={setActiveView}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="pool">Pool Maintenance</TabsTrigger>
-          <TabsTrigger value="systems">Building Systems</TabsTrigger>
-          <TabsTrigger value="inspections">Inspections</TabsTrigger>
-        </TabsList>
-
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Quick Actions */}
             <Card>
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
@@ -127,7 +120,6 @@ export default function FacilityMaintenanceDashboard() {
               </CardContent>
             </Card>
 
-            {/* Recent Activity */}
             <Card>
               <CardHeader>
                 <CardTitle>Recent Activity</CardTitle>
@@ -135,7 +127,6 @@ export default function FacilityMaintenanceDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* We'll populate this with actual data later */}
                   <p className="text-sm text-muted-foreground">No recent activity</p>
                 </div>
               </CardContent>

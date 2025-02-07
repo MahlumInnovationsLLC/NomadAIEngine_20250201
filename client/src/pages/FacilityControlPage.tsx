@@ -47,15 +47,14 @@ export default function FacilityControlPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Facility Maintenance Control</h1>
-        <p className="text-muted-foreground">
+      <div className="mb-8 border-b bg-background p-8">
+        <h1 className="text-3xl font-bold tracking-tight mb-2">
+          Facility Maintenance Control
+        </h1>
+        <p className="text-muted-foreground mb-4">
           Comprehensive equipment maintenance and preventative maintenance management
         </p>
-      </div>
-
-      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex flex-wrap gap-2 mb-6">
+        <TabsList className="flex flex-wrap gap-2">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
@@ -66,7 +65,9 @@ export default function FacilityControlPage() {
           <TabsTrigger value="3d-view">3D View</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
+      </div>
 
+      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
         <TabsContent value="dashboard">
           <Suspense fallback={<LoadingSpinner />}>
             <div className="grid gap-6">
