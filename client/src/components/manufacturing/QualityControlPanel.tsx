@@ -19,6 +19,7 @@ import AuditList from "./quality/AuditList";
 import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
 import { auditTemplates } from "@/templates/qualityTemplates";
 import AuditAnalytics from "./quality/AuditAnalytics";
+import FindingsList from "./quality/FindingsList";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
@@ -181,6 +182,7 @@ export const QualityControlPanel = () => {
                   <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
                   <TabsTrigger value="in-progress">In Progress</TabsTrigger>
                   <TabsTrigger value="completed">Completed</TabsTrigger>
+                  <TabsTrigger value="findings">Findings</TabsTrigger>
                   <TabsTrigger value="analytics">Analytics</TabsTrigger>
                   <TabsTrigger value="templates">Templates</TabsTrigger>
                 </TabsList>
@@ -201,6 +203,9 @@ export const QualityControlPanel = () => {
                     audits={qualityAudits?.filter(a => a.status === 'completed') || []} 
                     type="completed"
                   />
+                </TabsContent>
+                <TabsContent value="findings">
+                  <FindingsList />
                 </TabsContent>
                 <TabsContent value="analytics">
                   <AuditAnalytics />
