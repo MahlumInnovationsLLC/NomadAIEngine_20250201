@@ -54,59 +54,14 @@ const departmentAbbreviations: Record<string, string> = {
   // Add more departments as needed
 };
 
-// Get all findings
-router.get('/findings', async (req, res) => {
-  try {
-    console.log('Fetching findings...');
-    // First, get standalone findings
-    const { resources: standaloneFindings } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'finding'"
-      })
-      .fetchAll();
-    console.log(`Found ${standaloneFindings.length} standalone findings`);
-
-    // Then, get findings from audits
-    const { resources: audits } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'audit' AND IS_DEFINED(c.findings)"
-      })
-      .fetchAll();
-    console.log(`Found ${audits.length} audits with findings`);
-
-    // Extract and flatten findings from all audits
-    const auditFindings = audits.flatMap(audit =>
-      audit.findings?.map((finding: any) => ({
-        ...finding,
-        auditId: audit.id,
-        auditNumber: audit.auditNumber,
-        createdAt: finding.createdAt || audit.createdAt,
-        updatedAt: finding.updatedAt || audit.updatedAt
-      })) || []
-    );
-    console.log(`Found ${auditFindings.length} findings in audits`);
-
-    // Combine both types of findings and sort by creation date
-    const allFindings = [...standaloneFindings, ...auditFindings]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    console.log(`Retrieved ${allFindings.length} findings (${standaloneFindings.length} standalone, ${auditFindings.length} from audits)`);
-    res.json(allFindings);
-  } catch (error) {
-    console.error('Error fetching findings:', error);
-    res.status(500).json({
-      error: 'Failed to fetch findings',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
 // Add create finding endpoint
 router.post('/findings', async (req, res) => {
   try {
     const findingNumber = await getNextFindingNumber();
     const deptAbbr = departmentAbbreviations[req.body.department] || 'OT'; // OT for Other
     const findingId = `FND-${String(findingNumber).padStart(3, '0')}-${deptAbbr}`;
+
+    console.log('Creating finding with ID:', findingId);
 
     const finding = {
       ...req.body,
@@ -117,40 +72,57 @@ router.post('/findings', async (req, res) => {
       status: 'open'
     };
 
-    // If auditId is provided, add to existing audit
-    if (finding.auditId) {
-      const { resources: [audit] } = await container.items
-        .query({
-          query: "SELECT * FROM c WHERE c.type = 'audit' AND c.id = @auditId",
-          parameters: [{ name: "@auditId", value: finding.auditId }]
-        })
-        .fetchAll();
+    console.log('Finding object to be created:', finding);
 
-      if (!audit) {
-        return res.status(404).json({ error: 'Audit not found' });
-      }
-
-      // Add finding to audit
-      audit.findings = audit.findings || [];
-      audit.findings.push(finding);
-
-      // Update audit document
-      const { resource: updatedAudit } = await container.item(audit.id).replace(audit);
-      console.log('Added finding to audit:', finding.id);
-      res.json(finding);
-    } else {
-      // Create standalone finding document
-      const { resource } = await container.items.create({
-        ...finding,
-        type: 'finding'
-      });
-      console.log('Created standalone finding:', finding.id);
-      res.json(resource);
-    }
+    // Create standalone finding document
+    const { resource } = await container.items.create(finding);
+    console.log('Created finding in database:', resource);
+    res.json(resource);
   } catch (error) {
     console.error('Error creating finding:', error);
     res.status(500).json({
       error: 'Failed to create finding',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get all findings
+router.get('/findings', async (req, res) => {
+  try {
+    console.log('Fetching findings...');
+
+    // Get standalone findings with detailed query
+    const findingsQuery = {
+      query: "SELECT * FROM c WHERE c.type = 'finding'",
+    };
+    console.log('Executing query:', findingsQuery);
+
+    const { resources: findings } = await container.items
+      .query(findingsQuery)
+      .fetchAll();
+
+    console.log('Raw findings from database:', findings);
+
+    if (findings.length === 0) {
+      console.log('No findings found in database');
+    } else {
+      console.log(`Found ${findings.length} findings`);
+      findings.forEach((finding, index) => {
+        console.log(`Finding ${index + 1}:`, {
+          id: finding.id,
+          type: finding.type,
+          status: finding.status,
+          department: finding.department
+        });
+      });
+    }
+
+    res.json(findings);
+  } catch (error) {
+    console.error('Error fetching findings:', error);
+    res.status(500).json({
+      error: 'Failed to fetch findings',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
