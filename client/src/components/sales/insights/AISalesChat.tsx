@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,15 +30,22 @@ export function AISalesChat() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/ai/sales-chat", {
+      const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage.content, history: messages })
       });
 
-      if (!response.ok) throw new Error("Failed to get AI response");
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
 
       const data = await response.json();
+
+      if (!data || typeof data.response !== 'string') {
+        throw new Error('Invalid response format from server');
+      }
+
       setMessages(prev => [...prev, { role: "assistant", content: data.response }]);
     } catch (error) {
       console.error("Chat error:", error);
