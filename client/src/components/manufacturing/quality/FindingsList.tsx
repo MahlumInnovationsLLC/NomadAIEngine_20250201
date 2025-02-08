@@ -50,20 +50,25 @@ export default function FindingsList() {
   const queryClient = useQueryClient();
 
   const { data: findings = [], isLoading, error, refetch } = useQuery<Finding[]>({
-    queryKey: ['/api/manufacturing/quality/findings'],
+    queryKey: ['/api/manufacturing/quality/audits/findings'],
     queryFn: async () => {
       console.log('Fetching findings from API...');
-      const response = await fetch('/api/manufacturing/quality/findings'); //Corrected endpoint
+      try {
+        const response = await fetch('/api/manufacturing/quality/audits/findings');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error fetching findings:', errorData);
-        throw new Error(errorData.message || 'Failed to fetch findings');
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Error response:', errorData);
+          throw new Error(errorData.details || errorData.error || 'Failed to fetch findings');
+        }
+
+        const data = await response.json();
+        console.log('API Response:', data);
+        return data;
+      } catch (error) {
+        console.error('Error fetching findings:', error);
+        throw error;
       }
-
-      const data = await response.json();
-      console.log('API Response:', data);
-      return data;
     },
     refetchInterval: 30000,
   });
@@ -136,7 +141,7 @@ export default function FindingsList() {
 
   const createFinding = async (data: any) => {
     try {
-      const response = await fetch('/api/manufacturing/quality/findings', { //Corrected endpoint
+      const response = await fetch('/api/manufacturing/quality/audits/findings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +154,7 @@ export default function FindingsList() {
         throw new Error(errorData.message || 'Failed to create finding');
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/findings'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/audits/findings'] });
       setShowCreateDialog(false);
       toast({
         title: "Success",
@@ -352,7 +357,7 @@ export default function FindingsList() {
           finding={selectedFinding}
           onSubmit={async (data) => {
             try {
-              const response = await fetch(`/api/manufacturing/quality/findings/${selectedFinding.id}`, { //Corrected endpoint
+              const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
@@ -365,7 +370,7 @@ export default function FindingsList() {
                 throw new Error(errorData.message || 'Failed to update finding');
               }
 
-              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/findings']});
+              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
               setShowEditDialog(false);
               setSelectedFinding(null);
               toast({
@@ -399,7 +404,7 @@ export default function FindingsList() {
                 if (!selectedFinding) return;
 
                 try {
-                  const response = await fetch(`/api/manufacturing/quality/findings/${selectedFinding.id}`, { //Corrected endpoint
+                  const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
                     method: 'DELETE',
                   });
 
@@ -408,7 +413,7 @@ export default function FindingsList() {
                     throw new Error(errorData.message || 'Failed to delete finding');
                   }
 
-                  await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/findings']});
+                  await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
                   setShowDeleteDialog(false);
                   setSelectedFinding(null);
                   toast({

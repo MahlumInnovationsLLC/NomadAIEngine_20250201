@@ -171,7 +171,7 @@ router.get('/findings', async (req, res) => {
     console.error('Error fetching findings:', error);
     res.status(500).json({
       error: 'Failed to fetch findings',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
