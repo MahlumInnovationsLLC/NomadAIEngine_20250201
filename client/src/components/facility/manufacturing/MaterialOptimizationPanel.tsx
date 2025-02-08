@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import NestingPreview from "./NestingPreview";
 
 interface MaterialPart {
   id: string;
@@ -50,6 +51,7 @@ interface OptimizationMetrics {
 
 export default function MaterialOptimizationPanel() {
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
+  const [selectedNesting, setSelectedNesting] = useState<NestingResult | null>(null);
 
   const { data: parts = [] } = useQuery<MaterialPart[]>({
     queryKey: ['/api/fabrication/parts'],
@@ -69,10 +71,16 @@ export default function MaterialOptimizationPanel() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Material Optimization</h2>
-        <Button>
-          <FontAwesomeIcon icon="calculator" className="mr-2 h-4 w-4" />
-          Run Optimization
-        </Button>
+        <div className="flex gap-2">
+          <Button>
+            <FontAwesomeIcon icon="calculator" className="mr-2 h-4 w-4" />
+            Run Optimization
+          </Button>
+          <Button variant="outline">
+            <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
+            Settings
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -121,45 +129,65 @@ export default function MaterialOptimizationPanel() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Parts for Nesting</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Part Name</TableHead>
-                <TableHead>Dimensions</TableHead>
-                <TableHead>Material</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {parts.map((part) => (
-                <TableRow key={part.id}>
-                  <TableCell className="font-medium">{part.name}</TableCell>
-                  <TableCell>{part.width}mm × {part.height}mm</TableCell>
-                  <TableCell>
-                    {part.material} ({part.thickness}mm)
-                  </TableCell>
-                  <TableCell>{part.quantity}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{part.priority}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedMaterial(part.material)}>
-                      <FontAwesomeIcon icon="puzzle-piece" className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Parts for Nesting</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Part Name</TableHead>
+                  <TableHead>Dimensions</TableHead>
+                  <TableHead>Material</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {parts.map((part) => (
+                  <TableRow key={part.id}>
+                    <TableCell className="font-medium">{part.name}</TableCell>
+                    <TableCell>{part.width}mm × {part.height}mm</TableCell>
+                    <TableCell>
+                      {part.material} ({part.thickness}mm)
+                    </TableCell>
+                    <TableCell>{part.quantity}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{part.priority}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setSelectedMaterial(part.material)}
+                      >
+                        <FontAwesomeIcon icon="puzzle-piece" className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {selectedNesting && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Nesting Preview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NestingPreview 
+                nestingPattern={selectedNesting.nestingPattern}
+                scale={0.5}
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {selectedMaterial && nestingResults.length > 0 && (
         <Card>
@@ -169,7 +197,11 @@ export default function MaterialOptimizationPanel() {
           <CardContent>
             <div className="space-y-6">
               {nestingResults.map((result) => (
-                <div key={result.id} className="space-y-2">
+                <div 
+                  key={result.id} 
+                  className="space-y-2 cursor-pointer hover:bg-muted p-4 rounded-lg transition-colors"
+                  onClick={() => setSelectedNesting(result)}
+                >
                   <div className="flex justify-between items-center">
                     <div>
                       <h4 className="font-medium">Nesting Pattern #{result.id}</h4>
@@ -185,6 +217,10 @@ export default function MaterialOptimizationPanel() {
                       <div>
                         <p className="text-sm text-muted-foreground">Waste</p>
                         <p className="font-medium">{result.wastePercentage}%</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Material Used</p>
+                        <p className="font-medium">{result.materialUsed}m²</p>
                       </div>
                     </div>
                   </div>
