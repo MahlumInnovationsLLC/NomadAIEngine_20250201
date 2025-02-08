@@ -17,10 +17,14 @@ router.post('/findings', async (req, res) => {
   try {
     console.log('Creating new finding with data:', req.body);
 
+    // Add logging to verify container access
+    const containerInfo = await container.read();
+    console.log('Container info:', containerInfo);
+
     const finding = {
       id: `FND-${new Date().getTime()}`,
-      docType: 'finding', // Use docType instead of type to avoid confusion
-      type: req.body.type, // Store the actual finding type directly
+      docType: 'finding', // Document type identifier
+      type: req.body.type,
       description: req.body.description,
       department: req.body.department,
       priority: req.body.priority,
@@ -31,7 +35,7 @@ router.post('/findings', async (req, res) => {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Attempting to create finding in Cosmos DB:', finding);
+    console.log('Attempting to create finding:', finding);
 
     // Create the finding document
     const { resource: createdFinding } = await container.items.create(finding);
@@ -56,17 +60,29 @@ router.get('/findings', async (req, res) => {
   try {
     console.log('Fetching findings...');
 
-    // Query for findings using docType
+    // Add logging to verify container access
+    const containerInfo = await container.read();
+    console.log('Container info:', containerInfo);
+
+    // First, let's get all documents to verify what's in the container
+    const allDocsQuery = {
+      query: "SELECT * FROM c"
+    };
+
+    console.log('Checking all documents in container...');
+    const { resources: allDocs } = await container.items.query(allDocsQuery).fetchAll();
+    console.log('All documents in container:', allDocs);
+
+    // Now query specifically for findings
     const findingsQuery = {
       query: "SELECT * FROM c WHERE c.docType = 'finding' ORDER BY c.createdAt DESC"
     };
 
-    console.log('Executing query:', findingsQuery);
+    console.log('Executing findings query:', findingsQuery);
     const { resources: findings } = await container.items.query(findingsQuery).fetchAll();
 
     console.log(`Found ${findings.length} findings:`, findings);
 
-    // No need to transform since we're storing the data in the correct structure
     res.json(findings);
   } catch (error) {
     console.error('Error fetching findings:', error);
