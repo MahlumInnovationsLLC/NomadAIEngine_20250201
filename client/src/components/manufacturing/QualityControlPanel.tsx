@@ -44,7 +44,7 @@ export const QualityControlPanel = () => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Quality Control</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Quality Assurance</h2>
           <p className="text-muted-foreground">
             Monitor and optimize production quality metrics
           </p>

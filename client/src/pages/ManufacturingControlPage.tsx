@@ -26,7 +26,7 @@ export default function ManufacturingControlPage() {
     <AnimateTransition variant="fade">
       <div className="container mx-auto">
         <div className="text-center py-6 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <h1 className="text-3xl font-bold mb-4">Manufacturing Control</h1>
+          <h1 className="text-3xl font-bold mb-4">Manufacturing</h1>
           <p className="text-muted-foreground mb-4">
             Monitor and optimize your vehicle production process with AI-powered insights
           </p>
@@ -88,7 +88,7 @@ export default function ManufacturingControlPage() {
             </TabsTrigger>
             <TabsTrigger value="quality">
               <FontAwesomeIcon icon="check-circle" className="mr-2" />
-              Quality Control
+              Quality Assurance
             </TabsTrigger>
             <TabsTrigger value="projects">
               <FontAwesomeIcon icon="tasks" className="mr-2" />
