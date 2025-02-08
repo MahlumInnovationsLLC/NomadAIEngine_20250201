@@ -13,6 +13,7 @@ import CncManagement from "../components/facility/manufacturing/CncManagement";
 import WeldingManagement from "../components/facility/manufacturing/WeldingManagement";
 import LaserCuttingManagement from "../components/facility/manufacturing/LaserCuttingManagement";
 import BendingManagement from "../components/facility/manufacturing/BendingManagement";
+import MaterialOptimizationPanel from "../components/facility/manufacturing/MaterialOptimizationPanel";
 
 interface ManufacturingStats {
   activeLines: number;
@@ -129,6 +130,7 @@ export default function ManufacturingControlPage() {
                 <TabsTrigger value="welding">Welding</TabsTrigger>
                 <TabsTrigger value="laser">Laser Cutting</TabsTrigger>
                 <TabsTrigger value="bending">Bending</TabsTrigger>
+                <TabsTrigger value="optimization">Material Optimization</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="mt-4">
@@ -149,6 +151,10 @@ export default function ManufacturingControlPage() {
 
               <TabsContent value="bending" className="mt-4">
                 <BendingManagement />
+              </TabsContent>
+
+              <TabsContent value="optimization" className="mt-4">
+                <MaterialOptimizationPanel />
               </TabsContent>
             </Tabs>
           </TabsContent>
