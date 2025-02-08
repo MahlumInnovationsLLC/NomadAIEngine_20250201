@@ -146,11 +146,14 @@ export default function FindingsList() {
     try {
       const response = await fetch('/api/manufacturing/quality/audits/findings/clear-all', {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.details || errorData.error || 'Failed to clear findings');
+        throw new Error(errorData.message || 'Failed to clear findings');
       }
 
       await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});

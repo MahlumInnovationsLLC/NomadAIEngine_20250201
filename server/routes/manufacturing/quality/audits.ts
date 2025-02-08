@@ -261,19 +261,28 @@ router.delete('/findings/clear-all', async (req, res) => {
       })
       .fetchAll();
 
-    if (counters.length > 0) {
-      const counter = counters[0];
-      counter.value = 1;
-      await container.item(counterId, counterId).replace(counter);
-      console.log('Reset findings counter to 1');
-    }
+    // Clear all findings endpoint
+router.delete('/findings/clear-all', async (req, res) => {
+  try {
+    const { resources: findings } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.docType = 'finding'"
+      })
+      .fetchAll();
+
+    // Delete each finding
+    const deletePromises = findings.map(finding => 
+      container.item(finding.id, 'default').delete()
+    );
+    
+    await Promise.all(deletePromises);
+    console.log(`Deleted ${findings.length} findings`);
 
     res.json({ message: 'All findings cleared successfully' });
   } catch (error) {
     console.error('Error clearing findings:', error);
     res.status(500).json({
-      error: 'Failed to clear findings',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Failed to clear findings'
     });
   }
 });
