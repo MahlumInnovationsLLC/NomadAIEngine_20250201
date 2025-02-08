@@ -50,12 +50,13 @@ export default function FindingsList() {
   const queryClient = useQueryClient();
 
   const { data: findings = [], isLoading, error, refetch } = useQuery<Finding[]>({
-    queryKey: ['/api/manufacturing/quality/audits/findings'],
+    queryKey: ['/api/manufacturing/quality/findings'],
     queryFn: async () => {
       console.log('Fetching findings from API...');
       const response = await fetch('/api/manufacturing/quality/audits/findings');
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Error response:', errorData);
         throw new Error(errorData.message || 'Failed to fetch findings');
       }
       const data = await response.json();
@@ -87,7 +88,7 @@ export default function FindingsList() {
 
   const filteredAndSortedFindings = findings
     .filter(finding => {
-      console.log('Filtering finding:', finding); 
+      console.log('Filtering finding:', finding);
       return (!departmentFilter || finding.department === departmentFilter) &&
         (!typeFilter || finding.type === typeFilter);
     })
@@ -102,7 +103,7 @@ export default function FindingsList() {
       return 0;
     });
 
-  console.log('Filtered and sorted findings:', filteredAndSortedFindings); 
+  console.log('Filtered and sorted findings:', filteredAndSortedFindings);
 
   if (isLoading) {
     return (
@@ -250,9 +251,9 @@ export default function FindingsList() {
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs ${
                       finding.type === 'major' ? 'bg-red-100 text-red-800' :
-                      finding.type === 'minor' ? 'bg-yellow-100 text-yellow-800' :
-                      finding.type === 'observation' ? 'bg-blue-100 text-blue-800' :
-                      'bg-green-100 text-green-800'
+                        finding.type === 'minor' ? 'bg-yellow-100 text-yellow-800' :
+                          finding.type === 'observation' ? 'bg-blue-100 text-blue-800' :
+                            'bg-green-100 text-green-800'
                     }`}>
                       {finding.type.charAt(0).toUpperCase() + finding.type.slice(1)}
                     </span>
@@ -262,8 +263,8 @@ export default function FindingsList() {
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs ${
                       finding.status === 'open' ? 'bg-red-100 text-red-800' :
-                      finding.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
+                        finding.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
                     }`}>
                       {finding.status.replace('_', ' ').charAt(0).toUpperCase() + finding.status.slice(1)}
                     </span>
@@ -320,7 +321,7 @@ export default function FindingsList() {
                 throw new Error('Failed to create finding');
               }
 
-              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
+              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/findings']});
               setShowCreateDialog(false);
               toast({
                 title: "Success",
@@ -356,7 +357,7 @@ export default function FindingsList() {
                 throw new Error('Failed to update finding');
               }
 
-              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
+              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/findings']});
               setShowEditDialog(false);
               setSelectedFinding(null);
               toast({
@@ -397,7 +398,7 @@ export default function FindingsList() {
                     throw new Error('Failed to delete finding');
                   }
 
-                  await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
+                  await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/findings']});
                   setShowDeleteDialog(false);
                   setSelectedFinding(null);
                   toast({
