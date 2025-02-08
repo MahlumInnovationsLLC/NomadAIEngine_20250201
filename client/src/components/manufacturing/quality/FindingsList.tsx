@@ -31,16 +31,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  faFilter as falFilter,
-  faTag as falTag,
-  faDownload as falDownload,
-  faPlus as falPlus,
-  faArrowUp as falArrowUp,
-  faArrowDown as falArrowDown,
-  faPenToSquare as falPenToSquare,
-  faTrashCan as falTrashCan,
-} from '@fortawesome/pro-light-svg-icons';
 import { differenceInDays } from 'date-fns';
 
 interface SortConfig {
@@ -60,37 +50,17 @@ export default function FindingsList() {
   const queryClient = useQueryClient();
 
   const { data: findings = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['findings'],
+    queryKey: ['/api/manufacturing/quality/audits/findings'],
     queryFn: async () => {
-      console.log('Fetching findings from API...');
       const response = await fetch('/api/manufacturing/quality/audits/findings');
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.details || 'Failed to fetch findings');
+        throw new Error(errorData.message || 'Failed to fetch findings');
       }
-      const data = await response.json();
-      console.log('Received findings:', data);
-      return data as Finding[];
+      return response.json();
     },
-    refetchInterval: 5000, // Refetch every 5 seconds
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    retry: 3
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
-
-  // Show loading state
-  if (isLoading) {
-    return <div className="flex items-center justify-center p-6">Loading findings...</div>;
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="p-6 text-red-500">
-        Error loading findings: {error instanceof Error ? error.message : 'Unknown error'}
-      </div>
-    );
-  }
 
   const handleSort = (key: keyof Finding) => {
     setSortConfig(prev => ({
@@ -128,104 +98,34 @@ export default function FindingsList() {
       return 0;
     });
 
-  const handleCreateFinding = async (data: any) => {
-    try {
-      const response = await fetch('/api/manufacturing/quality/audits/findings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center space-x-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span>Loading findings...</span>
+        </div>
+      </Card>
+    );
+  }
 
-      if (!response.ok) {
-        throw new Error(`Failed to create finding: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('Created finding:', result);
-
-      // Invalidate and refetch findings
-      await queryClient.invalidateQueries({ queryKey: ['findings'] });
-      await refetch();
-
-      setShowCreateDialog(false);
-      toast({
-        title: "Finding Created",
-        description: "New finding has been successfully created",
-      });
-    } catch (error) {
-      console.error('Error creating finding:', error);
-      toast({
-        variant: "destructive",
-        title: "Error creating finding",
-        description: error instanceof Error ? error.message : "Failed to create finding"
-      });
-    }
-  };
-
-  const handleEditFinding = async (data: any) => {
-    if (!selectedFinding) return;
-
-    try {
-      const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update finding: ${response.statusText}`);
-      }
-
-      await refetch();
-      setShowEditDialog(false);
-      setSelectedFinding(null);
-      toast({
-        title: "Finding Updated",
-        description: "Finding has been successfully updated",
-      });
-    } catch (error) {
-      console.error('Error updating finding:', error);
-      toast({
-        variant: "destructive",
-        title: "Error updating finding",
-        description: error instanceof Error ? error.message : "Failed to update finding"
-      });
-    }
-  };
-
-  const handleDeleteFinding = async () => {
-    if (!selectedFinding) return;
-
-    try {
-      const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete finding: ${response.statusText}`);
-      }
-
-      await refetch();
-      setShowDeleteDialog(false);
-      setSelectedFinding(null);
-      toast({
-        title: "Finding Deleted",
-        description: "Finding has been successfully deleted",
-      });
-    } catch (error) {
-      console.error('Error deleting finding:', error);
-      toast({
-        variant: "destructive",
-        title: "Error deleting finding",
-        description: error instanceof Error ? error.message : "Failed to delete finding"
-      });
-    }
-  };
-
+  // Show error state with retry button
+  if (error) {
+    return (
+      <Card className="p-6">
+        <div className="text-center space-y-4">
+          <div className="text-red-500">
+            Error loading findings: {error instanceof Error ? error.message : 'Unknown error'}
+          </div>
+          <Button onClick={() => refetch()}>
+            <FontAwesomeIcon icon="sync" className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6">
@@ -234,7 +134,7 @@ export default function FindingsList() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                <FontAwesomeIcon icon={falFilter} className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon="filter" className="mr-2 h-4 w-4" />
                 Department: {departmentFilter || 'All'}
               </Button>
             </DropdownMenuTrigger>
@@ -253,7 +153,7 @@ export default function FindingsList() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
-                <FontAwesomeIcon icon={falTag} className="mr-2 h-4 w-4" />
+                <FontAwesomeIcon icon="tag" className="mr-2 h-4 w-4" />
                 Type: {typeFilter || 'All'}
               </Button>
             </DropdownMenuTrigger>
@@ -272,11 +172,11 @@ export default function FindingsList() {
 
         <div className="space-x-2">
           <Button variant="outline" onClick={() => window.print()}>
-            <FontAwesomeIcon icon={falDownload} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
             Export
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
-            <FontAwesomeIcon icon={falPlus} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
             New Finding
           </Button>
         </div>
@@ -285,156 +185,115 @@ export default function FindingsList() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead
-              className="cursor-pointer"
-              onClick={() => handleSort('id')}
-            >
+            <TableHead className="cursor-pointer" onClick={() => handleSort('id')}>
               ID {sortConfig.key === 'id' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
                   className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
-            <TableHead
-              className="cursor-pointer"
-              onClick={() => handleSort('type')}
-            >
+            <TableHead className="cursor-pointer" onClick={() => handleSort('type')}>
               Type {sortConfig.key === 'type' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
                   className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
-            <TableHead
-              className="cursor-pointer"
-              onClick={() => handleSort('priority')}
-            >
-              Severity {sortConfig.key === 'priority' && (
-                <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
-                  className="ml-2 h-4 w-4"
-                />
-              )}
-            </TableHead>
-            <TableHead
-              className="cursor-pointer"
-              onClick={() => handleSort('department')}
-            >
-              Department {sortConfig.key === 'department' && (
-                <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
-                  className="ml-2 h-4 w-4"
-                />
-              )}
-            </TableHead>
+            <TableHead>Department</TableHead>
             <TableHead>Description</TableHead>
-            <TableHead
-              className="cursor-pointer"
-              onClick={() => handleSort('status')}
-            >
+            <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
               Status {sortConfig.key === 'status' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
                   className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
-            <TableHead
-              className="cursor-pointer"
-              onClick={() => handleSort('dueDate')}
-            >
+            <TableHead className="cursor-pointer" onClick={() => handleSort('dueDate')}>
               Due Date {sortConfig.key === 'dueDate' && (
                 <FontAwesomeIcon
-                  icon={sortConfig.direction === 'asc' ? falArrowUp : falArrowDown}
+                  icon={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'}
                   className="ml-2 h-4 w-4"
                 />
               )}
             </TableHead>
-            <TableHead>Days Left</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredAndSortedFindings.map((finding) => {
-            const daysUntilDue = getDaysUntilDue(finding.dueDate);
-            const dueDateColor = getDueDateColor(daysUntilDue);
-
-            return (
-              <TableRow key={finding.id}>
-                <TableCell>{finding.id}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    finding.type === 'major' ? 'bg-red-100 text-red-800' :
-                      finding.type === 'minor' ? 'bg-yellow-100 text-yellow-800' :
-                        finding.type === 'observation' ? 'bg-blue-100 text-blue-800' :
-                          'bg-green-100 text-green-800'
-                  }`}>
-                    {finding.type.charAt(0).toUpperCase() + finding.type.slice(1)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    finding.priority === 'high' ? 'bg-red-100 text-red-800' :
-                      finding.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-blue-100 text-blue-800'
-                  }`}>
-                    {finding.priority.charAt(0).toUpperCase() + finding.priority.slice(1)}
-                  </span>
-                </TableCell>
-                <TableCell>{finding.department}</TableCell>
-                <TableCell className="max-w-md truncate">{finding.description}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    finding.status === 'open' ? 'bg-red-100 text-red-800' :
-                      finding.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                  }`}>
-                    {finding.status.replace('_', ' ').charAt(0).toUpperCase() + finding.status.slice(1)}
-                  </span>
-                </TableCell>
-                <TableCell>{finding.dueDate ? new Date(finding.dueDate).toLocaleDateString() : 'Not set'}</TableCell>
-                <TableCell className={dueDateColor}>
-                  {daysUntilDue === null ? '-' :
-                    daysUntilDue < 0 ? `${Math.abs(daysUntilDue)} days overdue` :
-                      daysUntilDue === 0 ? 'Due today' :
-                        `${daysUntilDue} days left`
-                  }
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedFinding(finding);
-                        setShowEditDialog(true);
-                      }}
-                    >
-                      <FontAwesomeIcon icon={falPenToSquare} className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedFinding(finding);
-                        setShowDeleteDialog(true);
-                      }}
-                    >
-                      <FontAwesomeIcon icon={falTrashCan} className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-          {filteredAndSortedFindings.length === 0 && (
+          {filteredAndSortedFindings.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-muted-foreground">
-                No findings found
+              <TableCell colSpan={7} className="text-center py-8">
+                <div className="space-y-4">
+                  <div className="text-muted-foreground">No findings found</div>
+                  <Button onClick={() => setShowCreateDialog(true)} variant="outline">
+                    <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                    Create New Finding
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
+          ) : (
+            filteredAndSortedFindings.map((finding) => {
+              const daysUntilDue = getDaysUntilDue(finding.dueDate);
+              const dueDateColor = getDueDateColor(daysUntilDue);
+
+              return (
+                <TableRow key={finding.id}>
+                  <TableCell>{finding.id}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      finding.type === 'major' ? 'bg-red-100 text-red-800' :
+                      finding.type === 'minor' ? 'bg-yellow-100 text-yellow-800' :
+                      finding.type === 'observation' ? 'bg-blue-100 text-blue-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {finding.type.charAt(0).toUpperCase() + finding.type.slice(1)}
+                    </span>
+                  </TableCell>
+                  <TableCell>{finding.department}</TableCell>
+                  <TableCell className="max-w-md truncate">{finding.description}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      finding.status === 'open' ? 'bg-red-100 text-red-800' :
+                      finding.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {finding.status.replace('_', ' ').charAt(0).toUpperCase() + finding.status.slice(1)}
+                    </span>
+                  </TableCell>
+                  <TableCell className={dueDateColor}>
+                    {finding.dueDate ? new Date(finding.dueDate).toLocaleDateString() : 'Not set'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFinding(finding);
+                          setShowEditDialog(true);
+                        }}
+                      >
+                        <FontAwesomeIcon icon="pen-to-square" className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFinding(finding);
+                          setShowDeleteDialog(true);
+                        }}
+                      >
+                        <FontAwesomeIcon icon="trash" className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
@@ -443,7 +302,34 @@ export default function FindingsList() {
         <CreateFindingDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
-          onSubmit={handleCreateFinding}
+          onSubmit={async (data) => {
+            try {
+              const response = await fetch('/api/manufacturing/quality/audits/findings', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to create finding');
+              }
+
+              await queryClient.invalidateQueries(['/api/manufacturing/quality/audits/findings']);
+              setShowCreateDialog(false);
+              toast({
+                title: "Success",
+                description: "Finding created successfully",
+              });
+            } catch (error) {
+              toast({
+                variant: "destructive",
+                title: "Error",
+                description: error instanceof Error ? error.message : "Failed to create finding",
+              });
+            }
+          }}
         />
       )}
 
@@ -451,8 +337,36 @@ export default function FindingsList() {
         <EditFindingDialog
           open={showEditDialog}
           onOpenChange={setShowEditDialog}
-          onSubmit={handleEditFinding}
           finding={selectedFinding}
+          onSubmit={async (data) => {
+            try {
+              const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to update finding');
+              }
+
+              await queryClient.invalidateQueries(['/api/manufacturing/quality/audits/findings']);
+              setShowEditDialog(false);
+              setSelectedFinding(null);
+              toast({
+                title: "Success",
+                description: "Finding updated successfully",
+              });
+            } catch (error) {
+              toast({
+                variant: "destructive",
+                title: "Error",
+                description: error instanceof Error ? error.message : "Failed to update finding",
+              });
+            }
+          }}
         />
       )}
 
@@ -466,7 +380,36 @@ export default function FindingsList() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteFinding} className="bg-red-500 hover:bg-red-600">
+            <AlertDialogAction
+              onClick={async () => {
+                if (!selectedFinding) return;
+
+                try {
+                  const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
+                    method: 'DELETE',
+                  });
+
+                  if (!response.ok) {
+                    throw new Error('Failed to delete finding');
+                  }
+
+                  await queryClient.invalidateQueries(['/api/manufacturing/quality/audits/findings']);
+                  setShowDeleteDialog(false);
+                  setSelectedFinding(null);
+                  toast({
+                    title: "Success",
+                    description: "Finding deleted successfully",
+                  });
+                } catch (error) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: error instanceof Error ? error.message : "Failed to delete finding",
+                  });
+                }
+              }}
+              className="bg-red-500 hover:bg-red-600"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
