@@ -19,8 +19,8 @@ router.post('/findings', async (req, res) => {
 
     const finding = {
       id: `FND-${new Date().getTime()}`,
-      type: 'finding', // Document type identifier
-      findingType: req.body.type, // The actual finding type (observation, minor, major, etc.)
+      docType: 'finding', // Use docType instead of type to avoid confusion
+      type: req.body.type, // Store the actual finding type directly
       description: req.body.description,
       department: req.body.department,
       priority: req.body.priority,
@@ -56,32 +56,18 @@ router.get('/findings', async (req, res) => {
   try {
     console.log('Fetching findings...');
 
-    // First, let's check what documents exist in the container
-    const allDocsQuery = {
-      query: "SELECT * FROM c WHERE c.type = 'finding'"
+    // Query for findings using docType
+    const findingsQuery = {
+      query: "SELECT * FROM c WHERE c.docType = 'finding' ORDER BY c.createdAt DESC"
     };
 
-    console.log('Executing query:', allDocsQuery);
-    const { resources: findings } = await container.items.query(allDocsQuery).fetchAll();
+    console.log('Executing query:', findingsQuery);
+    const { resources: findings } = await container.items.query(findingsQuery).fetchAll();
 
     console.log(`Found ${findings.length} findings:`, findings);
 
-    // Transform the data to match the client-side Finding type
-    const transformedFindings = findings.map(finding => ({
-      id: finding.id,
-      type: finding.findingType,
-      description: finding.description,
-      department: finding.department,
-      priority: finding.priority,
-      dueDate: finding.dueDate,
-      assignedTo: finding.assignedTo,
-      status: finding.status,
-      createdAt: finding.createdAt,
-      updatedAt: finding.updatedAt
-    }));
-
-    console.log('Transformed findings:', transformedFindings);
-    res.json(transformedFindings);
+    // No need to transform since we're storing the data in the correct structure
+    res.json(findings);
   } catch (error) {
     console.error('Error fetching findings:', error);
     res.status(500).json({
