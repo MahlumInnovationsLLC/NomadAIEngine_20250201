@@ -109,7 +109,7 @@ export default function Navbar() {
             <NavigationMenuItem>
               <Link href="/docmanage">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                  Document Training & 
+                  DocManage
                 </NavigationMenuLink>
               </Link>
             </NavigationMenuItem>

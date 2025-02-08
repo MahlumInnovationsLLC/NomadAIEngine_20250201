@@ -111,11 +111,11 @@ function App() {
                   <Route path="/" component={() => <ProtectedRoute component={Home} />} />
                   <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                   <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
-                  <Route path="/manufacturing" component={() => <ProtectedRoute component={ManufacturingControlPage} />} />
-                  <Route path="/sales" component={() => <ProtectedRoute component={SalesControl} />} />
-                  <Route path="/marketing" component={() => <ProtectedRoute component={MarketingControl} />} />
+                  <Route path="/manufacturing-control" component={() => <ProtectedRoute component={ManufacturingControlPage} />} />
+                  <Route path="/sales-control" component={() => <ProtectedRoute component={SalesControl} />} />
+                  <Route path="/marketing-control" component={() => <ProtectedRoute component={MarketingControl} />} />
                   <Route path="/material-handling" component={() => <ProtectedRoute component={MaterialHandling} />} />
-                  <Route path="/facility" component={() => <ProtectedRoute component={FacilityControlPage} />} />
+                  <Route path="/facility-control" component={() => <ProtectedRoute component={FacilityControlPage} />} />
                   <Route path="/field-service" component={() => <ProtectedRoute component={FieldServiceDashboard} />} />
                   <Route path="/docmanage" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
                   <Route component={NotFound} />
