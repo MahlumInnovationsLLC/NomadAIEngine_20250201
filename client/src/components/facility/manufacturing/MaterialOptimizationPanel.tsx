@@ -1,11 +1,29 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import NestingPreview from "./NestingPreview";
 
 interface MaterialPart {
@@ -49,9 +67,29 @@ interface OptimizationMetrics {
   }[];
 }
 
+interface OptimizationSettings {
+  allowRotation: boolean;
+  spacing: number;
+  algorithm: 'guillotine' | 'maxrects' | 'skyline';
+  materialGrade: string;
+  sheetSize: {
+    width: number;
+    height: number;
+  };
+}
+
 export default function MaterialOptimizationPanel() {
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
   const [selectedNesting, setSelectedNesting] = useState<NestingResult | null>(null);
+  const [settings, setSettings] = useState<OptimizationSettings>({
+    allowRotation: true,
+    spacing: 2,
+    algorithm: 'maxrects',
+    materialGrade: 'standard',
+    sheetSize: { width: 1000, height: 2000 }
+  });
+
+  const { toast } = useToast();
 
   const { data: parts = [] } = useQuery<MaterialPart[]>({
     queryKey: ['/api/fabrication/parts'],
@@ -64,22 +102,159 @@ export default function MaterialOptimizationPanel() {
 
   const { data: metrics } = useQuery<OptimizationMetrics>({
     queryKey: ['/api/fabrication/optimization-metrics'],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
+
+  const optimizeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/fabrication/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          material: selectedMaterial,
+          settings
+        }),
+      });
+      if (!response.ok) throw new Error('Optimization failed');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Optimization Complete",
+        description: "New nesting patterns have been generated.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Optimization Failed",
+        description: "There was an error running the optimization.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleOptimize = () => {
+    if (!selectedMaterial) {
+      toast({
+        title: "No Material Selected",
+        description: "Please select a material to optimize.",
+        variant: "destructive",
+      });
+      return;
+    }
+    optimizeMutation.mutate();
+  };
+
+  const uniqueMaterials = Array.from(new Set(parts.map(part => part.material)));
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Material Optimization</h2>
         <div className="flex gap-2">
-          <Button>
+          <Select
+            value={selectedMaterial || ''}
+            onValueChange={(value) => setSelectedMaterial(value)}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select material" />
+            </SelectTrigger>
+            <SelectContent>
+              {uniqueMaterials.map((material) => (
+                <SelectItem key={material} value={material}>
+                  {material}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={handleOptimize} disabled={!selectedMaterial || optimizeMutation.isPending}>
             <FontAwesomeIcon icon="calculator" className="mr-2 h-4 w-4" />
-            Run Optimization
+            {optimizeMutation.isPending ? "Optimizing..." : "Run Optimization"}
           </Button>
-          <Button variant="outline">
-            <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
-            Settings
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
+                Settings
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Optimization Settings</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="allow-rotation">Allow Part Rotation</Label>
+                  <Switch
+                    id="allow-rotation"
+                    checked={settings.allowRotation}
+                    onCheckedChange={(checked) => 
+                      setSettings(prev => ({ ...prev, allowRotation: checked }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="spacing">Part Spacing (mm)</Label>
+                  <Input
+                    id="spacing"
+                    type="number"
+                    value={settings.spacing}
+                    onChange={(e) => 
+                      setSettings(prev => ({ ...prev, spacing: Number(e.target.value) }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="algorithm">Nesting Algorithm</Label>
+                  <Select
+                    value={settings.algorithm}
+                    onValueChange={(value: 'guillotine' | 'maxrects' | 'skyline') => 
+                      setSettings(prev => ({ ...prev, algorithm: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="guillotine">Guillotine</SelectItem>
+                      <SelectItem value="maxrects">MaxRects</SelectItem>
+                      <SelectItem value="skyline">Skyline</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Sheet Size</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Width"
+                      value={settings.sheetSize.width}
+                      onChange={(e) => 
+                        setSettings(prev => ({
+                          ...prev,
+                          sheetSize: { ...prev.sheetSize, width: Number(e.target.value) }
+                        }))
+                      }
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Height"
+                      value={settings.sheetSize.height}
+                      onChange={(e) => 
+                        setSettings(prev => ({
+                          ...prev,
+                          sheetSize: { ...prev.sheetSize, height: Number(e.target.value) }
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
