@@ -31,7 +31,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGear, faPenToSquare, faTrash, faSync, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { 
+  faGear, 
+  faPenToSquare, 
+  faTrash, 
+  faRotate, 
+  faPlus 
+} from "@fortawesome/pro-light-svg-icons";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { Finding } from "@/types/manufacturing";
@@ -155,7 +161,7 @@ export default function FindingsList() {
             Error loading findings: {error instanceof Error ? error.message : 'Unknown error'}
           </div>
           <Button onClick={() => refetch()}>
-            <FontAwesomeIcon icon={faSync} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faRotate} className="mr-2 h-4 w-4" />
             Retry
           </Button>
         </div>
@@ -168,7 +174,7 @@ export default function FindingsList() {
       <div className="flex justify-between items-center mb-4">
         <div className="space-x-2">
           <Button variant="outline" onClick={() => refetch()}>
-            <FontAwesomeIcon icon={faSync} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faRotate} className="mr-2 h-4 w-4" />
             Refresh
           </Button>
         </div>
