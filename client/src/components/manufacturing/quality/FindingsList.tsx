@@ -52,13 +52,14 @@ export default function FindingsList() {
   const { data: findings = [], isLoading, error, refetch } = useQuery<Finding[]>({
     queryKey: ['/api/manufacturing/quality/audits/findings'],
     queryFn: async () => {
+      console.log('Fetching findings from API...');
       const response = await fetch('/api/manufacturing/quality/audits/findings');
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch findings');
       }
       const data = await response.json();
-      console.log('Fetched findings:', data); // Debug log
+      console.log('API Response:', data);
       return data;
     },
     refetchInterval: 30000, // Refetch every 30 seconds
@@ -86,7 +87,7 @@ export default function FindingsList() {
 
   const filteredAndSortedFindings = findings
     .filter(finding => {
-      console.log('Filtering finding:', finding); // Debug log
+      console.log('Filtering finding:', finding); 
       return (!departmentFilter || finding.department === departmentFilter) &&
         (!typeFilter || finding.type === typeFilter);
     })
@@ -101,9 +102,8 @@ export default function FindingsList() {
       return 0;
     });
 
-  console.log('Filtered and sorted findings:', filteredAndSortedFindings); // Debug log
+  console.log('Filtered and sorted findings:', filteredAndSortedFindings); 
 
-  // Show loading state
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -115,7 +115,6 @@ export default function FindingsList() {
     );
   }
 
-  // Show error state with retry button
   if (error) {
     return (
       <Card className="p-6">
