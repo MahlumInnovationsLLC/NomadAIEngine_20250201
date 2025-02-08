@@ -53,17 +53,19 @@ export default function FindingsList() {
     queryKey: ['/api/manufacturing/quality/findings'],
     queryFn: async () => {
       console.log('Fetching findings from API...');
-      const response = await fetch('/api/manufacturing/quality/audits/findings');
+      const response = await fetch('/api/manufacturing/quality/findings'); //Corrected endpoint
+
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Error response:', errorData);
+        console.error('Error fetching findings:', errorData);
         throw new Error(errorData.message || 'Failed to fetch findings');
       }
+
       const data = await response.json();
       console.log('API Response:', data);
       return data;
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000,
   });
 
   const handleSort = (key: keyof Finding) => {
@@ -131,6 +133,38 @@ export default function FindingsList() {
       </Card>
     );
   }
+
+  const createFinding = async (data: any) => {
+    try {
+      const response = await fetch('/api/manufacturing/quality/findings', { //Corrected endpoint
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create finding');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/findings'] });
+      setShowCreateDialog(false);
+      toast({
+        title: "Success",
+        description: "Finding created successfully",
+      });
+    } catch (error) {
+      console.error('Error creating finding:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create finding",
+      });
+    }
+  };
+
 
   return (
     <Card className="p-6">
@@ -307,34 +341,7 @@ export default function FindingsList() {
         <CreateFindingDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
-          onSubmit={async (data) => {
-            try {
-              const response = await fetch('/api/manufacturing/quality/audits/findings', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-              });
-
-              if (!response.ok) {
-                throw new Error('Failed to create finding');
-              }
-
-              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/findings']});
-              setShowCreateDialog(false);
-              toast({
-                title: "Success",
-                description: "Finding created successfully",
-              });
-            } catch (error) {
-              toast({
-                variant: "destructive",
-                title: "Error",
-                description: error instanceof Error ? error.message : "Failed to create finding",
-              });
-            }
-          }}
+          onSubmit={createFinding}
         />
       )}
 
@@ -345,7 +352,7 @@ export default function FindingsList() {
           finding={selectedFinding}
           onSubmit={async (data) => {
             try {
-              const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
+              const response = await fetch(`/api/manufacturing/quality/findings/${selectedFinding.id}`, { //Corrected endpoint
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
@@ -354,7 +361,8 @@ export default function FindingsList() {
               });
 
               if (!response.ok) {
-                throw new Error('Failed to update finding');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update finding');
               }
 
               await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/findings']});
@@ -365,6 +373,7 @@ export default function FindingsList() {
                 description: "Finding updated successfully",
               });
             } catch (error) {
+              console.error('Error updating finding:', error);
               toast({
                 variant: "destructive",
                 title: "Error",
@@ -390,12 +399,13 @@ export default function FindingsList() {
                 if (!selectedFinding) return;
 
                 try {
-                  const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
+                  const response = await fetch(`/api/manufacturing/quality/findings/${selectedFinding.id}`, { //Corrected endpoint
                     method: 'DELETE',
                   });
 
                   if (!response.ok) {
-                    throw new Error('Failed to delete finding');
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to delete finding');
                   }
 
                   await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/findings']});
@@ -406,6 +416,7 @@ export default function FindingsList() {
                     description: "Finding deleted successfully",
                   });
                 } catch (error) {
+                  console.error('Error deleting finding:', error);
                   toast({
                     variant: "destructive",
                     title: "Error",

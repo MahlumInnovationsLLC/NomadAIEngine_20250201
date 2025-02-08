@@ -129,45 +129,43 @@ router.get('/findings', async (req, res) => {
   try {
     console.log('Fetching findings...');
 
-    // First, let's check what documents exist in the container
-    const allDocsQuery = {
-      query: "SELECT * FROM c WHERE c.type IN ('finding', 'audit')"
+    // Query for standalone findings
+    const findingsQuery = {
+      query: "SELECT * FROM c WHERE c.type = 'finding'",
     };
-    console.log('Checking all relevant documents:', allDocsQuery);
-    const { resources: allDocs } = await container.items
-      .query(allDocsQuery)
-      .fetchAll();
 
-    console.log('All documents found:', JSON.stringify(allDocs, null, 2));
-
-    // Get standalone findings with a simpler query
+    console.log('Executing standalone findings query...');
     const { resources: standaloneFindings } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'finding'"
-      })
+      .query(findingsQuery)
       .fetchAll();
 
-    // Get findings embedded in audits with a simpler query
+    console.log('Standalone findings:', JSON.stringify(standaloneFindings, null, 2));
+
+    // Query for audits with findings
+    const auditQuery = {
+      query: "SELECT * FROM c WHERE c.type = 'audit' AND IS_DEFINED(c.findings)",
+    };
+
+    console.log('Executing audit findings query...');
     const { resources: auditsWithFindings } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'audit'"
-      })
+      .query(auditQuery)
       .fetchAll();
 
-    // Process audit findings
-    const auditFindings = auditsWithFindings
-      .filter(audit => audit.findings && audit.findings.length > 0)
-      .flatMap(audit => 
-        audit.findings.map((finding: any) => ({
-          ...finding,
-          auditId: audit.id
-        }))
-      );
+    console.log('Audits with findings:', JSON.stringify(auditsWithFindings, null, 2));
 
-    // Combine all findings
+    // Extract findings from audits and add auditId
+    const auditFindings = auditsWithFindings.flatMap(audit => {
+      if (!audit.findings) return [];
+      return audit.findings.map((finding: any) => ({
+        ...finding,
+        auditId: audit.id,
+      }));
+    });
+
+    // Combine standalone and audit findings
     const allFindings = [...standaloneFindings, ...auditFindings];
+    console.log('All findings:', JSON.stringify(allFindings, null, 2));
 
-    console.log('Final response - all findings:', JSON.stringify(allFindings, null, 2));
     res.json(allFindings);
   } catch (error) {
     console.error('Error fetching findings:', error);
