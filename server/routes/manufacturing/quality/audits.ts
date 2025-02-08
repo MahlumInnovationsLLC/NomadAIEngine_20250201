@@ -242,32 +242,37 @@ router.delete('/findings/clear-all', async (req, res) => {
     
     const { resources: findings } = await container.items
       .query({
-        query: "SELECT * FROM c WHERE c.docType = 'finding'"
+        query: "SELECT * FROM c WHERE c.docType = 'finding' ORDER BY c.createdAt DESC"
       })
       .fetchAll();
 
     console.log(`Found ${findings.length} findings to delete`);
 
-    for (const finding of findings) {
-      try {
-        await container.item(finding.id, finding.id).delete();
-        console.log(`Successfully deleted finding ${finding.id}`);
-      } catch (deleteError) {
-        console.error(`Error deleting finding ${finding.id}:`, deleteError);
-      }
-    }
+    const deletePromises = findings.map(finding => 
+      container.item(finding.id, finding.id).delete()
+        .catch(error => {
+          console.error(`Failed to delete finding ${finding.id}:`, error);
+          return null;
+        })
+    );
+
+    await Promise.all(deletePromises);
 
     // Reset the findings counter
-    const counterId = 'findings-counter';
-    const counterResponse = await container.item(counterId, counterId).read();
-    if (counterResponse.resource) {
-      await container.item(counterId, counterId).replace({
-        ...counterResponse.resource,
-        value: 0
-      });
+    try {
+      const counterId = 'findings-counter';
+      const counterResponse = await container.item(counterId, counterId).read();
+      if (counterResponse.resource) {
+        await container.item(counterId, counterId).replace({
+          ...counterResponse.resource,
+          value: 0
+        });
+      }
+    } catch (counterError) {
+      console.error('Error resetting counter:', counterError);
     }
 
-    res.json({ message: 'All findings cleared successfully' });
+    res.json({ message: `Successfully deleted ${findings.length} findings` });
   } catch (error) {
     console.error('Error clearing findings:', error);
     res.status(500).json({
