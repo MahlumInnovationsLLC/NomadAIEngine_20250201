@@ -238,25 +238,41 @@ router.put('/findings/:id/update-id', async (req, res) => {
 // Clear all findings endpoint
 router.delete('/findings/clear-all', async (req, res) => {
   try {
+    console.log('Clearing all findings...');
+    
     const { resources: findings } = await container.items
       .query({
         query: "SELECT * FROM c WHERE c.docType = 'finding'"
       })
       .fetchAll();
 
-    // Delete each finding
-    const deletePromises = findings.map(finding => 
-      container.item(finding.id, finding.id).delete()
-    );
-    
-    await Promise.all(deletePromises);
-    console.log(`Deleted ${findings.length} findings`);
+    console.log(`Found ${findings.length} findings to delete`);
+
+    for (const finding of findings) {
+      try {
+        await container.item(finding.id, finding.id).delete();
+        console.log(`Successfully deleted finding ${finding.id}`);
+      } catch (deleteError) {
+        console.error(`Error deleting finding ${finding.id}:`, deleteError);
+      }
+    }
+
+    // Reset the findings counter
+    const counterId = 'findings-counter';
+    const counterResponse = await container.item(counterId, counterId).read();
+    if (counterResponse.resource) {
+      await container.item(counterId, counterId).replace({
+        ...counterResponse.resource,
+        value: 0
+      });
+    }
 
     res.json({ message: 'All findings cleared successfully' });
   } catch (error) {
     console.error('Error clearing findings:', error);
     res.status(500).json({
-      message: error instanceof Error ? error.message : 'Failed to clear findings'
+      error: 'Failed to clear findings',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
