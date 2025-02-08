@@ -12,6 +12,7 @@ import FabricationDashboard from "../components/facility/manufacturing/Fabricati
 import CncManagement from "../components/facility/manufacturing/CncManagement";
 import WeldingManagement from "../components/facility/manufacturing/WeldingManagement";
 import LaserCuttingManagement from "../components/facility/manufacturing/LaserCuttingManagement";
+import BendingManagement from "../components/facility/manufacturing/BendingManagement";
 
 interface ManufacturingStats {
   activeLines: number;
@@ -147,8 +148,7 @@ export default function ManufacturingControlPage() {
               </TabsContent>
 
               <TabsContent value="bending" className="mt-4">
-                {/* BendingManagement component will be added next */}
-                <div>Bending management coming soon...</div>
+                <BendingManagement />
               </TabsContent>
             </Tabs>
           </TabsContent>
