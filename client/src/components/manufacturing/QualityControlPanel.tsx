@@ -44,7 +44,10 @@ export const QualityControlPanel = () => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Quality Assurance</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold tracking-tight">Quality Assurance</h2>
+            <FontAwesomeIcon icon={['fal', 'circle-check']} className="h-5 w-5 text-green-500" />
+          </div>
           <p className="text-muted-foreground">
             Monitor and optimize production quality metrics
           </p>
