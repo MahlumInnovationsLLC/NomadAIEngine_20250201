@@ -10,6 +10,7 @@ import { ProjectManagementPanel } from "../components/manufacturing/ProjectManag
 import { useQuery } from "@tanstack/react-query";
 import FabricationDashboard from "../components/facility/manufacturing/FabricationDashboard";
 import CncManagement from "../components/facility/manufacturing/CncManagement";
+import WeldingManagement from "../components/facility/manufacturing/WeldingManagement";
 
 interface ManufacturingStats {
   activeLines: number;
@@ -137,8 +138,7 @@ export default function ManufacturingControlPage() {
               </TabsContent>
 
               <TabsContent value="welding" className="mt-4">
-                {/* WeldingManagement component will be added here */}
-                <div>Welding management coming soon...</div>
+                <WeldingManagement />
               </TabsContent>
 
               <TabsContent value="laser" className="mt-4">
