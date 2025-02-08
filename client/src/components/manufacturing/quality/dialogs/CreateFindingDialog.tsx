@@ -35,8 +35,12 @@ const findingFormSchema = z.object({
   department: z.string().min(1, "Department is required"),
   priority: z.enum(['low', 'medium', 'high']),
   dueDate: z.string().optional(),
+  responseDueDate: z.string().optional(),
   assignedTo: z.string().optional(),
   auditId: z.string().optional(),
+  responseRequired: z.boolean().default(false),
+  impact: z.string().optional(),
+  rootCause: z.string().optional(),
 });
 
 type FindingFormValues = z.infer<typeof findingFormSchema>;
@@ -55,6 +59,7 @@ export function CreateFindingDialog({
   auditId,
 }: CreateFindingDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requiresResponse, setRequiresResponse] = useState(false);
 
   const form = useForm<FindingFormValues>({
     resolver: zodResolver(findingFormSchema),
@@ -62,6 +67,7 @@ export function CreateFindingDialog({
       type: 'observation',
       priority: 'medium',
       auditId: auditId,
+      responseRequired: false,
     },
   });
 
@@ -82,7 +88,7 @@ export function CreateFindingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create New Finding</DialogTitle>
           <DialogDescription>
@@ -137,6 +143,40 @@ export function CreateFindingDialog({
 
             <FormField
               control={form.control}
+              name="impact"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Impact</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Describe the potential impact of this finding"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="rootCause"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Root Cause (if known)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Describe the root cause if already identified"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="department"
               render={({ field }) => (
                 <FormItem>
@@ -180,7 +220,7 @@ export function CreateFindingDialog({
               name="dueDate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Due Date (Optional)</FormLabel>
+                  <FormLabel>Due Date</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -194,7 +234,7 @@ export function CreateFindingDialog({
               name="assignedTo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Assigned To (Optional)</FormLabel>
+                  <FormLabel>Assigned To</FormLabel>
                   <FormControl>
                     <Input placeholder="Assignee name" {...field} />
                   </FormControl>
@@ -202,6 +242,49 @@ export function CreateFindingDialog({
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="responseRequired"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={requiresResponse}
+                      onChange={(e) => {
+                        setRequiresResponse(e.target.checked);
+                        field.onChange(e.target.checked);
+                      }}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Response Required
+                    </FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Check if a response is required from the assignee
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {requiresResponse && (
+              <FormField
+                control={form.control}
+                name="responseDueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Response Due Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>

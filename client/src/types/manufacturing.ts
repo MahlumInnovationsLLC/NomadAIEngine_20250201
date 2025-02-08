@@ -716,6 +716,37 @@ export interface AuditTemplate {
   updatedAt: string;
 }
 
+export interface FindingResponse {
+  id: string;
+  findingId: string;
+  content: string;
+  respondedBy: string;
+  responseDate: string;
+  status: 'draft' | 'submitted' | 'reviewed' | 'accepted' | 'rejected';
+  reviewedBy?: string;
+  reviewDate?: string;
+  reviewComments?: string;
+}
+
+export interface RiskAcceptance {
+  id: string;
+  findingId: string;
+  acceptedBy: string;
+  acceptanceDate: string;
+  justification: string;
+  digitalSignature: {
+    signedBy: string;
+    signatureDate: string;
+    ipAddress: string;
+    userAgent: string;
+  };
+  approvedBy?: string;
+  approvalDate?: string;
+  expirationDate?: string;
+  mitigatingControls?: string[];
+  reviewCycle: 'quarterly' | 'semi-annual' | 'annual';
+}
+
 export interface Finding {
   id: string;
   type: 'observation' | 'minor' | 'major' | 'opportunity';
@@ -728,13 +759,42 @@ export interface Finding {
   assignedTo?: string;
   priority: 'low' | 'medium' | 'high';
   dueDate?: string;
+  responseDueDate?: string;
+  responseStatus: 'pending' | 'overdue' | 'responded' | 'accepted' | 'rejected';
   resolution?: string;
+  riskAcceptance?: RiskAcceptance;
+  responses: FindingResponse[];
   attachments?: string[];
   comments?: {
     id: string;
     content: string;
     author: string;
     timestamp: string;
+    type: 'comment' | 'status_update' | 'system';
+    parentId?: string;
+    mentions?: string[];
+  }[];
+  collaborators: {
+    userId: string;
+    role: 'owner' | 'reviewer' | 'contributor';
+    addedAt: string;
+  }[];
+  timeline: {
+    id: string;
+    event: string;
+    performedBy: string;
+    timestamp: string;
+    details?: Record<string, any>;
+  }[];
+  tags?: string[];
+  impact?: string;
+  rootCause?: string;
+  recommendedActions?: string[];
+  evidence?: {
+    description: string;
+    attachmentUrls: string[];
+    addedBy: string;
+    addedAt: string;
   }[];
 }
 

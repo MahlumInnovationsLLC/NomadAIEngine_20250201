@@ -36,11 +36,24 @@ import {
   faPenToSquare,
   faTrash,
   faRotate,
-  faPlus
+  faPlus,
+  faComment,
+  faFileSignature,
+  faHistory,
+  faUserGroup,
+  faExclamationTriangle,
+  faCheckCircle,
 } from "@fortawesome/pro-light-svg-icons";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { Finding } from "@/types/manufacturing";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
+import { Label } from "@/components/ui/label";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select"
+
 
 export default function FindingsList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -49,6 +62,8 @@ export default function FindingsList() {
   const [showManageIdsDialog, setShowManageIdsDialog] = useState(false);
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const [newFindingId, setNewFindingId] = useState("");
+  const [showResponseDialog, setShowResponseDialog] = useState(false);
+  const [showRiskAcceptanceDialog, setShowRiskAcceptanceDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -198,6 +213,172 @@ export default function FindingsList() {
     );
   }
 
+  const ResponsiveDialog = ({ finding, open, onOpenChange }: { 
+    finding: Finding;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }) => {
+    const [response, setResponse] = useState("");
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    const handleSubmitResponse = async () => {
+      try {
+        const responseData = {
+          findingId: finding.id,
+          content: response,
+          respondedBy: "Current User", // Replace with actual user
+          responseDate: new Date().toISOString(),
+          status: 'submitted'
+        };
+
+        const res = await fetch(`/api/manufacturing/quality/audits/findings/${finding.id}/responses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(responseData),
+        });
+
+        if (!res.ok) throw new Error('Failed to submit response');
+
+        await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/audits/findings'] });
+        onOpenChange(false);
+        toast({
+          title: "Success",
+          description: "Response submitted successfully",
+        });
+      } catch (error) {
+        console.error('Error submitting response:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to submit response",
+        });
+      }
+    };
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Respond to Finding</DialogTitle>
+            <DialogDescription>
+              Provide your response to the finding "{finding.description}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Your Response</Label>
+              <Textarea
+                placeholder="Enter your response..."
+                value={response}
+                onChange={(e) => setResponse(e.target.value)}
+                rows={6}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitResponse}>Submit Response</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  const RiskAcceptanceDialog = ({ finding, open, onOpenChange }: {
+    finding: Finding;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }) => {
+    const [justification, setJustification] = useState("");
+    const [mitigatingControls, setMitigatingControls] = useState<string[]>([]);
+    const [reviewCycle, setReviewCycle] = useState<'quarterly' | 'semi-annual' | 'annual'>('quarterly');
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    const handleAcceptRisk = async () => {
+      try {
+        const acceptanceData = {
+          findingId: finding.id,
+          justification,
+          mitigatingControls,
+          reviewCycle,
+          acceptedBy: "Current User", // Replace with actual user
+          acceptanceDate: new Date().toISOString(),
+        };
+
+        const res = await fetch(`/api/manufacturing/quality/audits/findings/${finding.id}/risk-acceptance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(acceptanceData),
+        });
+
+        if (!res.ok) throw new Error('Failed to submit risk acceptance');
+
+        await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/audits/findings'] });
+        onOpenChange(false);
+        toast({
+          title: "Success",
+          description: "Risk acceptance submitted successfully",
+        });
+      } catch (error) {
+        console.error('Error submitting risk acceptance:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to submit risk acceptance",
+        });
+      }
+    };
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Risk Acceptance</DialogTitle>
+            <DialogDescription>
+              Document your acceptance of risk for finding "{finding.description}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Justification</Label>
+              <Textarea
+                placeholder="Explain why this risk is acceptable..."
+                value={justification}
+                onChange={(e) => setJustification(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Review Cycle</Label>
+              <Select value={reviewCycle} onValueChange={(value: any) => setReviewCycle(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select review cycle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="semi-annual">Semi-Annual</SelectItem>
+                  <SelectItem value="annual">Annual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAcceptRisk} className="bg-yellow-500 hover:bg-yellow-600">
+              Accept Risk & Sign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   return (
     <Card className="p-6">
       <div className="flex justify-between items-center mb-4">
@@ -268,7 +449,28 @@ export default function FindingsList() {
                   </span>
                 </TableCell>
                 <TableCell>{finding.department}</TableCell>
-                <TableCell className="max-w-md truncate">{finding.description}</TableCell>
+                <TableCell className="max-w-md">
+                  <div className="space-y-1">
+                    <p className="truncate">{finding.description}</p>
+                    {finding.responseStatus !== 'pending' && (
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                        finding.responseStatus === 'overdue' ? 'bg-red-100 text-red-800' :
+                        finding.responseStatus === 'responded' ? 'bg-blue-100 text-blue-800' :
+                        finding.responseStatus === 'accepted' ? 'bg-green-100 text-green-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        <FontAwesomeIcon icon={faComment} className="mr-1 h-3 w-3" />
+                        {finding.responseStatus}
+                      </span>
+                    )}
+                    {finding.riskAcceptance && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 ml-2">
+                        <FontAwesomeIcon icon={faExclamationTriangle} className="mr-1 h-3 w-3" />
+                        Risk Accepted
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs ${
                     finding.status === 'open' ? 'bg-red-100 text-red-800' :
@@ -279,10 +481,37 @@ export default function FindingsList() {
                   </span>
                 </TableCell>
                 <TableCell>
-                  {finding.dueDate ? new Date(finding.dueDate).toLocaleDateString() : 'Not set'}
+                  <div className="space-y-1">
+                    <p>{finding.dueDate ? format(new Date(finding.dueDate), 'MMM d, yyyy') : 'Not set'}</p>
+                    {finding.responseDueDate && (
+                      <p className="text-xs text-muted-foreground">
+                        Response due: {format(new Date(finding.responseDueDate), 'MMM d, yyyy')}
+                      </p>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFinding(finding);
+                        setShowResponseDialog(true);
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faComment} className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFinding(finding);
+                        setShowRiskAcceptanceDialog(true);
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faFileSignature} className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -447,6 +676,21 @@ export default function FindingsList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {showResponseDialog && selectedFinding && (
+        <ResponsiveDialog
+          finding={selectedFinding}
+          open={showResponseDialog}
+          onOpenChange={setShowResponseDialog}
+        />
+      )}
+
+      {showRiskAcceptanceDialog && selectedFinding && (
+        <RiskAcceptanceDialog
+          finding={selectedFinding}
+          open={showRiskAcceptanceDialog}
+          onOpenChange={setShowRiskAcceptanceDialog}
+        />
+      )}
     </Card>
   );
 }
