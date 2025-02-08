@@ -121,6 +121,46 @@ export function FindingDetailsDialog({
     }
   };
 
+  const handleAcceptRisk = async () => {
+    try {
+      const acceptanceData = {
+        findingId: finding.id,
+        justification,
+        reviewCycle,
+        acceptedBy: "Current User", // Replace with actual user
+        acceptanceDate: new Date().toISOString(),
+        digitalSignature: {
+          signedBy: "Current User", // Replace with actual user
+          signatureDate: new Date().toISOString(),
+          ipAddress: window.location.hostname,
+          userAgent: navigator.userAgent
+        }
+      };
+
+      const res = await fetch(`/api/manufacturing/quality/audits/findings/${finding.id}/risk-acceptance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(acceptanceData),
+      });
+
+      if (!res.ok) throw new Error('Failed to submit risk acceptance');
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/audits/findings'] });
+      setJustification("");
+      toast({
+        title: "Success",
+        description: "Risk acceptance submitted successfully",
+      });
+    } catch (error) {
+      console.error('Error submitting risk acceptance:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit risk acceptance",
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] h-[90vh]">
