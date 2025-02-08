@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import FabricationDashboard from "../components/facility/manufacturing/FabricationDashboard";
 import CncManagement from "../components/facility/manufacturing/CncManagement";
 import WeldingManagement from "../components/facility/manufacturing/WeldingManagement";
+import LaserCuttingManagement from "../components/facility/manufacturing/LaserCuttingManagement";
 
 interface ManufacturingStats {
   activeLines: number;
@@ -142,12 +143,11 @@ export default function ManufacturingControlPage() {
               </TabsContent>
 
               <TabsContent value="laser" className="mt-4">
-                {/* LaserCuttingManagement component will be added here */}
-                <div>Laser cutting management coming soon...</div>
+                <LaserCuttingManagement />
               </TabsContent>
 
               <TabsContent value="bending" className="mt-4">
-                {/* BendingManagement component will be added here */}
+                {/* BendingManagement component will be added next */}
                 <div>Bending management coming soon...</div>
               </TabsContent>
             </Tabs>
