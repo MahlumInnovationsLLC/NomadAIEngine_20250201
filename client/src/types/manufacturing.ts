@@ -726,6 +726,13 @@ export interface FindingResponse {
   reviewedBy?: string;
   reviewDate?: string;
   reviewComments?: string;
+  attachments?: {
+    name: string;
+    url: string;
+    size: number;
+    type: string;
+    uploadedAt: string;
+  }[];
 }
 
 export interface RiskAcceptance {

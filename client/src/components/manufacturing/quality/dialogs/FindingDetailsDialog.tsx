@@ -25,6 +25,12 @@ import {
   faUserGroup,
   faExclamationTriangle,
   faCheckCircle,
+  faFile,
+  faImage,
+  faFilePdf,
+  faDownload,
+  faTrash,
+  faFileUpload,
 } from "@fortawesome/pro-light-svg-icons";
 import type { Finding } from "@/types/manufacturing";
 
@@ -43,29 +49,64 @@ export function FindingDetailsDialog({
   const [response, setResponse] = useState("");
   const [justification, setJustification] = useState("");
   const [reviewCycle, setReviewCycle] = useState<'quarterly' | 'semi-annual' | 'annual'>('quarterly');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      // Convert FileList to array and append to existing files
+      const newFiles = Array.from(files);
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return faFilePdf;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return faImage;
+      default:
+        return faFile;
+    }
+  };
+
   const handleSubmitResponse = async () => {
     try {
-      const responseData = {
-        findingId: finding.id,
-        content: response,
-        respondedBy: "Current User", // Replace with actual user
-        responseDate: new Date().toISOString(),
-        status: 'submitted'
-      };
+      setUploadProgress(0);
+      const formData = new FormData();
+      formData.append('findingId', finding.id);
+      formData.append('content', response);
+      formData.append('respondedBy', "Current User"); // Replace with actual user
+      formData.append('responseDate', new Date().toISOString());
+      formData.append('status', 'submitted');
+
+      // Append each file to formData
+      uploadedFiles.forEach((file, index) => {
+        formData.append(`files`, file);
+      });
 
       const res = await fetch(`/api/manufacturing/quality/audits/findings/${finding.id}/responses`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(responseData),
+        body: formData,
       });
 
       if (!res.ok) throw new Error('Failed to submit response');
 
       await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/audits/findings'] });
       setResponse("");
+      setUploadedFiles([]);
       toast({
         title: "Success",
         description: "Response submitted successfully",
@@ -76,40 +117,6 @@ export function FindingDetailsDialog({
         variant: "destructive",
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to submit response",
-      });
-    }
-  };
-
-  const handleAcceptRisk = async () => {
-    try {
-      const acceptanceData = {
-        findingId: finding.id,
-        justification,
-        reviewCycle,
-        acceptedBy: "Current User", // Replace with actual user
-        acceptanceDate: new Date().toISOString(),
-      };
-
-      const res = await fetch(`/api/manufacturing/quality/audits/findings/${finding.id}/risk-acceptance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(acceptanceData),
-      });
-
-      if (!res.ok) throw new Error('Failed to submit risk acceptance');
-
-      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/audits/findings'] });
-      setJustification("");
-      toast({
-        title: "Success",
-        description: "Risk acceptance submitted successfully",
-      });
-    } catch (error) {
-      console.error('Error submitting risk acceptance:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to submit risk acceptance",
       });
     }
   };
@@ -136,18 +143,10 @@ export function FindingDetailsDialog({
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="responses">
-              Responses
-            </TabsTrigger>
-            <TabsTrigger value="risk">
-              Risk Management
-            </TabsTrigger>
-            <TabsTrigger value="timeline">
-              Timeline
-            </TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="responses">Responses</TabsTrigger>
+            <TabsTrigger value="risk">Risk Management</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
 
           <ScrollArea className="h-[calc(90vh-12rem)] mt-4">
@@ -231,6 +230,34 @@ export function FindingDetailsDialog({
                         </span>
                       </div>
                       <p className="text-sm">{response.content}</p>
+                      {response.attachments && response.attachments.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          <p className="text-sm font-medium">Attachments:</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {response.attachments.map((attachment, index) => (
+                              <div 
+                                key={index} 
+                                className="flex items-center gap-2 p-2 rounded-md bg-muted"
+                              >
+                                <FontAwesomeIcon 
+                                  icon={getFileIcon(attachment.name)} 
+                                  className="h-4 w-4" 
+                                />
+                                <span className="text-sm truncate flex-1">
+                                  {attachment.name}
+                                </span>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => window.open(attachment.url, '_blank')}
+                                >
+                                  <FontAwesomeIcon icon={faDownload} className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {response.reviewComments && (
                         <div className="bg-muted p-2 rounded-md mt-2">
                           <p className="text-sm font-medium">Review Comments:</p>
@@ -254,8 +281,71 @@ export function FindingDetailsDialog({
                       rows={4}
                     />
                   </div>
-                  <Button onClick={handleSubmitResponse} disabled={!response.trim()}>
-                    Submit Response
+
+                  <div>
+                    <Label>Attachments</Label>
+                    <div className="mt-2 space-y-4">
+                      <div className="flex items-center gap-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => document.getElementById('file-upload')?.click()}
+                          className="w-full"
+                        >
+                          <FontAwesomeIcon icon={faFileUpload} className="mr-2 h-4 w-4" />
+                          Upload Files
+                        </Button>
+                        <input
+                          type="file"
+                          id="file-upload"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                        />
+                      </div>
+
+                      {uploadedFiles.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {uploadedFiles.map((file, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-2 p-2 rounded-md bg-muted"
+                            >
+                              <FontAwesomeIcon
+                                icon={getFileIcon(file.name)}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm truncate flex-1">
+                                {file.name}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeFile(index)}
+                              >
+                                <FontAwesomeIcon icon={faTrash} className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {uploadProgress > 0 && uploadProgress < 100 && (
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div
+                            className="bg-primary h-2 rounded-full transition-all"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleSubmitResponse} 
+                    disabled={!response.trim() || uploadProgress > 0}
+                  >
+                    {uploadProgress > 0 ? "Uploading..." : "Submit Response"}
                   </Button>
                 </div>
               </Card>
