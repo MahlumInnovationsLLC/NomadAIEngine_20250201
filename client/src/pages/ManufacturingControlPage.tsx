@@ -8,6 +8,8 @@ import { ProductionLinePanel } from "../components/manufacturing/ProductionLineP
 import { QualityControlPanel } from "../components/manufacturing/QualityControlPanel";
 import { ProjectManagementPanel } from "../components/manufacturing/ProjectManagementPanel";
 import { useQuery } from "@tanstack/react-query";
+import FabricationDashboard from "../components/facility/manufacturing/FabricationDashboard";
+import CncManagement from "../components/facility/manufacturing/CncManagement";
 
 interface ManufacturingStats {
   activeLines: number;
@@ -94,9 +96,9 @@ export default function ManufacturingControlPage() {
               <FontAwesomeIcon icon="tasks" className="mr-2" />
               Project Management
             </TabsTrigger>
-            <TabsTrigger value="maintenance">
-              <FontAwesomeIcon icon="wrench" className="mr-2" />
-              Maintenance
+            <TabsTrigger value="fabrication">
+              <FontAwesomeIcon icon="industry" className="mr-2" />
+              Fabrication
             </TabsTrigger>
             <TabsTrigger value="analytics">
               <FontAwesomeIcon icon="chart-line" className="mr-2" />
@@ -116,8 +118,39 @@ export default function ManufacturingControlPage() {
             <ProjectManagementPanel />
           </TabsContent>
 
-          <TabsContent value="maintenance" className="space-y-6">
-            {/* Predictive Maintenance Panel will go here */}
+          <TabsContent value="fabrication" className="space-y-6">
+            <Tabs defaultValue="overview">
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="cnc">CNC</TabsTrigger>
+                <TabsTrigger value="welding">Welding</TabsTrigger>
+                <TabsTrigger value="laser">Laser Cutting</TabsTrigger>
+                <TabsTrigger value="bending">Bending</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="mt-4">
+                <FabricationDashboard />
+              </TabsContent>
+
+              <TabsContent value="cnc" className="mt-4">
+                <CncManagement />
+              </TabsContent>
+
+              <TabsContent value="welding" className="mt-4">
+                {/* WeldingManagement component will be added here */}
+                <div>Welding management coming soon...</div>
+              </TabsContent>
+
+              <TabsContent value="laser" className="mt-4">
+                {/* LaserCuttingManagement component will be added here */}
+                <div>Laser cutting management coming soon...</div>
+              </TabsContent>
+
+              <TabsContent value="bending" className="mt-4">
+                {/* BendingManagement component will be added here */}
+                <div>Bending management coming soon...</div>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
