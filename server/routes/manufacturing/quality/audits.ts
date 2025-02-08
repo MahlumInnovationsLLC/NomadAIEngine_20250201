@@ -181,4 +181,42 @@ router.delete('/findings/:id', async (req, res) => {
   }
 });
 
+// Add update finding ID endpoint
+router.put('/findings/:id/update-id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newId } = req.body;
+
+    console.log(`Updating finding ID from ${id} to ${newId}`);
+
+    // Get the existing finding
+    const { resource: existingFinding } = await container.item(id, id).read();
+
+    if (!existingFinding) {
+      return res.status(404).json({ error: 'Finding not found' });
+    }
+
+    // Create new finding document with updated ID
+    const updatedFinding = {
+      ...existingFinding,
+      id: newId,
+    };
+
+    // Delete old document
+    await container.item(id, id).delete();
+
+    // Create new document with updated ID
+    const { resource: newFinding } = await container.items.create(updatedFinding);
+    console.log('Successfully updated finding ID:', newFinding);
+
+    res.json(newFinding);
+  } catch (error) {
+    console.error('Error updating finding ID:', error);
+    res.status(500).json({
+      error: 'Failed to update finding ID',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;

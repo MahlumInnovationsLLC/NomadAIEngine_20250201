@@ -20,8 +20,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faGear, faPenToSquare, faTrash, faSync, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { Finding } from "@/types/manufacturing";
@@ -30,7 +40,9 @@ export default function FindingsList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showManageIdsDialog, setShowManageIdsDialog] = useState(false);
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const [newFindingId, setNewFindingId] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -92,6 +104,38 @@ export default function FindingsList() {
     }
   };
 
+  const updateFindingId = async (findingId: string, newId: string) => {
+    try {
+      const response = await fetch(`/api/manufacturing/quality/audits/findings/${findingId}/update-id`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ newId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to update finding ID');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/audits/findings'] });
+      setShowManageIdsDialog(false);
+      setSelectedFinding(null);
+      toast({
+        title: "Success",
+        description: "Finding ID updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating finding ID:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update finding ID",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -111,7 +155,7 @@ export default function FindingsList() {
             Error loading findings: {error instanceof Error ? error.message : 'Unknown error'}
           </div>
           <Button onClick={() => refetch()}>
-            <FontAwesomeIcon icon="sync" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faSync} className="mr-2 h-4 w-4" />
             Retry
           </Button>
         </div>
@@ -124,15 +168,21 @@ export default function FindingsList() {
       <div className="flex justify-between items-center mb-4">
         <div className="space-x-2">
           <Button variant="outline" onClick={() => refetch()}>
-            <FontAwesomeIcon icon="sync" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faSync} className="mr-2 h-4 w-4" />
             Refresh
           </Button>
         </div>
 
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-          New Finding
-        </Button>
+        <div className="space-x-2">
+          <Button variant="outline" onClick={() => setShowManageIdsDialog(true)}>
+            <FontAwesomeIcon icon={faGear} className="mr-2 h-4 w-4" />
+            Manage IDs
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
+            New Finding
+          </Button>
+        </div>
       </div>
 
       <Table>
@@ -154,7 +204,7 @@ export default function FindingsList() {
                 <div className="space-y-4">
                   <div className="text-muted-foreground">No findings found</div>
                   <Button onClick={() => setShowCreateDialog(true)} variant="outline">
-                    <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                    <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
                     Create New Finding
                   </Button>
                 </div>
@@ -198,7 +248,7 @@ export default function FindingsList() {
                         setShowEditDialog(true);
                       }}
                     >
-                      <FontAwesomeIcon icon="pen-to-square" className="h-4 w-4" />
+                      <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -208,7 +258,7 @@ export default function FindingsList() {
                         setShowDeleteDialog(true);
                       }}
                     >
-                      <FontAwesomeIcon icon="trash" className="h-4 w-4 text-red-500" />
+                      <FontAwesomeIcon icon={faTrash} className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
                 </TableCell>
@@ -264,6 +314,48 @@ export default function FindingsList() {
           }}
         />
       )}
+
+      <Dialog open={showManageIdsDialog} onOpenChange={setShowManageIdsDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Manage Finding IDs</DialogTitle>
+            <DialogDescription>
+              Select a finding and enter a new ID to update it. Follow the format FND-XXX-DD.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {findings.map((finding) => (
+              <div key={finding.id} className="flex items-center gap-4">
+                <div className="flex-1">
+                  <span className="font-medium">{finding.id}</span>
+                </div>
+                <Input
+                  placeholder="New ID (e.g., FND-001-QA)"
+                  className="w-48"
+                  onFocus={() => setSelectedFinding(finding)}
+                  onChange={(e) => setNewFindingId(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (selectedFinding && newFindingId) {
+                      updateFindingId(selectedFinding.id, newFindingId);
+                    }
+                  }}
+                  disabled={!selectedFinding || !newFindingId}
+                >
+                  Update
+                </Button>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowManageIdsDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
