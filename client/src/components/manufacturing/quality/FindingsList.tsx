@@ -49,7 +49,7 @@ export default function FindingsList() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: findings = [], isLoading, error, refetch } = useQuery({
+  const { data: findings = [], isLoading, error, refetch } = useQuery<Finding[]>({
     queryKey: ['/api/manufacturing/quality/audits/findings'],
     queryFn: async () => {
       const response = await fetch('/api/manufacturing/quality/audits/findings');
@@ -57,7 +57,9 @@ export default function FindingsList() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch findings');
       }
-      return response.json();
+      const data = await response.json();
+      console.log('Fetched findings:', data); // Debug log
+      return data;
     },
     refetchInterval: 30000, // Refetch every 30 seconds
   });
@@ -83,10 +85,11 @@ export default function FindingsList() {
   };
 
   const filteredAndSortedFindings = findings
-    .filter(finding =>
-      (!departmentFilter || finding.department === departmentFilter) &&
-      (!typeFilter || finding.type === typeFilter)
-    )
+    .filter(finding => {
+      console.log('Filtering finding:', finding); // Debug log
+      return (!departmentFilter || finding.department === departmentFilter) &&
+        (!typeFilter || finding.type === typeFilter);
+    })
     .sort((a, b) => {
       const direction = sortConfig.direction === 'asc' ? 1 : -1;
       const aValue = a[sortConfig.key];
@@ -97,6 +100,8 @@ export default function FindingsList() {
       if (aValue > bValue) return 1 * direction;
       return 0;
     });
+
+  console.log('Filtered and sorted findings:', filteredAndSortedFindings); // Debug log
 
   // Show loading state
   if (isLoading) {
@@ -316,7 +321,7 @@ export default function FindingsList() {
                 throw new Error('Failed to create finding');
               }
 
-              await queryClient.invalidateQueries(['/api/manufacturing/quality/audits/findings']);
+              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
               setShowCreateDialog(false);
               toast({
                 title: "Success",
@@ -352,7 +357,7 @@ export default function FindingsList() {
                 throw new Error('Failed to update finding');
               }
 
-              await queryClient.invalidateQueries(['/api/manufacturing/quality/audits/findings']);
+              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
               setShowEditDialog(false);
               setSelectedFinding(null);
               toast({
@@ -393,7 +398,7 @@ export default function FindingsList() {
                     throw new Error('Failed to delete finding');
                   }
 
-                  await queryClient.invalidateQueries(['/api/manufacturing/quality/audits/findings']);
+                  await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
                   setShowDeleteDialog(false);
                   setSelectedFinding(null);
                   toast({
