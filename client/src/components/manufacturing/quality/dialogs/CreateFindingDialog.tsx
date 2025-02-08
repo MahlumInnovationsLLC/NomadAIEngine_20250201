@@ -68,31 +68,12 @@ export function CreateFindingDialog({
   const handleSubmit = async (data: FindingFormValues) => {
     try {
       console.log('Submitting finding data:', data);
-      const response = await fetch('/api/manufacturing/quality/audits/findings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error response:', errorData);
-        throw new Error(errorData.message || 'Failed to create finding');
-      }
-
-      const result = await response.json();
-      console.log('Created finding:', result);
-
-      await onSubmit({
-        ...data,
-        auditId,
-      });
+      setIsSubmitting(true);
+      await onSubmit(data);
       form.reset();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating finding:', error);
+      console.error('Error submitting finding:', error);
       throw error;
     } finally {
       setIsSubmitting(false);
