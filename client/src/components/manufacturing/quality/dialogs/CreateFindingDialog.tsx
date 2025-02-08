@@ -28,7 +28,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
 
 const findingFormSchema = z.object({
   type: z.enum(['observation', 'minor', 'major', 'opportunity']),
@@ -37,6 +36,7 @@ const findingFormSchema = z.object({
   priority: z.enum(['low', 'medium', 'high']),
   dueDate: z.string().optional(),
   assignedTo: z.string().optional(),
+  auditId: z.string().optional(),
 });
 
 type FindingFormValues = z.infer<typeof findingFormSchema>;
@@ -61,6 +61,7 @@ export function CreateFindingDialog({
     defaultValues: {
       type: 'observation',
       priority: 'medium',
+      auditId: auditId,
     },
   });
 

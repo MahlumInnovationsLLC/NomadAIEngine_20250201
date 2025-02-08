@@ -91,10 +91,30 @@ router.post('/findings', async (req, res) => {
 
     console.log('Creating finding in database:', finding);
 
-    const { resource } = await container.items.create(finding);
-    console.log('Successfully created finding:', resource);
+    if (req.body.auditId) {
+      // If auditId is provided, add finding to the audit's findings array
+      const { resource: audit } = await container.item(req.body.auditId, req.body.auditId).read();
 
-    res.json(resource);
+      if (!audit) {
+        return res.status(404).json({ error: 'Audit not found' });
+      }
+
+      if (!audit.findings) {
+        audit.findings = [];
+      }
+
+      audit.findings.push(finding);
+      audit.updatedAt = new Date().toISOString();
+
+      await container.item(req.body.auditId, req.body.auditId).replace(audit);
+      console.log('Added finding to audit:', audit.id);
+      res.json(finding);
+    } else {
+      // If no auditId, create as standalone finding
+      const { resource } = await container.items.create(finding);
+      console.log('Created standalone finding:', resource);
+      res.json(resource);
+    }
   } catch (error) {
     console.error('Detailed error creating finding:', error);
     res.status(500).json({
@@ -109,41 +129,39 @@ router.get('/findings', async (req, res) => {
   try {
     console.log('Fetching findings...');
 
+    // Get standalone findings
     const findingsQuery = {
-      query: "SELECT * FROM c WHERE c.type = @type",
-      parameters: [{ name: "@type", value: "finding" }]
+      query: "SELECT * FROM c WHERE c.type = 'finding'"
     };
-    console.log('Executing query:', findingsQuery);
-
-    const { resources: findings } = await container.items
+    console.log('Executing standalone findings query:', findingsQuery);
+    const { resources: standaloneFindings } = await container.items
       .query(findingsQuery)
       .fetchAll();
+    console.log('Found standalone findings:', standaloneFindings);
 
-    // Get audit findings
+    // Get findings from audits
     const auditQuery = {
-      query: "SELECT c.id as auditId, c.findings FROM c WHERE c.type = 'audit' AND IS_DEFINED(c.findings)"
+      query: "SELECT c.id as auditId, c.findings FROM c WHERE c.type = 'audit' AND IS_DEFINED(c.findings) AND ARRAY_LENGTH(c.findings) > 0"
     };
-    const { resources: audits } = await container.items
+    console.log('Executing audit findings query:', auditQuery);
+    const { resources: auditsWithFindings } = await container.items
       .query(auditQuery)
       .fetchAll();
+    console.log('Found audits with findings:', auditsWithFindings);
 
-    console.log('Found standalone findings:', findings);
-    console.log('Found audit findings:', audits);
+    // Extract findings from audits and add auditId
+    const auditFindings = auditsWithFindings.flatMap(audit =>
+      audit.findings.map((finding: any) => ({
+        ...finding,
+        auditId: audit.auditId
+      }))
+    );
+    console.log('Extracted audit findings:', auditFindings);
 
-    // Combine standalone findings and audit findings
-    const allFindings = [
-      ...findings,
-      ...audits.flatMap(audit =>
-        Array.isArray(audit.findings)
-          ? audit.findings.map((finding: any) => ({
-              ...finding,
-              auditId: audit.auditId
-            }))
-          : []
-      )
-    ];
+    // Combine all findings
+    const allFindings = [...standaloneFindings, ...auditFindings];
+    console.log('Total findings:', allFindings.length);
 
-    console.log('Combined findings:', allFindings);
     res.json(allFindings);
   } catch (error) {
     console.error('Error fetching findings:', error);
