@@ -53,7 +53,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select"
-
+import { FindingDetailsDialog } from "./dialogs/FindingDetailsDialog";
 
 export default function FindingsList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -64,6 +64,7 @@ export default function FindingsList() {
   const [newFindingId, setNewFindingId] = useState("");
   const [showResponseDialog, setShowResponseDialog] = useState(false);
   const [showRiskAcceptanceDialog, setShowRiskAcceptanceDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -436,7 +437,14 @@ export default function FindingsList() {
             </TableRow>
           ) : (
             findings.map((finding) => (
-              <TableRow key={finding.id}>
+              <TableRow 
+                key={finding.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => {
+                  setSelectedFinding(finding);
+                  setShowDetailsDialog(true);
+                }}
+              >
                 <TableCell>{finding.id}</TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs ${
@@ -495,7 +503,8 @@ export default function FindingsList() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedFinding(finding);
                         setShowResponseDialog(true);
                       }}
@@ -505,7 +514,8 @@ export default function FindingsList() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedFinding(finding);
                         setShowRiskAcceptanceDialog(true);
                       }}
@@ -515,7 +525,8 @@ export default function FindingsList() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedFinding(finding);
                         setShowEditDialog(true);
                       }}
@@ -525,7 +536,8 @@ export default function FindingsList() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedFinding(finding);
                         setShowDeleteDialog(true);
                       }}
@@ -689,6 +701,13 @@ export default function FindingsList() {
           finding={selectedFinding}
           open={showRiskAcceptanceDialog}
           onOpenChange={setShowRiskAcceptanceDialog}
+        />
+      )}
+      {showDetailsDialog && selectedFinding && (
+        <FindingDetailsDialog
+          finding={selectedFinding}
+          open={showDetailsDialog}
+          onOpenChange={setShowDetailsDialog}
         />
       )}
     </Card>
