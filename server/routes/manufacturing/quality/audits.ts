@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { OpenAI } from 'openai';
 import { CosmosClient } from '@azure/cosmos';
@@ -163,6 +162,38 @@ router.put('/findings/:id', async (req, res) => {
   }
 });
 
+// Clear all findings endpoint
+router.delete('/findings/clear-all', async (req, res) => {
+  try {
+    console.log('Clearing all findings...');
+
+    const { resources: findings } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.docType = 'finding'"
+      })
+      .fetchAll();
+
+    console.log(`Found ${findings.length} findings to delete`);
+
+    for (const finding of findings) {
+      try {
+        await container.item(finding.id, finding.id).delete();
+        console.log(`Successfully deleted finding ${finding.id}`);
+      } catch (deleteError) {
+        console.error(`Failed to delete finding ${finding.id}:`, deleteError);
+      }
+    }
+
+    res.json({ message: `Successfully deleted ${findings.length} findings` });
+  } catch (error) {
+    console.error('Error clearing findings:', error);
+    res.status(500).json({
+      error: 'Failed to clear findings',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Delete finding
 router.delete('/findings/:id', async (req, res) => {
   try {
@@ -176,7 +207,7 @@ router.delete('/findings/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting finding:', error);
     res.status(500).json({
-      error: 'Failed to delete finding',
+      error: 'Failed to delete finding', 
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -239,7 +270,7 @@ router.put('/findings/:id/update-id', async (req, res) => {
 router.delete('/findings/clear-all', async (req, res) => {
   try {
     console.log('Clearing all findings...');
-    
+
     const { resources: findings } = await container.items
       .query({
         query: "SELECT * FROM c WHERE c.docType = 'finding' ORDER BY c.createdAt DESC"
