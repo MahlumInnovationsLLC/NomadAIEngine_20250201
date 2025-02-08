@@ -12,18 +12,72 @@ const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_
 const database = cosmosClient.database('NomadAIEngineDB');
 const container = database.container('quality-management');
 
+// Department abbreviations map
+const departmentAbbreviations: Record<string, string> = {
+  'Quality': 'QA',
+  'Production': 'PR',
+  'Engineering': 'EN',
+  'Maintenance': 'MT',
+  'Safety': 'SF',
+  'Operations': 'OP',
+  'Other': 'OT'
+};
+
+// Get next finding number
+async function getNextFindingNumber(): Promise<number> {
+  try {
+    const counterId = 'findings-counter';
+
+    // Try to get the counter document
+    const { resources: counters } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: counterId }]
+      })
+      .fetchAll();
+
+    if (counters.length === 0) {
+      // Create counter if it doesn't exist
+      const newCounter = {
+        id: counterId,
+        type: 'counter',
+        name: 'findings',
+        value: 1
+      };
+
+      await container.items.create(newCounter);
+      return 1;
+    }
+
+    const counter = counters[0];
+
+    // Increment counter
+    counter.value += 1;
+    await container.item(counterId, counterId).replace(counter);
+
+    return counter.value;
+  } catch (error) {
+    console.error('Error getting next finding number:', error);
+    throw error;
+  }
+}
+
 // Add create finding endpoint
 router.post('/findings', async (req, res) => {
   try {
     console.log('Creating new finding with data:', req.body);
 
-    // Add logging to verify container access
-    const containerInfo = await container.read();
-    console.log('Container info:', containerInfo);
+    const findingNumber = await getNextFindingNumber();
+    console.log('Got finding number:', findingNumber);
+
+    const deptAbbr = departmentAbbreviations[req.body.department] || 'OT';
+    const findingId = `FND-${String(findingNumber).padStart(3, '0')}-${deptAbbr}`;
+
+    console.log('Generated finding ID:', findingId);
 
     const finding = {
-      id: `FND-${new Date().getTime()}`,
-      docType: 'finding', // Document type identifier
+      id: findingId,
+      docType: 'finding',
       type: req.body.type,
       description: req.body.description,
       department: req.body.department,
@@ -37,13 +91,8 @@ router.post('/findings', async (req, res) => {
 
     console.log('Attempting to create finding:', finding);
 
-    // Create the finding document
     const { resource: createdFinding } = await container.items.create(finding);
     console.log('Successfully created finding:', createdFinding);
-
-    // Verify the finding was created by reading it back
-    const { resource: verifiedFinding } = await container.item(finding.id, finding.id).read();
-    console.log('Verified finding exists:', verifiedFinding);
 
     res.json(createdFinding);
   } catch (error) {
@@ -60,20 +109,6 @@ router.get('/findings', async (req, res) => {
   try {
     console.log('Fetching findings...');
 
-    // Add logging to verify container access
-    const containerInfo = await container.read();
-    console.log('Container info:', containerInfo);
-
-    // First, let's get all documents to verify what's in the container
-    const allDocsQuery = {
-      query: "SELECT * FROM c"
-    };
-
-    console.log('Checking all documents in container...');
-    const { resources: allDocs } = await container.items.query(allDocsQuery).fetchAll();
-    console.log('All documents in container:', allDocs);
-
-    // Now query specifically for findings
     const findingsQuery = {
       query: "SELECT * FROM c WHERE c.docType = 'finding' ORDER BY c.createdAt DESC"
     };

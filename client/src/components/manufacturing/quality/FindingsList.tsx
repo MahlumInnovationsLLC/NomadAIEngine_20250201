@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreateFindingDialog } from "./dialogs/CreateFindingDialog";
+import { EditFindingDialog } from "./dialogs/EditFindingDialog";
 import {
   Table,
   TableBody,
@@ -10,11 +11,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Card } from "@/components/ui/card";
@@ -23,6 +28,9 @@ import type { Finding } from "@/types/manufacturing";
 
 export default function FindingsList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -46,7 +54,7 @@ export default function FindingsList() {
         throw error;
       }
     },
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 5000,
   });
 
   const createFinding = async (data: any) => {
@@ -136,12 +144,13 @@ export default function FindingsList() {
             <TableHead>Description</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Due Date</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {findings.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8">
+              <TableCell colSpan={7} className="text-center py-8">
                 <div className="space-y-4">
                   <div className="text-muted-foreground">No findings found</div>
                   <Button onClick={() => setShowCreateDialog(true)} variant="outline">
@@ -179,6 +188,30 @@ export default function FindingsList() {
                 <TableCell>
                   {finding.dueDate ? new Date(finding.dueDate).toLocaleDateString() : 'Not set'}
                 </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFinding(finding);
+                        setShowEditDialog(true);
+                      }}
+                    >
+                      <FontAwesomeIcon icon="pen-to-square" className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFinding(finding);
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      <FontAwesomeIcon icon="trash" className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))
           )}
@@ -192,6 +225,93 @@ export default function FindingsList() {
           onSubmit={createFinding}
         />
       )}
+
+      {showEditDialog && selectedFinding && (
+        <EditFindingDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          finding={selectedFinding}
+          onSubmit={async (data) => {
+            try {
+              const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.details || errorData.error || 'Failed to update finding');
+              }
+
+              await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
+              setShowEditDialog(false);
+              setSelectedFinding(null);
+              toast({
+                title: "Success",
+                description: "Finding updated successfully",
+              });
+            } catch (error) {
+              console.error('Error updating finding:', error);
+              toast({
+                variant: "destructive",
+                title: "Error",
+                description: error instanceof Error ? error.message : "Failed to update finding",
+              });
+            }
+          }}
+        />
+      )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Finding</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this finding? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!selectedFinding) return;
+
+                try {
+                  const response = await fetch(`/api/manufacturing/quality/audits/findings/${selectedFinding.id}`, {
+                    method: 'DELETE',
+                  });
+
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.details || errorData.error || 'Failed to delete finding');
+                  }
+
+                  await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
+                  setShowDeleteDialog(false);
+                  setSelectedFinding(null);
+                  toast({
+                    title: "Success",
+                    description: "Finding deleted successfully",
+                  });
+                } catch (error) {
+                  console.error('Error deleting finding:', error);
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: error instanceof Error ? error.message : "Failed to delete finding",
+                  });
+                }
+              }}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
