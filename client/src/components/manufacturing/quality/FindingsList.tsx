@@ -31,12 +31,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { 
-  faGear, 
-  faPenToSquare, 
-  faTrash, 
-  faRotate, 
-  faPlus 
+import {
+  faGear,
+  faPenToSquare,
+  faTrash,
+  faRotate,
+  faPlus
 } from "@fortawesome/pro-light-svg-icons";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -142,6 +142,32 @@ export default function FindingsList() {
     }
   };
 
+  const clearAllFindings = async () => {
+    try {
+      const response = await fetch('/api/manufacturing/quality/audits/findings/clear-all', {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to clear findings');
+      }
+
+      await queryClient.invalidateQueries({queryKey: ['/api/manufacturing/quality/audits/findings']});
+      toast({
+        title: "Success",
+        description: "All findings cleared successfully",
+      });
+    } catch (error) {
+      console.error('Error clearing findings:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to clear findings",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -180,6 +206,14 @@ export default function FindingsList() {
         </div>
 
         <div className="space-x-2">
+          <Button 
+            variant="outline" 
+            onClick={clearAllFindings}
+            className="bg-red-100 hover:bg-red-200 text-red-700"
+          >
+            <FontAwesomeIcon icon={faTrash} className="mr-2 h-4 w-4" />
+            Clear All Findings
+          </Button>
           <Button variant="outline" onClick={() => setShowManageIdsDialog(true)}>
             <FontAwesomeIcon icon={faGear} className="mr-2 h-4 w-4" />
             Manage IDs

@@ -217,7 +217,7 @@ router.put('/findings/:id/update-id', async (req, res) => {
 
       // If we failed to create the new document, no cleanup needed
       if (createError.code === 409) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: 'Failed to update finding ID',
           details: 'A finding with this ID already exists'
         });
@@ -229,6 +229,50 @@ router.put('/findings/:id/update-id', async (req, res) => {
     console.error('Error updating finding ID:', error);
     res.status(500).json({
       error: 'Failed to update finding ID',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Temporary endpoint to clear all findings
+router.delete('/findings/clear-all', async (req, res) => {
+  try {
+    console.log('Clearing all findings...');
+
+    // Delete all finding documents
+    const findingsQuery = {
+      query: "SELECT c.id FROM c WHERE c.docType = 'finding'"
+    };
+
+    const { resources: findings } = await container.items.query(findingsQuery).fetchAll();
+    console.log(`Found ${findings.length} findings to delete`);
+
+    for (const finding of findings) {
+      await container.item(finding.id, finding.id).delete();
+      console.log(`Deleted finding: ${finding.id}`);
+    }
+
+    // Reset the counter
+    const counterId = 'findings-counter';
+    const { resources: counters } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.id = @id",
+        parameters: [{ name: "@id", value: counterId }]
+      })
+      .fetchAll();
+
+    if (counters.length > 0) {
+      const counter = counters[0];
+      counter.value = 1;
+      await container.item(counterId, counterId).replace(counter);
+      console.log('Reset findings counter to 1');
+    }
+
+    res.json({ message: 'All findings cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing findings:', error);
+    res.status(500).json({
+      error: 'Failed to clear findings',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
