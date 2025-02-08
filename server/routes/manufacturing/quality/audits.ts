@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { OpenAI } from 'openai';
 import { CosmosClient } from '@azure/cosmos';
@@ -234,34 +235,7 @@ router.put('/findings/:id/update-id', async (req, res) => {
   }
 });
 
-// Temporary endpoint to clear all findings
-router.delete('/findings/clear-all', async (req, res) => {
-  try {
-    console.log('Clearing all findings...');
-
-    // Delete all finding documents
-    const findingsQuery = {
-      query: "SELECT c.id FROM c WHERE c.docType = 'finding'"
-    };
-
-    const { resources: findings } = await container.items.query(findingsQuery).fetchAll();
-    console.log(`Found ${findings.length} findings to delete`);
-
-    for (const finding of findings) {
-      await container.item(finding.id, finding.id).delete();
-      console.log(`Deleted finding: ${finding.id}`);
-    }
-
-    // Reset the counter
-    const counterId = 'findings-counter';
-    const { resources: counters } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.id = @id",
-        parameters: [{ name: "@id", value: counterId }]
-      })
-      .fetchAll();
-
-    // Clear all findings endpoint
+// Clear all findings endpoint
 router.delete('/findings/clear-all', async (req, res) => {
   try {
     const { resources: findings } = await container.items
