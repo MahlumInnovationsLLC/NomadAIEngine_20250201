@@ -87,9 +87,8 @@ export default function ManufacturingControlPage() {
               Production Line
             </TabsTrigger>
             <TabsTrigger value="quality">
-              <FontAwesomeIcon icon="check-circle" className="mr-2" />
+              <FontAwesomeIcon icon={['fal', 'circle-check']} className="mr-2 h-4 w-4 text-green-500" />
               Quality Assurance
-              <FontAwesomeIcon icon={['fal', 'circle-check']} className="ml-2 h-4 w-4 text-green-500" />
             </TabsTrigger>
             <TabsTrigger value="projects">
               <FontAwesomeIcon icon="tasks" className="mr-2" />
