@@ -202,14 +202,29 @@ router.put('/findings/:id/update-id', async (req, res) => {
       id: newId,
     };
 
-    // Delete old document
-    await container.item(id, id).delete();
+    try {
+      // First try to create the new document
+      const { resource: newFinding } = await container.items.create(updatedFinding);
+      console.log('Successfully created finding with new ID:', newFinding);
 
-    // Create new document with updated ID
-    const { resource: newFinding } = await container.items.create(updatedFinding);
-    console.log('Successfully updated finding ID:', newFinding);
+      // Only after successful creation, delete the old document
+      await container.item(id, id).delete();
+      console.log('Successfully deleted old finding:', id);
 
-    res.json(newFinding);
+      res.json(newFinding);
+    } catch (createError) {
+      console.error('Error during ID update:', createError);
+
+      // If we failed to create the new document, no cleanup needed
+      if (createError.code === 409) {
+        return res.status(409).json({ 
+          error: 'Failed to update finding ID',
+          details: 'A finding with this ID already exists'
+        });
+      }
+
+      throw createError; // Re-throw for general error handling
+    }
   } catch (error) {
     console.error('Error updating finding ID:', error);
     res.status(500).json({
