@@ -16,6 +16,12 @@ interface MachineStatus {
   progress?: number;
   queueLength: number;
   efficiency: number;
+  oee?: {
+    availability: number;
+    performance: number;
+    quality: number;
+    overall: number;
+  };
 }
 
 interface FabricationMetrics {
@@ -24,6 +30,10 @@ interface FabricationMetrics {
   efficiency: number;
   materialUtilization: number;
   machineUtilization: Record<string, number>;
+  oeeScore: number;
+  qualityRate: number;
+  jobsInQueue: number;
+  totalDowntime: number;
 }
 
 export default function FabricationDashboard() {
@@ -31,10 +41,12 @@ export default function FabricationDashboard() {
 
   const { data: machines = [] } = useQuery<MachineStatus[]>({
     queryKey: ['/api/fabrication/machines'],
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
   });
 
   const { data: metrics } = useQuery<FabricationMetrics>({
     queryKey: ['/api/fabrication/metrics'],
+    refetchInterval: 5000,
   });
 
   const getStatusColor = (status: string) => {
@@ -63,23 +75,23 @@ export default function FabricationDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Today</CardTitle>
-            <FontAwesomeIcon icon="check-circle" className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">OEE Score</CardTitle>
+            <FontAwesomeIcon icon="gauge-high" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.completedToday || 0}</div>
-            <p className="text-xs text-muted-foreground">Jobs completed today</p>
+            <div className="text-2xl font-bold">{metrics?.oeeScore || 0}%</div>
+            <p className="text-xs text-muted-foreground">Overall Equipment Effectiveness</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Efficiency Rate</CardTitle>
-            <FontAwesomeIcon icon="gauge-high" className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Quality Rate</CardTitle>
+            <FontAwesomeIcon icon="check-circle" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.efficiency || 0}%</div>
-            <p className="text-xs text-muted-foreground">Overall efficiency</p>
+            <div className="text-2xl font-bold">{metrics?.qualityRate || 0}%</div>
+            <p className="text-xs text-muted-foreground">First pass yield</p>
           </CardContent>
         </Card>
 
@@ -121,6 +133,16 @@ export default function FabricationDashboard() {
                   <Badge variant="outline">
                     Queue: {machine.queueLength}
                   </Badge>
+                  {machine.oee && (
+                    <div className="flex gap-2">
+                      <Badge variant="secondary">
+                        OEE: {machine.oee.overall}%
+                      </Badge>
+                      <Badge variant="secondary">
+                        Efficiency: {machine.efficiency}%
+                      </Badge>
+                    </div>
+                  )}
                   <Button variant="ghost" size="sm">
                     <FontAwesomeIcon icon="ellipsis-h" className="h-4 w-4" />
                   </Button>
@@ -130,6 +152,49 @@ export default function FabricationDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Equipment Performance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Object.entries(metrics?.machineUtilization || {}).map(([machine, utilization]) => (
+                <div key={machine} className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>{machine}</span>
+                    <span>{utilization}%</span>
+                  </div>
+                  <Progress value={utilization} className="h-2" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Production Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Jobs in Queue</span>
+                <Badge variant="outline">{metrics?.jobsInQueue || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Completed Today</span>
+                <Badge variant="outline">{metrics?.completedToday || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Total Downtime</span>
+                <Badge variant="outline">{metrics?.totalDowntime || 0} min</Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
