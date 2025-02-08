@@ -246,7 +246,7 @@ router.delete('/findings/clear-all', async (req, res) => {
 
     // Delete each finding
     const deletePromises = findings.map(finding => 
-      container.item(finding.id, 'default').delete()
+      container.item(finding.id, finding.id).delete()
     );
     
     await Promise.all(deletePromises);
