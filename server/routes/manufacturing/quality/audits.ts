@@ -110,30 +110,40 @@ router.get('/findings', async (req, res) => {
     console.log('Fetching findings...');
 
     const findingsQuery = {
-      query: "SELECT * FROM c WHERE c.type = 'finding' OR (c.type = 'audit' AND IS_DEFINED(c.findings))"
+      query: "SELECT * FROM c WHERE c.type = @type",
+      parameters: [{ name: "@type", value: "finding" }]
     };
     console.log('Executing query:', findingsQuery);
 
-    const { resources } = await container.items
+    const { resources: findings } = await container.items
       .query(findingsQuery)
       .fetchAll();
 
-    console.log('Raw database response:', resources);
+    // Get audit findings
+    const auditQuery = {
+      query: "SELECT c.id as auditId, c.findings FROM c WHERE c.type = 'audit' AND IS_DEFINED(c.findings)"
+    };
+    const { resources: audits } = await container.items
+      .query(auditQuery)
+      .fetchAll();
 
-    // Extract findings from both standalone and audit findings
-    const allFindings = resources.flatMap(item => {
-      if (item.type === 'finding') {
-        return [item];
-      } else if (item.type === 'audit' && Array.isArray(item.findings)) {
-        return item.findings.map((finding: any) => ({
-          ...finding,
-          auditId: item.id
-        }));
-      }
-      return [];
-    });
+    console.log('Found standalone findings:', findings);
+    console.log('Found audit findings:', audits);
 
-    console.log('Processed findings:', allFindings);
+    // Combine standalone findings and audit findings
+    const allFindings = [
+      ...findings,
+      ...audits.flatMap(audit =>
+        Array.isArray(audit.findings)
+          ? audit.findings.map((finding: any) => ({
+              ...finding,
+              auditId: audit.auditId
+            }))
+          : []
+      )
+    ];
+
+    console.log('Combined findings:', allFindings);
     res.json(allFindings);
   } catch (error) {
     console.error('Error fetching findings:', error);
