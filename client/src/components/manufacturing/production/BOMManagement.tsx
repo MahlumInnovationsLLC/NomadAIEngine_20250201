@@ -912,8 +912,7 @@ export function BOMManagement({}: BOMManagementProps) {
                           </div>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </CardContent>                  </Card>
                 );
               })}
             </div>
@@ -981,8 +980,14 @@ export function BOMManagement({}: BOMManagementProps) {
               </Card>
             </div>
           </TabsContent>
-          <TabsContent value="workload-centers">
-            <WorkloadCenterPanel projectId={selectedProject!} />
+          <TabsContent value="workload-centers" className="space-y-4">
+            {selectedProject ? (
+              <WorkloadCenterPanel projectId={selectedProject} />
+            ) : (
+              <div className="flex items-center justify-center h-40">
+                Please select a project to view workload centers.
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
