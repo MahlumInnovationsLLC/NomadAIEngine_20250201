@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   Table,
   TableBody,
@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Scanner } from '@yudiel/react-qr-scanner';
+import { QrReader } from '@yudiel/react-qr-scanner';
 import {
   Dialog,
   DialogContent,
@@ -122,7 +122,7 @@ export function WorkloadCenterPanel({ projectId }: WorkloadCenterProps) {
     },
   });
 
-  const handleScan = async (result: string) => {
+  const handleScan = async (result: string | null) => {
     if (result && selectedCenter) {
       const center = workloadCenters.find((c: any) => c.id === selectedCenter);
       try {
@@ -277,9 +277,10 @@ export function WorkloadCenterPanel({ projectId }: WorkloadCenterProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="h-[300px]">
-            <Scanner
-              onDecode={handleScan}
-              onError={(error: Error) => console.error(error)}
+            <QrReader
+              onResult={handleScan}
+              onError={(error: unknown) => console.error(error)}
+              constraints={{ facingMode: 'environment' }}
             />
           </div>
         </DialogContent>
