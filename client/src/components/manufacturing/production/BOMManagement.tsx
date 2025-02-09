@@ -47,7 +47,7 @@ import type {
   MRPCalculation,
   BOMRevision
 } from "@/types/manufacturing";
-import { QrScanner } from '@yudiel/react-qr-scanner';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 
 interface BOMManagementProps {}
@@ -563,9 +563,9 @@ export function BOMManagement({}: BOMManagementProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="h-[300px]">
-            <QrScanner
+            <Scanner
               onDecode={handleScan}
-              onError={(error) => console.error(error)}
+              onError={(error: Error) => console.error(error)}
             />
           </div>
         </DialogContent>
@@ -916,12 +916,11 @@ export function BOMManagement({}: BOMManagementProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="grid gridcols-3 gap-4">
-                    <div className="text-center">
-                      <h3 className="text-2xl font-bold">
-                        {batches.filter(b => b.qualityStatus === 'approved').length}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">Approved Batches</p>
-                    </div>
+                    <div className="text-center">                    <h3 className="text-2xl font-bold">
+                      {batches.filter(b => b.qualityStatus === 'approved').length}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">Approved Batches</p>
+                  </div>
                     <div className="text-center">
                       <h3 className="text-2xl font-bold">
                         {batches.filter(b => b.qualityStatus === 'rejected').length}
