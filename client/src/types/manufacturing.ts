@@ -1,5 +1,47 @@
 import type { InventoryAllocationEvent } from "./inventory";
 
+// Production Section Types
+export type ProductionSectionId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'H' | 'I' | 'J' | 'K' | 'L' | 'T' | 'Y' | 'X';
+
+export interface WorkloadCenter {
+  id: string;
+  sectionId: ProductionSectionId;
+  name: string;
+  description: string;
+  status: 'active' | 'inactive' | 'maintenance';
+  currentProjects: string[];
+  capabilities: string[];
+  assignedTeam?: string;
+  metrics: {
+    efficiency: number;
+    utilization: number;
+    quality: number;
+  };
+}
+
+export interface SectionAllocation {
+  id: string;
+  projectId: string;
+  sectionId: ProductionSectionId;
+  components: {
+    componentId: string;
+    materialId: string;
+    quantity: number;
+    installationStatus: 'pending' | 'in_progress' | 'installed' | 'verified';
+    installedBy?: string;
+    installationDate?: string;
+    verifiedBy?: string;
+    verificationDate?: string;
+    notes?: string;
+  }[];
+  status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
+  startDate?: string;
+  completionDate?: string;
+  assignedTeam?: string;
+  precedingSection?: ProductionSectionId;
+  nextSection?: ProductionSectionId;
+}
+
 // Add Material Traceability interfaces
 export interface MaterialBatch {
   id: string;
@@ -47,6 +89,8 @@ export interface BOMRevision {
 }
 
 export interface BOMComponentWithTraceability extends BOMComponent {
+  sectionId: ProductionSectionId;
+  installationOrder: number;
   revisionHistory: BOMRevision[];
   alternateComponents?: {
     materialId: string;
@@ -59,10 +103,21 @@ export interface BOMComponentWithTraceability extends BOMComponent {
   routingStepId?: string;
   wastageAllowance: number;
   traceabilityRequired: boolean;
+  installationInstructions?: string;
+  specialTools?: string[];
+  estimatedInstallTime?: number;
 }
 
 export interface BillOfMaterialsWithTraceability extends Omit<BillOfMaterials, 'components'> {
   components: BOMComponentWithTraceability[];
+  sections: Record<ProductionSectionId, {
+    name: string;
+    description: string;
+    components: string[]; // Component IDs
+    sequence: number;
+    estimatedDuration: number;
+    specialRequirements?: string[];
+  }>;
   revisions: BOMRevision[];
   effectiveDate: string;
   expiryDate?: string;
@@ -395,6 +450,14 @@ export interface ProductionProject {
   projectManager: string;
   totalBudgetedHours: number;
   totalActualHours: number;
+  sections: Record<ProductionSectionId, {
+    status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
+    progress: number;
+    startDate?: string;
+    completionDate?: string;
+    assignedTeam?: string;
+    issues?: string[];
+  }>;
   inventory: ProjectInventoryAllocation[];
   productionOrders: ProductionOrder[];
   schedule?: ProductionSchedule;
@@ -421,18 +484,6 @@ export interface ProductionProject {
   }[];
   createdAt: string;
   updatedAt: string;
-}
-
-export interface ProjectCreationForm {
-  projectNumber: string;
-  name: string;
-  description: string;
-  startDate: string;
-  targetCompletionDate: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  customer?: string;
-  projectManager: string;
-  totalBudgetedHours: number;
 }
 
 export type ProjectStatus =

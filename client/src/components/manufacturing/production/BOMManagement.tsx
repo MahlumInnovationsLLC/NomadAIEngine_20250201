@@ -47,6 +47,7 @@ import type {
   MRPCalculation,
   BOMRevision
 } from "@/types/manufacturing";
+import { ProductionSectionManager } from "./ProductionSectionManager";
 
 interface BOMManagementProps {}
 
@@ -532,6 +533,10 @@ export function BOMManagement({}: BOMManagementProps) {
               <FontAwesomeIcon icon="boxes-stacked" className="mr-2" />
               Material Batches
             </TabsTrigger>
+            <TabsTrigger value="sections">
+              <FontAwesomeIcon icon="th-large" className="mr-2" />
+              Production Sections
+            </TabsTrigger>
             <TabsTrigger value="mrp">
               <FontAwesomeIcon icon="calculator" className="mr-2" />
               MRP
@@ -668,6 +673,12 @@ export function BOMManagement({}: BOMManagementProps) {
                 })}
               </TableBody>
             </Table>
+          </TabsContent>
+
+          <TabsContent value="sections">
+            {selectedProject && (
+              <ProductionSectionManager projectId={selectedProject} />
+            )}
           </TabsContent>
 
           <TabsContent value="mrp" className="space-y-4">
@@ -837,7 +848,6 @@ export function BOMManagement({}: BOMManagementProps) {
         <AddComponentDialog
           open={showAddComponent}
           onOpenChange={setShowAddComponent}
-          
         />
       )}
 
