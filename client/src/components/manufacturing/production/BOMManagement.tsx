@@ -49,6 +49,7 @@ import type {
 } from "@/types/manufacturing";
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
+import { WorkloadCenterPanel } from './WorkloadCenterPanel';
 
 interface BOMManagementProps {}
 
@@ -693,6 +694,10 @@ export function BOMManagement({}: BOMManagementProps) {
               <FontAwesomeIcon icon="chart-line" className="mr-2" />
               Quality Monitoring
             </TabsTrigger>
+            <TabsTrigger value="workload-centers">
+              <FontAwesomeIcon icon="industry" className="mr-2" />
+              Workload Centers
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="components" className="space-y-4">
@@ -969,6 +974,9 @@ export function BOMManagement({}: BOMManagementProps) {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+          <TabsContent value="workload-centers">
+            <WorkloadCenterPanel projectId={selectedProject!} />
           </TabsContent>
         </Tabs>
 

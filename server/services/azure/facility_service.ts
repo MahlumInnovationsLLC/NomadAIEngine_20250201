@@ -19,6 +19,8 @@ const materialBatchContainer = database.container("material-batches");
 const materialMovementContainer = database.container("material-movements");
 const mrpCalculationsContainer = database.container("mrp-calculations");
 const partChangeContainer = database.container("part-changes");
+const workloadCenterContainer = database.container("workload-centers");
+const componentTraceabilityContainer = database.container("component-traceability");
 
 // Project Management Functions
 export async function getProject(id: string) {
@@ -477,7 +479,9 @@ export async function initializeManufacturingDatabase() {
       { id: "material-batches", partitionKey: { paths: ["/id"] } },
       { id: "material-movements", partitionKey: { paths: ["/id"] } },
       { id: "mrp-calculations", partitionKey: { paths: ["/id"] } },
-      { id: "part-changes", partitionKey: { paths: ["/id"] } }
+      { id: "part-changes", partitionKey: { paths: ["/id"] } },
+      { id: "workload-centers", partitionKey: { paths: ["/id"] } },
+      { id: "component-traceability", partitionKey: { paths: ["/id"] } }
     ];
 
     for (const containerDef of containersToCreate) {
@@ -580,6 +584,37 @@ interface PartChange {
   timestamp: string;
 }
 
+interface WorkloadCenter {
+  id: string;
+  code: string; // A, B, C, etc.
+  name: string;
+  description: string;
+  status: 'active' | 'maintenance' | 'offline';
+  currentLoad: number;
+  maxCapacity: number;
+  activeProjects: string[];
+  componentTracking: {
+    installedComponents: string[];
+    pendingReplacements: string[];
+  };
+}
+
+interface ComponentTraceability {
+  id: string;
+  componentId: string;
+  workloadCenterId: string;
+  projectId: string;
+  installationDate: string;
+  installedBy: string;
+  status: 'installed' | 'pending_replacement' | 'replaced';
+  replacementHistory: {
+    date: string;
+    performedBy: string;
+    reason: string;
+    newComponentId: string;
+  }[];
+}
+
 // Add these functions with other exported functions
 export async function recordPartChange(changeData: Omit<PartChange, 'id' | 'timestamp'>): Promise<PartChange> {
   try {
@@ -647,5 +682,121 @@ export async function getPartChangeHistory(projectId: string): Promise<PartChang
   }
 }
 
+export async function createWorkloadCenter(center: Omit<WorkloadCenter, 'id'>): Promise<WorkloadCenter> {
+  try {
+    const newCenter: WorkloadCenter = {
+      id: uuidv4(),
+      ...center,
+      activeProjects: [],
+      componentTracking: {
+        installedComponents: [],
+        pendingReplacements: []
+      }
+    };
+
+    const { resource } = await workloadCenterContainer.items.create(newCenter);
+    if (!resource) throw new Error("Failed to create workload center");
+    return resource;
+  } catch (error) {
+    console.error("Failed to create workload center:", error);
+    throw error;
+  }
+}
+
+export async function getWorkloadCenters(): Promise<WorkloadCenter[]> {
+  try {
+    const { resources } = await workloadCenterContainer.items.readAll().fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Failed to get workload centers:", error);
+    throw error;
+  }
+}
+
+export async function assignComponentToWorkloadCenter(data: {
+  componentId: string;
+  workloadCenterId: string;
+  projectId: string;
+  installedBy: string;
+}): Promise<ComponentTraceability> {
+  try {
+    const now = new Date().toISOString();
+    const traceabilityRecord: ComponentTraceability = {
+      id: uuidv4(),
+      ...data,
+      installationDate: now,
+      status: 'installed',
+      replacementHistory: []
+    };
+
+    const { resource } = await componentTraceabilityContainer.items.create(traceabilityRecord);
+    if (!resource) throw new Error("Failed to create traceability record");
+
+    // Update workload center tracking
+    const { resource: center } = await workloadCenterContainer.item(data.workloadCenterId, data.workloadCenterId).read();
+    if (center) {
+      center.componentTracking.installedComponents.push(data.componentId);
+      await workloadCenterContainer.item(data.workloadCenterId, data.workloadCenterId).replace(center);
+    }
+
+    return resource;
+  } catch (error) {
+    console.error("Failed to assign component to workload center:", error);
+    throw error;
+  }
+}
+
+export async function getComponentTraceability(componentId: string): Promise<ComponentTraceability[]> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.componentId = @componentId ORDER BY c.installationDate DESC",
+      parameters: [{ name: "@componentId", value: componentId }]
+    };
+
+    const { resources } = await componentTraceabilityContainer.items.query<ComponentTraceability>(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Failed to get component traceability:", error);
+    throw error;
+  }
+}
+
 // Initialize the database when the module loads
+export async function initializeDefaultWorkloadCenters() {
+  try {
+    const sections = ['A', 'B', 'C', 'D', 'E', 'F', 'H', 'I', 'J', 'K', 'L', 'T', 'Y', 'X'];
+
+    for (const code of sections) {
+      const existing = await workloadCenterContainer.items
+        .query({
+          query: "SELECT * FROM c WHERE c.code = @code",
+          parameters: [{ name: "@code", value: code }]
+        })
+        .fetchAll();
+
+      if (existing.resources.length === 0) {
+        await createWorkloadCenter({
+          code,
+          name: `Production Section ${code}`,
+          description: `Main production workload center for section ${code}`,
+          status: 'active',
+          currentLoad: 0,
+          maxCapacity: 100,
+          activeProjects: [],
+          componentTracking: {
+            installedComponents: [],
+            pendingReplacements: []
+          }
+        });
+      }
+    }
+
+    console.log("Default workload centers initialized");
+  } catch (error) {
+    console.error("Failed to initialize default workload centers:", error);
+    throw error;
+  }
+}
+
 initializeManufacturingDatabase().catch(console.error);
+initializeDefaultWorkloadCenters().catch(console.error);
