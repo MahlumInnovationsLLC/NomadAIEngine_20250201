@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
@@ -19,6 +19,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -34,15 +35,17 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useForm, type UseFormReturn } from 'react-hook-form'
+import { useForm } from 'react-hook-form';
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import type {
   ProductionProject,
   BillOfMaterialsWithTraceability,
   BOMComponentWithTraceability,
   Material,
   MaterialBatch,
-  MRPCalculation
+  MRPCalculation,
+  BOMRevision
 } from "@/types/manufacturing";
 
 interface BOMManagementProps {}
@@ -55,6 +58,10 @@ export function BOMManagement({}: BOMManagementProps) {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("components");
   const [selectedComponent, setSelectedComponent] = useState<BOMComponentWithTraceability | undefined>(undefined);
+  const [showQualityCheck, setShowQualityCheck] = useState(false);
+  const [showRevisionApproval, setShowRevisionApproval] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState<MaterialBatch | null>(null);
+  const [selectedRevision, setSelectedRevision] = useState<BOMRevision | null>(null);
 
   const { data: projects = [], isLoading: isLoadingProjects, error: projectsError } = useQuery<ProductionProject[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -101,6 +108,36 @@ export function BOMManagement({}: BOMManagementProps) {
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const approveRevisionMutation = useMutation({
+    mutationFn: async ({ componentId, revisionId }: { componentId: string, revisionId: string }) => {
+      const response = await fetch(`/api/manufacturing/bom/component/${componentId}/revision/${revisionId}/approve`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to approve revision');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/manufacturing/bom/${selectedProject}`] });
+      toast({ title: "Success", description: "Revision approved successfully" });
+    },
+  });
+
+  const addQualityCheckMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch(`/api/manufacturing/quality-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to add quality check');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/material-batches', selectedProject] });
+      toast({ title: "Success", description: "Quality check recorded successfully" });
     },
   });
 
@@ -383,6 +420,80 @@ export function BOMManagement({}: BOMManagementProps) {
     );
   }
 
+  function QualityCheckDialog({
+    open,
+    onOpenChange,
+    batch,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    batch: MaterialBatch | null;
+  }) {
+    const form = useForm({
+      defaultValues: {
+        inspectionNotes: '',
+        measurements: {},
+        status: 'pending_inspection' as const,
+      },
+    });
+
+    const onSubmit = async (data: any) => {
+      if (!batch) return;
+      try {
+        await addQualityCheckMutation.mutateAsync({
+          batchId: batch.id,
+          ...data,
+          inspectionDate: new Date().toISOString(),
+        });
+        onOpenChange(false);
+      } catch (error) {
+        console.error('Failed to add quality check:', error);
+      }
+    };
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Quality Inspection</DialogTitle>
+            <DialogDescription>
+              Record quality inspection results for batch {batch?.batchNumber}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-4">
+              {/* Add quality check form fields */}
+              <div>
+                <Select
+                  onValueChange={(value) => form.setValue('status', value as any)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="quarantined">Quarantined</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Textarea
+                  placeholder="Inspection Notes"
+                  {...form.register('inspectionNotes')}
+                />
+              </div>
+              {/* Add measurement fields based on material requirements */}
+            </div>
+            <DialogFooter>
+              <Button type="submit">Save Inspection</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -428,6 +539,10 @@ export function BOMManagement({}: BOMManagementProps) {
             <TabsTrigger value="quality">
               <FontAwesomeIcon icon="clipboard-check" className="mr-2" />
               Quality
+            </TabsTrigger>
+            <TabsTrigger value="quality-monitoring">
+              <FontAwesomeIcon icon="chart-line" className="mr-2" />
+              Quality Monitoring
             </TabsTrigger>
           </TabsList>
 
@@ -643,6 +758,70 @@ export function BOMManagement({}: BOMManagementProps) {
               })}
             </div>
           </TabsContent>
+
+          <TabsContent value="quality-monitoring" className="space-y-4">
+            <div className="grid gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quality Metrics Overview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <h3 className="text-2xl font-bold">
+                        {batches.filter(b => b.qualityStatus === 'approved').length}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">Approved Batches</p>
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-2xl font-bold">
+                        {batches.filter(b => b.qualityStatus === 'rejected').length}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">Rejected Batches</p>
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-2xl font-bold">
+                        {batches.filter(b => b.qualityStatus === 'quarantined').length}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">Quarantined Batches</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Quality Alerts */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quality Alerts</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {batches
+                      .filter(b => b.qualityStatus === 'rejected' || b.qualityStatus === 'quarantined')
+                      .map(batch => (
+                        <div key={batch.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div>
+                            <p className="font-medium">Batch #{batch.batchNumber}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Status: {batch.qualityStatus}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedBatch(batch);
+                              setShowQualityCheck(true);
+                            }}
+                          >
+                            Inspect
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
 
         <div className="flex justify-between items-center pt-4 border-t">
@@ -658,7 +837,7 @@ export function BOMManagement({}: BOMManagementProps) {
         <AddComponentDialog
           open={showAddComponent}
           onOpenChange={setShowAddComponent}
-          materials={materials}
+          
         />
       )}
 
@@ -667,6 +846,13 @@ export function BOMManagement({}: BOMManagementProps) {
           open={showVersionHistory}
           onOpenChange={setShowVersionHistory}
           component={selectedComponent}
+        />
+      )}
+      {showQualityCheck && (
+        <QualityCheckDialog
+          open={showQualityCheck}
+          onOpenChange={setShowQualityCheck}
+          batch={selectedBatch}
         />
       )}
     </Card>
