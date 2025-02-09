@@ -47,7 +47,7 @@ import type {
   MRPCalculation,
   BOMRevision
 } from "@/types/manufacturing";
-import QrScanner from 'react-qr-scanner';
+import QrReader from 'react-qr-scanner';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { WorkloadCenterPanel } from './WorkloadCenterPanel';
 
@@ -564,9 +564,14 @@ export function BOMManagement({}: BOMManagementProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="h-[300px]">
-            <QrScanner
-              onScan={handleScan}
-              onError={(error: Error) => console.error(error)}
+            <QrReader
+              delay={300}
+              onError={(error) => console.error(error)}
+              onScan={(data) => {
+                if (data) {
+                  handleScan(data.text);
+                }
+              }}
               style={{ width: '100%', height: '100%' }}
             />
           </div>
