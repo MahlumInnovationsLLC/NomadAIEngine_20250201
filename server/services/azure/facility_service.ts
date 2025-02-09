@@ -14,6 +14,10 @@ const manufacturingSystemsContainer = database.container("manufacturing-systems"
 const maintenanceContainer = database.container("maintenance-records");
 const qualityInspectionContainer = database.container("quality-inspections");
 const projectsContainer = database.container("manufacturing-projects");
+const bomContainer = database.container("boms");
+const materialBatchContainer = database.container("material-batches");
+const materialMovementContainer = database.container("material-movements");
+const mrpCalculationsContainer = database.container("mrp-calculations");
 
 // Project Management Functions
 export async function getProject(id: string) {
@@ -310,11 +314,152 @@ export async function updateQualityInspection(id: string, updates: Partial<Quali
   }
 }
 
+// Add BOM Management Functions
+export async function createOrUpdateBOM(bomData: any) {
+  try {
+    const now = new Date().toISOString();
+    if (!bomData.id) {
+      bomData.id = uuidv4();
+      bomData.createdAt = now;
+    }
+    bomData.updatedAt = now;
+
+    const { resource } = await bomContainer.items.upsert(bomData);
+    return resource;
+  } catch (error) {
+    console.error("Failed to create/update BOM:", error);
+    throw error;
+  }
+}
+
+export async function getBOMByProject(projectId: string) {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.projectId = @projectId",
+      parameters: [{ name: "@projectId", value: projectId }]
+    };
+
+    const { resources } = await bomContainer.items.query(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Failed to get BOM by project:", error);
+    throw error;
+  }
+}
+
+// Add Material Batch Management Functions
+export async function createMaterialBatch(batchData: any) {
+  try {
+    const now = new Date().toISOString();
+    const newBatch = {
+      id: uuidv4(),
+      ...batchData,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const { resource } = await materialBatchContainer.items.create(newBatch);
+    return resource;
+  } catch (error) {
+    console.error("Failed to create material batch:", error);
+    throw error;
+  }
+}
+
+export async function recordMaterialMovement(movementData: any) {
+  try {
+    const now = new Date().toISOString();
+    const newMovement = {
+      id: uuidv4(),
+      ...movementData,
+      timestamp: now
+    };
+
+    const { resource: movement } = await materialMovementContainer.items.create(newMovement);
+
+    // Update the batch quantities
+    const batch = await materialBatchContainer.item(movementData.batchId, movementData.batchId).read();
+    if (batch.resource) {
+      const updatedBatch = {
+        ...batch.resource,
+        remainingQuantity: movementData.type === 'issue'
+          ? batch.resource.remainingQuantity - movementData.quantity
+          : batch.resource.remainingQuantity + movementData.quantity,
+        updatedAt: now
+      };
+
+      await materialBatchContainer.item(movementData.batchId, movementData.batchId).replace(updatedBatch);
+    }
+
+    return movement;
+  } catch (error) {
+    console.error("Failed to record material movement:", error);
+    throw error;
+  }
+}
+
+// Add MRP Functions
+export async function calculateMRP(projectId: string) {
+  try {
+    // Get project BOM
+    const boms = await getBOMByProject(projectId);
+    if (!boms || boms.length === 0) {
+      throw new Error("No BOM found for project");
+    }
+
+    const bom = boms[0];
+    const now = new Date().toISOString();
+    const mrpCalculations = [];
+
+    // Calculate requirements for each component
+    for (const component of bom.components) {
+      const calculation = {
+        id: uuidv4(),
+        materialId: component.materialId,
+        periodStart: now,
+        periodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+        grossRequirement: component.quantity,
+        scheduledReceipts: 0, // This should be fetched from purchase orders
+        projectedAvailable: 0, // This should be calculated from inventory
+        netRequirement: 0,
+        plannedOrders: 0,
+        safetyStock: component.safetyStock || 0,
+        orderPoint: component.reorderPoint || 0,
+        lotSize: component.lotSize || component.quantity,
+        leadTime: component.leadTime || 0,
+        source: 'project',
+        sourceReference: projectId,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      // Calculate net requirements
+      calculation.netRequirement = Math.max(0,
+        calculation.grossRequirement - calculation.scheduledReceipts - calculation.projectedAvailable
+      );
+
+      // Calculate planned orders
+      calculation.plannedOrders = Math.ceil(calculation.netRequirement / calculation.lotSize) * calculation.lotSize;
+
+      mrpCalculations.push(calculation);
+    }
+
+    // Save MRP calculations
+    const savedCalculations = await Promise.all(
+      mrpCalculations.map(calc => mrpCalculationsContainer.items.create(calc))
+    );
+
+    return savedCalculations.map(result => result.resource);
+  } catch (error) {
+    console.error("Failed to calculate MRP:", error);
+    throw error;
+  }
+}
+
 export async function initializeManufacturingDatabase() {
   try {
     console.log("Starting manufacturing database initialization...");
 
-    // Verify database exists or create it
     const { database: dbResponse } = await client.databases.createIfNotExists({
       id: "NomadAIEngineDB"
     });
@@ -322,26 +467,15 @@ export async function initializeManufacturingDatabase() {
 
     // Create containers if they don't exist
     const containersToCreate = [
-      {
-        id: "production-lines",
-        partitionKey: { paths: ["/id"] }
-      },
-      {
-        id: "manufacturing-systems",
-        partitionKey: { paths: ["/id"] }
-      },
-      {
-        id: "maintenance-records",
-        partitionKey: { paths: ["/id"] }
-      },
-      {
-        id: "quality-inspections",
-        partitionKey: { paths: ["/id"] }
-      },
-      {
-        id: "manufacturing-projects",
-        partitionKey: { paths: ["/id"] }
-      }
+      { id: "production-lines", partitionKey: { paths: ["/id"] } },
+      { id: "manufacturing-systems", partitionKey: { paths: ["/id"] } },
+      { id: "maintenance-records", partitionKey: { paths: ["/id"] } },
+      { id: "quality-inspections", partitionKey: { paths: ["/id"] } },
+      { id: "manufacturing-projects", partitionKey: { paths: ["/id"] } },
+      { id: "boms", partitionKey: { paths: ["/id"] } },
+      { id: "material-batches", partitionKey: { paths: ["/id"] } },
+      { id: "material-movements", partitionKey: { paths: ["/id"] } },
+      { id: "mrp-calculations", partitionKey: { paths: ["/id"] } }
     ];
 
     for (const containerDef of containersToCreate) {

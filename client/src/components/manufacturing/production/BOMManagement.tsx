@@ -27,9 +27,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import type { ProductionProject, BillOfMaterials, BOMComponent, Material } from "@/types/manufacturing";
-import { getAllProjects } from "@/lib/azure/project-service";
+import type { 
+  ProductionProject, 
+  BillOfMaterialsWithTraceability,
+  BOMComponentWithTraceability,
+  Material,
+  MaterialBatch,
+  MRPCalculation 
+} from "@/types/manufacturing";
 
 interface BOMManagementProps {}
 
@@ -39,20 +51,54 @@ export function BOMManagement({}: BOMManagementProps) {
   const [showAddComponent, setShowAddComponent] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("components");
 
   const { data: projects = [], isLoading: isLoadingProjects, error: projectsError } = useQuery<ProductionProject[]>({
     queryKey: ['/api/manufacturing/projects'],
-    queryFn: getAllProjects,
+    queryFn: () => fetch('/api/manufacturing/projects').then(res => res.json()),
   });
 
-  const { data: bom, isLoading: isLoadingBOM } = useQuery<BillOfMaterials>({
+  const { data: bom, isLoading: isLoadingBOM } = useQuery<BillOfMaterialsWithTraceability>({
     queryKey: [`/api/manufacturing/bom/${selectedProject}`],
     enabled: !!selectedProject,
+    queryFn: () => fetch(`/api/manufacturing/bom/${selectedProject}`).then(res => res.json()),
   });
 
   const { data: materials = [] } = useQuery<Material[]>({
     queryKey: ['/api/material/inventory'],
-    enabled: true,
+    queryFn: () => fetch('/api/material/inventory').then(res => res.json()),
+  });
+
+  const { data: batches = [] } = useQuery<MaterialBatch[]>({
+    queryKey: ['/api/manufacturing/material-batches', selectedProject],
+    enabled: !!selectedProject,
+    queryFn: () => fetch(`/api/manufacturing/material-batches/${selectedProject}`).then(res => res.json()),
+  });
+
+  const { data: mrpData = [] } = useQuery<MRPCalculation[]>({
+    queryKey: ['/api/manufacturing/mrp', selectedProject],
+    enabled: !!selectedProject,
+    queryFn: () => fetch(`/api/manufacturing/mrp/${selectedProject}`).then(res => res.json()),
+  });
+
+  const addComponentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch(`/api/manufacturing/bom/${selectedProject}/component`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to add component');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/manufacturing/bom/${selectedProject}`] });
+      toast({ title: "Success", description: "Component added successfully" });
+      setShowAddComponent(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   if (isLoadingProjects) {
@@ -133,7 +179,7 @@ export function BOMManagement({}: BOMManagementProps) {
 
   const project = projects.find(p => p.id === selectedProject);
 
-  const getTotalCost = (components: BOMComponent[]) => {
+  const getTotalCost = (components: BOMComponentWithTraceability[]) => {
     return components.reduce((acc, component) => acc + component.totalCost, 0);
   };
 
@@ -165,84 +211,246 @@ export function BOMManagement({}: BOMManagementProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Version: {bom?.version}</p>
-              <p className="text-sm text-muted-foreground">
-                Last updated: {new Date(bom?.lastUpdated || '').toLocaleString()}
-              </p>
-            </div>
-            <Badge variant="outline" className={
-              bom?.status === 'active' ? 'bg-green-500/10 text-green-500' :
-              bom?.status === 'draft' ? 'bg-yellow-500/10 text-yellow-500' :
-              'bg-red-500/10 text-red-500'
-            }>
-              {bom?.status}
-            </Badge>
-          </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="components">
+              <FontAwesomeIcon icon="sitemap" className="mr-2" />
+              Components
+            </TabsTrigger>
+            <TabsTrigger value="material-batches">
+              <FontAwesomeIcon icon="boxes-stacked" className="mr-2" />
+              Material Batches
+            </TabsTrigger>
+            <TabsTrigger value="mrp">
+              <FontAwesomeIcon icon="calculator" className="mr-2" />
+              MRP
+            </TabsTrigger>
+            <TabsTrigger value="quality">
+              <FontAwesomeIcon icon="clipboard-check" className="mr-2" />
+              Quality
+            </TabsTrigger>
+          </TabsList>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Component</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Unit Cost</TableHead>
-                <TableHead>Total Cost</TableHead>
-                <TableHead>Lead Time</TableHead>
-                <TableHead>Critical</TableHead>
-                <TableHead>Substitutes</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <TabsContent value="components" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Version: {bom?.version}</p>
+                <p className="text-sm text-muted-foreground">
+                  Last updated: {new Date(bom?.lastUpdated || '').toLocaleString()}
+                </p>
+              </div>
+              <Badge variant="outline" className={
+                bom?.status === 'active' ? 'bg-green-500/10 text-green-500' :
+                bom?.status === 'draft' ? 'bg-yellow-500/10 text-yellow-500' :
+                'bg-red-500/10 text-red-500'
+              }>
+                {bom?.status}
+              </Badge>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Component</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Unit Cost</TableHead>
+                  <TableHead>Total Cost</TableHead>
+                  <TableHead>Lead Time</TableHead>
+                  <TableHead>Critical</TableHead>
+                  <TableHead>Traceability</TableHead>
+                  <TableHead>Quality Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bom?.components.map((component) => {
+                  const material = materials.find(m => m.id === component.materialId);
+                  const qualityStatus = batches.find(b => b.materialId === component.materialId)?.qualityStatus;
+                  return (
+                    <TableRow key={component.materialId}>
+                      <TableCell>{material?.name || component.materialId}</TableCell>
+                      <TableCell>{component.quantity}</TableCell>
+                      <TableCell>${component.unitCost.toFixed(2)}</TableCell>
+                      <TableCell>${component.totalCost.toFixed(2)}</TableCell>
+                      <TableCell>{component.leadTime} days</TableCell>
+                      <TableCell>
+                        {component.critical ? (
+                          <Badge className="bg-red-500">Critical</Badge>
+                        ) : (
+                          <Badge className="bg-gray-500">Standard</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {component.traceabilityRequired ? (
+                          <Badge className="bg-blue-500">Required</Badge>
+                        ) : (
+                          <Badge variant="outline">Optional</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={
+                          qualityStatus === 'approved' ? 'bg-green-500/10 text-green-500' :
+                          qualityStatus === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                          qualityStatus === 'quarantined' ? 'bg-yellow-500/10 text-yellow-500' :
+                          'bg-gray-500/10 text-gray-500'
+                        }>
+                          {qualityStatus || 'pending'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon">
+                          <FontAwesomeIcon icon="edit" className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon">
+                          <FontAwesomeIcon icon="history" className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="material-batches" className="space-y-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Batch Number</TableHead>
+                  <TableHead>Material</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Remaining</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Received Date</TableHead>
+                  <TableHead>Quality Status</TableHead>
+                  <TableHead>Location</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {batches.map((batch) => {
+                  const material = materials.find(m => m.id === batch.materialId);
+                  return (
+                    <TableRow key={batch.id}>
+                      <TableCell>{batch.batchNumber}</TableCell>
+                      <TableCell>{material?.name}</TableCell>
+                      <TableCell>{batch.quantity} {batch.unit}</TableCell>
+                      <TableCell>{batch.remainingQuantity} {batch.unit}</TableCell>
+                      <TableCell>{batch.supplier}</TableCell>
+                      <TableCell>{new Date(batch.receivedDate).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={
+                          batch.qualityStatus === 'approved' ? 'bg-green-500/10 text-green-500' :
+                          batch.qualityStatus === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                          batch.qualityStatus === 'quarantined' ? 'bg-yellow-500/10 text-yellow-500' :
+                          'bg-blue-500/10 text-blue-500'
+                        }>
+                          {batch.qualityStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{batch.location}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="mrp" className="space-y-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Material</TableHead>
+                  <TableHead>Required Date</TableHead>
+                  <TableHead>Gross Requirement</TableHead>
+                  <TableHead>Projected Available</TableHead>
+                  <TableHead>Net Requirement</TableHead>
+                  <TableHead>Planned Orders</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mrpData.map((calc) => {
+                  const material = materials.find(m => m.id === calc.materialId);
+                  return (
+                    <TableRow key={calc.id}>
+                      <TableCell>{material?.name}</TableCell>
+                      <TableCell>{new Date(calc.periodEnd).toLocaleDateString()}</TableCell>
+                      <TableCell>{calc.grossRequirement}</TableCell>
+                      <TableCell>{calc.projectedAvailable}</TableCell>
+                      <TableCell>{calc.netRequirement}</TableCell>
+                      <TableCell>{calc.plannedOrders}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={
+                          calc.netRequirement > 0 ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'
+                        }>
+                          {calc.netRequirement > 0 ? 'Action Required' : 'Sufficient'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="quality" className="space-y-4">
+            <div className="grid gap-4">
               {bom?.components.map((component) => {
                 const material = materials.find(m => m.id === component.materialId);
+                const batch = batches.find(b => b.materialId === component.materialId);
                 return (
-                  <TableRow key={component.materialId}>
-                    <TableCell>{material?.name || component.materialId}</TableCell>
-                    <TableCell>{component.quantity}</TableCell>
-                    <TableCell>${component.unitCost.toFixed(2)}</TableCell>
-                    <TableCell>${component.totalCost.toFixed(2)}</TableCell>
-                    <TableCell>{component.leadTime} days</TableCell>
-                    <TableCell>
-                      {component.critical ? (
-                        <Badge className="bg-red-500">Critical</Badge>
-                      ) : (
-                        <Badge className="bg-gray-500">Standard</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {component.substitutes?.map((subId) => {
-                        const sub = materials.find(m => m.id === subId);
-                        return (
-                          <Badge key={subId} variant="outline" className="mr-1">
-                            {sub?.name || subId}
-                          </Badge>
-                        );
-                      })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon">
-                        <FontAwesomeIcon icon="edit" className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon">
-                        <FontAwesomeIcon icon="trash" className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <Card key={component.materialId}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">{material?.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm font-medium">Quality Status</p>
+                            <Badge variant="outline" className={
+                              batch?.qualityStatus === 'approved' ? 'bg-green-500/10 text-green-500' :
+                              batch?.qualityStatus === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                              batch?.qualityStatus === 'quarantined' ? 'bg-yellow-500/10 text-yellow-500' :
+                              'bg-blue-500/10 text-blue-500'
+                            }>
+                              {batch?.qualityStatus || 'pending'}
+                            </Badge>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Last Inspection</p>
+                            <p className="text-sm text-muted-foreground">
+                              {batch?.inspectionDate ? new Date(batch.inspectionDate).toLocaleString() : 'Not inspected'}
+                            </p>
+                          </div>
+                        </div>
+                        {component.qualityRequirements && (
+                          <div>
+                            <p className="text-sm font-medium">Quality Requirements</p>
+                            <ul className="list-disc list-inside text-sm text-muted-foreground">
+                              {component.qualityRequirements.map((req, index) => (
+                                <li key={index}>
+                                  {req.specification}: {req.acceptanceCriteria}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
-            </TableBody>
-          </Table>
+            </div>
+          </TabsContent>
+        </Tabs>
 
-          <div className="flex justify-between items-center pt-4 border-t">
-            <div className="text-sm text-muted-foreground">
-              Total Components: {bom?.components.length || 0}
-            </div>
-            <div className="text-lg font-semibold">
-              Total Cost: ${getTotalCost(bom?.components || []).toFixed(2)}
-            </div>
+        <div className="flex justify-between items-center pt-4 border-t">
+          <div className="text-sm text-muted-foreground">
+            Total Components: {bom?.components.length || 0}
+          </div>
+          <div className="text-lg font-semibold">
+            Total Cost: ${getTotalCost(bom?.components || []).toFixed(2)}
           </div>
         </div>
       </CardContent>

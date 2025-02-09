@@ -1,5 +1,122 @@
 import type { InventoryAllocationEvent } from "./inventory";
 
+// Add Material Traceability interfaces
+export interface MaterialBatch {
+  id: string;
+  materialId: string;
+  batchNumber: string;
+  receivedDate: string;
+  expiryDate?: string;
+  quantity: number;
+  remainingQuantity: number;
+  unit: string;
+  supplier: string;
+  supplierLotNumber?: string;
+  qualityStatus: 'pending_inspection' | 'approved' | 'rejected' | 'quarantined';
+  inspectionDate?: string;
+  inspectedBy?: string;
+  certifications?: string[];
+  location: string;
+  cost: number;
+  notes?: string;
+}
+
+export interface MaterialMovement {
+  id: string;
+  batchId: string;
+  type: 'receipt' | 'issue' | 'return' | 'adjustment';
+  quantity: number;
+  fromLocation: string;
+  toLocation: string;
+  projectId?: string;
+  productionOrderId?: string;
+  timestamp: string;
+  performedBy: string;
+  reason?: string;
+}
+
+// Enhance BOM interfaces
+export interface BOMRevision {
+  revisionNumber: string;
+  effectiveDate: string;
+  changes: string[];
+  approvalStatus: 'draft' | 'pending_review' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approvalDate?: string;
+  notes?: string;
+}
+
+export interface BOMComponentWithTraceability extends BOMComponent {
+  revisionHistory: BOMRevision[];
+  alternateComponents?: {
+    materialId: string;
+    notes: string;
+  }[];
+  qualityRequirements?: {
+    specification: string;
+    acceptanceCriteria: string;
+  }[];
+  routingStepId?: string;
+  wastageAllowance: number;
+  traceabilityRequired: boolean;
+}
+
+export interface BillOfMaterialsWithTraceability extends Omit<BillOfMaterials, 'components'> {
+  components: BOMComponentWithTraceability[];
+  revisions: BOMRevision[];
+  effectiveDate: string;
+  expiryDate?: string;
+  engineeringNotes?: string;
+  qualityNotes?: string;
+  attachments?: string[];
+  relatedDocuments?: {
+    type: string;
+    documentId: string;
+    name: string;
+  }[];
+}
+
+// Add MRP specific interfaces
+export interface MRPCalculation {
+  id: string;
+  materialId: string;
+  periodStart: string;
+  periodEnd: string;
+  grossRequirement: number;
+  scheduledReceipts: number;
+  projectedAvailable: number;
+  netRequirement: number;
+  plannedOrders: number;
+  safetyStock: number;
+  orderPoint: number;
+  lotSize: number;
+  leadTime: number;
+  source: 'production_order' | 'project' | 'forecast';
+  sourceReference: string;
+}
+
+export interface MRPSchedule {
+  id: string;
+  materialId: string;
+  scheduleType: 'order' | 'production' | 'transfer';
+  quantity: number;
+  dueDate: string;
+  releaseDate: string;
+  status: 'planned' | 'firmed' | 'released' | 'completed';
+  priority: number;
+  notes?: string;
+}
+
+export interface MaterialRequirement {
+  materialId: string;
+  requiredDate: string;
+  quantity: number;
+  projectId?: string;
+  productionOrderId?: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'planned' | 'allocated' | 'issued' | 'completed';
+}
+
 export interface ProductionMetrics {
   type: string;
   value: number;
