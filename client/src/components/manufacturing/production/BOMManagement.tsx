@@ -47,7 +47,7 @@ import type {
   MRPCalculation,
   BOMRevision
 } from "@/types/manufacturing";
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import QrScanner from 'react-qr-scanner';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { WorkloadCenterPanel } from './WorkloadCenterPanel';
 
@@ -537,28 +537,7 @@ export function BOMManagement({}: BOMManagementProps) {
     onOpenChange: (open: boolean) => void;
     purpose: 'add' | 'replace';
   }) {
-    useEffect(() => {
-      if (open) {
-        const html5QrcodeScanner = new Html5QrcodeScanner(
-          "qr-reader",
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          false
-        );
-        
-        html5QrcodeScanner.render((decodedText) => {
-          handleScan(decodedText);
-          html5QrcodeScanner.clear();
-        }, (error) => {
-          console.error(error);
-        });
-
-        return () => {
-          html5QrcodeScanner.clear();
-        };
-      }
-    }, [open]);
-
-    const handleScan = (result: string) => {
+    const handleScan = (result: any) => {
       if (result) {
         setScannedComponent(result);
         setShowScanner(false);
@@ -584,7 +563,13 @@ export function BOMManagement({}: BOMManagementProps) {
               Scan the QR code or barcode on the component
             </DialogDescription>
           </DialogHeader>
-          <div id="qr-reader" className="h-[300px]"></div>
+          <div className="h-[300px]">
+            <QrScanner
+              onScan={handleScan}
+              onError={(error: Error) => console.error(error)}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     );
