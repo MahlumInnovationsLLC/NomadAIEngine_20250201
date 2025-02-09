@@ -34,13 +34,15 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import type { 
-  ProductionProject, 
+import { useForm, type UseFormReturn } from 'react-hook-form'
+import { Checkbox } from "@/components/ui/checkbox";
+import type {
+  ProductionProject,
   BillOfMaterialsWithTraceability,
   BOMComponentWithTraceability,
   Material,
   MaterialBatch,
-  MRPCalculation 
+  MRPCalculation
 } from "@/types/manufacturing";
 
 interface BOMManagementProps {}
@@ -52,6 +54,7 @@ export function BOMManagement({}: BOMManagementProps) {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("components");
+  const [selectedComponent, setSelectedComponent] = useState<BOMComponentWithTraceability | undefined>(undefined);
 
   const { data: projects = [], isLoading: isLoadingProjects, error: projectsError } = useQuery<ProductionProject[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -183,6 +186,203 @@ export function BOMManagement({}: BOMManagementProps) {
     return components.reduce((acc, component) => acc + component.totalCost, 0);
   };
 
+  function AddComponentDialog({
+    open,
+    onOpenChange,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }) {
+    const form = useForm<BOMComponentWithTraceability>({
+      defaultValues: {
+        quantity: 1,
+        unitCost: 0,
+        totalCost: 0,
+        leadTime: 0,
+        critical: false,
+        traceabilityRequired: false,
+        wastageAllowance: 0,
+        revisionHistory: [],
+        materialId: '',
+        qualityRequirements: []
+      },
+    });
+
+    const onSubmit = async (data: BOMComponentWithTraceability) => {
+      try {
+        await addComponentMutation.mutateAsync(data);
+      } catch (error) {
+        console.error('Failed to add component:', error);
+      }
+    };
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add Component</DialogTitle>
+            <DialogDescription>
+              Add a new component to the bill of materials with traceability and quality requirements.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Select
+                    onValueChange={(value) => form.setValue('materialId', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Material" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {materials.map((material) => (
+                        <SelectItem key={material.id} value={material.id}>
+                          {material.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Input
+                    type="number"
+                    placeholder="Quantity"
+                    {...form.register('quantity', { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Input
+                    type="number"
+                    placeholder="Unit Cost"
+                    {...form.register('unitCost', { valueAsNumber: true })}
+                  />
+                </div>
+                <div>
+                  <Input
+                    type="number"
+                    placeholder="Lead Time (days)"
+                    {...form.register('leadTime', { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={form.watch('critical')}
+                    onCheckedChange={(checked) => form.setValue('critical', !!checked)}
+                  />
+                  <label>Critical Component</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={form.watch('traceabilityRequired')}
+                    onCheckedChange={(checked) => form.setValue('traceabilityRequired', !!checked)}
+                  />
+                  <label>Require Traceability</label>
+                </div>
+              </div>
+              <div>
+                <Input
+                  type="number"
+                  placeholder="Wastage Allowance (%)"
+                  {...form.register('wastageAllowance', { valueAsNumber: true })}
+                />
+              </div>
+              {/* Quality Requirements */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Quality Requirements</p>
+                <div>
+                  <Input placeholder="Specification" {...form.register('qualityRequirements')} />
+                  <Input placeholder="Acceptance Criteria" />
+                </div>
+              </div>
+            </div>
+            <Button type="submit" className="w-full">
+              Add Component
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  function VersionHistoryDialog({
+    open,
+    onOpenChange,
+    component,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    component?: BOMComponentWithTraceability;
+  }) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Version History</DialogTitle>
+            <DialogDescription>
+              View the revision history for this component.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {component?.revisionHistory.map((revision, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="text-sm font-medium">
+                        Revision {revision.revisionNumber}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(revision.effectiveDate).toLocaleString()}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className={
+                      revision.approvalStatus === 'approved' ? 'bg-green-500/10 text-green-500' :
+                      revision.approvalStatus === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                      'bg-yellow-500/10 text-yellow-500'
+                    }>
+                      {revision.approvalStatus}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-sm font-medium">Changes</p>
+                      <ul className="list-disc list-inside text-sm text-muted-foreground">
+                        {revision.changes.map((change, i) => (
+                          <li key={i}>{change}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    {revision.notes && (
+                      <div>
+                        <p className="text-sm font-medium">Notes</p>
+                        <p className="text-sm text-muted-foreground">{revision.notes}</p>
+                      </div>
+                    )}
+                    {revision.approvedBy && (
+                      <div>
+                        <p className="text-sm font-medium">Approved By</p>
+                        <p className="text-sm text-muted-foreground">
+                          {revision.approvedBy} on {new Date(revision.approvalDate!).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -193,7 +393,7 @@ export function BOMManagement({}: BOMManagementProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
+          <Button
             variant="outline"
             onClick={() => setShowVersionHistory(true)}
           >
@@ -267,7 +467,7 @@ export function BOMManagement({}: BOMManagementProps) {
                   const material = materials.find(m => m.id === component.materialId);
                   const qualityStatus = batches.find(b => b.materialId === component.materialId)?.qualityStatus;
                   return (
-                    <TableRow key={component.materialId}>
+                    <TableRow key={component.materialId} onClick={() => {setSelectedComponent(component); setShowVersionHistory(true)}}>
                       <TableCell>{material?.name || component.materialId}</TableCell>
                       <TableCell>{component.quantity}</TableCell>
                       <TableCell>${component.unitCost.toFixed(2)}</TableCell>
@@ -301,7 +501,7 @@ export function BOMManagement({}: BOMManagementProps) {
                         <Button variant="ghost" size="icon">
                           <FontAwesomeIcon icon="edit" className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => {setSelectedComponent(component); setShowVersionHistory(true)}}>
                           <FontAwesomeIcon icon="history" className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -454,6 +654,21 @@ export function BOMManagement({}: BOMManagementProps) {
           </div>
         </div>
       </CardContent>
+      {showAddComponent && (
+        <AddComponentDialog
+          open={showAddComponent}
+          onOpenChange={setShowAddComponent}
+          materials={materials}
+        />
+      )}
+
+      {showVersionHistory && (
+        <VersionHistoryDialog
+          open={showVersionHistory}
+          onOpenChange={setShowVersionHistory}
+          component={selectedComponent}
+        />
+      )}
     </Card>
   );
 }
