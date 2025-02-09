@@ -8,15 +8,8 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import App from './App';
 import "./index.css";
 
-// Import and configure Font Awesome
-import { library } from '@fortawesome/fontawesome-svg-core';
-import { fab } from '@fortawesome/free-brands-svg-icons';
-import { far } from '@fortawesome/free-regular-svg-icons';
-import { fas } from '@fortawesome/free-solid-svg-icons';
-import { fal } from '@fortawesome/pro-light-svg-icons';
-
-// Add icons to library
-library.add(fab, far, fas, fal);
+// Import Font Awesome configuration
+import "./lib/fontawesome";
 
 const rootElement = document.getElementById("root");
 
@@ -27,7 +20,7 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <LocalizationProvider dateAdapter={AdapterDateFns as any}>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
         <App />
         <Toaster />
       </LocalizationProvider>
