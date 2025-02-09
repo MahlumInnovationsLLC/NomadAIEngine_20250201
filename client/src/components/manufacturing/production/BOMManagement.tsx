@@ -47,6 +47,8 @@ import type {
   MRPCalculation,
   BOMRevision
 } from "@/types/manufacturing";
+import { QrScanner } from '@yudiel/react-qr-scanner';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 
 interface BOMManagementProps {}
 
@@ -62,6 +64,10 @@ export function BOMManagement({}: BOMManagementProps) {
   const [showRevisionApproval, setShowRevisionApproval] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<MaterialBatch | null>(null);
   const [selectedRevision, setSelectedRevision] = useState<BOMRevision | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannerPurpose, setScannerPurpose] = useState<'add' | 'replace' | null>(null);
+  const [scannedComponent, setScannedComponent] = useState<string | null>(null);
+  const [showReplacementDialog, setShowReplacementDialog] = useState(false);
 
   const { data: projects = [], isLoading: isLoadingProjects, error: projectsError } = useQuery<ProductionProject[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -138,6 +144,33 @@ export function BOMManagement({}: BOMManagementProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/material-batches', selectedProject] });
       toast({ title: "Success", description: "Quality check recorded successfully" });
+    },
+  });
+
+  const recordPartChangeMutation = useMutation({
+    mutationFn: async (data: {
+      projectId: string;
+      componentId: string;
+      changeType: 'add' | 'replace';
+      scannedCode: string;
+      notes?: string;
+    }) => {
+      const response = await fetch('/api/manufacturing/part-changes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to record part change');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/manufacturing/bom/${selectedProject}`] });
+      toast({ title: "Success", description: "Part change recorded successfully" });
+      setShowScanner(false);
+      setShowReplacementDialog(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -494,6 +527,102 @@ export function BOMManagement({}: BOMManagementProps) {
     );
   }
 
+  function ScannerDialog({
+    open,
+    onOpenChange,
+    purpose,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    purpose: 'add' | 'replace';
+  }) {
+    const handleScan = (result: string) => {
+      if (result) {
+        setScannedComponent(result);
+        setShowScanner(false);
+        if (purpose === 'replace') {
+          setShowReplacementDialog(true);
+        } else {
+          recordPartChangeMutation.mutate({
+            projectId: selectedProject!,
+            componentId: result,
+            changeType: 'add',
+            scannedCode: result,
+          });
+        }
+      }
+    };
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Scan Component {purpose === 'add' ? 'to Add' : 'to Replace'}</DialogTitle>
+            <DialogDescription>
+              Scan the QR code or barcode on the component
+            </DialogDescription>
+          </DialogHeader>
+          <div className="h-[300px]">
+            <QrScanner
+              onDecode={handleScan}
+              onError={(error) => console.error(error)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  function ReplacementConfirmationDialog({
+    open,
+    onOpenChange,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }) {
+    const [notes, setNotes] = useState('');
+
+    const handleConfirm = () => {
+      if (!scannedComponent || !selectedProject) return;
+
+      recordPartChangeMutation.mutate({
+        projectId: selectedProject,
+        componentId: scannedComponent,
+        changeType: 'replace',
+        scannedCode: scannedComponent,
+        notes,
+      });
+    };
+
+    return (
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Component Replacement</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to replace this component?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <Textarea
+              placeholder="Enter replacement notes..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirm}>
+              Confirm Replacement
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -504,6 +633,26 @@ export function BOMManagement({}: BOMManagementProps) {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setScannerPurpose('add');
+              setShowScanner(true);
+            }}
+          >
+            <FontAwesomeIcon icon="qrcode" className="mr-2" />
+            Scan to Add
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setScannerPurpose('replace');
+              setShowScanner(true);
+            }}
+          >
+            <FontAwesomeIcon icon="exchange-alt" className="mr-2" />
+            Scan to Replace
+          </Button>
           <Button
             variant="outline"
             onClick={() => setShowVersionHistory(true)}
@@ -766,7 +915,7 @@ export function BOMManagement({}: BOMManagementProps) {
                   <CardTitle>Quality Metrics Overview</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid gridcols-3 gap-4">
                     <div className="text-center">
                       <h3 className="text-2xl font-bold">
                         {batches.filter(b => b.qualityStatus === 'approved').length}
@@ -837,7 +986,6 @@ export function BOMManagement({}: BOMManagementProps) {
         <AddComponentDialog
           open={showAddComponent}
           onOpenChange={setShowAddComponent}
-          
         />
       )}
 
@@ -853,6 +1001,19 @@ export function BOMManagement({}: BOMManagementProps) {
           open={showQualityCheck}
           onOpenChange={setShowQualityCheck}
           batch={selectedBatch}
+        />
+      )}
+      {showScanner && (
+        <ScannerDialog
+          open={showScanner}
+          onOpenChange={setShowScanner}
+          purpose={scannerPurpose!}
+        />
+      )}
+      {showReplacementDialog && (
+        <ReplacementConfirmationDialog
+          open={showReplacementDialog}
+          onOpenChange={setShowReplacementDialog}
         />
       )}
     </Card>

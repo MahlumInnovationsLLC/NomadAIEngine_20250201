@@ -18,6 +18,7 @@ const bomContainer = database.container("boms");
 const materialBatchContainer = database.container("material-batches");
 const materialMovementContainer = database.container("material-movements");
 const mrpCalculationsContainer = database.container("mrp-calculations");
+const partChangeContainer = database.container("part-changes");
 
 // Project Management Functions
 export async function getProject(id: string) {
@@ -475,7 +476,8 @@ export async function initializeManufacturingDatabase() {
       { id: "boms", partitionKey: { paths: ["/id"] } },
       { id: "material-batches", partitionKey: { paths: ["/id"] } },
       { id: "material-movements", partitionKey: { paths: ["/id"] } },
-      { id: "mrp-calculations", partitionKey: { paths: ["/id"] } }
+      { id: "mrp-calculations", partitionKey: { paths: ["/id"] } },
+      { id: "part-changes", partitionKey: { paths: ["/id"] } }
     ];
 
     for (const containerDef of containersToCreate) {
@@ -562,6 +564,85 @@ export async function addProductionMetrics(metrics: ProductionMetrics): Promise<
     }
   } catch (error) {
     console.error("Failed to add production metrics:", error);
+    throw error;
+  }
+}
+
+// Add these interfaces at the top with other interfaces
+interface PartChange {
+  id: string;
+  projectId: string;
+  componentId: string;
+  changeType: 'add' | 'replace';
+  scannedCode: string;
+  notes?: string;
+  performedBy: string;
+  timestamp: string;
+}
+
+// Add these functions with other exported functions
+export async function recordPartChange(changeData: Omit<PartChange, 'id' | 'timestamp'>): Promise<PartChange> {
+  try {
+    const now = new Date().toISOString();
+    const newChange: PartChange = {
+      id: uuidv4(),
+      ...changeData,
+      timestamp: now
+    };
+
+    const { resource } = await partChangeContainer.items.create(newChange);
+    if (!resource) throw new Error("Failed to record part change");
+
+    // Update the component in BOM if it's a replacement
+    if (changeData.changeType === 'replace') {
+      const boms = await getBOMByProject(changeData.projectId);
+      if (boms && boms.length > 0) {
+        const bom = boms[0];
+        const component = bom.components.find(c => c.materialId === changeData.componentId);
+
+        if (component) {
+          // Add to revision history.  Assuming component has a revisionHistory array
+          if (!component.revisionHistory) component.revisionHistory = [];
+
+          component.revisionHistory.push({
+            revisionNumber: (component.revisionHistory.length + 1).toString(),
+            effectiveDate: now,
+            changes: [`Component replaced. Scanned code: ${changeData.scannedCode}`],
+            approvalStatus: 'approved',
+            approvedBy: changeData.performedBy,
+            approvalDate: now,
+            notes: changeData.notes
+          });
+
+          // Update BOM
+          await createOrUpdateBOM({
+            ...bom,
+            components: bom.components.map(c =>
+              c.materialId === changeData.componentId ? component : c
+            )
+          });
+        }
+      }
+    }
+
+    return resource;
+  } catch (error) {
+    console.error("Failed to record part change:", error);
+    throw error;
+  }
+}
+
+export async function getPartChangeHistory(projectId: string): Promise<PartChange[]> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.projectId = @projectId ORDER BY c.timestamp DESC",
+      parameters: [{ name: "@projectId", value: projectId }]
+    };
+
+    const { resources } = await partChangeContainer.items.query<PartChange>(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Failed to get part change history:", error);
     throw error;
   }
 }
