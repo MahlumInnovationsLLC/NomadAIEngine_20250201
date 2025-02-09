@@ -911,9 +911,7 @@ export function BOMManagement({}: BOMManagementProps) {
                 );
               })}
             </div>
-          </TabsContent>
-
-          <TabsContent value="quality-monitoring" className="space-y-4">
+          </TabsContent><TabsContent value="quality-monitoring" className="space-y-4">
             <div className="grid gap-4">
               <Card>
                 <CardHeader>
@@ -975,9 +973,11 @@ export function BOMManagement({}: BOMManagementProps) {
               </Card>
             </div>
           </TabsContent>
-          <TabsContent value="workload-centers">
-            <WorkloadCenterPanel projectId={selectedProject!} />
-          </TabsContent>
+          <TabsContent value="workload-centers" className="space-y-4">
+  {selectedProject && (
+    <WorkloadCenterPanel projectId={selectedProject} />
+  )}
+</TabsContent>
         </Tabs>
 
         <div className="flex justify-between items-center pt-4 border-t">
