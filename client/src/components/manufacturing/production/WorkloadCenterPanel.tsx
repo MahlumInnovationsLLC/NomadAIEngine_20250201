@@ -18,7 +18,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { QrReader } from '@yudiel/react-qr-scanner';
 import {
   Dialog,
   DialogContent,
@@ -44,10 +43,11 @@ interface WorkloadCenterProps {
 export function WorkloadCenterPanel({ projectId }: WorkloadCenterProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showScanner, setShowScanner] = useState(false);
-  const [selectedCenter, setSelectedCenter] = useState<string | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const [showSignOffDialog, setShowSignOffDialog] = useState(false);
+  const [selectedCenter, setSelectedCenter] = useState<string | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<any>(null);
+  const [componentId, setComponentId] = useState("");
   const [installerName, setInstallerName] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -88,7 +88,8 @@ export function WorkloadCenterPanel({ projectId }: WorkloadCenterProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/workload-centers'] });
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/section-components'] });
       toast({ title: "Success", description: "Component assigned successfully" });
-      setShowScanner(false);
+      setShowAddDialog(false);
+      setComponentId("");
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -122,19 +123,19 @@ export function WorkloadCenterPanel({ projectId }: WorkloadCenterProps) {
     },
   });
 
-  const handleScan = async (result: string | null) => {
-    if (result && selectedCenter) {
-      const center = workloadCenters.find((c: any) => c.id === selectedCenter);
-      try {
-        await assignComponentMutation.mutateAsync({
-          componentId: result,
-          workloadCenterId: selectedCenter,
-          projectId,
-          sectionOrder: center.routingOrder,
-        });
-      } catch (error) {
-        console.error('Failed to assign component:', error);
-      }
+  const handleAddComponent = async () => {
+    if (!componentId || !selectedCenter) return;
+
+    const center = workloadCenters.find((c: any) => c.id === selectedCenter);
+    try {
+      await assignComponentMutation.mutateAsync({
+        componentId,
+        workloadCenterId: selectedCenter,
+        projectId,
+        sectionOrder: center.routingOrder,
+      });
+    } catch (error) {
+      console.error('Failed to assign component:', error);
     }
   };
 
@@ -208,11 +209,11 @@ export function WorkloadCenterPanel({ projectId }: WorkloadCenterProps) {
                         size="sm"
                         onClick={() => {
                           setSelectedCenter(center.id);
-                          setShowScanner(true);
+                          setShowAddDialog(true);
                         }}
                       >
-                        <FontAwesomeIcon icon="qrcode" className="mr-2" />
-                        Scan Component
+                        <FontAwesomeIcon icon="plus" className="mr-2" />
+                        Add Component
                       </Button>
                     </div>
 
@@ -268,21 +269,33 @@ export function WorkloadCenterPanel({ projectId }: WorkloadCenterProps) {
         </ScrollArea>
       </CardContent>
 
-      <Dialog open={showScanner} onOpenChange={setShowScanner}>
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Scan Component</DialogTitle>
+            <DialogTitle>Add Component</DialogTitle>
             <DialogDescription>
-              Scan the QR code on the component to assign it to this section
+              Enter the component ID to assign it to this section
             </DialogDescription>
           </DialogHeader>
-          <div className="h-[300px]">
-            <QrReader
-              onResult={handleScan}
-              onError={(error: unknown) => console.error(error)}
-              constraints={{ facingMode: 'environment' }}
-            />
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="componentId">Component ID</Label>
+              <Input
+                id="componentId"
+                value={componentId}
+                onChange={(e) => setComponentId(e.target.value)}
+                placeholder="Enter component ID"
+              />
+            </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddComponent} disabled={!componentId}>
+              Add Component
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
