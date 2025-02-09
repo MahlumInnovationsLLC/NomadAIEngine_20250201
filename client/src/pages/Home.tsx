@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
 
 export default function Home() {
@@ -19,7 +19,7 @@ export default function Home() {
         </p>
         {isFirstVisit && (
           <Button onClick={startOnboarding} size="lg" className="gap-2">
-            <FontAwesomeIcon icon={['fal', 'play']} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={["fas", "play"]} className="mr-2 h-4 w-4" />
             Start Platform Tour
           </Button>
         )}
@@ -28,7 +28,7 @@ export default function Home() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="p-6" data-tour="sales-section">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'chart-line']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "chart-line"]} className="h-5 w-5" />
             Sales Control
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -39,14 +39,14 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/sales-control')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Open Sales Control
           </Button>
         </Card>
 
         <Card className="p-6" data-tour="manufacturing-section">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'industry']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "industry"]} className="h-5 w-5" />
             Manufacturing Control
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -57,14 +57,14 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/manufacturing-control')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Open Manufacturing
           </Button>
         </Card>
 
         <Card className="p-6" data-tour="material-section">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'boxes-stacked']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "boxes-stacked"]} className="h-5 w-5" />
             Material Handling
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -75,14 +75,14 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/material-handling')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Open Material Handling
           </Button>
         </Card>
 
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'bullhorn']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "bullhorn"]} className="h-5 w-5" />
             Marketing Control
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -93,14 +93,14 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/marketing-control')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Marketing Control
           </Button>
         </Card>
 
         <Card className="p-6" data-tour="document-section">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'file-lines']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "file-lines"]} className="h-5 w-5" />
             Document Management
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -111,14 +111,14 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/docmanage')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Open Documents
           </Button>
         </Card>
 
         <Card className="p-6" data-tour="chat-section">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'message']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "message"]} className="h-5 w-5" />
             AI Assistant
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -129,14 +129,14 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/chat')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Start Chat
           </Button>
         </Card>
 
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'file-lines']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "file-lines"]} className="h-5 w-5" />
             Document Control
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -147,14 +147,14 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/docmanage')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Open Documents
           </Button>
         </Card>
 
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'wrench']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "wrench"]} className="h-5 w-5" />
             Field Service
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -165,14 +165,14 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/field-service')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Open Field Service
           </Button>
         </Card>
 
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={['fal', 'industry-windows']} className="h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "building"]} className="h-5 w-5" />
             Facility Control
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -183,7 +183,7 @@ export default function Home() {
             className="w-full"
             onClick={() => navigate('/facility-control')}
           >
-            <FontAwesomeIcon icon={['fal', 'arrow-right']} className="mr-2 h-5 w-5" />
+            <FontAwesomeIcon icon={["fas", "arrow-right"]} className="mr-2 h-5 w-5" />
             Open Facility Control
           </Button>
         </Card>
