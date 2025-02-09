@@ -596,7 +596,11 @@ interface WorkloadCenter {
   componentTracking: {
     installedComponents: string[];
     pendingReplacements: string[];
+    pendingInstallations: string[];
   };
+  routingOrder: number;
+  previousSection?: string;
+  nextSection?: string;
 }
 
 interface ComponentTraceability {
@@ -613,6 +617,20 @@ interface ComponentTraceability {
     reason: string;
     newComponentId: string;
   }[];
+}
+
+interface ComponentInstallation {
+  id: string;
+  componentId: string;
+  workloadCenterId: string;
+  projectId: string;
+  installedBy: string;
+  installationDate: string;
+  verifiedBy?: string;
+  verificationDate?: string;
+  signOffStatus: 'pending' | 'installed' | 'verified';
+  notes?: string;
+  sectionOrder: number;
 }
 
 // Add these functions with other exported functions
@@ -690,7 +708,8 @@ export async function createWorkloadCenter(center: Omit<WorkloadCenter, 'id'>): 
       activeProjects: [],
       componentTracking: {
         installedComponents: [],
-        pendingReplacements: []
+        pendingReplacements: [],
+        pendingInstallations: []
       }
     };
 
@@ -761,12 +780,124 @@ export async function getComponentTraceability(componentId: string): Promise<Com
   }
 }
 
-// Initialize the database when the module loads
+// Add new functions for component routing and installation tracking
+export async function assignComponentToSection(data: {
+  componentId: string;
+  workloadCenterId: string;
+  projectId: string;
+  sectionOrder: number;
+}): Promise<void> {
+  try {
+    const { resource: center } = await workloadCenterContainer.item(data.workloadCenterId, data.workloadCenterId).read();
+    if (!center) throw new Error("Workload center not found");
+
+    // Add to pending installations
+    center.componentTracking.pendingInstallations.push(data.componentId);
+    await workloadCenterContainer.item(data.workloadCenterId, data.workloadCenterId).replace(center);
+
+    // Create a pending installation record
+    const installation: ComponentInstallation = {
+      id: uuidv4(),
+      ...data,
+      installedBy: '',
+      installationDate: new Date().toISOString(),
+      signOffStatus: 'pending',
+      sectionOrder: data.sectionOrder
+    };
+
+    await componentTraceabilityContainer.items.create(installation);
+  } catch (error) {
+    console.error("Failed to assign component to section:", error);
+    throw error;
+  }
+}
+
+export async function signOffInstallation(data: {
+  installationId: string;
+  installedBy: string;
+  notes?: string;
+}): Promise<ComponentInstallation> {
+  try {
+    const { resource: installation } = await componentTraceabilityContainer.item(data.installationId, data.installationId).read();
+    if (!installation) throw new Error("Installation record not found");
+
+    const updatedInstallation = {
+      ...installation,
+      installedBy: data.installedBy,
+      installationDate: new Date().toISOString(),
+      signOffStatus: 'installed',
+      notes: data.notes
+    };
+
+    const { resource } = await componentTraceabilityContainer.item(data.installationId, data.installationId).replace(updatedInstallation);
+    if (!resource) throw new Error("Failed to update installation record");
+
+    // Update workload center tracking
+    const { resource: center } = await workloadCenterContainer.item(installation.workloadCenterId, installation.workloadCenterId).read();
+    if (center) {
+      center.componentTracking.pendingInstallations = center.componentTracking.pendingInstallations
+        .filter(id => id !== installation.componentId);
+      center.componentTracking.installedComponents.push(installation.componentId);
+      await workloadCenterContainer.item(installation.workloadCenterId, installation.workloadCenterId).replace(center);
+    }
+
+    return resource;
+  } catch (error) {
+    console.error("Failed to sign off installation:", error);
+    throw error;
+  }
+}
+
+export async function verifyInstallation(data: {
+  installationId: string;
+  verifiedBy: string;
+}): Promise<ComponentInstallation> {
+  try {
+    const { resource: installation } = await componentTraceabilityContainer.item(data.installationId, data.installationId).read();
+    if (!installation) throw new Error("Installation record not found");
+
+    const updatedInstallation = {
+      ...installation,
+      verifiedBy: data.verifiedBy,
+      verificationDate: new Date().toISOString(),
+      signOffStatus: 'verified'
+    };
+
+    const { resource } = await componentTraceabilityContainer.item(data.installationId, data.installationId).replace(updatedInstallation);
+    if (!resource) throw new Error("Failed to verify installation");
+
+    return resource;
+  } catch (error) {
+    console.error("Failed to verify installation:", error);
+    throw error;
+  }
+}
+
+export async function getSectionComponents(workloadCenterId: string, projectId: string): Promise<ComponentInstallation[]> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.workloadCenterId = @workloadCenterId AND c.projectId = @projectId ORDER BY c.sectionOrder",
+      parameters: [
+        { name: "@workloadCenterId", value: workloadCenterId },
+        { name: "@projectId", value: projectId }
+      ]
+    };
+
+    const { resources } = await componentTraceabilityContainer.items.query<ComponentInstallation>(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Failed to get section components:", error);
+    throw error;
+  }
+}
+
+// Update the initializeDefaultWorkloadCenters function to include routing order
 export async function initializeDefaultWorkloadCenters() {
   try {
     const sections = ['A', 'B', 'C', 'D', 'E', 'F', 'H', 'I', 'J', 'K', 'L', 'T', 'Y', 'X'];
 
-    for (const code of sections) {
+    for (let i = 0; i < sections.length; i++) {
+      const code = sections[i];
       const existing = await workloadCenterContainer.items
         .query({
           query: "SELECT * FROM c WHERE c.code = @code",
@@ -785,13 +916,17 @@ export async function initializeDefaultWorkloadCenters() {
           activeProjects: [],
           componentTracking: {
             installedComponents: [],
-            pendingReplacements: []
-          }
+            pendingReplacements: [],
+            pendingInstallations: []
+          },
+          routingOrder: i + 1,
+          previousSection: i > 0 ? sections[i - 1] : undefined,
+          nextSection: i < sections.length - 1 ? sections[i + 1] : undefined
         });
       }
     }
 
-    console.log("Default workload centers initialized");
+    console.log("Default workload centers initialized with routing order");
   } catch (error) {
     console.error("Failed to initialize default workload centers:", error);
     throw error;
