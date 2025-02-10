@@ -909,7 +909,8 @@ export function ProjectManagementPanel() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <FontAwesomeIcon icon={faFolder} className="h-4 w-4" />
-                      <span>Projects</span                    </CardTitle>
+                      <span>Projects</span>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
