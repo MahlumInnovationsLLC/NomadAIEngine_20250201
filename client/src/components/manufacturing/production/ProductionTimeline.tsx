@@ -179,7 +179,7 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
               style={{ 
                 left: `${todayPosition}%`, 
                 transform: 'translateX(-50%)',
-                top: '-6px',
+                bottom: '-2px',
                 width: '24px'
               }}
             >
@@ -190,7 +190,13 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
                   </div>
                 </div>
               )}
-              <div className="w-4 h-4 bg-red-500 rounded-full -mt-1 animate-pulse" />
+              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-lg" 
+                   style={{
+                     position: 'absolute',
+                     top: '50%',
+                     transform: 'translateY(-50%)'
+                   }}
+              />
             </div>
           )}
 
