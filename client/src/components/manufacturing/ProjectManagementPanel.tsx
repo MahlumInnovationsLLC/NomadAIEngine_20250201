@@ -966,51 +966,52 @@ export function ProjectManagementPanel() {
                       </div>
                       <div className="space-y-2">
                         <div className="space-y-2">
-                        {filteredAndSortedProjects.map((project) => (
-                          <div key={project.id} className="relative group">
-                            <Button
-                              variant={selectedProject?.id === project.id ? "default" : "ghost"}
-                              className="w-full justify-start py-4 px-4 h-auto space-y-2"
-                              onClick={() => setSelectedProject(project)}
-                            >
-                              <div className="flex w-full">
-                                <FontAwesomeIcon
-                                  icon={project.status === 'COMPLETED' ? faCheckCircle : faCircleDot}
-                                  className="mr-2 h-4 w-4 mt-1 flex-shrink-0"
-                                />
-                                <div className="flex flex-col items-start flex-grow space-y-2 min-w-0">
-                                  <div className="flex items-center justify-between w-full">
-                                    <span className="font-medium text-sm">{project.projectNumber}</span>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteProject(project);
-                                      }}
-                                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-100 p-1 h-6"
-                                    >
-                                      <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                  <div className="flex gap-2 text-xs text-muted-foreground">
-                                    <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
-                                    <span>{project.location || 'N/A'}</span>
-                                  </div>
-                                  {project.name && (
-                                    <span className="text-xs text-muted-foreground truncate w-full">
-                                      {project.name}
-                                    </span>
-                                  )}
-                                  <div className="flex justify-between w-full text-xs text-muted-foreground pt-1">
-                                    <span>QC: {formatDate(project.qcStart)}</span>
-                                    <span>Ship: {formatDate(project.ship)}</span>
+                          {filteredAndSortedProjects.map((project) => (
+                            <div key={project.id} className="relative group">
+                              <Button
+                                variant={selectedProject?.id === project.id ? "default" : "ghost"}
+                                className="w-full justify-start py-4 px-4 h-auto space-y-2"
+                                onClick={() => setSelectedProject(project)}
+                              >
+                                <div className="flex w-full">
+                                  <FontAwesomeIcon
+                                    icon={project.status === 'COMPLETED' ? faCheckCircle : faCircleDot}
+                                    className="mr-2 h-4 w-4 mt-1 flex-shrink-0"
+                                  />
+                                  <div className="flex flex-col items-start flex-grow space-y-2 min-w-0">
+                                    <div className="flex items-center justify-between w-full">
+                                      <span className="font-medium text-sm">{project.projectNumber}</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteProject(project);
+                                        }}
+                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-100 p-1 h-6"
+                                      >
+                                        <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <div className="flex gap-2 text-xs text-muted-foreground">
+                                      <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
+                                      <span>{project.location || 'N/A'}</span>
+                                    </div>
+                                    {project.name && (
+                                      <span className="text-xs text-muted-foreground truncate w-full">
+                                        {project.name}
+                                      </span>
+                                    )}
+                                    <div className="flex justify-between w-full text-xs text-muted-foreground pt-1">
+                                      <span>QC: {formatDate(project.qcStart)}</span>
+                                      <span>Ship: {formatDate(project.ship)}</span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </Button>
-                          </div>
-                        ))}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
