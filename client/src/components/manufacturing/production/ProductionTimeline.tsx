@@ -104,17 +104,18 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
   let todayPosition = ((today.getTime() - startDateTimeline.getTime()) / 
     (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
     
-  // Ensure today's position is at least visible if it's before first milestone
+  // Ensure today's position is aligned with first milestone if before it
   if (todayPosition < 0) {
-    todayPosition = 2; // Show slightly at the start
+    const firstEventDate = new Date(timelineEvents[0].date);
+    todayPosition = today < firstEventDate ? 0 : 2;
   }
 
   const eventPositions = timelineEvents.map((event, index) => {
     if (!event.date) return { ...event, position: 0, needsOffset: false };
     
-    // Adjust first milestone position if today is before it
-    if (index === 0 && todayPosition === 2) {
-      return { ...event, position: 8, needsOffset: false };
+    // Set minimum position for first milestone
+    if (index === 0) {
+      return { ...event, position: Math.max(5, todayPosition + 3), needsOffset: false };
     }
 
     const eventDate = new Date(event.date);
