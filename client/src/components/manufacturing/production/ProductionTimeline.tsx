@@ -101,11 +101,21 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
     : new Date(startDateTimeline.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   // Calculate today's position on the timeline
-  const todayPosition = ((today.getTime() - startDateTimeline.getTime()) / 
+  let todayPosition = ((today.getTime() - startDateTimeline.getTime()) / 
     (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
+    
+  // Ensure today's position is at least visible if it's before first milestone
+  if (todayPosition < 0) {
+    todayPosition = 2; // Show slightly at the start
+  }
 
   const eventPositions = timelineEvents.map((event, index) => {
     if (!event.date) return { ...event, position: 0, needsOffset: false };
+    
+    // Adjust first milestone position if today is before it
+    if (index === 0 && todayPosition === 2) {
+      return { ...event, position: 8, needsOffset: false };
+    }
 
     const eventDate = new Date(event.date);
     const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
