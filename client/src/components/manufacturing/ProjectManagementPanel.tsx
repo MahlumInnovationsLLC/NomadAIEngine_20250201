@@ -920,10 +920,6 @@ export function ProjectManagementPanel() {
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                          placeholder="Search projects..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
                         <Select
                           value={locationFilter}
                           onValueChange={(value: "ALL" | "LIBBY" | "CFALLS") => setLocationFilter(value)}
