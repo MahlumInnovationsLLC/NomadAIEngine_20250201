@@ -36,7 +36,8 @@ import {
   faEye,
   faCloud,
   faCloudCheck,
-  faCloudArrowUp
+  faCloudArrowUp,
+  faTrash
 } from '@fortawesome/pro-light-svg-icons';
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Button } from "@/components/ui/button";
@@ -268,6 +269,8 @@ export function ProjectManagementPanel() {
   const [showPreview, setShowPreview] = useState(false);
   const [activeView, setActiveView] = useState<"list" | "map" | "table">("list");
   const [locationFilter, setLocationFilter] = useState<"ALL" | "LIBBY" | "CFALLS">("ALL");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -581,10 +584,10 @@ export function ProjectManagementPanel() {
     console.log('Form submitted with data:', data);
 
     // Calculate days before formatting data
-    const ntcDays = data.ntcTesting && data.qcStart ? 
+    const ntcDays = data.ntcTesting && data.qcStart ?
       calculateWorkingDays(new Date(data.ntcTesting), new Date(data.qcStart)) : 0;
 
-    const qcDays = data.qcStart && data.executiveReview ? 
+    const qcDays = data.qcStart && data.executiveReview ?
       calculateWorkingDays(new Date(data.qcStart), new Date(data.executiveReview)) : 0;
 
     const formattedData = {
@@ -662,6 +665,34 @@ export function ProjectManagementPanel() {
     }
   });
 
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      const response = await fetch(`/api/manufacturing/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Failed to delete project');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+      toast({
+        title: "Success",
+        description: "Project deleted successfully"
+      });
+      setProjectToDelete(null);
+      setShowDeleteDialog(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete project",
+        variant: "destructive"
+      });
+    }
+  });
+
+
   const handleEditProject = async (project: Project) => {
     try {
       const response = await fetch(`/api/manufacturing/projects/${project.id}`);
@@ -713,6 +744,17 @@ export function ProjectManagementPanel() {
 
   const initializeEditForm = (project: Project) => {
     handleEditProject(project);
+  };
+
+  const handleDeleteProject = (project: Project) => {
+    setProjectToDelete(project);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (projectToDelete) {
+      deleteProjectMutation.mutate(projectToDelete.id);
+    }
   };
 
   if (isLoading) {
@@ -1427,6 +1469,25 @@ export function ProjectManagementPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete project {projectToDelete?.projectNumber}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-500 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
