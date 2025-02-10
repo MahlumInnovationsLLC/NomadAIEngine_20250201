@@ -339,4 +339,18 @@ async function streamToString(readableStream: NodeJS.ReadableStream | undefined)
   });
 }
 
+// Delete single project
+router.delete("/:id", async (req, res) => {
+  try {
+    const blobClient = containerClient.getBlockBlobClient(`${req.params.id}.json`);
+    await blobClient.delete();
+    res.setHeader('Content-Type', 'application/json');
+    res.json({ message: "Project deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting project:", error);
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json({ error: "Failed to delete project" });
+  }
+});
+
 export default router;
