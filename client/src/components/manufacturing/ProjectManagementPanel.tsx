@@ -908,8 +908,8 @@ export function ProjectManagementPanel() {
                 <Card className="col-span-3">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faFolder />
-                      Projects
+                      <FontAwesomeIcon icon={faFolder} className="h-4 w-4" />
+                      <span>Projects</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -917,7 +917,8 @@ export function ProjectManagementPanel() {
                       <div className="space-y-2">
                         <Input
                           placeholder="Search projects..."
-                          value={searchQuery}                          onChange={(e) => setSearchQuery(e.target.value)}
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
                         />
                         <Select
                           value={locationFilter}
@@ -956,7 +957,8 @@ export function ProjectManagementPanel() {
                             Ship Date
                             {sortConfig.primary === "ship" && (
                               <FontAwesomeIcon
-                                icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}                                className="h-4 w-4 ml-2"
+                                icon={sortConfig.direction === "asc" ? faArrowUp : faArrowDown}
+                                className="h-4 w-4 ml-2"
                               />
                             )}
                           </Button>
@@ -1007,7 +1009,7 @@ export function ProjectManagementPanel() {
                           <span>{selectedProject.projectNumber}</span>
                           <div className="flex gap-2">
                             <Button variant="outline" onClick={() => initializeEditForm(selectedProject)}>
-                              <FontAwesomeIcon icon={faEdit} className="mr-2"/>
+                              <FontAwesomeIcon icon={faEdit} className="mr-2" />
                               Edit
                             </Button>
                             <Button
@@ -1015,7 +1017,7 @@ export function ProjectManagementPanel() {
                               onClick={() => handleResetStatus(selectedProject.id)}
                               disabled={!selectedProject.manualStatus}
                             >
-                              <FontAwesomeIcon icon={faRotateLeft} className="mr-2"/>
+                              <FontAwesomeIcon icon={faRotateLeft} className="mr-2" />
                               Reset Status
                             </Button>
                             <div className="flex gap-2">
@@ -1308,8 +1310,8 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>Location</Label>
-                    <Select 
-                      defaultValue={form.getValues("location")} 
+                    <Select
+                      defaultValue={form.getValues("location")}
                       onValueChange={(value) => form.setValue("location", value)}
                     >
                       <SelectTrigger>
@@ -1384,9 +1386,9 @@ export function ProjectManagementPanel() {
                   </div>
                   <div className="space-y-2">
                     <Label>NTC Testing</Label>
-                    <Input 
-                      type="date" 
-                      {...form.register("ntcTesting")} 
+                    <Input
+                      type="date"
+                      {...form.register("ntcTesting")}
                       onChange={(e) => {
                         form.setValue("ntcTesting", e.target.value, { shouldValidate: true });
                         const qcStart = form.getValues("qcStart");
@@ -1395,14 +1397,14 @@ export function ProjectManagementPanel() {
                           form.setValue("ntcDays", days.toString());
                           console.log('Updated NTC Days:', days);
                         }
-                      }} 
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>QC Start</Label>
-                    <Input 
-                      type="date" 
-                      {...form.register("qcStart")} 
+                    <Input
+                      type="date"
+                      {...form.register("qcStart")}
                       onChange={(e) => {
                         form.setValue("qcStart", e.target.value, { shouldValidate: true });
                         const ntcTesting = form.getValues("ntcTesting");
@@ -1415,7 +1417,7 @@ export function ProjectManagementPanel() {
                           const qcDays = calculateWorkingDays(new Date(e.target.value), new Date(executiveReview));
                           form.setValue("qcDays", qcDays, { shouldValidate: true });
                         }
-                      }} 
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1477,7 +1479,7 @@ export function ProjectManagementPanel() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmDelete}
               className="bg-red-500 hover:bg-red-700"
             >
