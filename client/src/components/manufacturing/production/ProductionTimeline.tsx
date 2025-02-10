@@ -1,15 +1,12 @@
 import { useState, useEffect } from "react";
-import type { Project, ProjectStatus } from "@/types/manufacturing";
-import { format } from "date-fns";
+import type { Project } from "@/types/manufacturing";
 
 interface ProductionTimelineProps {
   project: Project;
-  onStatusChange?: (status: ProjectStatus) => void;
 }
 
-export function ProductionTimeline({ project, onStatusChange }: ProductionTimelineProps) {
+export function ProductionTimeline({ project }: ProductionTimelineProps) {
   const [progress, setProgress] = useState(0);
-  const [currentStatus, setCurrentStatus] = useState<ProjectStatus>("NOT STARTED");
 
   useEffect(() => {
     if (!project) return;
@@ -31,37 +28,15 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const totalDuration = endDate.getTime() - startDate.getTime();
     const elapsed = today.getTime() - startDate.getTime();
     const calculatedProgress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
 
     setProgress(calculatedProgress);
+  }, [project]);
 
-    const status = calculateCurrentStatus(project, today);
-    setCurrentStatus(status);
-    if (onStatusChange) {
-      onStatusChange(status);
-    }
-  }, [project, onStatusChange]);
-
-  const calculateCurrentStatus = (project: Project, today: Date): ProjectStatus => {
-    const dates = {
-      fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
-      assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
-      wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
-      ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
-      qcStart: project.qcStart ? new Date(project.qcStart) : null,
-      ship: project.ship ? new Date(project.ship) : null
-    };
-
-    if (dates.ship && today >= dates.ship) return "COMPLETED";
-    if (dates.qcStart && today >= dates.qcStart) return "IN QC";
-    if (dates.ntcTesting && today >= dates.ntcTesting) return "IN NTC TESTING";
-    if (dates.wrapGraphics && today >= dates.wrapGraphics) return "IN WRAP";
-    if (dates.assemblyStart && today >= dates.assemblyStart) return "IN ASSEMBLY";
-    if (dates.fabricationStart && today >= dates.fabricationStart) return "IN FAB";
-    return "NOT STARTED";
-  };
+  if (!project) return null;
 
   const isValidDate = (dateStr?: string) => {
     if (!dateStr) return false;
@@ -69,8 +44,9 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
     return date instanceof Date && !isNaN(date.getTime());
   };
 
-  const formatDateLabel = (date: string) => {
-    return format(new Date(date), 'MM/dd/yyyy');
+  const displayDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    return `${month}/${day}/${year}`;
   };
 
   const timelineEvents = [
@@ -81,10 +57,10 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
     { date: project.qcStart, label: 'QC Start', type: 'qc' },
     { date: project.ship, label: 'Ship', type: 'ship' },
   ].filter(event => isValidDate(event.date))
-   .map(event => ({
-     ...event,
-     formattedDate: event.date ? formatDateLabel(event.date) : ''
-   }));
+    .map(event => ({
+      ...event,
+      formattedDate: event.date ? displayDate(event.date) : ''
+    }));
 
   if (timelineEvents.length === 0) return null;
 
@@ -93,7 +69,7 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
 
   const startDateTimeline = timelineEvents[0]?.date
     ? new Date(timelineEvents[0].date)
-    : new Date();
+    : today;
 
   const endDateTimeline = timelineEvents[timelineEvents.length - 1]?.date
     ? new Date(timelineEvents[timelineEvents.length - 1].date)
@@ -102,7 +78,7 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
   let todayPosition = ((today.getTime() - startDateTimeline.getTime()) /
     (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
 
-  todayPosition = Math.max(0, Math.min(100, todayPosition));
+  todayPosition = Math.max(2, Math.min(98, todayPosition));
 
   const eventPositions = timelineEvents.map((event, index) => {
     if (!event.date) return { ...event, position: 0, needsOffset: false };
@@ -113,12 +89,12 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
 
     const prevPosition = index > 0 && timelineEvents[index - 1].date
       ? ((new Date(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) /
-         (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
+        (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
       : -20;
 
     const needsOffset = position - prevPosition < 15;
 
-    return { ...event, position: Math.max(0, Math.min(100, position)), needsOffset };
+    return { ...event, position: Math.max(2, Math.min(98, position)), needsOffset };
   });
 
   const hasShipped = project.ship && new Date(project.ship) <= today;
@@ -140,8 +116,8 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
   }
 
   return (
-    <div className="relative h-6 w-full">
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2">
+    <div className="relative h-7 w-full px-1">
+      <div className="absolute inset-0 flex items-center">
         {/* Base timeline */}
         <div className="relative h-1 w-full bg-gray-200 rounded-full overflow-hidden">
           {/* Progress bar */}
@@ -153,44 +129,50 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
           />
         </div>
 
-        {/* Current date indicator */}
-        {!hasShipped && (
-          <div 
-            className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center z-20"
-            style={{ left: `${todayPosition}%` }}
-          >
-            {daysMessage && (
-              <div className="absolute -top-4 text-center whitespace-nowrap">
-                <div className="text-red-500 text-[10px] font-medium animate-pulse">
-                  {daysMessage}
-                </div>
-              </div>
-            )}
-            <div className="h-2 w-2 bg-red-500 rounded-full ring-1 ring-white ring-offset-1 animate-pulse" />
-          </div>
-        )}
-
         {/* Timeline events */}
         {eventPositions.map((event, index) => (
-          <div 
+          <div
             key={`${event.type}-${index}`}
-            className="absolute top-1/2 -translate-y-1/2 z-10"
-            style={{ left: `${event.position}%` }}
+            className="absolute z-10"
+            style={{ 
+              left: `${event.position}%`,
+              transform: 'translate(-50%, 0%)'
+            }}
           >
-            <div 
+            <div
               className={`h-1.5 w-1.5 rounded-full ${
                 event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
-              }`} 
+              }`}
             />
-            <div 
+            <div
               className={`absolute ${
-                event.needsOffset ? 'top-2' : '-bottom-4'
+                event.needsOffset ? 'top-3' : '-bottom-4'
               } left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] text-gray-500`}
             >
               {`${event.label} (${event.formattedDate})`}
             </div>
           </div>
         ))}
+
+        {/* Current date indicator */}
+        {!hasShipped && (
+          <div
+            className="absolute z-20"
+            style={{ 
+              left: `${todayPosition}%`,
+              transform: 'translate(-50%, -25%)'
+            }}
+          >
+            {daysMessage && (
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                <div className="text-red-500 text-[10px] font-medium animate-pulse">
+                  {daysMessage}
+                </div>
+              </div>
+            )}
+            <div className="h-2 w-2 bg-red-500 rounded-full ring-1 ring-white shadow-sm animate-pulse" />
+          </div>
+        )}
 
         {/* Shipped indicator */}
         {hasShipped && (
