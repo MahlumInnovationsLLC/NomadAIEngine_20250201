@@ -914,7 +914,7 @@ export function ProjectManagementPanel() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="space-y-2">
+                      <div<div className="space-y-2">
                         <Input
                           placeholder="Search projects..."
                           value={searchQuery}
@@ -1170,6 +1170,21 @@ export function ProjectManagementPanel() {
                                 <div className="flex justify-between">
                                   <span>QC Start:</span>
                                   <span>{formatDate(selectedProject.qcStart)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Executive Review:</span>
+                                  <span>
+                                    {selectedProject.executiveReview ? (
+                                      <span>
+                                        {formatDate(selectedProject.executiveReview)}
+                                        {selectedProject.executiveReviewTime && (
+                                          <span className="ml-1 text-muted-foreground">
+                                            {selectedProject.executiveReviewTime}
+                                          </span>
+                                        )}
+                                      </span>
+                                    ) : '-'}
+                                  </span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Ship:</span>

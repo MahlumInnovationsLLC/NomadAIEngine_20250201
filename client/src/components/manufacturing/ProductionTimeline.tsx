@@ -79,6 +79,7 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
     { date: project.wrapGraphics, label: 'Wrap/Graphics', type: 'wrap' },
     { date: project.ntcTesting, label: 'NTC Testing', type: 'ntc' },
     { date: project.qcStart, label: 'QC Start', type: 'qc' },
+    { date: project.executiveReview, label: 'Executive Review', type: 'review' },
     { date: project.ship, label: 'Ship', type: 'ship' },
   ].filter(event => isValidDate(event.date))
    .map(event => ({
