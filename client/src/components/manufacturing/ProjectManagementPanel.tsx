@@ -908,7 +908,7 @@ export function ProjectManagementPanel() {
                 <Card className="col-span-3">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faFolder} />
+                      <FontAwesomeIcon icon={faFolder />
                       Projects
                     </CardTitle>
                   </CardHeader>
@@ -919,7 +919,6 @@ export function ProjectManagementPanel() {
                           placeholder="Search projects..."
                           value={searchQuery}                          onChange={(e) => setSearchQuery(e.target.value)}
                         />
-
                         <Select
                           value={locationFilter}
                           onValueChange={(value: "ALL" | "LIBBY" | "CFALLS") => setLocationFilter(value)}
@@ -933,7 +932,6 @@ export function ProjectManagementPanel() {
                             <SelectItem value="CFALLS">CFalls</SelectItem>
                           </SelectContent>
                         </Select>
-
                         <div className="flex gap-2 mb-2">
                           <Button
                             variant="outline"
