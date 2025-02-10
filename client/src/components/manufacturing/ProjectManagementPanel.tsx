@@ -915,7 +915,10 @@ export function ProjectManagementPanel() {
                   <CardContent>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Input
+                        <The corrected code fixes a missing closing `>` in a CardTitle component, ensuring proper rendering.
+
+<replit_final_file>
+Input
                           placeholder="Search projects..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
