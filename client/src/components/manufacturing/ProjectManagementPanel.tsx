@@ -913,7 +913,7 @@ export function ProjectManagementPanel() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className`space-y-4">
                       <div className="space-y-2">
                         <Input
                           placeholder="Search projects..."
@@ -966,35 +966,56 @@ export function ProjectManagementPanel() {
                       </div>
                       <div className="space-y-2">
                         {filteredAndSortedProjects.map((project) => (
-                          <Button
-                            key={project.id}
-                            variant={selectedProject?.id === project.id ? "default" : "ghost"}
-                            className="w-full justify-start py-4 px-4 h-auto space-y-2"
-                            onClick={() => setSelectedProject(project)}
-                          >
-                            <div className="flex w-full">
-                              <FontAwesomeIcon
-                                icon={project.status === 'COMPLETED' ? faCheckCircle : faCircleDot}
-                                className="mr-2 h-4 w-4 mt-1 flex-shrink-0"
-                              />
-                              <div className="flex flex-col items-start flex-grow space-y-2 min-w-0">
-                                <span className="font-medium text-sm">{project.projectNumber}</span>
-                                <div className="flex gap-2 text-xs text-muted-foreground">
-                                  <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
-                                  <span>{project.location || 'N/A'}</span>
+                          <Card key={project.id} className="mb-4">
+                            <CardHeader>
+                              <CardTitle className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <span>{project.projectNumber}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteProject(project)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-100 p-2"
+                                  >
+                                    <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
+                                  </Button>
                                 </div>
-                                {project.name && (
-                                  <span className="text-xs text-muted-foreground truncate w-full">
-                                    {project.name}
-                                  </span>
-                                )}
-                                <div className="flex justify-between w-full text-xs text-muted-foreground pt-1">
-                                  <span>QC: {formatDate(project.qcStart)}</span>
-                                  <span>Ship: {formatDate(project.ship)}</span>
+                                <span className="text-sm font-normal text-muted-foreground">
+                                  {project.location}
+                                </span>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <p className="text-sm font-medium">Status</p>
+                                    <Badge className={`${getStatusColor(project.status)}`}>
+                                      {project.status}
+                                    </Badge>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium">Ship Date</p>
+                                    <p className="text-sm">{formatDate(project.ship)}</p>
+                                  </div>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <p className="text-sm font-medium">Team</p>
+                                    <p className="text-sm">{project.team || '-'}</p>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditProject(project)}
+                                  >
+                                    <FontAwesomeIcon icon={faEdit} className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </Button>
                                 </div>
                               </div>
-                            </div>
-                          </Button>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
                     </div>
