@@ -161,7 +161,7 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
   return (
     <div className="mx-auto max-w-[95%]">
       <h3 className="text-lg font-semibold mb-4">Production Timeline</h3>
-      <div className="relative pt-12 pb-16">
+      <div className="relative pt-16 pb-8">
         {/* Timeline base */}
         <div className="relative h-2 w-full bg-gray-200 rounded overflow-hidden">
           {/* Progress bar */}
@@ -223,7 +223,7 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
                 <div className={`w-3 h-3 rounded-full ${
                   event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
                 }`} />
-                <div className={`absolute ${event.needsOffset ? 'top-4' : '-bottom-8'} left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs`}>
+                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs">
                   {`${event.label} (${event.formattedDate})`}
                 </div>
               </div>
