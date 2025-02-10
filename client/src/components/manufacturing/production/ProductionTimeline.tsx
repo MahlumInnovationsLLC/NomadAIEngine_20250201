@@ -101,12 +101,20 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
     : new Date(startDateTimeline.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   // Calculate today's position on the timeline
-  // Calculate today's position relative to timeline
   let todayPosition = ((today.getTime() - startDateTimeline.getTime()) / 
     (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
 
-  // Ensure dot stays visible within timeline bounds
-  todayPosition = Math.max(2, Math.min(98, todayPosition));
+  // Handle cases where today is before timeline start
+  if (today < startDateTimeline) {
+    todayPosition = 0;
+  }
+  // Handle cases where today is after timeline end
+  else if (today > endDateTimeline) {
+    todayPosition = 100;
+  }
+  
+  // Ensure dot stays within visible bounds
+  todayPosition = Math.max(0.5, Math.min(99.5, todayPosition));
 
   const eventPositions = timelineEvents.map((event, index) => {
     if (!event.date) return { ...event, position: 0, needsOffset: false };
