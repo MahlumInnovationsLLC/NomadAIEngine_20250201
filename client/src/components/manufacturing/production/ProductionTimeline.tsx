@@ -163,7 +163,7 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
       <h3 className="text-lg font-semibold mb-4">Production Timeline</h3>
       <div className="relative pt-12 pb-16">
         {/* Timeline base */}
-        <div className="absolute h-2 w-full bg-gray-200 rounded">
+        <div className="relative h-2 w-full bg-gray-200 rounded overflow-hidden">
           {/* Progress bar */}
           <div 
             className={`absolute h-full rounded transition-all duration-1000 ease-in-out ${
@@ -175,11 +175,12 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
           {/* Current date indicator with days until next milestone */}
           {!hasShipped && (
             <div 
-              className="absolute flex flex-col items-center" 
+              className="absolute flex flex-col items-center z-10" 
               style={{ 
                 left: `${todayPosition}%`, 
                 transform: 'translateX(-50%)',
-                top: '-3px'
+                top: '-6px',
+                width: '24px'
               }}
             >
               {daysMessage && (
