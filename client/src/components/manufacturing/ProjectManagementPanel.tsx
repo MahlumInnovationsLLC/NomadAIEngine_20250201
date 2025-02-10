@@ -914,7 +914,7 @@ export function ProjectManagementPanel() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div<div className="space-y-2">
+                      <div className="space-y-2">
                         <Input
                           placeholder="Search projects..."
                           value={searchQuery}
