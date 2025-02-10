@@ -157,7 +157,8 @@ export function ProductionTimeline({ project }: ProductionTimelineProps) {
             <div 
               className="absolute flex flex-col items-center" 
               style={{ 
-                left: `${progress}%`, 
+                left: `${((today.getTime() - startDateTimeline.getTime()) / 
+                  (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100}%`,
                 transform: 'translateX(-50%)',
                 top: '-3px'  // Position directly on the timeline
               }}
