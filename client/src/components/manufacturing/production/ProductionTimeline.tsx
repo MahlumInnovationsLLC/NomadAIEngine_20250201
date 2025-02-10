@@ -217,13 +217,13 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
                 style={{
                   left: `${event.position}%`,
                   transform: 'translateX(-50%)',
-                  top: event.needsOffset ? '-24px' : '0'
+                  bottom: '-1.5px'
                 }}
               >
                 <div className={`w-3 h-3 rounded-full ${
                   event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
                 }`} />
-                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs">
+                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs">
                   {`${event.label} (${event.formattedDate})`}
                 </div>
               </div>
