@@ -911,7 +911,7 @@ export function ProjectManagementPanel() {
                       <FontAwesomeIcon icon={faFolder} className="h-4 w-4" />
                       <span>Projects</span>
                     </CardTitle>
-                  </</CardHeader>
+                  </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -965,76 +965,53 @@ export function ProjectManagementPanel() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        {filteredAndSortedProjects.map(project => (
-                          <Card
-                            key={project.id}
-                            className={`relative group hover:shadow-md transition-shadow ${
-                              selectedProject?.id === project.id ? 'ring-2 ring-primary' : ''
-                            }`}
-                          >
-                            <CardContent className="p-3">
-                              <div className="space-y-2">
-                                {/* Header */}
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <h3 className="text-sm font-medium">
-                                      {project.projectNumber}
-                                    </h3>
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <div className="space-y-2">
+                          {filteredAndSortedProjects.map((project) => (
+                            <div key={project.id} className="relative group">
+                              <Button
+                                variant={selectedProject?.id === project.id ? "default" : "ghost"}
+                                className="w-full justify-start py-4 px-4 h-auto space-y-2"
+                                onClick={() => setSelectedProject(project)}
+                              >
+                                <div className="flex w-full">
+                                  <FontAwesomeIcon
+                                    icon={project.status === 'COMPLETED' ? faCheckCircle : faCircleDot}
+                                    className="mr-2 h-4 w-4 mt-1 flex-shrink-0"
+                                  />
+                                  <div className="flex flex-col items-start flex-grow space-y-2 min-w-0">
+                                    <div className="flex items-center justify-between w-full">
+                                      <span className="font-medium text-sm">{project.projectNumber}</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteProject(project);
+                                        }}
+                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-100 p-1 h-6"
+                                      >
+                                        <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <div className="flex gap-2 text-xs text-muted-foreground">
                                       <FontAwesomeIcon icon={faLocationDot} className="h-3 w-3" />
                                       <span>{project.location || 'N/A'}</span>
                                     </div>
+                                    {project.name && (
+                                      <span className="text-xs text-muted-foreground truncate w-full">
+                                        {project.name}
+                                      </span>
+                                    )}
+                                    <div className="flex justify-between w-full text-xs text-muted-foreground pt-1">
+                                      <span>QC: {formatDate(project.qcStart)}</span>
+                                      <span>Ship: {formatDate(project.ship)}</span>
+                                    </div>
                                   </div>
-                                  <Badge
-                                    variant="secondary"
-                                    className={`${getStatusColor(project.status)} text-white text-xs`}
-                                  >
-                                    {project.status}
-                                  </Badge>
                                 </div>
-
-                                {/* Timeline */}
-                                <div className="relative px-1 py-1 overflow-hidden">
-                                  <ProductionTimeline project={project} />
-                                </div>
-
-                                {/* Details */}
-                                <div className="flex justify-between text-xs text-muted-foreground">
-                                  <span>QC: {formatDate(project.qcStart)}</span>
-                                  <span>Ship: {formatDate(project.ship)}</span>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleViewProject(project)}
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <FontAwesomeIcon icon={faEye} className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleEditProject(project)}
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <FontAwesomeIcon icon={faEdit} className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteProject(project)}
-                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                  >
-                                    <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
