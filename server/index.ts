@@ -13,8 +13,6 @@ import facilityRoutes from "./routes/facility";
 import logisticsRoutes from "./routes/logistics";
 
 const app = express();
-const PORT = 5000;
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -34,6 +32,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
     return;
@@ -53,22 +52,32 @@ app.use('/api/logistics', logisticsRoutes);
 // Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (req.path.startsWith("/api")) {
-      log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
+      log(logLine);
     }
   });
-  next();
-});
 
-// Health check endpoint - this is crucial for the workflow to detect the server is ready
-app.get('/health', (_req, res) => {
-  res.status(200).json({ 
-    status: 'healthy',
-    port: PORT,
-    timestamp: new Date().toISOString()
-  });
+  next();
 });
 
 (async () => {
@@ -79,7 +88,7 @@ app.get('/health', (_req, res) => {
       await initializeManufacturingDatabase();
       log("Manufacturing database initialized successfully");
     } catch (error) {
-      console.error("Failed to initialize manufacturing database:", error);
+      console.error("Failed to initialize manufacturing database, continuing with limited functionality:", error);
     }
 
     try {
@@ -90,13 +99,15 @@ app.get('/health', (_req, res) => {
         log("Azure OpenAI initialized successfully");
       }
     } catch (error) {
-      console.error("Failed to initialize OpenAI:", error);
+      console.error("Failed to initialize OpenAI, continuing with limited functionality:", error);
     }
 
     const server = createServer(app);
 
     // Setup WebSocket server
     const wsServer = setupWebSocketServer(server);
+
+    // Make WebSocket server accessible to routes
     app.set('wsServer', wsServer);
 
     // Register routes after WebSocket setup
@@ -116,13 +127,19 @@ app.get('/health', (_req, res) => {
       serveStatic(app);
     }
 
-    // Start server and wait for it to be ready
-    await new Promise<void>((resolve) => {
-      server.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server is ready and listening on port ${PORT}`);
-        log(`Server running on port ${PORT} with WebSocket support`);
-        resolve();
-      });
+    const PORT = 5000;
+
+    // Kill any existing process on port 5000
+    server.on('error', (e: any) => {
+      if (e.code === 'EADDRINUSE') {
+        log(`Port ${PORT} is busy, attempting to close previous instance...`);
+        server.close();
+        process.exit(1);
+      }
+    });
+
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`Server running on port ${PORT} with WebSocket support`);
     });
 
     // Handle cleanup on shutdown
@@ -132,7 +149,6 @@ app.get('/health', (_req, res) => {
         process.exit(0);
       });
     });
-
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
