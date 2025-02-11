@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MaterialDashboard from "@/components/material/MaterialDashboard";
+import { ForecastingDashboard } from "@/components/material/forecasting/ForecastingDashboard";
 import type { MaterialStats } from "@/types/material";
 
 export default function MaterialHandling() {
@@ -71,7 +73,28 @@ export default function MaterialHandling() {
       </div>
 
       <div className="p-4">
-        <MaterialDashboard />
+        <Tabs defaultValue="dashboard" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 lg:max-w-[400px]">
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="forecasting">Forecasting</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard">
+            <MaterialDashboard />
+          </TabsContent>
+
+          <TabsContent value="forecasting">
+            <ForecastingDashboard />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <div className="text-center py-8">
+              <h3 className="text-xl font-semibold">Analytics Dashboard Coming Soon</h3>
+              <p className="text-muted-foreground">Advanced analytics features are under development</p>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

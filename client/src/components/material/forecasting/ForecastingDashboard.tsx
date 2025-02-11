@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -282,35 +281,35 @@ export function ForecastingDashboard() {
       </div>
 
       <Card>
-          <CardHeader>
-            <CardTitle>Seasonal Impact Analysis</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {forecasts?.map((forecast) => (
-                <div key={`${forecast.materialId}-${forecast.period}-factors`} className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm">Seasonal Factor</span>
-                    <span className="text-sm font-medium">{forecast.factors.seasonal}x</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Trend Factor</span>
-                    <span className="text-sm font-medium">{forecast.factors.trend}x</span>
-                  </div>
-                  {forecast.factors.special_events && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {forecast.factors.special_events.map((event) => (
-                        <Badge key={event} variant="outline">
-                          {event}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+        <CardHeader>
+          <CardTitle>Seasonal Impact Analysis</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {forecasts?.map((forecast) => (
+              <div key={`${forecast.materialId}-${forecast.period}-factors`} className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm">Seasonal Factor</span>
+                  <span className="text-sm font-medium">{forecast.factors.seasonal}x</span>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex justify-between">
+                  <span className="text-sm">Trend Factor</span>
+                  <span className="text-sm font-medium">{forecast.factors.trend}x</span>
+                </div>
+                {forecast.factors.special_events && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {forecast.factors.special_events.map((event) => (
+                      <Badge key={event} variant="outline">
+                        {event}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
