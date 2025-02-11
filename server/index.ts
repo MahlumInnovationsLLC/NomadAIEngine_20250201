@@ -123,7 +123,7 @@ app.use((req, res, next) => {
     app.use('/api/sales', salesRoutes);
     app.use('/api/facility', facilityRoutes);
     app.use('/api/logistics', logisticsRoutes);
-    app.use('/api/warehouse', warehouseRoutes); // Add warehouse routes
+    app.use('/api/warehouse', warehouseRoutes); // Register warehouse routes
 
     // Register remaining routes after WebSocket setup
     await registerRoutes(app);

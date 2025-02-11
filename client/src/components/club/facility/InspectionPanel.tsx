@@ -113,13 +113,13 @@ export default function InspectionPanel({ inspections }: InspectionPanelProps) {
   const getStatusBadgeVariant = (status: Inspection['status']) => {
     switch (status) {
       case 'completed':
-        return 'success';
+        return 'success' as const;
       case 'in-progress':
-        return 'info';
+        return 'default' as const;
       case 'overdue':
-        return 'destructive';
+        return 'destructive' as const;
       default:
-        return 'warning';
+        return 'warning' as const;
     }
   };
 

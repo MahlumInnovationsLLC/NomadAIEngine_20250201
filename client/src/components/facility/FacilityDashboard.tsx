@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { Equipment, BuildingSystem, Inspection } from "@db/schema";
+import { BuildingSystem, Inspection } from "@/types/facility";
 
 export default function FacilityDashboard() {
   return (

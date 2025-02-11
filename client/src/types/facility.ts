@@ -91,3 +91,43 @@ export interface FacilityNotification {
   acknowledgedAt?: string;
   resolvedAt?: string;
 }
+
+// Adding missing types for Equipment
+interface EquipmentBase {
+  id: string;
+  name: string;
+  type: string;
+  position?: { x: number; y: number };
+  status: 'operational' | 'maintenance' | 'error' | 'offline';
+  healthScore: number;
+  deviceConnectionStatus?: 'connected' | 'disconnected';
+  isSelected?: boolean;
+}
+
+export interface Equipment extends BuildingSystem, EquipmentBase {
+  // Combining BuildingSystem and EquipmentBase
+}
+
+export interface FloorPlan {
+  id: string;
+  name: string;
+  dimensions: {
+    width: number;
+    height: number;
+  };
+  gridSize: number;
+  imageUrl?: string;
+  zones?: {
+    id: string;
+    name: string;
+    type: string;
+    bounds: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+  }[];
+  equipment?: Equipment[];
+  updatedAt: string;
+}

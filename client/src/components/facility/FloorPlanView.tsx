@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Equipment, FloorPlan } from "@db/schema";
+import { Equipment, FloorPlan } from "@/types/facility";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -268,7 +268,7 @@ export default function FloorPlanView({ floorPlan, equipment }: FloorPlanViewPro
                             {Object.entries(telemetry.metrics || {}).map(([key, value]) => (
                               <div key={key} className="flex justify-between gap-2">
                                 <span>{key}:</span>
-                                <span className="font-mono">{value}</span>
+                                <span className="font-mono">{String(value)}</span>
                               </div>
                             ))}
                           </div>

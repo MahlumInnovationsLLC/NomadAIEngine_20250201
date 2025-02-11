@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { CosmosClient, SqlQuerySpec } from "@azure/cosmos";
 import type { Warehouse, WarehouseZone, WarehouseMetrics } from '@/types/material';
+import { BlobServiceClient } from "@azure/storage-blob";
+import multer from 'multer';
+import path from 'path';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Add better error handling for Cosmos DB connection
 const cosmosConnectionString = process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING;
@@ -12,27 +16,34 @@ if (!cosmosConnectionString) {
 }
 
 const cosmosClient = new CosmosClient(cosmosConnectionString);
-const database = cosmosClient.database("NOMAD_AI_ENGINE_DB");
-const warehousesContainer = database.container("NOMAD_WAREHOUSES");
-const zonesContainer = database.container("NOMAD_WAREHOUSE_ZONES");
-const metricsContainer = database.container("NOMAD_WAREHOUSE_METRICS");
+const database = cosmosClient.database("NOMAD_AZURE_ENGINE_DB");
+const warehousesContainer = database.container("NOMAD_AZURE_WAREHOUSES");
+const zonesContainer = database.container("NOMAD_AZURE_WAREHOUSE_ZONES");
+const metricsContainer = database.container("NOMAD_AZURE_WAREHOUSE_METRICS");
+const floorPlansContainer = database.container("NOMAD_AZURE_WAREHOUSE_FLOOR_PLANS");
 
-// Initialize warehouse data if not exists
+// Initialize Azure Blob Storage for floor plan images
+const blobConnectionString = process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING;
+const blobServiceClient = BlobServiceClient.fromConnectionString(blobConnectionString!);
+const floorPlansBlobContainer = blobServiceClient.getContainerClient("warehouse-floor-plans");
+
+// Initialize containers
 async function initializeWarehouses() {
   try {
     console.log('Starting warehouse initialization...');
 
     // Verify database exists
     const { database: dbResponse } = await cosmosClient.databases.createIfNotExists({
-      id: "NOMAD_AI_ENGINE_DB"
+      id: "NOMAD_AZURE_ENGINE_DB"
     });
     console.log('Database verified/created:', dbResponse.id);
 
     // Create containers if they don't exist
     const containers = [
-      { id: "NOMAD_WAREHOUSES", partitionKey: "/id" },
-      { id: "NOMAD_WAREHOUSE_ZONES", partitionKey: "/warehouseId" },
-      { id: "NOMAD_WAREHOUSE_METRICS", partitionKey: "/warehouseId" }
+      { id: "NOMAD_AZURE_WAREHOUSES", partitionKey: "/id" },
+      { id: "NOMAD_AZURE_WAREHOUSE_ZONES", partitionKey: "/warehouseId" },
+      { id: "NOMAD_AZURE_WAREHOUSE_METRICS", partitionKey: "/warehouseId" },
+      { id: "NOMAD_AZURE_WAREHOUSE_FLOOR_PLANS", partitionKey: "/warehouseId" }
     ];
 
     for (const container of containers) {
@@ -43,6 +54,10 @@ async function initializeWarehouses() {
       });
       console.log(`Container ${containerResponse.id} verified/created`);
     }
+
+    // Create blob container if it doesn't exist
+    await floorPlansBlobContainer.createIfNotExists();
+    console.log('Floor plans blob container verified/created');
 
     const defaultWarehouses: Warehouse[] = [
       {
@@ -224,7 +239,7 @@ router.get('/', async (_req, res) => {
   } catch (error) {
     console.error("Error fetching warehouses:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to fetch warehouses",
       details: errorMessage
     });
@@ -259,7 +274,7 @@ router.get('/metrics/:warehouseId', async (req, res) => {
   } catch (error) {
     console.error("Error fetching warehouse metrics:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to fetch warehouse metrics",
       details: errorMessage
     });
@@ -307,10 +322,169 @@ router.patch('/zones/:zoneId', async (req, res) => {
   } catch (error) {
     console.error("Error updating warehouse zone:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to update warehouse zone",
       details: errorMessage
     });
+  }
+});
+
+// Floor Plan Management Routes
+
+// Get floor plan
+router.get('/:warehouseId/floor-plan', async (req, res) => {
+  try {
+    const { warehouseId } = req.params;
+    console.log(`Fetching floor plan for warehouse: ${warehouseId}`);
+
+    const querySpec: SqlQuerySpec = {
+      query: "SELECT * FROM c WHERE c.warehouseId = @warehouseId",
+      parameters: [{ name: "@warehouseId", value: warehouseId }]
+    };
+
+    const { resources } = await floorPlansContainer.items.query(querySpec).fetchAll();
+
+    if (resources.length === 0) {
+      return res.status(404).json({ error: "Floor plan not found" });
+    }
+
+    res.json(resources[0]);
+  } catch (error) {
+    console.error("Error fetching floor plan:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ error: "Failed to fetch floor plan", details: errorMessage });
+  }
+});
+
+// Upload floor plan image
+router.post('/:warehouseId/floor-plan/image', upload.single('file'), async (req, res) => {
+  try {
+    const { warehouseId } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const blobName = `${warehouseId}-${Date.now()}${path.extname(file.originalname)}`;
+    const blockBlobClient = floorPlansBlobContainer.getBlockBlobClient(blobName);
+
+    await blockBlobClient.upload(file.buffer, file.size);
+    const imageUrl = blockBlobClient.url;
+
+    // Update floor plan in Cosmos DB
+    const floorPlan = {
+      id: `${warehouseId}-floor-plan`,
+      warehouseId,
+      imageUrl,
+      dimensions: { width: 1200, height: 800 }, // Default dimensions
+      gridSize: 50,
+      racking: [],
+      updatedAt: new Date().toISOString()
+    };
+
+    await floorPlansContainer.items.upsert(floorPlan);
+
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error("Error uploading floor plan:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ error: "Failed to upload floor plan", details: errorMessage });
+  }
+});
+
+// Update floor plan layout
+router.patch('/:warehouseId/floor-plan/:floorPlanId', async (req, res) => {
+  try {
+    const { warehouseId, floorPlanId } = req.params;
+    const updates = req.body;
+
+    const { resource } = await floorPlansContainer
+      .item(floorPlanId, warehouseId)
+      .replace({
+        ...updates,
+        id: floorPlanId,
+        warehouseId,
+        updatedAt: new Date().toISOString()
+      });
+
+    res.json(resource);
+  } catch (error) {
+    console.error("Error updating floor plan:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ error: "Failed to update floor plan", details: errorMessage });
+  }
+});
+
+
+// Update warehouse
+router.patch('/:warehouseId', async (req, res) => {
+  try {
+    const { warehouseId } = req.params;
+    const updates = req.body;
+
+    console.log(`Updating warehouse ${warehouseId} with:`, updates);
+
+    const { resource } = await warehousesContainer
+      .item(warehouseId, warehouseId)
+      .replace({
+        ...updates,
+        id: warehouseId,
+        updatedAt: new Date().toISOString()
+      });
+
+    console.log(`Successfully updated warehouse: ${warehouseId}`);
+    res.json(resource);
+  } catch (error) {
+    console.error("Error updating warehouse:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ error: "Failed to update warehouse", details: errorMessage });
+  }
+});
+
+// Create new warehouse
+router.post('/', async (req, res) => {
+  try {
+    const newWarehouse = {
+      ...req.body,
+      id: req.body.code.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      capacity: {
+        total: req.body.totalCapacity,
+        used: 0,
+        available: req.body.totalCapacity
+      },
+      utilizationPercentage: 0,
+      zones: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    console.log('Creating new warehouse:', newWarehouse);
+
+    const { resource } = await warehousesContainer.items.create(newWarehouse);
+
+    // Initialize warehouse metrics
+    const defaultMetrics = {
+      id: newWarehouse.id,
+      warehouseId: newWarehouse.id,
+      pickingAccuracy: 100,
+      ordersProcessed: 0,
+      inventoryTurns: 0,
+      avgDockTime: 0,
+      capacityUtilization: 0,
+      orderFulfillmentTime: 0,
+      inventoryAccuracy: 100,
+      laborEfficiency: 100
+    };
+
+    await metricsContainer.items.create(defaultMetrics);
+
+    console.log(`Successfully created warehouse: ${resource.id}`);
+    res.status(201).json(resource);
+  } catch (error) {
+    console.error("Error creating warehouse:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ error: "Failed to create warehouse", details: errorMessage });
   }
 });
 
