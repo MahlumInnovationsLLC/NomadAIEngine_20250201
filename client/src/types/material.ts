@@ -331,37 +331,6 @@ export interface SupplierPerformanceData {
   totalSpend: number;
 }
 
-// Add these interfaces after the SupplierPerformanceData interface
-export interface LogisticsRoute {
-  id: string;
-  shipmentId: string;
-  waypoints: {
-    location: string;
-    coordinates: [number, number];
-    arrivalTime?: string;
-    departureTime?: string;
-    status: 'pending' | 'arrived' | 'departed' | 'skipped';
-  }[];
-  distance: number;
-  duration: number;
-  trafficDelay: number;
-  optimizationScore: number;
-}
-
-export interface LogisticsCarrier {
-  id: string;
-  name: string;
-  code: string;
-  trackingUrlTemplate: string;
-  serviceLevel: 'standard' | 'express' | 'priority';
-  performance: {
-    onTimeDelivery: number;
-    averageTransitTime: number;
-    damageRate: number;
-    costPerMile: number;
-  };
-}
-
 //Replacing the original LogisticsEvent and LogisticsAlert with the edited versions.
 export interface ShipmentStatus {
   id: string;
@@ -419,5 +388,73 @@ export interface LogisticsAlert {
     action: string;
     timestamp: string;
     resolvedBy: string;
+  };
+}
+
+export interface MaterialForecast {
+  id: string;
+  materialId: string;
+  period: string;
+  actual: number;
+  predicted: number;
+  seasonalIndex: number;
+  trendline: number;
+  confidence: number;
+  factors: {
+    seasonal: number;
+    trend: number;
+    special_events?: string[];
+  };
+  metadata?: {
+    seasonalFactors: number[];
+    trendFactors: number[];
+    modelAccuracy: number;
+  };
+}
+
+export interface ForecastAccuracy {
+  overall: number;
+  predictedGrowth: number;
+  itemsCovered: number;
+  insights: Array<{
+    type: 'trend' | 'seasonal' | 'pattern' | 'anomaly';
+    title: string;
+    description: string;
+    impact?: 'low' | 'medium' | 'high';
+  }>;
+  metrics: {
+    mape: number;  // Mean Absolute Percentage Error
+    rmse: number;  // Root Mean Square Error
+    mae: number;   // Mean Absolute Error
+  };
+}
+
+export interface LogisticsRoute {
+  id: string;
+  shipmentId: string;
+  waypoints: {
+    location: string;
+    coordinates: [number, number];
+    arrivalTime?: string;
+    departureTime?: string;
+    status: 'pending' | 'arrived' | 'departed' | 'skipped';
+  }[];
+  distance: number;
+  duration: number;
+  trafficDelay: number;
+  optimizationScore: number;
+}
+
+export interface LogisticsCarrier {
+  id: string;
+  name: string;
+  code: string;
+  trackingUrlTemplate: string;
+  serviceLevel: 'standard' | 'express' | 'priority';
+  performance: {
+    onTimeDelivery: number;
+    averageTransitTime: number;
+    damageRate: number;
+    costPerMile: number;
   };
 }
