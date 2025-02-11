@@ -17,7 +17,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Update CORS middleware for SPA and WebSocket
+// CORS middleware
 app.use((req, res, next) => {
   const allowedOrigins = [
     process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '',
@@ -33,7 +33,6 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
     return;
@@ -45,78 +44,46 @@ app.use((req, res, next) => {
 // Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+    if (req.path.startsWith("/api")) {
+      log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
     }
   });
-
   next();
 });
+
+let server: ReturnType<typeof createServer> | null = null;
+let isShuttingDown = false;
 
 const startServer = async (retryCount = 0) => {
   try {
     log("Initializing Azure services...");
 
-    // Verify required environment variables
-    const requiredEnvVars = [
-      'NOMAD_AZURE_COSMOS_CONNECTION_STRING'
-    ];
+    // Initialize services
+    await initializeManufacturingDatabase();
+    log("Manufacturing database initialized successfully");
 
-    for (const envVar of requiredEnvVars) {
-      if (!process.env[envVar]) {
-        throw new Error(`Missing required environment variable: ${envVar}`);
-      }
+    const openAIClient = await initializeOpenAI();
+    if (!openAIClient) {
+      log("Azure OpenAI disabled - AI features will be limited");
+    } else {
+      log("Azure OpenAI initialized successfully");
     }
 
-    // Initialize manufacturing database with better error handling
-    try {
-      await initializeManufacturingDatabase();
-      log("Manufacturing database initialized successfully");
-    } catch (error) {
-      console.error("Failed to initialize manufacturing database:", error);
-      log("Manufacturing database initialization failed - continuing with limited functionality");
+    if (server) {
+      await new Promise<void>((resolve) => {
+        server!.close(() => resolve());
+      });
     }
 
-    // Initialize OpenAI with better error handling
-    try {
-      const openAIClient = await initializeOpenAI();
-      if (!openAIClient) {
-        log("Azure OpenAI disabled - AI features will be limited");
-      } else {
-        log("Azure OpenAI initialized successfully");
-      }
-    } catch (error) {
-      console.error("Failed to initialize OpenAI:", error);
-      log("OpenAI initialization failed - continuing with limited functionality");
-    }
-
-    const server = createServer(app);
+    server = createServer(app);
 
     // Setup WebSocket server
     const wsServer = setupWebSocketServer(server);
     app.set('wsServer', wsServer);
 
-    // Register core API routes
+    // Register API routes
     app.use('/api/manufacturing', manufacturingRoutes);
     app.use('/api/inventory', inventoryRoutes);
     app.use('/api/ai', aiRoutes);
@@ -125,7 +92,6 @@ const startServer = async (retryCount = 0) => {
     app.use('/api/logistics', logisticsRoutes);
     app.use('/api/warehouse', warehouseRoutes);
 
-    // Register remaining routes after WebSocket setup
     await registerRoutes(app);
 
     // Error handling middleware
@@ -152,53 +118,73 @@ const startServer = async (retryCount = 0) => {
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
 
-    const startWithRetry = () => {
-      server.listen(PORT, () => {
-        log(`Server running on port ${PORT} with WebSocket support`);
-      }).on('error', (e: any) => {
-        if (e.code === 'EADDRINUSE') {
+    return new Promise<void>((resolve, reject) => {
+      if (isShuttingDown) {
+        return resolve();
+      }
+
+      const handleError = (error: any) => {
+        if (error.code === 'EADDRINUSE') {
           if (retryCount < MAX_RETRIES) {
             log(`Port ${PORT} is busy, retrying in ${RETRY_DELAY/1000} seconds... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
             setTimeout(() => {
-              server.close();
-              startServer(retryCount + 1);
+              startServer(retryCount + 1).then(resolve).catch(reject);
             }, RETRY_DELAY);
           } else {
-            log(`Failed to start server after ${MAX_RETRIES} attempts. Port ${PORT} is in use.`);
-            process.exit(1);
+            const err = new Error(`Port ${PORT} is in use after ${MAX_RETRIES} attempts`);
+            log(err.message);
+            reject(err);
           }
         } else {
-          console.error('Server error:', e);
-          process.exit(1);
+          console.error('Server error:', error);
+          reject(error);
         }
+      };
+
+      server!.once('error', handleError);
+
+      server!.listen(PORT, '0.0.0.0', () => {
+        server!.removeListener('error', handleError);
+        log(`Server running on port ${PORT} with WebSocket support`);
+        resolve();
       });
-    };
-
-    startWithRetry();
-
-    // Handle cleanup on shutdown
-    const cleanup = () => {
-      log('Starting graceful shutdown...');
-      server.close(() => {
-        log('Server shutdown complete');
-        process.exit(0);
-      });
-    };
-
-    process.on('SIGTERM', cleanup);
-    process.on('SIGINT', cleanup);
-
-    process.on('uncaughtException', (error) => {
-      console.error('Uncaught exception:', error);
-      log('Critical error occurred, initiating shutdown...');
-      cleanup();
     });
-
   } catch (error) {
     console.error("Failed to start server:", error);
-    process.exit(1);
+    throw error;
   }
 };
 
+// Cleanup handler
+const cleanup = async () => {
+  if (isShuttingDown) return;
+
+  isShuttingDown = true;
+  log('Starting graceful shutdown...');
+
+  if (server) {
+    await new Promise<void>((resolve) => {
+      server!.close(() => {
+        log('Server shutdown complete');
+        resolve();
+      });
+    });
+  }
+
+  process.exit(0);
+};
+
+// Register cleanup handlers
+process.on('SIGTERM', cleanup);
+process.on('SIGINT', cleanup);
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  log('Critical error occurred, initiating shutdown...');
+  cleanup();
+});
+
 // Start the server
-startServer();
+startServer().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
+});

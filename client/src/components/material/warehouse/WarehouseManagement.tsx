@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import type { Warehouse, WarehouseZone, WarehouseMetrics } from "@/types/material";
 import { ZoneUtilizationDialog } from "./ZoneUtilizationDialog";
+import WarehouseEdit from "../../warehouse/WarehouseEdit";
 
 interface WarehouseManagementProps {
   selectedWarehouse: string | null;
@@ -33,6 +34,7 @@ export function WarehouseManagement({
   onWarehouseSelect
 }: WarehouseManagementProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [editWarehouse, setEditWarehouse] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -142,6 +144,10 @@ export function WarehouseManagement({
             Manage and monitor warehouse operations across facilities
           </p>
         </div>
+        <Button onClick={() => setEditWarehouse('new')}>
+          <FontAwesomeIcon icon="plus" className="mr-2" />
+          Add Warehouse
+        </Button>
       </div>
 
       {/* Warehouse Cards */}
@@ -152,14 +158,28 @@ export function WarehouseManagement({
             className={`cursor-pointer transition-all ${
               selectedWarehouse === warehouse.id ? 'ring-2 ring-primary' : ''
             }`}
-            onClick={() => onWarehouseSelect(warehouse.id)}
           >
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-lg">{warehouse.name}</h3>
-                <Badge>{warehouse.type}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge>{warehouse.type}</Badge>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditWarehouse(warehouse.id);
+                    }}
+                  >
+                    <FontAwesomeIcon icon="edit" className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div 
+                className="text-sm text-muted-foreground"
+                onClick={() => onWarehouseSelect(warehouse.id)}
+              >
                 <p>Location: {warehouse.location}</p>
                 <p>Capacity: {warehouse.capacity.total.toLocaleString()} sq ft</p>
                 <div className="flex items-center gap-2 mt-2">
@@ -180,6 +200,13 @@ export function WarehouseManagement({
           </Card>
         ))}
       </div>
+
+      {/* Edit Warehouse Dialog */}
+      <WarehouseEdit
+        warehouse={editWarehouse === 'new' ? undefined : warehouses.find(w => w.id === editWarehouse)}
+        isOpen={!!editWarehouse}
+        onClose={() => setEditWarehouse(null)}
+      />
 
       {/* Selected Warehouse Details */}
       {selectedWarehouseData && (

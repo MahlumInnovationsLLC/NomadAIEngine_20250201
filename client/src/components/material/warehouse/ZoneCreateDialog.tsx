@@ -22,6 +22,7 @@ interface ZoneCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (zoneData: Omit<WarehouseZone, 'id'>) => void;
+  warehouseId: string;
   warehouseCapacity: number;
 }
 
@@ -29,6 +30,7 @@ export function ZoneCreateDialog({
   open,
   onOpenChange,
   onSubmit,
+  warehouseId,
   warehouseCapacity,
 }: ZoneCreateDialogProps) {
   const [formData, setFormData] = useState({
@@ -39,6 +41,7 @@ export function ZoneCreateDialog({
     status: 'active' as WarehouseZone['status'],
     pickingStrategy: 'FIFO' as WarehouseZone['pickingStrategy'],
     allowsCrossDocking: false,
+    warehouseId: warehouseId,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
