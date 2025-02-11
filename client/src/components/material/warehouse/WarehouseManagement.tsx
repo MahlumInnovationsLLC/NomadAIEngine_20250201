@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { UseQueryOptions } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -35,11 +36,24 @@ export function WarehouseManagement({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch warehouses
-  const { data: warehouses = [], isLoading: isLoadingWarehouses, error: warehousesError } = useQuery<Warehouse[]>({
+  // Fetch warehouses with better error handling
+  const { 
+    data: warehouses = [], 
+    isLoading: isLoadingWarehouses, 
+    error: warehousesError, 
+    refetch: refetchWarehouses 
+  } = useQuery<Warehouse[]>({
     queryKey: ['/api/warehouse'],
     retry: 3,
-  });
+    onError: (error: Error) => {
+      console.error('Failed to fetch warehouses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load warehouses. Please try again.",
+        variant: "destructive",
+      });
+    }
+  } as UseQueryOptions<Warehouse[]>);
 
   // Fetch warehouse metrics
   const { data: metrics, isLoading: isLoadingMetrics, error: metricsError } = useQuery<WarehouseMetrics>({
@@ -104,12 +118,16 @@ export function WarehouseManagement({
   }
 
   if (warehousesError) {
+    console.error('Warehouse loading error:', warehousesError);
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4">
         <FontAwesomeIcon icon="exclamation-triangle" className="h-12 w-12 text-red-500" />
         <p className="text-lg font-medium">Failed to load warehouses</p>
-        <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/warehouse'] })}>
-          Retry
+        <p className="text-sm text-muted-foreground">
+          {warehousesError instanceof Error ? warehousesError.message : "Unknown error occurred"}
+        </p>
+        <Button onClick={() => refetchWarehouses()}>
+          Retry Loading
         </Button>
       </div>
     );

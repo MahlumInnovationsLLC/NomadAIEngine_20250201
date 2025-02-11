@@ -11,6 +11,7 @@ import aiRoutes from "./routes/ai";
 import salesRoutes from "./routes/sales";
 import facilityRoutes from "./routes/facility";
 import logisticsRoutes from "./routes/logistics";
+import warehouseRoutes from "./routes/warehouse";
 
 const app = express();
 app.use(express.json());
@@ -40,14 +41,6 @@ app.use((req, res, next) => {
 
   next();
 });
-
-// Register routes
-app.use('/api/manufacturing', manufacturingRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/sales', salesRoutes);
-app.use('/api/facility', facilityRoutes);
-app.use('/api/logistics', logisticsRoutes);
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -84,13 +77,27 @@ app.use((req, res, next) => {
   try {
     log("Initializing Azure services...");
 
+    // Verify required environment variables
+    const requiredEnvVars = [
+      'NOMAD_AZURE_COSMOS_CONNECTION_STRING'
+    ];
+
+    for (const envVar of requiredEnvVars) {
+      if (!process.env[envVar]) {
+        throw new Error(`Missing required environment variable: ${envVar}`);
+      }
+    }
+
+    // Initialize manufacturing database with better error handling
     try {
       await initializeManufacturingDatabase();
       log("Manufacturing database initialized successfully");
     } catch (error) {
-      console.error("Failed to initialize manufacturing database, continuing with limited functionality:", error);
+      console.error("Failed to initialize manufacturing database:", error);
+      log("Manufacturing database initialization failed - continuing with limited functionality");
     }
 
+    // Initialize OpenAI with better error handling
     try {
       const openAIClient = await initializeOpenAI();
       if (!openAIClient) {
@@ -99,18 +106,26 @@ app.use((req, res, next) => {
         log("Azure OpenAI initialized successfully");
       }
     } catch (error) {
-      console.error("Failed to initialize OpenAI, continuing with limited functionality:", error);
+      console.error("Failed to initialize OpenAI:", error);
+      log("OpenAI initialization failed - continuing with limited functionality");
     }
 
     const server = createServer(app);
 
     // Setup WebSocket server
     const wsServer = setupWebSocketServer(server);
-
-    // Make WebSocket server accessible to routes
     app.set('wsServer', wsServer);
 
-    // Register routes after WebSocket setup
+    // Register core API routes
+    app.use('/api/manufacturing', manufacturingRoutes);
+    app.use('/api/inventory', inventoryRoutes);
+    app.use('/api/ai', aiRoutes);
+    app.use('/api/sales', salesRoutes);
+    app.use('/api/facility', facilityRoutes);
+    app.use('/api/logistics', logisticsRoutes);
+    app.use('/api/warehouse', warehouseRoutes); // Add warehouse routes
+
+    // Register remaining routes after WebSocket setup
     await registerRoutes(app);
 
     // Error handling middleware
@@ -118,9 +133,15 @@ app.use((req, res, next) => {
       console.error('Server error:', err);
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
+      const details = err.stack || undefined;
+
+      res.status(status).json({ 
+        message,
+        details: process.env.NODE_ENV === 'development' ? details : undefined
+      });
     });
 
+    // Setup Vite or serve static files
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
@@ -129,11 +150,14 @@ app.use((req, res, next) => {
 
     const PORT = 5000;
 
-    // Kill any existing process on port 5000
+    // Better error handling for port binding
     server.on('error', (e: any) => {
       if (e.code === 'EADDRINUSE') {
         log(`Port ${PORT} is busy, attempting to close previous instance...`);
         server.close();
+        process.exit(1);
+      } else {
+        console.error('Server error:', e);
         process.exit(1);
       }
     });
@@ -144,11 +168,21 @@ app.use((req, res, next) => {
 
     // Handle cleanup on shutdown
     process.on('SIGTERM', () => {
+      log('Received SIGTERM signal, starting graceful shutdown...');
       server.close(() => {
-        log('Server shutting down');
+        log('Server shutdown complete');
         process.exit(0);
       });
     });
+
+    process.on('uncaughtException', (error) => {
+      console.error('Uncaught exception:', error);
+      log('Critical error occurred, initiating shutdown...');
+      server.close(() => {
+        process.exit(1);
+      });
+    });
+
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
