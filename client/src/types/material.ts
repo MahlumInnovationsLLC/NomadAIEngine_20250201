@@ -99,11 +99,9 @@ export interface Warehouse {
     used: number;
     available: number;
   };
-  location: {
-    latitude: number;
-    longitude: number;
-    address: string;
-  };
+  location: string;
+  totalCapacity: number;
+  utilizationPercentage: number;
   zones: WarehouseZone[];
 }
 
@@ -113,7 +111,8 @@ export interface WarehouseZone {
   type: 'storage' | 'picking' | 'receiving' | 'shipping';
   capacity: number;
   currentUtilization: number;
-  // New fields for enhanced warehouse operations
+  utilizationPercentage: number;
+  status: 'active' | 'inactive' | 'maintenance';
   pickingStrategy: 'FIFO' | 'LIFO' | 'FEFO';
   allowsCrossDocking: boolean;
   restrictedMaterials?: string[];
@@ -123,6 +122,17 @@ export interface WarehouseZone {
     max: number;
     unit: 'C' | 'F';
   };
+}
+
+export interface WarehouseMetrics {
+  pickingAccuracy: number;
+  ordersProcessed: number;
+  inventoryTurns: number;
+  avgDockTime: number;
+  capacityUtilization: number;
+  orderFulfillmentTime: number;
+  inventoryAccuracy: number;
+  laborEfficiency: number;
 }
 
 export interface InventoryTransaction {
