@@ -70,181 +70,228 @@ export function ProjectManagement() {
   };
 
   if (isLoading) {
-    return <div>Loading projects...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg">Loading projects...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto px-4 py-6 space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Production Projects</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-3xl font-bold">Production Projects</h2>
+          <p className="text-sm text-muted-foreground mt-1">
             Manage and track all production projects
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           <div className="flex rounded-md border">
             <Button
               variant={viewMode === "cards" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("cards")}
+              className="flex items-center justify-center px-3"
             >
-              <FontAwesomeIcon icon="grid-2" className="h-4 w-4" />
+              <FontAwesomeIcon icon="grip" className="h-4 w-4" />
             </Button>
             <Button
               variant={viewMode === "table" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("table")}
+              className="flex items-center justify-center px-3"
             >
               <FontAwesomeIcon icon="table" className="h-4 w-4" />
             </Button>
           </div>
           <Button onClick={() => setIsCreating(true)} disabled={isCreating}>
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
             Create New Project
           </Button>
         </div>
       </div>
 
-      {viewMode === "table" ? (
-        <ProjectTableView projects={projects || []} />
-      ) : (
-        <>
-          {isCreating && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Create New Project</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="projectNumber">Project Number</Label>
-                      <Input
-                        id="projectNumber"
-                        {...form.register("projectNumber")}
-                        error={form.formState.errors.projectNumber?.message}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Project Name</Label>
-                      <Input
-                        id="name"
-                        {...form.register("name")}
-                        error={form.formState.errors.name?.message}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="description">Description</Label>
-                      <Input
-                        id="description"
-                        {...form.register("description")}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="priority">Priority</Label>
-                      <Select onValueChange={(value) => form.setValue("priority", value as any)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select priority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="critical">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="startDate">Start Date</Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        {...form.register("startDate")}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="targetCompletionDate">Target Completion Date</Label>
-                      <Input
-                        id="targetCompletionDate"
-                        type="date"
-                        {...form.register("targetCompletionDate")}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="customer">Customer (Optional)</Label>
-                      <Input
-                        id="customer"
-                        {...form.register("customer")}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="projectManager">Project Manager</Label>
-                      <Input
-                        id="projectManager"
-                        {...form.register("projectManager")}
-                        error={form.formState.errors.projectManager?.message}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="totalBudgetedHours">Total Budgeted Hours</Label>
-                      <Input
-                        id="totalBudgetedHours"
-                        type="number"
-                        {...form.register("totalBudgetedHours", { valueAsNumber: true })}
-                        error={form.formState.errors.totalBudgetedHours?.message}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsCreating(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" loading={createProjectMutation.isPending}>
-                      Create Project
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects?.map((project) => (
-              <Card key={project.id}>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
-                    <span>{project.name}</span>
-                    <span className="text-sm font-normal text-muted-foreground">
-                      #{project.projectNumber}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">{project.description}</p>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>Status: <span className="font-medium">{project.status}</span></div>
-                      <div>Priority: <span className="font-medium">{project.priority}</span></div>
-                      <div>Progress: <span className="font-medium">{project.metrics.completionPercentage}%</span></div>
-                      <div>Hours: <span className="font-medium">{project.totalActualHours}/{project.totalBudgetedHours}</span></div>
-                    </div>
-                    <Button className="w-full mt-4" variant="outline">
-                      View Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+      {/* Project List */}
+      <Card className="w-full">
+        <CardHeader className="border-b">
+          <CardTitle>All Projects</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="overflow-x-auto">
+            {viewMode === "table" ? (
+              <ProjectTableView projects={projects || []} />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {projects?.map((project) => (
+                  <Card key={project.id} className="flex flex-col h-full">
+                    <CardHeader>
+                      <CardTitle className="flex justify-between items-center text-lg">
+                        <span className="truncate">{project.name}</span>
+                        <span className="text-sm font-normal text-muted-foreground shrink-0 ml-2">
+                          #{project.projectNumber}
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>Status: <span className="font-medium">{project.status}</span></div>
+                          <div>Progress: <span className="font-medium">{project.metrics.completionPercentage}%</span></div>
+                          <div>Hours: <span className="font-medium">{project.totalActualHours}/{project.totalBudgetedHours}</span></div>
+                        </div>
+                        <div>
+                          <Button variant="outline" className="w-full">
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
-        </>
+        </CardContent>
+      </Card>
+
+      {/* Create Project Form */}
+      {isCreating && (
+        <Card className="w-full">
+          <CardHeader className="border-b">
+            <CardTitle>Create New Project</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="projectNumber">Project Number</Label>
+                  <div>
+                    <Input
+                      id="projectNumber"
+                      {...form.register("projectNumber")}
+                    />
+                    {form.formState.errors.projectNumber && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {form.formState.errors.projectNumber.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="name">Project Name</Label>
+                  <div>
+                    <Input
+                      id="name"
+                      {...form.register("name")}
+                    />
+                    {form.formState.errors.name && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {form.formState.errors.name.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    {...form.register("description")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select 
+                    onValueChange={(value) => form.setValue("priority", value as "low" | "medium" | "high" | "critical")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    {...form.register("startDate")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="targetCompletionDate">Target Completion Date</Label>
+                  <Input
+                    id="targetCompletionDate"
+                    type="date"
+                    {...form.register("targetCompletionDate")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customer">Customer (Optional)</Label>
+                  <Input
+                    id="customer"
+                    {...form.register("customer")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="projectManager">Project Manager</Label>
+                  <div>
+                    <Input
+                      id="projectManager"
+                      {...form.register("projectManager")}
+                    />
+                    {form.formState.errors.projectManager && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {form.formState.errors.projectManager.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="totalBudgetedHours">Total Budgeted Hours</Label>
+                  <div>
+                    <Input
+                      id="totalBudgetedHours"
+                      type="number"
+                      {...form.register("totalBudgetedHours", { valueAsNumber: true })}
+                    />
+                    {form.formState.errors.totalBudgetedHours && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {form.formState.errors.totalBudgetedHours.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsCreating(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createProjectMutation.isPending}
+                >
+                  {createProjectMutation.isPending ? "Creating..." : "Create Project"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

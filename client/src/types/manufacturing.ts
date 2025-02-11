@@ -495,6 +495,13 @@ export type ProjectStatus =
   | "IN QC"
   | "COMPLETED";
 
+export interface ProjectMetrics {
+  completionPercentage: number;
+  hoursVariance: number;
+  qualityScore: number;
+  delayedTasks: number;
+}
+
 export interface Project {
   id: string;
   projectNumber: string;
@@ -529,6 +536,9 @@ export interface Project {
   progress: number;
   tasks?: ProjectTask[];
   notes?: string;
+  metrics: ProjectMetrics;
+  totalActualHours: number;
+  totalBudgetedHours: number;
 }
 
 export interface ProjectTask {
@@ -994,4 +1004,16 @@ export interface FindingTemplate {
   updatedAt: string;
   version: number;
   isActive: boolean;
+}
+
+export interface ProjectCreationForm {
+  projectNumber: string;
+  name: string;
+  description: string;
+  startDate: string;
+  targetCompletionDate: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  customer?: string;
+  projectManager: string;
+  totalBudgetedHours: number;
 }
