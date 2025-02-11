@@ -6,12 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Progress } from "@/components/ui/progress";
 import { ShipmentDetails } from "./ShipmentDetails";
 import { useSocket } from "@/hooks/use-socket";
 import { useToast } from "@/hooks/use-toast";
 import type { ShipmentStatus } from "@/types/material";
+import { faWarning, faTruck, faClockRotateLeft, faBoxesStacked, faClock, faCheck, faExclamationTriangle, faFileExport, faBell, faCloudBolt, faLocationDot, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 export function LogisticsTracking() {
   const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
@@ -19,6 +19,7 @@ export function LogisticsTracking() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('week');
   const [alertCount, setAlertCount] = useState(0);
+  const [weatherAlerts, setWeatherAlerts] = useState<Array<{region: string, alert: string}>>([]);
 
   const { toast } = useToast();
   const socket = useSocket();
@@ -60,6 +61,7 @@ export function LogisticsTracking() {
 
     socket.on('weather-alert', (data: { region: string; alert: string }) => {
       setAlertCount(prev => prev + 1);
+      setWeatherAlerts(prev => [...prev, data]);
       toast({
         title: "Weather Alert",
         description: `${data.region}: ${data.alert}`,
@@ -96,15 +98,38 @@ export function LogisticsTracking() {
   };
 
   const handleExport = () => {
-    // TODO: Implement export functionality
+    const data = filteredShipments.map(shipment => ({
+      orderNumber: shipment.orderNumber,
+      status: shipment.status,
+      origin: shipment.origin.name,
+      destination: shipment.destination.name,
+      carrier: shipment.carrier,
+      trackingNumber: shipment.trackingNumber,
+      estimatedDelivery: new Date(shipment.estimatedDelivery).toLocaleString(),
+      progress: `${shipment.progressPercentage}%`,
+    }));
+
+    const csvContent = "data:text/csv;charset=utf-8," +
+      Object.keys(data[0]).join(",") + "\n" +
+      data.map(row => Object.values(row).join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `shipments_${new Date().toISOString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
     toast({
-      title: "Export Started",
-      description: "Generating shipment report...",
+      title: "Export Complete",
+      description: "Shipment report has been downloaded.",
     });
   };
 
   const handleClearAlerts = () => {
     setAlertCount(0);
+    setWeatherAlerts([]);
     toast({
       title: "Alerts Cleared",
       description: "All logistics alerts have been acknowledged.",
@@ -115,14 +140,14 @@ export function LogisticsTracking() {
     return (
       <div className="p-4 text-center">
         <div className="text-red-500 mb-4">
-          <FontAwesomeIcon icon={["fas", "triangle-exclamation"]} className="h-8 w-8" />
+          <FontAwesomeIcon icon={faTriangleExclamation} className="h-8 w-8" />
         </div>
         <h3 className="text-lg font-semibold mb-2">Error Loading Shipments</h3>
         <p className="text-muted-foreground">
           Unable to load shipment data. Please try again later.
         </p>
         <Button onClick={() => refetch()} className="mt-4">
-          <FontAwesomeIcon icon={["fas", "rotate"]} className="mr-2 h-4 w-4" />
+          <FontAwesomeIcon icon={faClockRotateLeft} className="mr-2 h-4 w-4" />
           Retry
         </Button>
       </div>
@@ -134,18 +159,44 @@ export function LogisticsTracking() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Logistics Dashboard</h2>
         <div className="flex gap-2">
+          {weatherAlerts.length > 0 && (
+            <Button onClick={() => setWeatherAlerts([])} variant="outline" className="gap-2 text-yellow-500">
+              <FontAwesomeIcon icon={faCloudBolt} className="h-4 w-4" />
+              Weather Alerts ({weatherAlerts.length})
+            </Button>
+          )}
           {alertCount > 0 && (
             <Button onClick={handleClearAlerts} variant="outline" className="gap-2">
-              <FontAwesomeIcon icon={["fas", "bell"]} className="h-4 w-4" />
+              <FontAwesomeIcon icon={faBell} className="h-4 w-4" />
               Clear Alerts ({alertCount})
             </Button>
           )}
           <Button onClick={handleExport} className="gap-2">
-            <FontAwesomeIcon icon={["fas", "file-export"]} className="h-4 w-4" />
+            <FontAwesomeIcon icon={faFileExport} className="h-4 w-4" />
             Export Report
           </Button>
         </div>
       </div>
+
+      {weatherAlerts.length > 0 && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-yellow-800 mb-2">
+              <FontAwesomeIcon icon={faTriangleExclamation} className="h-5 w-5" />
+              <h3 className="font-semibold">Active Weather Alerts</h3>
+            </div>
+            <div className="space-y-2">
+              {weatherAlerts.map((alert, index) => (
+                <div key={index} className="flex items-center gap-2 text-sm text-yellow-700">
+                  <FontAwesomeIcon icon={faLocationDot} className="h-4 w-4" />
+                  <span className="font-medium">{alert.region}:</span>
+                  <span>{alert.alert}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card>
@@ -159,7 +210,7 @@ export function LogisticsTracking() {
                   {metrics.totalShipments}
                 </h3>
               </div>
-              <FontAwesomeIcon icon={["fas", "boxes-stacked"]} className="h-8 w-8 text-muted-foreground" />
+              <FontAwesomeIcon icon={faBoxesStacked} className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -175,7 +226,7 @@ export function LogisticsTracking() {
                   {metrics.onTimeDelivery}%
                 </h3>
               </div>
-              <FontAwesomeIcon icon={["fas", "clock"]} className="h-8 w-8 text-green-500" />
+              <FontAwesomeIcon icon={faClock} className="h-8 w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
@@ -209,7 +260,7 @@ export function LogisticsTracking() {
                   {metrics.delayed}
                 </h3>
               </div>
-              <FontAwesomeIcon icon={["fas", "triangle-exclamation"]} className="h-8 w-8 text-red-500" />
+              <FontAwesomeIcon icon={faExclamationTriangle} className="h-8 w-8 text-red-500" />
             </div>
           </CardContent>
         </Card>
@@ -225,7 +276,7 @@ export function LogisticsTracking() {
                   {metrics.delivered}
                 </h3>
               </div>
-              <FontAwesomeIcon icon={["fas", "check-circle"]} className="h-8 w-8 text-green-500" />
+              <FontAwesomeIcon icon={faCheck} className="h-8 w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
@@ -241,7 +292,7 @@ export function LogisticsTracking() {
                   {metrics.alerts}
                 </h3>
               </div>
-              <FontAwesomeIcon icon={["fas", "bell"]} className="h-8 w-8 text-yellow-500" />
+              <FontAwesomeIcon icon={faBell} className="h-8 w-8 text-yellow-500" />
             </div>
           </CardContent>
         </Card>
@@ -294,6 +345,7 @@ export function LogisticsTracking() {
                 <TableHead>Carrier</TableHead>
                 <TableHead>ETA</TableHead>
                 <TableHead>Progress</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -301,7 +353,6 @@ export function LogisticsTracking() {
                 <TableRow
                   key={shipment.id}
                   className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => setSelectedShipment(shipment.id)}
                 >
                   <TableCell>
                     <div className="font-medium">{shipment.orderNumber}</div>
@@ -317,10 +368,10 @@ export function LogisticsTracking() {
                       <FontAwesomeIcon
                         icon={[
                           "fas",
-                          shipment.status === 'delivered' ? 'check-circle' :
-                            shipment.status === 'in_transit' ? 'truck' :
-                              shipment.status === 'delayed' ? 'exclamation-triangle' :
-                                'clock'
+                          shipment.status === 'delivered' ? faCheck :
+                            shipment.status === 'in_transit' ? faTruck :
+                              shipment.status === 'delayed' ? faExclamationTriangle :
+                                faClock
                         ]}
                         className="mr-1 h-3 w-3"
                       />
@@ -343,6 +394,15 @@ export function LogisticsTracking() {
                     <div className="w-[100px]">
                       <Progress value={shipment.progressPercentage} className="h-2" />
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedShipment(shipment.id)}
+                    >
+                      <FontAwesomeIcon icon={faWarning} className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

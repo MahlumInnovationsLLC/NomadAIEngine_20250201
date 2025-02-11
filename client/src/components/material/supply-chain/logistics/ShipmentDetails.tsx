@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useSocket } from "@/hooks/use-socket";
 import { useToast } from "@/hooks/use-toast";
-import type { LogisticsEvent, ShipmentStatus } from "@/types/material";
+import type { LogisticsEvent, ShipmentStatus, LogisticsRoute } from "@/types/material";
 
 interface ShipmentDetailsProps {
   shipmentId: string;
@@ -23,13 +23,22 @@ export function ShipmentDetails({ shipmentId }: ShipmentDetailsProps) {
   const socket = useSocket();
   const { toast } = useToast();
 
-  const { data: shipment } = useQuery<ShipmentStatus>({
+  const { data: shipment } = useQuery<ShipmentStatus & { 
+    optimizedRoute?: LogisticsRoute;
+    alternativeRoutes?: LogisticsRoute[];
+    estimatedDelay?: number;
+  }>({
     queryKey: ['/api/logistics/shipments', shipmentId],
     enabled: !!shipmentId,
   });
 
   const { data: events = [] } = useQuery<LogisticsEvent[]>({
     queryKey: ['/api/logistics/events', shipmentId],
+    enabled: !!shipmentId,
+  });
+
+  const { data: routeOptimization } = useQuery({
+    queryKey: ['/api/logistics/shipments', shipmentId, 'route'],
     enabled: !!shipmentId,
   });
 
@@ -91,6 +100,12 @@ export function ShipmentDetails({ shipmentId }: ShipmentDetailsProps) {
     }
   };
 
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -141,6 +156,31 @@ export function ShipmentDetails({ shipmentId }: ShipmentDetailsProps) {
                 <span>{shipment.destination.name}</span>
               </div>
             </div>
+
+            {shipment.estimatedDelay && shipment.estimatedDelay > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-red-800">
+                  <FontAwesomeIcon icon={["fas", "triangle-exclamation"]} className="h-5 w-5" />
+                  <h4 className="font-semibold">Potential Delay Detected</h4>
+                </div>
+                <p className="text-sm text-red-700 mt-1">
+                  Estimated delay of {Math.round(shipment.estimatedDelay)} minutes due to traffic and weather conditions.
+                </p>
+                {routeOptimization?.alternativeRoutes && routeOptimization.alternativeRoutes.length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-sm font-medium text-red-800">Alternative Routes Available:</div>
+                    <div className="space-y-2 mt-1">
+                      {routeOptimization.alternativeRoutes.map((route, index) => (
+                        <div key={route.id} className="text-sm text-red-700">
+                          Option {index + 1}: {formatDuration(route.duration)} 
+                          {route.trafficDelay > 0 && ` (${route.trafficDelay}min traffic delay)`}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="text-sm font-medium flex justify-between items-center">

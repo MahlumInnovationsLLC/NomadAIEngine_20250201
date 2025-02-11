@@ -4,6 +4,7 @@ import { db } from '@db';
 import { eq } from 'drizzle-orm';
 import type { WebSocketManager } from '../services/websocket';
 import type { ShipmentStatus, LogisticsEvent } from '@/types/material';
+import { routeOptimizationService } from '../services/azure/route_optimization_service';
 
 const router = Router();
 
@@ -37,10 +38,61 @@ router.get('/active-shipments', async (req, res) => {
       }
     ];
 
-    res.json(mockShipments);
+    // For each shipment, calculate optimized route
+    const shipmentsWithRoutes = await Promise.all(
+      mockShipments.map(async (shipment) => {
+        try {
+          const optimization = await routeOptimizationService.optimizeRoute(shipment);
+          return {
+            ...shipment,
+            optimizedRoute: optimization.route,
+            estimatedDelay: optimization.trafficDelay + optimization.weatherImpact,
+            alternativeRoutes: optimization.alternativeRoutes
+          };
+        } catch (error) {
+          console.error(`Failed to optimize route for shipment ${shipment.id}:`, error);
+          return shipment;
+        }
+      })
+    );
+
+    res.json(shipmentsWithRoutes);
   } catch (error) {
     console.error('Error fetching active shipments:', error);
     res.status(500).json({ error: 'Failed to fetch active shipments' });
+  }
+});
+
+// Get optimized route for a shipment
+router.get('/shipments/:id/route', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Mock shipment data - replace with database query
+    const mockShipment: ShipmentStatus = {
+      id,
+      orderNumber: `SHP-${id}`,
+      origin: {
+        name: 'San Francisco Warehouse',
+        coordinates: [37.7749, -122.4194]
+      },
+      destination: {
+        name: 'Los Angeles Distribution Center',
+        coordinates: [34.0522, -118.2437]
+      },
+      status: 'in_transit',
+      estimatedDelivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      carrier: 'FastFreight Express',
+      trackingNumber: `FF${id}`,
+      lastUpdate: new Date().toISOString(),
+      progressPercentage: 65
+    };
+
+    const optimization = await routeOptimizationService.optimizeRoute(mockShipment);
+    res.json(optimization);
+  } catch (error) {
+    console.error('Error getting optimized route:', error);
+    res.status(500).json({ error: 'Failed to get optimized route' });
   }
 });
 
@@ -48,7 +100,6 @@ router.get('/active-shipments', async (req, res) => {
 router.get('/events/:shipmentId', async (req, res) => {
   try {
     const { shipmentId } = req.params;
-    
     // TODO: Implement database query
     // For now return mock data
     const mockEvents: LogisticsEvent[] = [
@@ -108,7 +159,7 @@ router.post('/simulate/delay/:shipmentId', async (req, res) => {
     const { reason } = req.body;
 
     const wsServer = req.app.get('wsServer') as WebSocketManager;
-    
+
     // Mock shipment data
     const mockShipment: ShipmentStatus = {
       id: shipmentId,

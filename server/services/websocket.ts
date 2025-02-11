@@ -32,7 +32,7 @@ interface NotificationPayload {
   metadata?: Record<string, any>;
 }
 
-class WebSocketManager {
+export class WebSocketManager {
   private io: SocketIOServer;
   private users: Map<string, User> = new Map();
   private clients: Map<string, string> = new Map();
