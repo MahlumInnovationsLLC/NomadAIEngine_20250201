@@ -5,6 +5,7 @@ import { userTraining } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from 'zod';
 import { notifications, userNotifications } from "@db/schema";
+import type { ShipmentStatus, LogisticsEvent } from "@/types/material";
 
 // Validation schemas
 const userSchema = z.object({
@@ -35,6 +36,7 @@ class WebSocketManager {
   private io: SocketIOServer;
   private users: Map<string, User> = new Map();
   private clients: Map<string, string> = new Map();
+  private shipmentSubscriptions: Map<string, Set<string>> = new Map();
 
   constructor(server: HttpServer) {
     this.io = new SocketIOServer(server, {
@@ -63,6 +65,17 @@ class WebSocketManager {
 
       this.registerUser(userId, socket.id);
       socket.join(`user-${userId}`);
+
+      // Logistics tracking events
+      socket.on('subscribe-shipment', (shipmentId: string) => {
+        this.subscribeToShipment(userId, shipmentId);
+        socket.join(`shipment-${shipmentId}`);
+      });
+
+      socket.on('unsubscribe-shipment', (shipmentId: string) => {
+        this.unsubscribeFromShipment(userId, shipmentId);
+        socket.leave(`shipment-${shipmentId}`);
+      });
 
       // Send initial state
       socket.emit('ONLINE_USERS_UPDATE', {
@@ -94,14 +107,68 @@ class WebSocketManager {
   }
 
   private handleDisconnect(userId: string) {
+    // Clean up shipment subscriptions
+    this.shipmentSubscriptions.forEach((subscribers, shipmentId) => {
+      if (subscribers.has(userId)) {
+        this.unsubscribeFromShipment(userId, shipmentId);
+      }
+    });
+
     this.users.delete(userId);
     this.clients.delete(userId);
     this.broadcastPresence();
   }
 
-  private async handleUserJoin(userId: string, name: string, socketId: string) {
+  // Logistics specific methods
+  private subscribeToShipment(userId: string, shipmentId: string) {
+    if (!this.shipmentSubscriptions.has(shipmentId)) {
+      this.shipmentSubscriptions.set(shipmentId, new Set());
+    }
+    this.shipmentSubscriptions.get(shipmentId)!.add(userId);
+  }
+
+  private unsubscribeFromShipment(userId: string, shipmentId: string) {
+    const subscribers = this.shipmentSubscriptions.get(shipmentId);
+    if (subscribers) {
+      subscribers.delete(userId);
+      if (subscribers.size === 0) {
+        this.shipmentSubscriptions.delete(shipmentId);
+      }
+    }
+  }
+
+  public updateShipmentLocation(shipmentId: string, location: { latitude: number; longitude: number }) {
+    this.io.to(`shipment-${shipmentId}`).emit('location-update', {
+      ...location,
+      lastUpdate: new Date().toISOString()
+    });
+  }
+
+  public notifyShipmentDelay(shipmentId: string, shipment: ShipmentStatus, reason: string) {
+    this.io.to(`shipment-${shipmentId}`).emit('shipment-delay', {
+      shipment,
+      reason
+    });
+  }
+
+  public notifyDeliveryAttempt(shipmentId: string, shipment: ShipmentStatus, status: string) {
+    this.io.to(`shipment-${shipmentId}`).emit('delivery-attempt', {
+      shipment,
+      status
+    });
+  }
+
+  public broadcastWeatherAlert(region: string, alert: string) {
+    this.io.emit('weather-alert', {
+      region,
+      alert
+    });
+  }
+
+  // Existing methods remain unchanged
+  private handleUserJoin(userId: string, name: string, socketId: string) {
     this.registerUser(userId, socketId);
-    await this.broadcastTrainingLevel(userId);
+    this.broadcastTrainingLevel(userId);
   }
 
   private updateUserStatus(userId: string, status: User['status']) {
@@ -176,7 +243,6 @@ class WebSocketManager {
   public cleanup() {
     this.io.close();
   }
-
   public async sendNotification(userId: string, payload: NotificationPayload) {
     try {
       // Insert notification into database

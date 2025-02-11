@@ -10,6 +10,7 @@ import inventoryRoutes from "./routes/inventory";
 import aiRoutes from "./routes/ai";
 import salesRoutes from "./routes/sales";
 import facilityRoutes from "./routes/facility";
+import logisticsRoutes from "./routes/logistics";
 
 const app = express();
 app.use(express.json());
@@ -46,6 +47,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/facility', facilityRoutes);
+app.use('/api/logistics', logisticsRoutes);
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -102,15 +104,11 @@ app.use((req, res, next) => {
 
     const server = createServer(app);
 
-    // Setup WebSocket server with proper upgrade handling
+    // Setup WebSocket server
     const wsServer = setupWebSocketServer(server);
-    wsServer.io.attach(server, {
-      cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-        credentials: true
-      }
-    });
+
+    // Make WebSocket server accessible to routes
+    app.set('wsServer', wsServer);
 
     // Register routes after WebSocket setup
     await registerRoutes(app);

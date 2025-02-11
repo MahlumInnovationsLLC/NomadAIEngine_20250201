@@ -331,4 +331,93 @@ export interface SupplierPerformanceData {
   totalSpend: number;
 }
 
-// Any additional supplier-related interfaces would go here
+// Add these interfaces after the SupplierPerformanceData interface
+export interface LogisticsRoute {
+  id: string;
+  shipmentId: string;
+  waypoints: {
+    location: string;
+    coordinates: [number, number];
+    arrivalTime?: string;
+    departureTime?: string;
+    status: 'pending' | 'arrived' | 'departed' | 'skipped';
+  }[];
+  distance: number;
+  duration: number;
+  trafficDelay: number;
+  optimizationScore: number;
+}
+
+export interface LogisticsCarrier {
+  id: string;
+  name: string;
+  code: string;
+  trackingUrlTemplate: string;
+  serviceLevel: 'standard' | 'express' | 'priority';
+  performance: {
+    onTimeDelivery: number;
+    averageTransitTime: number;
+    damageRate: number;
+    costPerMile: number;
+  };
+}
+
+//Replacing the original LogisticsEvent and LogisticsAlert with the edited versions.
+export interface ShipmentStatus {
+  id: string;
+  orderNumber: string;
+  origin: {
+    name: string;
+    coordinates: [number, number];
+  };
+  destination: {
+    name: string;
+    coordinates: [number, number];
+  };
+  currentLocation?: {
+    name: string;
+    coordinates: [number, number];
+  };
+  status: 'preparing' | 'in_transit' | 'delivered' | 'delayed';
+  estimatedDelivery: string;
+  actualDelivery?: string;
+  carrier: string;
+  trackingNumber: string;
+  lastUpdate: string;
+  progressPercentage: number;
+  delayReason?: string;
+}
+
+export interface LogisticsEvent {
+  id: string;
+  shipmentId: string;
+  type: 'location_update' | 'status_change' | 'delay' | 'delivery_attempt' | 'exception';
+  timestamp: string;
+  location: {
+    name: string;
+    coordinates: [number, number];
+  };
+  description: string;
+  severity?: 'info' | 'warning' | 'critical';
+  metadata?: Record<string, any>;
+}
+
+export interface LogisticsAlert {
+  id: string;
+  shipmentId: string;
+  type: 'delay' | 'weather' | 'traffic' | 'customs' | 'mechanical' | 'other';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'resolved' | 'ignored';
+  title: string;
+  description: string;
+  timestamp: string;
+  estimatedImpact: {
+    delay: number;
+    cost?: number;
+  };
+  resolution?: {
+    action: string;
+    timestamp: string;
+    resolvedBy: string;
+  };
+}

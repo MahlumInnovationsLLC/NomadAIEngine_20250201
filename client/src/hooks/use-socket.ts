@@ -6,10 +6,27 @@ export function useSocket() {
 
   useEffect(() => {
     // Create socket connection
-    socketRef.current = io(window.location.origin, {
-      path: '/socket.io',
-      transports: ['websocket'],
-    });
+    if (!socketRef.current) {
+      socketRef.current = io(window.location.origin, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      // Setup socket event listeners for debugging
+      socketRef.current.on('connect', () => {
+        console.log('Socket connected successfully');
+      });
+
+      socketRef.current.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+      });
+
+      socketRef.current.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+      });
+    }
 
     // Cleanup on unmount
     return () => {
