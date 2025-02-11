@@ -277,3 +277,58 @@ export interface ForecastingData {
     special_events?: string[];
   };
 }
+
+export interface SupplierCommunicationHistory {
+  id: string;
+  supplierId: string;
+  type: 'message' | 'email' | 'meeting' | 'document';
+  title: string;
+  content: string;
+  attachments?: {
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }[];
+  status: 'unread' | 'read' | 'archived';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  sender: {
+    id: string;
+    name: string;
+    role: string;
+  };
+  recipients: {
+    id: string;
+    name: string;
+    role: string;
+  }[];
+  createdAt: string;
+  updatedAt: string;
+  metadata?: {
+    meetingTime?: string;
+    meetingDuration?: number;
+    meetingLocation?: string;
+    meetingAttendees?: string[];
+    documentType?: string;
+    documentExpiry?: string;
+  };
+}
+
+export interface SupplierPerformanceData {
+  period: string;
+  qualityScore: number;
+  deliveryPerformance: number;
+  costCompetitiveness: number;
+  defectRate: number;
+  inspectionPassRate: number;
+  documentationAccuracy: number;
+  averageLeadTime: number;
+  onTimeDeliveryRate: number;
+  orderFillRate: number;
+  responseTime: number;
+  priceVariance: number;
+  costSavings: number;
+  totalSpend: number;
+}
+
+// Any additional supplier-related interfaces would go here
