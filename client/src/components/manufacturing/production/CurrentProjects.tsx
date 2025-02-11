@@ -1,10 +1,11 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { ProjectMapView } from "./ProjectMapView";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Project } from "@/types/manufacturing";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export function CurrentProjects() {
-  const { data: projects = [] } = useQuery<Project[]>({
+  const { data: projects = [] } = useQuery({
     queryKey: ['/api/manufacturing/projects'],
     queryFn: async () => {
       const response = await fetch('/api/manufacturing/projects');
@@ -62,15 +63,7 @@ export function CurrentProjects() {
         </Card>
       </div>
 
-      <div className="w-full overflow-x-auto">
-        <div className="min-w-full">
-          <Card className="w-full">
-            <CardContent className="p-6">
-              <ProjectMapView projects={activeProjects} />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <ProjectMapView projects={activeProjects} />
     </div>
   );
 }

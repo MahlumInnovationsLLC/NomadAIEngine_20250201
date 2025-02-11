@@ -26,11 +26,7 @@ import {
 import { Resizable } from "react-resizable";
 import type { FloorPlan, Project, ProjectLocation } from "@/types/manufacturing";
 
-interface ProjectMapViewProps {
-  projects?: Project[];
-}
-
-export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
+export function ProjectMapView() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showFloorPlanDialog, setShowFloorPlanDialog] = useState(false);
@@ -48,6 +44,11 @@ export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
   // Query floor plans
   const { data: floorPlans = [] } = useQuery<FloorPlan[]>({
     queryKey: ['/api/floor-plans'],
+  });
+
+  // Query projects
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ['/api/projects'],
   });
 
   // Create floor plan mutation
@@ -83,6 +84,7 @@ export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
 
+    // Add default values
     formData.append('dimensions', JSON.stringify({
       width: 800,
       height: 600
@@ -97,6 +99,114 @@ export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
       console.error('Error creating floor plan:', error);
     }
   };
+
+  // Basic initial implementation with UI elements
+  if (!selectedFloorPlan) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Floor Plans</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {floorPlans.map((floorPlan) => (
+                <Card
+                  key={floorPlan.id}
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => setSelectedFloorPlan(floorPlan)}
+                >
+                  <CardContent className="p-4">
+                    <h3 className="font-medium">{floorPlan.name}</h3>
+                    <p className="text-sm text-muted-foreground">{floorPlan.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+
+              <Dialog open={showFloorPlanDialog} onOpenChange={setShowFloorPlanDialog}>
+                <DialogTrigger asChild>
+                  <Card className="cursor-pointer hover:bg-accent">
+                    <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+                      <FontAwesomeIcon icon="plus" className="h-12 w-12 text-muted-foreground mb-2" />
+                      <p>Add New Floor Plan</p>
+                    </CardContent>
+                  </Card>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Add New Floor Plan</DialogTitle>
+                    <DialogDescription>
+                      Create a new floor plan for your production space.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form id="floor-plan-form" onSubmit={handleCreateFloorPlan} className="space-y-4">
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="name" className="text-sm font-medium">
+                          Name
+                        </label>
+                        <Input
+                          id="name"
+                          name="name"
+                          placeholder="Production Floor A"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="description" className="text-sm font-medium">
+                          Description
+                        </label>
+                        <Input
+                          id="description"
+                          name="description"
+                          placeholder="Main production area"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="image" className="text-sm font-medium">
+                          Upload Floor Plan Image
+                        </label>
+                        <Input
+                          id="image"
+                          name="image"
+                          type="file"
+                          accept="image/*"
+                          ref={imageInputRef}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowFloorPlanDialog(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={createFloorPlanMutation.isPending}
+                      >
+                        {createFloorPlanMutation.isPending ? (
+                          <>
+                            <FontAwesomeIcon icon="spinner" className="mr-2 h-4 w-4 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          'Create Floor Plan'
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Update project location mutation
   const updateProjectLocationMutation = useMutation({
@@ -117,7 +227,7 @@ export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
     const newLocation: ProjectLocation = {
       projectId: selectedProject.id,
       floorPlanId: selectedFloorPlan.id,
-      zoneId: "default",
+      zoneId: "default", // Add a default zone ID
       position: {
         x: info.point.x,
         y: info.point.y
@@ -149,118 +259,8 @@ export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
     }));
   };
 
-  // Basic initial implementation with UI elements
-  if (!selectedFloorPlan) {
-    return (
-      <div className="w-full">
-        <Card>
-          <CardHeader>
-            <CardTitle>Floor Plans</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {floorPlans.map((floorPlan) => (
-                  <Card
-                    key={floorPlan.id}
-                    className="cursor-pointer hover:bg-accent"
-                    onClick={() => setSelectedFloorPlan(floorPlan)}
-                  >
-                    <CardContent className="p-4">
-                      <h3 className="font-medium">{floorPlan.name}</h3>
-                      <p className="text-sm text-muted-foreground">{floorPlan.description}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                <Dialog open={showFloorPlanDialog} onOpenChange={setShowFloorPlanDialog}>
-                  <DialogTrigger asChild>
-                    <Card className="cursor-pointer hover:bg-accent">
-                      <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-                        <FontAwesomeIcon icon="plus" className="h-12 w-12 text-muted-foreground mb-2" />
-                        <p>Add New Floor Plan</p>
-                      </CardContent>
-                    </Card>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Add New Floor Plan</DialogTitle>
-                      <DialogDescription>
-                        Create a new floor plan for your production space.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form id="floor-plan-form" onSubmit={handleCreateFloorPlan} className="space-y-4">
-                      <div className="space-y-4">
-                        <div>
-                          <label htmlFor="name" className="text-sm font-medium">
-                            Name
-                          </label>
-                          <Input
-                            id="name"
-                            name="name"
-                            placeholder="Production Floor A"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="description" className="text-sm font-medium">
-                            Description
-                          </label>
-                          <Input
-                            id="description"
-                            name="description"
-                            placeholder="Main production area"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="image" className="text-sm font-medium">
-                            Upload Floor Plan Image
-                          </label>
-                          <Input
-                            id="image"
-                            name="image"
-                            type="file"
-                            accept="image/*"
-                            ref={imageInputRef}
-                            required
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowFloorPlanDialog(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={createFloorPlanMutation.isPending}
-                        >
-                          {createFloorPlanMutation.isPending ? (
-                            <>
-                              <FontAwesomeIcon icon="spinner" className="mr-2 h-4 w-4 animate-spin" />
-                              Creating...
-                            </>
-                          ) : (
-                            'Create Floor Plan'
-                          )}
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Floor Plan View</h2>
@@ -289,7 +289,7 @@ export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
                       key={project.id}
                       onSelect={() => setSelectedProject(project)}
                     >
-                      {project.projectNumber}
+                      {project.name}
                     </CommandItem>
                   ))}
               </CommandGroup>
@@ -298,7 +298,7 @@ export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
         </div>
       </div>
 
-      <div className="relative border rounded-lg bg-background h-[600px] overflow-hidden w-full">
+      <div className="relative border rounded-lg bg-background h-[600px] overflow-hidden">
         {selectedProject && (
           <motion.div
             drag
@@ -323,7 +323,7 @@ export function ProjectMapView({ projects = [] }: ProjectMapViewProps) {
                   height: projectLocation.height,
                 }}
               >
-                <h3 className="font-medium">{selectedProject.name || selectedProject.projectNumber}</h3>
+                <h3 className="font-medium">{selectedProject.name}</h3>
                 <p className="text-sm text-muted-foreground">
                   #{selectedProject.projectNumber}
                 </p>
