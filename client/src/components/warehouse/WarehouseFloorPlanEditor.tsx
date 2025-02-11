@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { useToast } from "@/hooks/use-toast";
 
 interface RackingUnit {
   id: string;
@@ -27,6 +28,7 @@ interface WarehouseFloorPlan {
   dimensions: { width: number; height: number };
   gridSize: number;
   racking: RackingUnit[];
+  imageUrl?: string;
 }
 
 interface WarehouseFloorPlanEditorProps {
@@ -46,11 +48,13 @@ export default function WarehouseFloorPlanEditor({
   onSave, 
   onCancel 
 }: WarehouseFloorPlanEditorProps) {
+  const { toast } = useToast();
   const [name, setName] = useState(floorPlan?.name || '');
   const [gridSize, setGridSize] = useState(floorPlan?.gridSize || 50);
   const [racking, setRacking] = useState<RackingUnit[]>(floorPlan?.racking || []);
   const [selectedRackType, setSelectedRackType] = useState<keyof typeof RACKING_TEMPLATES>('single');
   const [draggingRack, setDraggingRack] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleDragStart = (e: React.DragEvent, rackId?: string) => {
@@ -94,12 +98,61 @@ export default function WarehouseFloorPlanEditor({
     e.preventDefault();
   };
 
-  const handleSave = () => {
-    onSave({
-      name,
-      gridSize,
-      racking,
-    });
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload an image file',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setImageFile(file);
+  };
+
+  const handleSave = async () => {
+    try {
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('file', imageFile);
+
+        const response = await fetch(`/api/warehouse/${floorPlan?.warehouseId}/floor-plan/image`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to upload floor plan image');
+        }
+
+        const { imageUrl } = await response.json();
+
+        onSave({
+          name,
+          gridSize,
+          racking,
+          imageUrl,
+        });
+      } else {
+        onSave({
+          name,
+          gridSize,
+          racking,
+        });
+      }
+    } catch (error) {
+      console.error('Error saving floor plan:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save floor plan',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -154,6 +207,16 @@ export default function WarehouseFloorPlanEditor({
             >
               Drag to add {selectedRackType} rack
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="floorPlanImage">Upload Floor Plan</Label>
+              <Input
+                id="floorPlanImage"
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+            </div>
           </div>
         </Card>
 
@@ -164,6 +227,15 @@ export default function WarehouseFloorPlanEditor({
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
+          {/* Background image if exists */}
+          {floorPlan?.imageUrl && (
+            <img
+              src={floorPlan.imageUrl}
+              alt="Floor Plan"
+              className="absolute inset-0 w-full h-full object-contain opacity-50"
+            />
+          )}
+
           {/* Grid background */}
           <svg 
             width="100%"
@@ -206,6 +278,8 @@ export default function WarehouseFloorPlanEditor({
             >
               <div className="p-2 text-xs">
                 {rack.type}
+                <br />
+                {rack.capacity} units
               </div>
             </div>
           ))}

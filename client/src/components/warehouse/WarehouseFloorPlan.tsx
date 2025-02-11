@@ -10,6 +10,7 @@ import {
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import WarehouseFloorPlanEditor from "./WarehouseFloorPlanEditor";
 
 interface RackingUnit {
   id: string;
@@ -31,17 +32,11 @@ interface WarehouseFloorPlan {
 interface WarehouseFloorPlanProps {
   floorPlan: WarehouseFloorPlan | null;
   warehouseId: string;
-  isEditing?: boolean;
-  onEditToggle?: () => void;
 }
 
-export default function WarehouseFloorPlan({ 
-  floorPlan, 
-  warehouseId,
-  isEditing = false,
-  onEditToggle 
-}: WarehouseFloorPlanProps) {
+export default function WarehouseFloorPlan({ floorPlan, warehouseId }: WarehouseFloorPlanProps) {
   const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -104,40 +99,24 @@ export default function WarehouseFloorPlan({
     setIsDragging(false);
   };
 
-  const handleRackClick = (rackId: string) => {
-    if (!isEditing) {
-      setSelectedRack(rackId);
+  const handleSaveFloorPlan = async (updates: Partial<WarehouseFloorPlan>) => {
+    try {
+      await updateFloorPlanMutation.mutateAsync(updates);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save floor plan:', error);
     }
   };
 
-  const handleRackDragStart = (e: React.DragEvent, rackId: string) => {
-    if (!isEditing) return;
-    e.dataTransfer.setData('text/plain', rackId);
-  };
-
-  const handleRackDrop = (e: React.DragEvent) => {
-    if (!isEditing || !containerRef.current) return;
-    e.preventDefault();
-    const rackId = e.dataTransfer.getData('text/plain');
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left - position.x) / scale;
-    const y = (e.clientY - rect.top - position.y) / scale;
-
-    // Snap to grid
-    const gridSize = floorPlan?.gridSize || 50;
-    const snappedX = Math.round(x / gridSize) * gridSize;
-    const snappedY = Math.round(y / gridSize) * gridSize;
-
-    if (floorPlan && rackId) {
-      const updatedRacking = floorPlan.racking.map(rack =>
-        rack.id === rackId
-          ? { ...rack, position: { x: snappedX, y: snappedY } }
-          : rack
-      );
-
-      updateFloorPlanMutation.mutate({ racking: updatedRacking });
-    }
-  };
+  if (isEditing) {
+    return (
+      <WarehouseFloorPlanEditor
+        floorPlan={floorPlan}
+        onSave={handleSaveFloorPlan}
+        onCancel={() => setIsEditing(false)}
+      />
+    );
+  }
 
   return (
     <div className="p-4">
@@ -146,25 +125,19 @@ export default function WarehouseFloorPlan({
           {floorPlan?.name || "Warehouse Layout"}
         </div>
         <div className="flex gap-2">
-          {!isEditing && (
-            <>
-              <Button variant="outline" size="icon" onClick={() => handleZoom(0.1)}>
-                <FontAwesomeIcon icon="magnifying-glass-plus" className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" onClick={() => handleZoom(-0.1)}>
-                <FontAwesomeIcon icon="magnifying-glass-minus" className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-          {onEditToggle && (
-            <Button
-              variant={isEditing ? "default" : "outline"}
-              size="icon"
-              onClick={onEditToggle}
-            >
-              <FontAwesomeIcon icon="pen" className="h-4 w-4" />
-            </Button>
-          )}
+          <Button variant="outline" size="icon" onClick={() => handleZoom(0.1)}>
+            <FontAwesomeIcon icon="magnifying-glass-plus" className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => handleZoom(-0.1)}>
+            <FontAwesomeIcon icon="magnifying-glass-minus" className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={isEditing ? "default" : "outline"}
+            size="icon"
+            onClick={() => setIsEditing(true)}
+          >
+            <FontAwesomeIcon icon="pen" className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -176,8 +149,6 @@ export default function WarehouseFloorPlan({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleRackDrop}
       >
         <div
           className="absolute"
@@ -216,11 +187,9 @@ export default function WarehouseFloorPlan({
               <Tooltip key={rack.id}>
                 <TooltipTrigger asChild>
                   <div
-                    draggable={isEditing}
-                    onDragStart={(e) => handleRackDragStart(e, rack.id)}
                     className={`absolute cursor-pointer border-2 ${
                       selectedRack === rack.id ? 'border-primary' : 'border-muted'
-                    } ${isEditing ? 'cursor-move' : ''}`}
+                    }`}
                     style={{
                       left: rack.position.x,
                       top: rack.position.y,
@@ -228,7 +197,7 @@ export default function WarehouseFloorPlan({
                       height: rack.dimensions.height,
                       transform: `scale(${1/scale})`,
                     }}
-                    onClick={() => handleRackClick(rack.id)}
+                    onClick={() => setSelectedRack(rack.id)}
                   >
                     <div className="p-2 text-xs">
                       {rack.type}

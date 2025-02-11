@@ -73,7 +73,7 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
+const startServer = async (retryCount = 0) => {
   try {
     log("Initializing Azure services...");
 
@@ -123,7 +123,7 @@ app.use((req, res, next) => {
     app.use('/api/sales', salesRoutes);
     app.use('/api/facility', facilityRoutes);
     app.use('/api/logistics', logisticsRoutes);
-    app.use('/api/warehouse', warehouseRoutes); // Register warehouse routes
+    app.use('/api/warehouse', warehouseRoutes);
 
     // Register remaining routes after WebSocket setup
     await registerRoutes(app);
@@ -135,7 +135,7 @@ app.use((req, res, next) => {
       const message = err.message || "Internal Server Error";
       const details = err.stack || undefined;
 
-      res.status(status).json({ 
+      res.status(status).json({
         message,
         details: process.env.NODE_ENV === 'development' ? details : undefined
       });
@@ -148,43 +148,57 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const PORT = 5000;
+    const PORT = Number(process.env.PORT || 5000);
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000;
 
-    // Better error handling for port binding
-    server.on('error', (e: any) => {
-      if (e.code === 'EADDRINUSE') {
-        log(`Port ${PORT} is busy, attempting to close previous instance...`);
-        server.close();
-        process.exit(1);
-      } else {
-        console.error('Server error:', e);
-        process.exit(1);
-      }
-    });
+    const startWithRetry = () => {
+      server.listen(PORT, () => {
+        log(`Server running on port ${PORT} with WebSocket support`);
+      }).on('error', (e: any) => {
+        if (e.code === 'EADDRINUSE') {
+          if (retryCount < MAX_RETRIES) {
+            log(`Port ${PORT} is busy, retrying in ${RETRY_DELAY/1000} seconds... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+            setTimeout(() => {
+              server.close();
+              startServer(retryCount + 1);
+            }, RETRY_DELAY);
+          } else {
+            log(`Failed to start server after ${MAX_RETRIES} attempts. Port ${PORT} is in use.`);
+            process.exit(1);
+          }
+        } else {
+          console.error('Server error:', e);
+          process.exit(1);
+        }
+      });
+    };
 
-    server.listen(PORT, "0.0.0.0", () => {
-      log(`Server running on port ${PORT} with WebSocket support`);
-    });
+    startWithRetry();
 
     // Handle cleanup on shutdown
-    process.on('SIGTERM', () => {
-      log('Received SIGTERM signal, starting graceful shutdown...');
+    const cleanup = () => {
+      log('Starting graceful shutdown...');
       server.close(() => {
         log('Server shutdown complete');
         process.exit(0);
       });
-    });
+    };
+
+    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
 
     process.on('uncaughtException', (error) => {
       console.error('Uncaught exception:', error);
       log('Critical error occurred, initiating shutdown...');
-      server.close(() => {
-        process.exit(1);
-      });
+      cleanup();
     });
 
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
   }
-})();
+};
+
+// Start the server
+startServer();
