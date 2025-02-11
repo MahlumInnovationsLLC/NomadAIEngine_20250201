@@ -89,7 +89,7 @@ async function initializeWarehouses() {
         console.log(`Initialized warehouse: ${warehouse.name}`);
 
         // Initialize default zones for each warehouse
-        const defaultZones: WarehouseZone[] = [
+        const defaultZones: Omit<WarehouseZone, 'warehouseId'>[] = [
           {
             id: `${warehouse.id}-storage`,
             name: "General Storage",
@@ -145,7 +145,7 @@ async function initializeWarehouses() {
         }
 
         // Initialize metrics
-        const defaultMetrics: WarehouseMetrics = {
+        const defaultMetrics: Omit<WarehouseMetrics, 'id' | 'warehouseId'> = {
           pickingAccuracy: 98.5,
           ordersProcessed: 0,
           inventoryTurns: 0,
@@ -279,40 +279,6 @@ router.patch('/zones/:zoneId', async (req, res) => {
   } catch (error) {
     console.error("Error updating warehouse zone:", error);
     res.status(500).json({ error: "Failed to update warehouse zone" });
-  }
-});
-
-// Update warehouse metrics
-router.patch('/metrics/:warehouseId', async (req, res) => {
-  try {
-    const { warehouseId } = req.params;
-    const updates = req.body;
-
-    const { resources: [existingMetrics] } = await metricsContainer
-      .items
-      .query({
-        query: "SELECT * FROM c WHERE c.warehouseId = @warehouseId",
-        parameters: [{ name: "@warehouseId", value: warehouseId }]
-      })
-      .fetchAll();
-
-    if (!existingMetrics) {
-      return res.status(404).json({ error: "Warehouse metrics not found" });
-    }
-
-    const updatedMetrics = {
-      ...existingMetrics,
-      ...updates
-    };
-
-    const { resource: result } = await metricsContainer
-      .item(warehouseId, warehouseId)
-      .replace(updatedMetrics);
-
-    res.json(result);
-  } catch (error) {
-    console.error("Error updating warehouse metrics:", error);
-    res.status(500).json({ error: "Failed to update warehouse metrics" });
   }
 });
 

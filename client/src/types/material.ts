@@ -115,6 +115,7 @@ export interface WarehouseZone {
   status: 'active' | 'inactive' | 'maintenance';
   pickingStrategy: 'FIFO' | 'LIFO' | 'FEFO';
   allowsCrossDocking: boolean;
+  warehouseId: string;
   restrictedMaterials?: string[];
   temperatureControlled?: boolean;
   temperatureRange?: {
@@ -125,6 +126,8 @@ export interface WarehouseZone {
 }
 
 export interface WarehouseMetrics {
+  id?: string;
+  warehouseId: string;
   pickingAccuracy: number;
   ordersProcessed: number;
   inventoryTurns: number;

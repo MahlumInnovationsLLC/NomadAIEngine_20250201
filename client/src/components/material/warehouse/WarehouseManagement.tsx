@@ -20,6 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import type { Warehouse, WarehouseZone, WarehouseMetrics } from "@/types/material";
+import { ZoneUtilizationDialog } from "./ZoneUtilizationDialog";
 
 interface WarehouseManagementProps {
   selectedWarehouse: string | null;
@@ -34,21 +35,27 @@ export function WarehouseManagement({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: warehouses = [], isLoading: isLoadingWarehouses } = useQuery<Warehouse[]>({
+  // Fetch warehouses
+  const { data: warehouses = [], isLoading: isLoadingWarehouses, error: warehousesError } = useQuery<Warehouse[]>({
     queryKey: ['/api/warehouse'],
-    enabled: true,
+    retry: 3,
   });
 
-  const { data: metrics, isLoading: isLoadingMetrics } = useQuery<WarehouseMetrics>({
+  // Fetch warehouse metrics
+  const { data: metrics, isLoading: isLoadingMetrics, error: metricsError } = useQuery<WarehouseMetrics>({
     queryKey: ['/api/warehouse/metrics', selectedWarehouse],
     enabled: !!selectedWarehouse,
+    retry: 3,
   });
 
-  const { data: zones = [], isLoading: isLoadingZones } = useQuery<WarehouseZone[]>({
+  // Fetch warehouse zones
+  const { data: zones = [], isLoading: isLoadingZones, error: zonesError } = useQuery<WarehouseZone[]>({
     queryKey: ['/api/warehouse/zones', selectedWarehouse],
     enabled: !!selectedWarehouse,
+    retry: 3,
   });
 
+  // Update zone mutation
   const updateZoneMutation = useMutation({
     mutationFn: async ({ zoneId, updates }: { zoneId: string; updates: Partial<WarehouseZone> }) => {
       const response = await fetch(`/api/warehouse/zones/${zoneId}`, {
@@ -56,7 +63,10 @@ export function WarehouseManagement({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
-      if (!response.ok) throw new Error('Failed to update zone');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update zone');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -67,9 +77,10 @@ export function WarehouseManagement({
       });
     },
     onError: (error) => {
+      console.error('Update zone error:', error);
       toast({
         title: "Error",
-        description: "Failed to update zone. Please try again.",
+        description: error.message || "Failed to update zone. Please try again.",
         variant: "destructive",
       });
     },
@@ -83,10 +94,23 @@ export function WarehouseManagement({
     return "text-green-500";
   };
 
+  // Handle loading states and errors
   if (isLoadingWarehouses) {
     return (
       <div className="flex items-center justify-center h-96">
         <FontAwesomeIcon icon="spinner" className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (warehousesError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <FontAwesomeIcon icon="exclamation-triangle" className="h-12 w-12 text-red-500" />
+        <p className="text-lg font-medium">Failed to load warehouses</p>
+        <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/warehouse'] })}>
+          Retry
+        </Button>
       </div>
     );
   }
@@ -100,19 +124,9 @@ export function WarehouseManagement({
             Manage and monitor warehouse operations across facilities
           </p>
         </div>
-        <Button
-          onClick={() => {
-            toast({
-              title: "Coming Soon",
-              description: "Zone creation functionality will be available soon.",
-            });
-          }}
-        >
-          <FontAwesomeIcon icon="plus" className="mr-2" />
-          Add New Zone
-        </Button>
       </div>
 
+      {/* Warehouse Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {warehouses.map((warehouse) => (
           <Card
@@ -149,6 +163,7 @@ export function WarehouseManagement({
         ))}
       </div>
 
+      {/* Selected Warehouse Details */}
       {selectedWarehouseData && (
         <Card>
           <CardHeader>
@@ -162,6 +177,7 @@ export function WarehouseManagement({
                 <TabsTrigger value="metrics">Performance Metrics</TabsTrigger>
               </TabsList>
 
+              {/* Overview Tab */}
               <TabsContent value="overview" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                   <Card>
@@ -206,10 +222,19 @@ export function WarehouseManagement({
                 </div>
               </TabsContent>
 
+              {/* Zones Tab */}
               <TabsContent value="zones" className="space-y-4">
                 {isLoadingZones ? (
                   <div className="flex items-center justify-center h-48">
                     <FontAwesomeIcon icon="spinner" className="h-8 w-8 animate-spin" />
+                  </div>
+                ) : zonesError ? (
+                  <div className="flex flex-col items-center justify-center h-48 space-y-4">
+                    <FontAwesomeIcon icon="exclamation-triangle" className="h-8 w-8 text-red-500" />
+                    <p>Failed to load zones</p>
+                    <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones', selectedWarehouse] })}>
+                      Retry
+                    </Button>
                   </div>
                 ) : (
                   <Table>
@@ -229,7 +254,9 @@ export function WarehouseManagement({
                         <TableRow key={zone.id}>
                           <TableCell className="font-medium">{zone.id}</TableCell>
                           <TableCell>{zone.name}</TableCell>
-                          <TableCell>{zone.type}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{zone.type}</Badge>
+                          </TableCell>
                           <TableCell>{zone.capacity.toLocaleString()} sq ft</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -245,25 +272,17 @@ export function WarehouseManagement({
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant={zone.status === 'active' ? 'default' : 'secondary'}
-                            >
+                            <Badge variant={zone.status === 'active' ? 'default' : 'secondary'}>
                               {zone.status}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => {
-                                toast({
-                                  title: "Coming Soon",
-                                  description: "Zone editing functionality will be available soon.",
-                                });
-                              }}
-                            >
-                              <FontAwesomeIcon icon="edit" className="h-4 w-4" />
-                            </Button>
+                          <TableCell className="text-right space-x-2">
+                            <ZoneUtilizationDialog
+                              zone={zone}
+                              onUpdate={(updates) =>
+                                updateZoneMutation.mutate({ zoneId: zone.id, updates })
+                              }
+                            />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -272,57 +291,168 @@ export function WarehouseManagement({
                 )}
               </TabsContent>
 
+              {/* Metrics Tab */}
               <TabsContent value="metrics" className="space-y-4">
                 {isLoadingMetrics ? (
                   <div className="flex items-center justify-center h-48">
                     <FontAwesomeIcon icon="spinner" className="h-8 w-8 animate-spin" />
                   </div>
+                ) : metricsError ? (
+                  <div className="flex flex-col items-center justify-center h-48 space-y-4">
+                    <FontAwesomeIcon icon="exclamation-triangle" className="h-8 w-8 text-red-500" />
+                    <p>Failed to load metrics</p>
+                    <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/warehouse/metrics', selectedWarehouse] })}>
+                      Retry
+                    </Button>
+                  </div>
                 ) : metrics ? (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Picking Accuracy</p>
-                            <h3 className="text-2xl font-bold">{metrics.pickingAccuracy}%</h3>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Picking Accuracy</p>
+                              <h3 className="text-2xl font-bold">{metrics.pickingAccuracy}%</h3>
+                            </div>
+                            <FontAwesomeIcon icon="bullseye" className="h-8 w-8 text-blue-500" />
                           </div>
-                          <FontAwesomeIcon icon="bullseye" className="h-8 w-8 text-blue-500" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Orders Processed</p>
-                            <h3 className="text-2xl font-bold">{metrics.ordersProcessed}</h3>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Order picking accuracy rate
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Orders Processed</p>
+                              <h3 className="text-2xl font-bold">{metrics.ordersProcessed}</h3>
+                            </div>
+                            <FontAwesomeIcon icon="boxes-stacked" className="h-8 w-8 text-yellow-500" />
                           </div>
-                          <FontAwesomeIcon icon="boxes-stacked" className="h-8 w-8 text-yellow-500" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Inventory Turns</p>
-                            <h3 className="text-2xl font-bold">{metrics.inventoryTurns}</h3>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Total orders processed this month
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Inventory Turns</p>
+                              <h3 className="text-2xl font-bold">{metrics.inventoryTurns}</h3>
+                            </div>
+                            <FontAwesomeIcon icon="rotate" className="h-8 w-8 text-green-500" />
                           </div>
-                          <FontAwesomeIcon icon="rotate" className="h-8 w-8 text-green-500" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Avg Dock Time</p>
-                            <h3 className="text-2xl font-bold">{metrics.avgDockTime} mins</h3>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Annual inventory turnover rate
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Avg Dock Time</p>
+                              <h3 className="text-2xl font-bold">{metrics.avgDockTime} mins</h3>
+                            </div>
+                            <FontAwesomeIcon icon="clock" className="h-8 w-8 text-purple-500" />
                           </div>
-                          <FontAwesomeIcon icon="clock" className="h-8 w-8 text-purple-500" />
-                        </div>
-                      </CardContent>
-                    </Card>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Average loading/unloading time
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Efficiency Metrics</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-sm">Order Fulfillment Time</span>
+                                <span className="text-sm font-medium">
+                                  {metrics.orderFulfillmentTime} hours
+                                </span>
+                              </div>
+                              <div className="h-2 bg-secondary rounded-full">
+                                <div
+                                  className="h-full bg-blue-500 rounded-full"
+                                  style={{
+                                    width: `${Math.min(
+                                      (metrics.orderFulfillmentTime / 48) * 100,
+                                      100
+                                    )}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-sm">Labor Efficiency</span>
+                                <span className="text-sm font-medium">
+                                  {metrics.laborEfficiency}%
+                                </span>
+                              </div>
+                              <div className="h-2 bg-secondary rounded-full">
+                                <div
+                                  className="h-full bg-green-500 rounded-full"
+                                  style={{ width: `${metrics.laborEfficiency}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Accuracy Metrics</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-sm">Inventory Accuracy</span>
+                                <span className="text-sm font-medium">
+                                  {metrics.inventoryAccuracy}%
+                                </span>
+                              </div>
+                              <div className="h-2 bg-secondary rounded-full">
+                                <div
+                                  className="h-full bg-yellow-500 rounded-full"
+                                  style={{ width: `${metrics.inventoryAccuracy}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-sm">Capacity Utilization</span>
+                                <span className="text-sm font-medium">
+                                  {metrics.capacityUtilization}%
+                                </span>
+                              </div>
+                              <div className="h-2 bg-secondary rounded-full">
+                                <div
+                                  className="h-full bg-purple-500 rounded-full"
+                                  style={{ width: `${metrics.capacityUtilization}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center text-muted-foreground">
