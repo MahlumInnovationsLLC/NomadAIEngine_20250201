@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn, generateUUID } from "@/lib/utils";
 import { format } from "date-fns";
 import { CalendarIcon, PlusCircle, X } from "lucide-react";
 import {
@@ -77,7 +77,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
   const form = useForm<MRB>({
     resolver: zodResolver(MRBSchema),
     defaultValues: initialData || {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       number: `MRB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
       title: "",
       description: "",
@@ -106,7 +106,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
   });
 
   const addTask = () => {
-    setTasks([...tasks, { ...defaultMRBTask, id: crypto.randomUUID() }]);
+    setTasks([...tasks, { ...defaultMRBTask, id: generateUUID() }]);
   };
 
   const updateTask = (index: number, updates: Partial<MRBTask>) => {
@@ -120,7 +120,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
   };
 
   const addNote = () => {
-    setNotes([...notes, { ...defaultMRBNote, id: crypto.randomUUID() }]);
+    setNotes([...notes, { ...defaultMRBNote, id: generateUUID() }]);
   };
 
   const updateNote = (index: number, updates: Partial<MRBNote>) => {
@@ -253,7 +253,6 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1">{ncr.description}</p>
                                   <p className="text-sm text-muted-foreground mt-1">Area: {ncr.area}</p>
-                                  {/* Fix the TypeScript error by adding null checks */}
                                   {ncr.containmentActions && ncr.containmentActions.length > 0 && (
                                     <div className="mt-2">
                                       <h5 className="text-sm font-medium">Containment Actions:</h5>

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MRB } from "@/types/manufacturing/mrb";
+import { MRB, MRBTask, MRBNote, MRBAttachment } from "@/types/manufacturing/mrb"; // Updated import
 import { MRBDialog } from "./MRBDialog";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,14 @@ import {
   faSpinner,
   faUserCheck,
   faHistory,
+  faFile,
+  faFileUpload,
+  faTrash,
+  faPlus,
+  faCheck,
+  faBan,
+  faPlay,
+  faPause,
 } from '@fortawesome/pro-light-svg-icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -30,7 +38,17 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { z } from "zod";
+import { generateUUID } from "@/lib/utils";
+
+interface TaskCommentFormData {
+  text: string;
+}
+
+const taskCommentSchema = z.object({
+  text: z.string().min(1, "Comment is required"),
+});
 
 interface MRBDetailsDialogProps {
   open: boolean;
@@ -48,6 +66,7 @@ type DispositionCommentForm = z.infer<typeof dispositionCommentSchema>;
 export function MRBDetailsDialog({ open, onOpenChange, mrb, onSuccess }: MRBDetailsDialogProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -57,6 +76,170 @@ export function MRBDetailsDialog({ open, onOpenChange, mrb, onSuccess }: MRBDeta
       comment: "",
     },
   });
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingAttachment(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`/api/manufacturing/quality/mrb/${mrb.id}/attachments`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload attachment');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
+      toast({
+        title: "Success",
+        description: "Attachment uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Error uploading attachment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to upload attachment",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    try {
+      const response = await fetch(`/api/manufacturing/quality/mrb/${mrb.id}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete attachment');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
+      toast({
+        title: "Success",
+        description: "Attachment deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete attachment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddTask = async (task: Partial<MRBTask>) => {
+    try {
+      const newTask = {
+        ...task,
+        id: generateUUID(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: "pending",
+      };
+
+      const response = await fetch(`/api/manufacturing/quality/mrb/${mrb.id}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newTask),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add task');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
+      toast({
+        title: "Success",
+        description: "Task added successfully",
+      });
+    } catch (error) {
+      console.error('Error adding task:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add task",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddTaskComment = async (taskId: string, comment: TaskCommentFormData) => {
+    try {
+      const response = await fetch(`/api/manufacturing/quality/mrb/${mrb.id}/tasks/${taskId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...comment,
+          id: generateUUID(),
+          author: "current-user", // Replace with actual user info when available
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
+      toast({
+        title: "Success",
+        description: "Comment added successfully",
+      });
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add comment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateTaskStatus = async (taskId: string, status: string, blockedReason?: string) => {
+    try {
+      const response = await fetch(`/api/manufacturing/quality/mrb/${mrb.id}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status,
+          blockedReason,
+          updatedAt: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update task status');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
+      toast({
+        title: "Success",
+        description: "Task status updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update task status",
+        variant: "destructive",
+      });
+    }
+  };
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString();
@@ -171,6 +354,8 @@ export function MRBDetailsDialog({ open, onOpenChange, mrb, onSuccess }: MRBDeta
               <TabsList className="w-full justify-start mb-4">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="disposition">Disposition</TabsTrigger>
+                <TabsTrigger value="tasks">Tasks</TabsTrigger>
+                <TabsTrigger value="attachments">Attachments</TabsTrigger>
                 <TabsTrigger value="cost-impact">Cost Impact</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
               </TabsList>
@@ -334,6 +519,222 @@ export function MRBDetailsDialog({ open, onOpenChange, mrb, onSuccess }: MRBDeta
                         </div>
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="tasks" className="space-y-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Tasks</CardTitle>
+                    <Button onClick={() => handleAddTask({
+                      title: "New Task",
+                      description: "",
+                      assignedTo: "",
+                      dueDate: new Date().toISOString(),
+                      priority: "medium",
+                    })}>
+                      <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
+                      Add Task
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {mrb.tasks?.map((task, index) => (
+                        <Card key={task.id}>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-medium">{task.title}</h4>
+                                <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Badge variant="outline">{task.status}</Badge>
+                                  <Badge variant="outline">{task.priority}</Badge>
+                                </div>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                <p>Assigned to: {task.assignedTo}</p>
+                                <p>Due: {formatDate(task.dueDate)}</p>
+                              </div>
+                            </div>
+                            {task.status === "blocked" && task.blockedReason && (
+                              <div className="mt-2 p-2 bg-destructive/10 rounded-md">
+                                <p className="text-sm text-destructive">Blocked: {task.blockedReason}</p>
+                              </div>
+                            )}
+                            {task.comments && task.comments.length > 0 && (
+                              <div className="mt-4 space-y-2">
+                                <h5 className="text-sm font-medium">Comments</h5>
+                                {task.comments.map((comment) => (
+                                  <div key={comment.id} className="text-sm bg-muted p-2 rounded-md">
+                                    <div className="flex justify-between items-start">
+                                      <span className="font-medium">{comment.author}</span>
+                                      <span className="text-muted-foreground">{formatDate(comment.timestamp)}</span>
+                                    </div>
+                                    <p className="mt-1">{comment.text}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="mt-4 space-y-4">
+                              <form onSubmit={(e) => {
+                                e.preventDefault();
+                                const commentText = form.getValues(`comment-${task.id}`);
+                                if (commentText) {
+                                  handleAddTaskComment(task.id, { text: commentText });
+                                  form.setValue(`comment-${task.id}`, '');
+                                }
+                              }}>
+                                <FormField
+                                  control={form.control}
+                                  name={`comment-${task.id}`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <div className="flex gap-2">
+                                          <Textarea
+                                            placeholder="Add a comment..."
+                                            className="h-20"
+                                            {...field}
+                                          />
+                                          <Button type="submit" size="sm" className="mt-auto">
+                                            Add Comment
+                                          </Button>
+                                        </div>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </form>
+                              <div className="flex gap-2 mt-4">
+                                {task.status !== "completed" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleUpdateTaskStatus(task.id, "completed")}
+                                  >
+                                    <FontAwesomeIcon icon={faCheck} className="mr-2 h-4 w-4" />
+                                    Complete
+                                  </Button>
+                                )}
+                                {task.status !== "blocked" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={async () => {
+                                      const reason = window.prompt("Please enter the reason for blocking this task:");
+                                      if (reason) {
+                                        await handleUpdateTaskStatus(task.id, "blocked", reason);
+                                      }
+                                    }}
+                                  >
+                                    <FontAwesomeIcon icon={faBan} className="mr-2 h-4 w-4" />
+                                    Block
+                                  </Button>
+                                )}
+                                {task.status !== "in_progress" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleUpdateTaskStatus(task.id, "in_progress")}
+                                  >
+                                    <FontAwesomeIcon icon={faPlay} className="mr-2 h-4 w-4" />
+                                    Start
+                                  </Button>
+                                )}
+                                {task.status !== "on_hold" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleUpdateTaskStatus(task.id, "on_hold")}
+                                  >
+                                    <FontAwesomeIcon icon={faPause} className="mr-2 h-4 w-4" />
+                                    Hold
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="attachments" className="space-y-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Attachments</CardTitle>
+                    <div className="flex gap-2">
+                      <Input
+                        type="file"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label htmlFor="file-upload">
+                        <Button asChild>
+                          <span>
+                            <FontAwesomeIcon icon={faFileUpload} className="mr-2 h-4 w-4" />
+                            Upload File
+                          </span>
+                        </Button>
+                      </label>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {mrb.attachments?.map((attachment) => (
+                        <Card key={attachment.id}>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <FontAwesomeIcon icon={faFile} className="h-4 w-4" />
+                                <div>
+                                  <p className="font-medium">{attachment.name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Uploaded by {attachment.uploadedBy} on {formatDate(attachment.uploadedAt)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                {attachment.version && (
+                                  <Badge variant="outline" className="ml-2">v{attachment.version}</Badge>
+                                )}
+                                {attachment.status && (
+                                  <Badge variant="outline" className="ml-2">{attachment.status}</Badge>
+                                )}
+                                {attachment.tags && attachment.tags.length > 0 && (
+                                  <div className="mt-2 flex gap-1">
+                                    {attachment.tags.map((tag, idx) => (
+                                      <Badge key={idx} variant="secondary">{tag}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.open(attachment.url, '_blank', 'noopener,noreferrer')}
+                                >
+                                  <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
+                                  View
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDeleteAttachment(attachment.id)}
+                                >
+                                  <FontAwesomeIcon icon={faTrash} className="mr-2 h-4 w-4" />
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

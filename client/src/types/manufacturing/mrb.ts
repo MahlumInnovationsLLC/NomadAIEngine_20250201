@@ -1,5 +1,5 @@
 import { z } from "zod";
-import crypto from 'crypto';
+import { generateUUID } from "@/lib/utils";
 
 // Define schema for MRB actions and dispositions
 const MRBActionSchema = z.object({
@@ -24,12 +24,13 @@ const TaskSchema = z.object({
   description: z.string(),
   assignedTo: z.string(),
   dueDate: z.string(),
-  status: z.enum(["pending", "in_progress", "completed", "blocked"]),
+  status: z.enum(["pending", "in_progress", "completed", "blocked", "on_hold"]),
   priority: z.enum(["low", "medium", "high", "critical"]),
   createdBy: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
   completedAt: z.string().optional(),
+  blockedReason: z.string().optional(),
   comments: z.array(z.object({
     id: z.string(),
     text: z.string(),
@@ -44,9 +45,27 @@ const NoteSchema = z.object({
   title: z.string(),
   content: z.string(),
   author: z.string(),
-  category: z.enum(["general", "technical", "quality", "disposition", "other"]),
+  category: z.enum(["general", "technical", "quality", "disposition", "engineering", "production", "other"]),
   createdAt: z.string(),
   updatedAt: z.string(),
+  tags: z.array(z.string()).optional(),
+  relatedDocuments: z.array(z.string()).optional(),
+});
+
+// Define schema for attachments
+const AttachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  url: z.string(),
+  category: z.enum(["document", "image", "drawing", "report", "specification", "procedure", "other"]),
+  description: z.string().optional(),
+  uploadedBy: z.string(),
+  uploadedAt: z.string(),
+  size: z.number(),
+  metadata: z.record(z.string()).optional(),
+  version: z.string().optional(),
+  status: z.enum(["draft", "active", "archived"]).optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -137,18 +156,7 @@ export const MRBSchema = z.object({
   }),
 
   // Attachments and Documentation
-  attachments: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    type: z.string(),
-    url: z.string(),
-    category: z.enum(["document", "image", "drawing", "report", "other"]),
-    description: z.string().optional(),
-    uploadedBy: z.string(),
-    uploadedAt: z.string(),
-    size: z.number(),
-    metadata: z.record(z.string()).optional(),
-  })),
+  attachments: z.array(AttachmentSchema),
 
   // Audit Trail
   history: z.array(z.object({
@@ -181,6 +189,7 @@ export type MRBAction = z.infer<typeof MRBActionSchema>;
 export type LinkedNCR = z.infer<typeof LinkedNCRSchema>;
 export type MRBTask = z.infer<typeof TaskSchema>;
 export type MRBNote = z.infer<typeof NoteSchema>;
+export type MRBAttachment = z.infer<typeof AttachmentSchema>;
 
 export const defaultMRBAction = {
   description: "",
@@ -191,7 +200,7 @@ export const defaultMRBAction = {
 };
 
 export const defaultMRBTask = {
-  id: crypto.randomUUID(),
+  id: generateUUID(),
   title: "",
   description: "",
   assignedTo: "",
@@ -205,7 +214,7 @@ export const defaultMRBTask = {
 };
 
 export const defaultMRBNote = {
-  id: crypto.randomUUID(),
+  id: generateUUID(),
   title: "",
   content: "",
   author: "current-user",

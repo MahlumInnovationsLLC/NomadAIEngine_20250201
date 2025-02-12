@@ -9,6 +9,7 @@ import { useAzureUsers } from "@/hooks/use-azure-users";
 import { Badge } from "@/components/ui/badge";
 import { PresenceIndicator } from "@/components/ui/presence-indicator";
 import { format } from "date-fns";
+import { generateUUID } from "@/lib/utils";
 
 interface WorkflowDialogProps {
   documentId: string;
