@@ -71,6 +71,7 @@ interface Disposition {
     date: string;
     comment?: string;
   }>;
+  approvalDate?: string;
 }
 
 interface NCRData {
@@ -80,7 +81,7 @@ interface NCRData {
   description: string;
   type: 'material' | 'documentation' | 'product' | 'process';
   severity: 'minor' | 'major' | 'critical';
-  status: 'open' | 'closed' | 'under_review' | 'pending_disposition';
+  status: 'open' | 'closed' | 'under_review' | 'pending_disposition' | 'in_review';
   area: string;
   lotNumber?: string;
   quantityAffected?: number;
@@ -91,6 +92,10 @@ interface NCRData {
   updatedAt: string;
   userKey: string;
   linkedCapaId?: string;
+  mrbId?: string;
+  mrbNumber?: string;
+  dispositionNotes?: string;
+  projectNumber?: string;
 }
 
 interface Attachment {
@@ -299,7 +304,7 @@ router.get('/mrb', async (req, res) => {
     // Then, get all relevant NCRs (both pending_disposition and closed)
     const { resources: relevantNcrs } = await container.items
       .query({
-        query: 'SELECT * FROM c WHERE (c.status = "pending_disposition" OR c.status = "closed") AND STARTSWITH(c.id, "NCR-")',
+        query: 'SELECT * FROM c WHERE (c.status = "pending_disposition" OR c.status = "closed" OR c.status = "in_review") AND STARTSWITH(c.id, "NCR-")',
         partitionKey: 'default'
       })
       .fetchAll();
@@ -368,7 +373,7 @@ router.get('/mrb', async (req, res) => {
   }
 });
 
-// Create new MRB
+// Update the createMRB endpoint to better handle NCR assignments
 router.post('/mrb', async (req, res) => {
   try {
     if (!container) {
@@ -383,6 +388,7 @@ router.post('/mrb', async (req, res) => {
       type: "mrb",
       id: `MRB-${Date.now()}`,
       userKey: 'default',
+      linkedNCRs: linkedNCRs || [], // Ensure linkedNCRs is always an array
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -430,49 +436,6 @@ router.post('/mrb', async (req, res) => {
     console.error('Error creating MRB:', error);
     res.status(500).json({ 
       message: error instanceof Error ? error.message : 'Failed to create MRB' 
-    });
-  }
-});
-
-// Update MRB
-router.put('/mrb/:id', async (req, res) => {
-  try {
-    if (!container) {
-      container = await initializeContainer();
-    }
-
-    const { id } = req.params;
-    console.log(`Updating MRB with ID: ${id}`);
-
-    // Query for MRB using id
-    const { resources: [existingMrb] } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.id = @id",
-        parameters: [{ name: "@id", value: id }],
-        partitionKey: 'default'
-      })
-      .fetchAll();
-
-    if (!existingMrb) {
-      console.log(`MRB with ID ${id} not found`);
-      return res.status(404).json({ message: 'MRB not found' });
-    }
-
-    const mrbData = {
-      ...existingMrb,
-      ...req.body,
-      id,
-      userKey: 'default',
-      updatedAt: new Date().toISOString()
-    };
-
-    const { resource: updatedMrb } = await container.items.upsert(mrbData);
-    console.log('MRB updated successfully');
-    res.json(updatedMrb);
-  } catch (error) {
-    console.error('Error updating MRB:', error);
-    res.status(500).json({ 
-      message: error instanceof Error ? error.message : 'Failed to update MRB' 
     });
   }
 });
@@ -620,8 +583,35 @@ router.get('/ncrs', async (req, res) => {
       .query(querySpec)
       .fetchAll();
 
-    console.log(`Found ${ncrs.length} NCRs${status ? ` with status ${status}` : ''}`);
-    res.json(ncrs);
+    // Get all open MRBs to check for NCR assignments
+    const { resources: openMrbs } = await container.items
+      .query({
+        query: 'SELECT * FROM c WHERE c.type = "mrb" AND c.status != "closed"',
+        partitionKey: 'default'
+      })
+      .fetchAll();
+
+    // Enhance NCR data with MRB assignment information
+    const enhancedNcrs = ncrs.map(ncr => {
+      const assignedMrb = openMrbs.find(mrb => {
+        // Check both direct mrbId reference and linkedNCRs array
+        return (ncr.mrbId === mrb.id) || 
+               (mrb.linkedNCRs && mrb.linkedNCRs.some((link: any) => link.ncrId === ncr.id));
+      });
+
+      return {
+        ...ncr,
+        assignedToMrb: assignedMrb ? {
+          id: assignedMrb.id,
+          number: assignedMrb.number,
+          status: assignedMrb.status
+        } : null
+      };
+    });
+
+    console.log(`Found ${enhancedNcrs.length} NCRs${status ? ` with status ${status}` : ''}`);
+    console.log('NCRs with MRB assignments:', enhancedNcrs.filter(n => n.assignedToMrb).length);
+    res.json(enhancedNcrs);
   } catch (error) {
     console.error('Error fetching NCRs:', error);
     res.status(500).json({ 
