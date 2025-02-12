@@ -376,8 +376,10 @@ router.post('/mrb', async (req, res) => {
     }
 
     console.log('Creating new MRB:', req.body);
-    const mrbData = {
-      ...req.body,
+    const { linkedNCRs, ...mrbData } = req.body;
+
+    const newMRB = {
+      ...mrbData,
       type: "mrb",
       id: `MRB-${Date.now()}`,
       userKey: 'default',
@@ -385,7 +387,43 @@ router.post('/mrb', async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    const { resource: createdMrb } = await container.items.create(mrbData);
+    const { resource: createdMrb } = await container.items.create(newMRB);
+
+    // Update status and link NCRs if provided
+    if (linkedNCRs && linkedNCRs.length > 0) {
+      console.log('Processing linked NCRs:', linkedNCRs);
+
+      const updatePromises = linkedNCRs.map(async (link: { ncrId: string, dispositionNotes: string }) => {
+        const { ncrId, dispositionNotes } = link;
+
+        // Query for NCR using id
+        const { resources: [ncr] } = await container.items
+          .query({
+            query: "SELECT * FROM c WHERE c.id = @id",
+            parameters: [{ name: "@id", value: ncrId }],
+            partitionKey: 'default'
+          })
+          .fetchAll();
+
+        if (ncr) {
+          // Update NCR with MRB reference and notes
+          const updatedNcr = {
+            ...ncr,
+            status: 'in_review',
+            mrbId: createdMrb.id,
+            mrbNumber: createdMrb.number,
+            dispositionNotes,
+            updatedAt: new Date().toISOString()
+          };
+
+          return container.items.upsert(updatedNcr);
+        }
+        return Promise.resolve();
+      });
+
+      await Promise.all(updatePromises);
+    }
+
     console.log('Created MRB:', createdMrb);
     res.status(201).json(createdMrb);
   } catch (error) {
@@ -562,14 +600,27 @@ router.get('/ncrs', async (req, res) => {
     }
 
     console.log('Fetching NCRs from Cosmos DB...');
+    const { status } = req.query;
+    let queryText = 'SELECT * FROM c WHERE c.number != null AND STARTSWITH(c.id, "NCR-")';
+
+    if (status) {
+      queryText += ' AND c.status = @status';
+    }
+
+    queryText += ' ORDER BY c._ts DESC';
+
+    const querySpec = {
+      query: queryText,
+      parameters: status ? [{ name: '@status', value: status }] : [],
+      partitionKey: 'default'
+    };
+
+    console.log('Executing query:', querySpec);
     const { resources: ncrs } = await container.items
-      .query({
-        query: 'SELECT * FROM c WHERE c.number != null AND STARTSWITH(c.id, "NCR-") ORDER BY c._ts DESC',
-        partitionKey: 'default'
-      })
+      .query(querySpec)
       .fetchAll();
 
-    console.log(`Found ${ncrs.length} NCRs`);
+    console.log(`Found ${ncrs.length} NCRs${status ? ` with status ${status}` : ''}`);
     res.json(ncrs);
   } catch (error) {
     console.error('Error fetching NCRs:', error);
@@ -892,7 +943,7 @@ router.put('/inspections/:id/update-ncrs', async (req, res) => {
 });
 
 // Get all CAPA categories
-router.get('/capa-categories', async (req, res) => {
+router.get('/capa-categories', async(req, res) => {
   try {
     console.log('Fetching CAPA categories from database...');
     const allCategories = await db.query.capaCategories.findMany({
@@ -923,7 +974,7 @@ router.get('/capas', async (req, res) => {
 
     console.log(`Successfully fetched ${allCapas.length} CAPAs:`, allCapas);
     res.json(allCapas);
-} catch (error) {
+  } catch (error) {
     console.error('Error fetching CAPAs:', error);
     res.status(500).json({
       message: error instanceof Error ? error.message : 'Failed to fetch CAPAs',

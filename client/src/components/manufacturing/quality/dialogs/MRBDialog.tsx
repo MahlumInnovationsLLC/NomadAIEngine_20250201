@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,8 +24,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { MRB, MRBSchema } from "@/types/manufacturing/mrb";
+import { useQuery } from "@tanstack/react-query";
 
 interface MRBDialogProps {
   open: boolean;
@@ -34,9 +36,26 @@ interface MRBDialogProps {
   onSuccess: (savedMRB: MRB) => void;
 }
 
+interface PendingNCR {
+  id: string;
+  number: string;
+  title: string;
+  description: string;
+  type: string;
+  severity: string;
+  area: string;
+  status: string;
+}
+
 export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDialogProps) {
-  const [activeTab, setActiveTab] = useState("details");
+  const [activeTab, setActiveTab] = useState("ncrs");
+  const [selectedNCRs, setSelectedNCRs] = useState<{[key: string]: { ncr: PendingNCR, notes: string }}>({});
   const isEditing = !!initialData;
+
+  const { data: pendingNCRs = [] } = useQuery<PendingNCR[]>({
+    queryKey: ['/api/manufacturing/quality/ncrs', { status: 'pending_disposition' }],
+    enabled: !isEditing,
+  });
 
   const form = useForm<MRB>({
     resolver: zodResolver(MRBSchema),
@@ -63,17 +82,44 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
         justification: "",
         approvedBy: [],
       },
-      actions: [],
       attachments: [],
       history: [],
-      createdBy: "current-user", // Replace with actual user ID
+      createdBy: "current-user",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      linkedNCRs: [] // Added linkedNCRs to defaultValues
     },
   });
 
+  const toggleNCRSelection = (ncr: PendingNCR) => {
+    setSelectedNCRs(prev => {
+      const newSelection = { ...prev };
+      if (newSelection[ncr.id]) {
+        delete newSelection[ncr.id];
+      } else {
+        newSelection[ncr.id] = { ncr, notes: '' };
+      }
+      return newSelection;
+    });
+  };
+
+  const updateNCRNotes = (ncrId: string, notes: string) => {
+    setSelectedNCRs(prev => ({
+      ...prev,
+      [ncrId]: { ...prev[ncrId], notes }
+    }));
+  };
+
   const onSubmit = async (data: MRB) => {
     try {
+      const submitData = {
+        ...data,
+        linkedNCRs: Object.entries(selectedNCRs).map(([id, { notes }]) => ({
+          ncrId: id,
+          dispositionNotes: notes
+        }))
+      };
+
       const url = isEditing
         ? `/api/manufacturing/quality/mrb/${data.id}`
         : '/api/manufacturing/quality/mrb';
@@ -81,7 +127,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
       const response = await fetch(url, {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(submitData),
       });
 
       if (!response.ok) {
@@ -110,6 +156,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
             <ScrollArea className="flex-1 px-1">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="w-full">
+                  <TabsTrigger value="ncrs">Select NCRs</TabsTrigger>
                   <TabsTrigger value="details">Details</TabsTrigger>
                   <TabsTrigger value="nonconformance">Nonconformance</TabsTrigger>
                   <TabsTrigger value="disposition">Disposition</TabsTrigger>
@@ -117,6 +164,50 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
                   <TabsTrigger value="costs">Cost Impact</TabsTrigger>
                   <TabsTrigger value="attachments">Attachments</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="ncrs" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    {pendingNCRs.map((ncr) => (
+                      <Card key={ncr.id} className={`border-2 ${selectedNCRs[ncr.id] ? 'border-primary' : 'border-transparent'}`}>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-4">
+                              <Checkbox
+                                checked={!!selectedNCRs[ncr.id]}
+                                onCheckedChange={() => toggleNCRSelection(ncr)}
+                              />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium">{ncr.title}</h4>
+                                  <Badge>{ncr.number}</Badge>
+                                  <Badge variant={ncr.severity === 'critical' ? 'destructive' : 'secondary'}>
+                                    {ncr.severity}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">{ncr.description}</p>
+                                <p className="text-sm text-muted-foreground mt-1">Area: {ncr.area}</p>
+                              </div>
+                            </div>
+                          </div>
+                          {selectedNCRs[ncr.id] && (
+                            <div className="mt-4">
+                              <FormItem>
+                                <FormLabel>Disposition Notes</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    value={selectedNCRs[ncr.id].notes}
+                                    onChange={(e) => updateNCRNotes(ncr.id, e.target.value)}
+                                    placeholder="Add notes specific to this NCR's disposition..."
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </TabsContent>
 
                 <TabsContent value="details" className="space-y-4 mt-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -217,7 +308,15 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
                   </Card>
                 </TabsContent>
 
-                {/* Add remaining tab contents */}
+                <TabsContent value="actions" className="space-y-4 mt-4">
+                  {/* Add actions content */}
+                </TabsContent>
+                <TabsContent value="costs" className="space-y-4 mt-4">
+                  {/* Add costs content */}
+                </TabsContent>
+                <TabsContent value="attachments" className="space-y-4 mt-4">
+                  {/* Add attachments content */}
+                </TabsContent>
               </Tabs>
             </ScrollArea>
 
@@ -229,7 +328,10 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
               >
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button 
+                type="submit"
+                disabled={!isEditing && Object.keys(selectedNCRs).length === 0}
+              >
                 {isEditing ? 'Update MRB' : 'Create MRB'}
               </Button>
             </div>

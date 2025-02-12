@@ -10,6 +10,12 @@ const MRBActionSchema = z.object({
   comments: z.string().optional(),
 });
 
+// Define schema for linked NCRs
+const LinkedNCRSchema = z.object({
+  ncrId: z.string(),
+  dispositionNotes: z.string(),
+});
+
 export const MRBSchema = z.object({
   id: z.string(),
   number: z.string(),
@@ -41,6 +47,7 @@ export const MRBSchema = z.object({
   // Related Documents
   ncrNumber: z.string().optional(),
   capaNumber: z.string().optional(),
+  linkedNCRs: z.array(LinkedNCRSchema).optional(),
 
   // Review Details
   nonconformance: z.object({
@@ -108,6 +115,7 @@ export const MRBSchema = z.object({
 
 export type MRB = z.infer<typeof MRBSchema>;
 export type MRBAction = z.infer<typeof MRBActionSchema>;
+export type LinkedNCR = z.infer<typeof LinkedNCRSchema>;
 
 export const defaultMRBAction = {
   description: "",
