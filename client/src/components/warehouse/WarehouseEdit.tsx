@@ -1,18 +1,4 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -31,16 +17,33 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { Warehouse, WarehouseMetrics, WarehouseZone } from "@/types/material";
 import { ZoneUtilizationDialog } from "../material/warehouse/ZoneUtilizationDialog";
 import { ZoneCreateDialog } from "../material/warehouse/ZoneCreateDialog";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+
 
 interface WarehouseEditProps {
   warehouse?: Warehouse;
   isOpen: boolean;
   onClose: () => void;
+  onUpdate: (warehouseId: string, updates: Partial<Warehouse>) => void;
 }
 
 type WarehouseFormData = {
@@ -51,12 +54,80 @@ type WarehouseFormData = {
   totalCapacity: number;
 };
 
-export default function WarehouseEdit({ warehouse, isOpen, onClose }: WarehouseEditProps) {
+const MetricsCard = ({ 
+  title, 
+  value, 
+  unit = "", 
+  icon, 
+  trend = 0,
+  color = "blue"
+}: { 
+  title: string; 
+  value: number; 
+  unit?: string; 
+  icon: string;
+  trend?: number;
+  color?: "blue" | "green" | "yellow" | "purple" | "red";
+}) => (
+  <Card>
+    <div className="p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <h3 className="text-2xl font-bold">
+            {value.toLocaleString()}{unit}
+          </h3>
+          {trend !== 0 && (
+            <div className={`flex items-center text-sm ${trend > 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <FontAwesomeIcon 
+                icon={trend > 0 ? 'arrow-up' : 'arrow-down'} 
+                className="h-3 w-3 mr-1" 
+              />
+              {Math.abs(trend)}% from last month
+            </div>
+          )}
+        </div>
+        <FontAwesomeIcon icon={icon as any} className={`h-8 w-8 text-${color}-500`} />
+      </div>
+    </div>
+  </Card>
+);
+
+const ProgressMetric = ({
+  label,
+  value,
+  target,
+  color = "blue"
+}: {
+  label: string;
+  value: number;
+  target: number;
+  color?: "blue" | "green" | "yellow" | "purple" | "red";
+}) => (
+  <div>
+    <div className="flex justify-between mb-1">
+      <span className="text-sm">{label}</span>
+      <span className="text-sm font-medium">
+        {value}% of {target}%
+      </span>
+    </div>
+    <Progress 
+      value={value} 
+      max={target}
+      className={cn(
+        "bg-secondary h-2",
+        `[&>div]:bg-${color}-500`
+      )}
+    />
+  </div>
+);
+
+export default function WarehouseEdit({ warehouse, isOpen, onClose, onUpdate }: WarehouseEditProps) {
+  const [activeTab, setActiveTab] = useState("details");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("details");
-  const [showAddZone, setShowAddZone] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState<WarehouseFormData>({
     name: '',
     code: '',
@@ -68,19 +139,11 @@ export default function WarehouseEdit({ warehouse, isOpen, onClose }: WarehouseE
   useEffect(() => {
     if (warehouse) {
       setFormData({
-        name: warehouse.name,
-        code: warehouse.code,
-        type: warehouse.type,
-        location: warehouse.location,
-        totalCapacity: warehouse.capacity.total,
-      });
-    } else {
-      setFormData({
-        name: '',
-        code: '',
-        type: 'primary',
-        location: '',
-        totalCapacity: 0,
+        name: warehouse.name || '',
+        code: warehouse.code || '',
+        type: warehouse.type || 'primary',
+        location: warehouse.location || '',
+        totalCapacity: warehouse.capacity?.total || 0,
       });
     }
   }, [warehouse]);
@@ -96,41 +159,59 @@ export default function WarehouseEdit({ warehouse, isOpen, onClose }: WarehouseE
     retry: 3,
   });
 
-  const updateWarehouseMutation = useMutation({
-    mutationFn: async (data: WarehouseFormData) => {
-      const response = await fetch(`/api/warehouse/${warehouse?.id || ''}`, {
-        method: warehouse ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to update warehouse');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const updates: Partial<Warehouse> = {
+        name: formData.name,
+        code: formData.code,
+        type: formData.type,
+        location: formData.location,
+        capacity: {
+          total: formData.totalCapacity,
+          used: warehouse?.capacity?.used || 0,
+          available: formData.totalCapacity - (warehouse?.capacity?.used || 0),
+        },
+      };
+
+      if (warehouse?.id) {
+        await onUpdate(warehouse.id, updates);
+      } else {
+        const response = await fetch('/api/warehouse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create warehouse');
+        }
+
+        const newWarehouse = await response.json();
+        onUpdate(newWarehouse.id, updates);
       }
 
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/warehouse'] });
-      toast({
-        title: `Warehouse ${warehouse ? 'Updated' : 'Created'}`,
-        description: `Successfully ${warehouse ? 'updated' : 'created'} warehouse.`,
-      });
       onClose();
-    },
-    onError: (error: Error) => {
+    } catch (error) {
+      console.error('Warehouse update error:', error);
       toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update warehouse",
+        variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-  const deleteWarehouseMutation = useMutation({
-    mutationFn: async () => {
-      if (!warehouse?.id) return;
+  const handleDelete = async () => {
+    if (!warehouse?.id) return;
 
+    setIsSubmitting(true);
+    try {
       const response = await fetch(`/api/warehouse/${warehouse.id}`, {
         method: 'DELETE',
       });
@@ -139,94 +220,23 @@ export default function WarehouseEdit({ warehouse, isOpen, onClose }: WarehouseE
         throw new Error('Failed to delete warehouse');
       }
 
-      return response.json();
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse'] });
       toast({
         title: "Warehouse Deleted",
         description: "Successfully deleted the warehouse.",
       });
       onClose();
-    },
-    onError: (error: Error) => {
+    } catch (error) {
+      console.error('Delete warehouse error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to delete warehouse",
+        description: error instanceof Error ? error.message : "Failed to delete warehouse",
         variant: "destructive",
       });
-    },
-  });
-
-  const updateZoneMutation = useMutation({
-    mutationFn: async ({ zoneId, updates }: { zoneId: string; updates: Partial<WarehouseZone> }) => {
-      const response = await fetch(`/api/warehouse/zones/${zoneId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update zone');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones', warehouse?.id] });
-      toast({
-        title: "Zone Updated",
-        description: "The zone has been successfully updated.",
-      });
-    },
-    onError: (error) => {
-      console.error('Update zone error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update zone. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const createZoneMutation = useMutation({
-    mutationFn: async (zoneData: Omit<WarehouseZone, 'id'>) => {
-      const response = await fetch(`/api/warehouse/${warehouse?.id}/zones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(zoneData),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create zone');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones', warehouse?.id] });
-      toast({
-        title: "Zone Created",
-        description: "The zone has been successfully created.",
-      });
-      setShowAddZone(false);
-    },
-    onError: (error) => {
-      console.error('Create zone error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create zone. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateWarehouseMutation.mutate(formData);
-  };
-
-  const handleDelete = () => {
-    deleteWarehouseMutation.mutate();
-    setShowDeleteConfirm(false);
+    } finally {
+      setIsSubmitting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   const getUtilizationColor = (percentage: number) => {
@@ -235,15 +245,272 @@ export default function WarehouseEdit({ warehouse, isOpen, onClose }: WarehouseE
     return "text-green-500";
   };
 
+  const renderMetrics = warehouse && metrics && (
+    <TabsContent value="metrics">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <MetricsCard
+            title="Picking Accuracy"
+            value={metrics.pickingAccuracy}
+            unit="%"
+            icon="bullseye"
+            trend={2.5}
+            color="blue"
+          />
+          <MetricsCard
+            title="Orders Processed"
+            value={metrics.ordersProcessed}
+            icon="boxes-stacked"
+            trend={-1.2}
+            color="yellow"
+          />
+          <MetricsCard
+            title="Inventory Turns"
+            value={metrics.inventoryTurns}
+            icon="rotate"
+            trend={1.8}
+            color="green"
+          />
+          <MetricsCard
+            title="Avg Dock Time"
+            value={metrics.avgDockTime}
+            unit=" mins"
+            icon="clock"
+            trend={-3.5}
+            color="purple"
+          />
+        </div>
 
-  const handleCreateZone = () => {
-    //This line is not used anymore
-  };
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <div className="p-4">
+              <h3 className="font-semibold mb-4">Efficiency Metrics</h3>
+              <div className="space-y-4">
+                <ProgressMetric
+                  label="Order Fulfillment Time"
+                  value={Math.min((metrics.orderFulfillmentTime / 48) * 100, 100)}
+                  target={100}
+                  color="blue"
+                />
+                <ProgressMetric
+                  label="Labor Efficiency"
+                  value={metrics.laborEfficiency}
+                  target={95}
+                  color="green"
+                />
+                <ProgressMetric
+                  label="Equipment Utilization"
+                  value={metrics.equipmentUtilization || 78}
+                  target={90}
+                  color="yellow"
+                />
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="p-4">
+              <h3 className="font-semibold mb-4">Accuracy Metrics</h3>
+              <div className="space-y-4">
+                <ProgressMetric
+                  label="Inventory Accuracy"
+                  value={metrics.inventoryAccuracy}
+                  target={99}
+                  color="purple"
+                />
+                <ProgressMetric
+                  label="Picking Accuracy"
+                  value={metrics.pickingAccuracy}
+                  target={99.5}
+                  color="blue"
+                />
+                <ProgressMetric
+                  label="Capacity Utilization"
+                  value={metrics.capacityUtilization}
+                  target={85}
+                  color="green"
+                />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <Card>
+          <div className="p-4">
+            <h3 className="font-semibold mb-4">Resource Utilization</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Space Utilization</p>
+                <div className="flex items-center gap-2">
+                  <Progress 
+                    value={warehouse?.utilizationPercentage || 0} 
+                    className={cn(
+                      "bg-secondary h-2",
+                      `[&>div]:bg-${getUtilizationColor(warehouse?.utilizationPercentage || 0).replace('text-', '')}`
+                    )}
+                  />
+                  <span className="text-sm font-medium">
+                    {warehouse?.utilizationPercentage || 0}%
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {warehouse?.capacity?.used?.toLocaleString() || '0'} / {warehouse?.capacity?.total?.toLocaleString() || '0'} sq ft
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Labor Utilization</p>
+                <div className="flex items-center gap-2">
+                  <Progress 
+                    value={metrics.laborEfficiency} 
+                    className={cn(
+                      "bg-secondary h-2",
+                      `[&>div]:bg-green-500`
+                    )}
+                  />
+                  <span className="text-sm font-medium">
+                    {metrics.laborEfficiency}%
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Equipment Utilization</p>
+                <div className="flex items-center gap-2">
+                  <Progress 
+                    value={metrics.equipmentUtilization || 78} 
+                    className={cn(
+                      "bg-secondary h-2",
+                      `[&>div]:bg-yellow-500`
+                    )}
+                  />
+                  <span className="text-sm font-medium">
+                    {metrics.equipmentUtilization || 78}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </TabsContent>
+  );
+
+  const renderZones = warehouse && (
+    <TabsContent value="zones" className="space-y-4">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h3 className="text-lg font-semibold">Warehouse Zones</h3>
+          <p className="text-sm text-muted-foreground">
+            Manage and monitor warehouse zones
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowAddZone(true)}
+        >
+          <FontAwesomeIcon icon="plus" className="mr-2" />
+          Add Zone
+        </Button>
+      </div>
+
+      {zonesLoading ? (
+        <div className="flex items-center justify-center h-48">
+          <FontAwesomeIcon icon="spinner" className="h-8 w-8 animate-spin" />
+        </div>
+      ) : zones.length === 0 ? (
+        <Card>
+          <div className="p-8 text-center">
+            <FontAwesomeIcon icon="warehouse" className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Zones Found</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Start by adding zones to organize your warehouse space efficiently
+            </p>
+            <Button onClick={() => setShowAddZone(true)}>
+              <FontAwesomeIcon icon="plus" className="mr-2" />
+              Create First Zone
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {zones.map((zone) => (
+            <Card key={zone.id}>
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold">{zone.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline">{zone.type}</Badge>
+                      <Badge variant={zone.status === 'active' ? 'default' : 'secondary'}>
+                        {zone.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ZoneUtilizationDialog
+                      zone={zone}
+                      onUpdate={(updates) =>
+                        updateZoneMutation.mutate({ zoneId: zone.id, updates })
+                      }
+                    />
+                    <Button variant="ghost" size="icon">
+                      <FontAwesomeIcon icon="edit" className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-muted-foreground">Capacity</span>
+                      <span className="text-sm">{zone.capacity.toLocaleString()} sq ft</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={zone.utilizationPercentage}
+                        className={cn(
+                          "bg-secondary h-2",
+                          `[&>div]:bg-${getUtilizationColor(zone.utilizationPercentage).replace('text-', '')}`
+                        )}
+                      />
+                      <span className={`text-sm ${getUtilizationColor(zone.utilizationPercentage)}`}>
+                        {zone.utilizationPercentage}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Picking Strategy</p>
+                      <p className="font-medium">{zone.pickingStrategy}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Cross Docking</p>
+                      <p className="font-medium">
+                        {zone.allowsCrossDocking ? 'Enabled' : 'Disabled'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <ZoneCreateDialog
+        open={showAddZone}
+        onOpenChange={setShowAddZone}
+        onSubmit={(zoneData) => createZoneMutation.mutate(zoneData)}
+        warehouseId={warehouse?.id || ''}
+        warehouseCapacity={warehouse?.capacity?.available || 0}
+      />
+    </TabsContent>
+  );
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{warehouse ? 'Edit' : 'Create'} Warehouse</DialogTitle>
             <DialogDescription>
@@ -327,16 +594,20 @@ export default function WarehouseEdit({ warehouse, isOpen, onClose }: WarehouseE
                         type="button"
                         variant="destructive"
                         onClick={() => setShowDeleteConfirm(true)}
+                        disabled={isSubmitting}
                       >
                         <FontAwesomeIcon icon="trash" className="mr-2" />
                         Delete Warehouse
                       </Button>
                     )}
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={onClose}>
+                      <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
                         Cancel
                       </Button>
-                      <Button type="submit">
+                      <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && (
+                          <FontAwesomeIcon icon="spinner" className="h-4 w-4 animate-spin mr-2" />
+                        )}
                         {warehouse ? 'Update' : 'Create'} Warehouse
                       </Button>
                     </div>
@@ -344,132 +615,8 @@ export default function WarehouseEdit({ warehouse, isOpen, onClose }: WarehouseE
                 </DialogFooter>
               </form>
             </TabsContent>
-
-            {warehouse && metrics && (
-              <TabsContent value="metrics">
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <div className="p-4">
-                      <h3 className="font-semibold mb-4">Efficiency Metrics</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <span>Picking Accuracy</span>
-                            <Badge variant="secondary">{metrics.pickingAccuracy}%</Badge>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <span>Orders Processed</span>
-                            <Badge variant="secondary">{metrics.ordersProcessed}</Badge>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <span>Inventory Turns</span>
-                            <Badge variant="secondary">{metrics.inventoryTurns}</Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-
-                  <Card>
-                    <div className="p-4">
-                      <h3 className="font-semibold mb-4">Performance Metrics</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <span>Avg Dock Time</span>
-                            <Badge variant="secondary">{metrics.avgDockTime} mins</Badge>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <span>Labor Efficiency</span>
-                            <Badge variant="secondary">{metrics.laborEfficiency}%</Badge>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <span>Inventory Accuracy</span>
-                            <Badge variant="secondary">{metrics.inventoryAccuracy}%</Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </TabsContent>
-            )}
-
-            {warehouse && (
-              <TabsContent value="zones">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">Warehouse Zones</h3>
-                    <Button variant="outline" size="sm" onClick={() => setShowAddZone(true)}>
-                      <FontAwesomeIcon icon="plus" className="mr-2" />
-                      Add Zone
-                    </Button>
-                  </div>
-                  {zonesLoading ? (
-                    <p>Loading zones...</p>
-                  ) : zones.length === 0 ? (
-                    <p>No zones found.</p>
-                  ) : (
-                    zones.map((zone) => (
-                      <Card key={zone.id}>
-                        <div className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="font-semibold">{zone.name}</h3>
-                              <p className="text-sm text-muted-foreground">{zone.type}</p>
-                            </div>
-                            <Badge variant={zone.status === 'active' ? 'default' : 'secondary'}>
-                              {zone.status}
-                            </Badge>
-                          </div>
-                          <div className="mt-4">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-grow bg-secondary h-2 rounded-full">
-                                <div
-                                  className={`h-full rounded-full ${getUtilizationColor(zone.utilizationPercentage)}`}
-                                  style={{ width: `${zone.utilizationPercentage}%` }}
-                                />
-                              </div>
-                              <span className="text-sm">{zone.utilizationPercentage}%</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-2">
-                              Capacity: {zone.capacity.toLocaleString()} sq ft
-                            </p>
-                          </div>
-                          <div className="mt-4 flex justify-end gap-2">
-                            <Button variant="ghost" size="sm">
-                              <FontAwesomeIcon icon="edit" className="mr-2" />
-                              Edit
-                            </Button>
-                            <ZoneUtilizationDialog
-                              zone={zone}
-                              onUpdate={(updates) =>
-                                updateZoneMutation.mutate({ zoneId: zone.id, updates })
-                              }
-                            />
-                          </div>
-                        </div>
-                      </Card>
-                    ))
-                  )}
-                  <ZoneCreateDialog
-                    open={showAddZone}
-                    onOpenChange={setShowAddZone}
-                    onSubmit={(zoneData) => createZoneMutation.mutate(zoneData)}
-                    warehouseId={warehouse?.id || ''}
-                    warehouseCapacity={warehouse?.capacity?.available || 0}
-                  />
-                </div>
-              </TabsContent>
-            )}
+            {renderMetrics}
+            {renderZones}
           </Tabs>
         </DialogContent>
       </Dialog>
@@ -484,11 +631,17 @@ export default function WarehouseEdit({ warehouse, isOpen, onClose }: WarehouseE
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
+              disabled={isSubmitting}
               className="bg-red-500 hover:bg-red-600"
             >
+              {isSubmitting ? (
+                <FontAwesomeIcon icon="spinner" className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <FontAwesomeIcon icon="trash" className="mr-2" />
+              )}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import type { WarehouseZone } from "@/types/material";
 
@@ -31,7 +32,7 @@ export function ZoneCreateDialog({
   onOpenChange,
   onSubmit,
   warehouseId,
-  warehouseCapacity,
+  warehouseCapacity = 0,
 }: ZoneCreateDialogProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -42,12 +43,18 @@ export function ZoneCreateDialog({
     pickingStrategy: 'FIFO' as WarehouseZone['pickingStrategy'],
     allowsCrossDocking: false,
     warehouseId: warehouseId,
+    utilizationPercentage: 0,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!warehouseId) {
+      console.error('No warehouse ID provided');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -59,6 +66,10 @@ export function ZoneCreateDialog({
         ...formData,
         utilizationPercentage: Math.round((formData.currentUtilization / formData.capacity) * 100),
       });
+
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Failed to create zone:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -113,8 +124,14 @@ export function ZoneCreateDialog({
               min={0}
               max={warehouseCapacity}
             />
-            <p className="text-sm text-muted-foreground">
-              Available warehouse capacity: {warehouseCapacity.toLocaleString()} sq ft
+            <p className={cn(
+              "text-sm",
+              warehouseCapacity <= 0 ? "text-red-500" : "text-muted-foreground"
+            )}>
+              {warehouseCapacity > 0 
+                ? `Available warehouse capacity: ${warehouseCapacity.toLocaleString()} sq ft`
+                : "Error: No available warehouse capacity"
+              }
             </p>
           </div>
 
@@ -146,7 +163,7 @@ export function ZoneCreateDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || warehouseCapacity <= 0}>
               {isSubmitting ? (
                 <FontAwesomeIcon icon="spinner" className="h-4 w-4 animate-spin mr-2" />
               ) : null}

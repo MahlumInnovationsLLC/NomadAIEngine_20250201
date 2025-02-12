@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryOptions } from "@tanstack/react-query";
+import type { Warehouse, WarehouseZone, WarehouseMetrics } from "@/types/material";
 import {
   Card,
   CardContent,
@@ -19,9 +20,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import type { Warehouse, WarehouseZone, WarehouseMetrics } from "@/types/material";
 import { ZoneUtilizationDialog } from "./ZoneUtilizationDialog";
+import { ZoneCreateDialog } from "./ZoneCreateDialog";
 import WarehouseEdit from "../../warehouse/WarehouseEdit";
 
 interface WarehouseManagementProps {
@@ -35,15 +38,15 @@ export function WarehouseManagement({
 }: WarehouseManagementProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [editWarehouse, setEditWarehouse] = useState<string | null>(null);
+  const [showAddZone, setShowAddZone] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch warehouses with better error handling
-  const { 
-    data: warehouses = [], 
-    isLoading: isLoadingWarehouses, 
-    error: warehousesError, 
-    refetch: refetchWarehouses 
+  const {
+    data: warehouses = [],
+    isLoading: isLoadingWarehouses,
+    error: warehousesError,
+    refetch: refetchWarehouses
   } = useQuery<Warehouse[]>({
     queryKey: ['/api/warehouse'],
     retry: 3,
@@ -57,21 +60,21 @@ export function WarehouseManagement({
     }
   } as UseQueryOptions<Warehouse[]>);
 
-  // Fetch warehouse metrics
-  const { data: metrics, isLoading: isLoadingMetrics, error: metricsError } = useQuery<WarehouseMetrics>({
+  const { data: metrics } = useQuery<WarehouseMetrics>({
     queryKey: ['/api/warehouse/metrics', selectedWarehouse],
     enabled: !!selectedWarehouse,
     retry: 3,
   });
 
-  // Fetch warehouse zones
-  const { data: zones = [], isLoading: isLoadingZones, error: zonesError } = useQuery<WarehouseZone[]>({
+  const {
+    data: zones = [],
+    isLoading: zonesLoading
+  } = useQuery<WarehouseZone[]>({
     queryKey: ['/api/warehouse/zones', selectedWarehouse],
     enabled: !!selectedWarehouse,
     retry: 3,
   });
 
-  // Update zone mutation
   const updateZoneMutation = useMutation({
     mutationFn: async ({ zoneId, updates }: { zoneId: string; updates: Partial<WarehouseZone> }) => {
       const response = await fetch(`/api/warehouse/zones/${zoneId}`, {
@@ -102,7 +105,73 @@ export function WarehouseManagement({
     },
   });
 
-  const selectedWarehouseData = warehouses.find(w => w.id === selectedWarehouse);
+  const createZoneMutation = useMutation({
+    mutationFn: async (zoneData: Partial<WarehouseZone>) => {
+      const response = await fetch('/api/warehouse/zones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(zoneData),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create zone');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones', selectedWarehouse] });
+      setShowAddZone(false);
+      toast({
+        title: "Zone Created",
+        description: "New warehouse zone has been created successfully.",
+      });
+    },
+    onError: (error) => {
+      console.error('Create zone error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create zone. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateWarehouseMutation = useMutation({
+    mutationFn: async ({ warehouseId, updates }: { warehouseId: string, updates: Partial<Warehouse> }) => {
+      const response = await fetch(`/api/warehouse/${warehouseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update warehouse');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['/api/warehouse'], (oldData: Warehouse[] | undefined) => {
+        if (!oldData) return [data];
+        return oldData.map(warehouse =>
+          warehouse.id === data.id ? data : warehouse
+        );
+      });
+      toast({
+        title: "Warehouse Updated",
+        description: "Warehouse details have been successfully updated.",
+      });
+    },
+    onError: (error) => {
+      console.error('Update warehouse error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update warehouse",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const selectedWarehouseData = warehouses.find(w => w.id === selectedWarehouse) || null;
 
   const getUtilizationColor = (percentage: number) => {
     if (percentage >= 90) return "text-red-500";
@@ -110,7 +179,52 @@ export function WarehouseManagement({
     return "text-green-500";
   };
 
-  // Handle loading states and errors
+  const renderWarehouseCard = (warehouse: Warehouse) => (
+    <Card
+      key={warehouse.id}
+      className={`cursor-pointer transition-all ${
+        selectedWarehouse === warehouse.id ? 'ring-2 ring-primary' : ''
+      }`}
+      onClick={() => onWarehouseSelect(warehouse.id)}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-lg">{warehouse.name}</h3>
+          <div className="flex items-center gap-2">
+            <Badge>{warehouse.type}</Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditWarehouse(warehouse.id);
+              }}
+            >
+              <FontAwesomeIcon icon="edit" className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          <p>Location: {warehouse.location || 'N/A'}</p>
+          <p>Capacity: {warehouse.capacity?.total?.toLocaleString() || '0'} sq ft</p>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex-grow bg-secondary h-2 rounded-full">
+              <div
+                className={`h-full rounded-full ${
+                  getUtilizationColor(warehouse.utilizationPercentage || 0)
+                }`}
+                style={{ width: `${warehouse.utilizationPercentage || 0}%` }}
+              />
+            </div>
+            <span className={getUtilizationColor(warehouse.utilizationPercentage || 0)}>
+              {warehouse.utilizationPercentage || 0}%
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (isLoadingWarehouses) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -120,7 +234,6 @@ export function WarehouseManagement({
   }
 
   if (warehousesError) {
-    console.error('Warehouse loading error:', warehousesError);
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4">
         <FontAwesomeIcon icon="exclamation-triangle" className="h-12 w-12 text-red-500" />
@@ -150,65 +263,19 @@ export function WarehouseManagement({
         </Button>
       </div>
 
-      {/* Warehouse Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {warehouses.map((warehouse) => (
-          <Card
-            key={warehouse.id}
-            className={`cursor-pointer transition-all ${
-              selectedWarehouse === warehouse.id ? 'ring-2 ring-primary' : ''
-            }`}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-lg">{warehouse.name}</h3>
-                <div className="flex items-center gap-2">
-                  <Badge>{warehouse.type}</Badge>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditWarehouse(warehouse.id);
-                    }}
-                  >
-                    <FontAwesomeIcon icon="edit" className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div 
-                className="text-sm text-muted-foreground"
-                onClick={() => onWarehouseSelect(warehouse.id)}
-              >
-                <p>Location: {warehouse.location}</p>
-                <p>Capacity: {warehouse.capacity.total.toLocaleString()} sq ft</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="flex-grow bg-secondary h-2 rounded-full">
-                    <div
-                      className={`h-full rounded-full ${
-                        getUtilizationColor(warehouse.utilizationPercentage)
-                      }`}
-                      style={{ width: `${warehouse.utilizationPercentage}%` }}
-                    />
-                  </div>
-                  <span className={getUtilizationColor(warehouse.utilizationPercentage)}>
-                    {warehouse.utilizationPercentage}%
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {warehouses.map(renderWarehouseCard)}
       </div>
 
-      {/* Edit Warehouse Dialog */}
       <WarehouseEdit
         warehouse={editWarehouse === 'new' ? undefined : warehouses.find(w => w.id === editWarehouse)}
         isOpen={!!editWarehouse}
         onClose={() => setEditWarehouse(null)}
+        onUpdate={(warehouseId: string, updates: Partial<Warehouse>) => {
+          updateWarehouseMutation.mutate({ warehouseId, updates });
+        }}
       />
 
-      {/* Selected Warehouse Details */}
       {selectedWarehouseData && (
         <Card>
           <CardHeader>
@@ -222,16 +289,15 @@ export function WarehouseManagement({
                 <TabsTrigger value="metrics">Performance Metrics</TabsTrigger>
               </TabsList>
 
-              {/* Overview Tab */}
               <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card>
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Total Space</p>
                           <h3 className="text-2xl font-bold">
-                            {selectedWarehouseData.capacity.total.toLocaleString()} sq ft
+                            {selectedWarehouseData.capacity?.total?.toLocaleString() || '0'} sq ft
                           </h3>
                         </div>
                         <FontAwesomeIcon icon="warehouse" className="h-8 w-8 text-blue-500" />
@@ -244,7 +310,7 @@ export function WarehouseManagement({
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Used Space</p>
                           <h3 className="text-2xl font-bold">
-                            {selectedWarehouseData.capacity.used.toLocaleString()} sq ft
+                            {selectedWarehouseData.capacity?.used?.toLocaleString() || '0'} sq ft
                           </h3>
                         </div>
                         <FontAwesomeIcon icon="box" className="h-8 w-8 text-yellow-500" />
@@ -257,7 +323,7 @@ export function WarehouseManagement({
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Available Space</p>
                           <h3 className="text-2xl font-bold">
-                            {selectedWarehouseData.capacity.available.toLocaleString()} sq ft
+                            {selectedWarehouseData.capacity?.available?.toLocaleString() || '0'} sq ft
                           </h3>
                         </div>
                         <FontAwesomeIcon icon="ruler" className="h-8 w-8 text-green-500" />
@@ -267,244 +333,164 @@ export function WarehouseManagement({
                 </div>
               </TabsContent>
 
-              {/* Zones Tab */}
               <TabsContent value="zones" className="space-y-4">
-                {isLoadingZones ? (
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Warehouse Zones</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Manage and monitor warehouse zones
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAddZone(true)}
+                  >
+                    <FontAwesomeIcon icon="plus" className="mr-2" />
+                    Add Zone
+                  </Button>
+                </div>
+
+                {zonesLoading ? (
                   <div className="flex items-center justify-center h-48">
                     <FontAwesomeIcon icon="spinner" className="h-8 w-8 animate-spin" />
                   </div>
-                ) : zonesError ? (
-                  <div className="flex flex-col items-center justify-center h-48 space-y-4">
-                    <FontAwesomeIcon icon="exclamation-triangle" className="h-8 w-8 text-red-500" />
-                    <p>Failed to load zones</p>
-                    <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones', selectedWarehouse] })}>
-                      Retry
-                    </Button>
-                  </div>
+                ) : zones.length === 0 ? (
+                  <Card>
+                    <div className="p-8 text-center">
+                      <FontAwesomeIcon icon="warehouse" className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No Zones Found</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Start by adding zones to organize your warehouse space efficiently
+                      </p>
+                      <Button onClick={() => setShowAddZone(true)}>
+                        <FontAwesomeIcon icon="plus" className="mr-2" />
+                        Create First Zone
+                      </Button>
+                    </div>
+                  </Card>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Zone ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Capacity</TableHead>
-                        <TableHead>Utilization</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {zones.map((zone) => (
-                        <TableRow key={zone.id}>
-                          <TableCell className="font-medium">{zone.id}</TableCell>
-                          <TableCell>{zone.name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{zone.type}</Badge>
-                          </TableCell>
-                          <TableCell>{zone.capacity.toLocaleString()} sq ft</TableCell>
-                          <TableCell>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {zones.map((zone) => (
+                      <Card key={zone.id}>
+                        <div className="p-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h3 className="font-semibold">{zone.name}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline">{zone.type}</Badge>
+                                <Badge variant={zone.status === 'active' ? 'default' : 'secondary'}>
+                                  {zone.status}
+                                </Badge>
+                              </div>
+                            </div>
                             <div className="flex items-center gap-2">
-                              <div className="flex-grow bg-secondary h-2 rounded-full w-[100px]">
-                                <div
-                                  className={`h-full rounded-full ${
-                                    getUtilizationColor(zone.utilizationPercentage)
-                                  }`}
-                                  style={{ width: `${zone.utilizationPercentage}%` }}
-                                />
-                              </div>
-                              <span>{zone.utilizationPercentage}%</span>
+                              <ZoneUtilizationDialog
+                                zone={zone}
+                                onUpdate={(updates) =>
+                                  updateZoneMutation.mutate({ zoneId: zone.id, updates })
+                                }
+                              />
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={zone.status === 'active' ? 'default' : 'secondary'}>
-                              {zone.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right space-x-2">
-                            <ZoneUtilizationDialog
-                              zone={zone}
-                              onUpdate={(updates) =>
-                                updateZoneMutation.mutate({ zoneId: zone.id, updates })
-                              }
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </TabsContent>
-
-              {/* Metrics Tab */}
-              <TabsContent value="metrics" className="space-y-4">
-                {isLoadingMetrics ? (
-                  <div className="flex items-center justify-center h-48">
-                    <FontAwesomeIcon icon="spinner" className="h-8 w-8 animate-spin" />
-                  </div>
-                ) : metricsError ? (
-                  <div className="flex flex-col items-center justify-center h-48 space-y-4">
-                    <FontAwesomeIcon icon="exclamation-triangle" className="h-8 w-8 text-red-500" />
-                    <p>Failed to load metrics</p>
-                    <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/warehouse/metrics', selectedWarehouse] })}>
-                      Retry
-                    </Button>
-                  </div>
-                ) : metrics ? (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Picking Accuracy</p>
-                              <h3 className="text-2xl font-bold">{metrics.pickingAccuracy}%</h3>
-                            </div>
-                            <FontAwesomeIcon icon="bullseye" className="h-8 w-8 text-blue-500" />
                           </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Order picking accuracy rate
-                          </p>
-                        </CardContent>
-                      </Card>
 
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Orders Processed</p>
-                              <h3 className="text-2xl font-bold">{metrics.ordersProcessed}</h3>
-                            </div>
-                            <FontAwesomeIcon icon="boxes-stacked" className="h-8 w-8 text-yellow-500" />
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Total orders processed this month
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Inventory Turns</p>
-                              <h3 className="text-2xl font-bold">{metrics.inventoryTurns}</h3>
-                            </div>
-                            <FontAwesomeIcon icon="rotate" className="h-8 w-8 text-green-500" />
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Annual inventory turnover rate
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Avg Dock Time</p>
-                              <h3 className="text-2xl font-bold">{metrics.avgDockTime} mins</h3>
-                            </div>
-                            <FontAwesomeIcon icon="clock" className="h-8 w-8 text-purple-500" />
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Average loading/unloading time
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Efficiency Metrics</CardTitle>
-                        </CardHeader>
-                        <CardContent>
                           <div className="space-y-4">
                             <div>
-                              <div className="flex justify-between mb-1">
-                                <span className="text-sm">Order Fulfillment Time</span>
-                                <span className="text-sm font-medium">
-                                  {metrics.orderFulfillmentTime} hours
-                                </span>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm text-muted-foreground">Capacity</span>
+                                <span className="text-sm">{zone.capacity?.toLocaleString() || '0'} sq ft</span>
                               </div>
-                              <div className="h-2 bg-secondary rounded-full">
-                                <div
-                                  className="h-full bg-blue-500 rounded-full"
-                                  style={{
-                                    width: `${Math.min(
-                                      (metrics.orderFulfillmentTime / 48) * 100,
-                                      100
-                                    )}%`,
-                                  }}
+                              <div className="flex items-center gap-2">
+                                <Progress
+                                  value={zone.utilizationPercentage || 0}
+                                  className={cn(
+                                    "bg-secondary h-2",
+                                    `[&>div]:bg-${getUtilizationColor(zone.utilizationPercentage || 0).replace('text-', '')}`
+                                  )}
                                 />
+                                <span className={`text-sm ${getUtilizationColor(zone.utilizationPercentage || 0)}`}>
+                                  {zone.utilizationPercentage || 0}%
+                                </span>
                               </div>
                             </div>
 
-                            <div>
-                              <div className="flex justify-between mb-1">
-                                <span className="text-sm">Labor Efficiency</span>
-                                <span className="text-sm font-medium">
-                                  {metrics.laborEfficiency}%
-                                </span>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Picking Strategy</p>
+                                <p className="font-medium">{zone.pickingStrategy || 'FIFO'}</p>
                               </div>
-                              <div className="h-2 bg-secondary rounded-full">
-                                <div
-                                  className="h-full bg-green-500 rounded-full"
-                                  style={{ width: `${metrics.laborEfficiency}%` }}
-                                />
+                              <div>
+                                <p className="text-muted-foreground">Cross Docking</p>
+                                <p className="font-medium">
+                                  {zone.allowsCrossDocking ? 'Enabled' : 'Disabled'}
+                                </p>
                               </div>
                             </div>
                           </div>
-                        </CardContent>
+                        </div>
                       </Card>
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Accuracy Metrics</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            <div>
-                              <div className="flex justify-between mb-1">
-                                <span className="text-sm">Inventory Accuracy</span>
-                                <span className="text-sm font-medium">
-                                  {metrics.inventoryAccuracy}%
-                                </span>
-                              </div>
-                              <div className="h-2 bg-secondary rounded-full">
-                                <div
-                                  className="h-full bg-yellow-500 rounded-full"
-                                  style={{ width: `${metrics.inventoryAccuracy}%` }}
-                                />
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="flex justify-between mb-1">
-                                <span className="text-sm">Capacity Utilization</span>
-                                <span className="text-sm font-medium">
-                                  {metrics.capacityUtilization}%
-                                </span>
-                              </div>
-                              <div className="h-2 bg-secondary rounded-full">
-                                <div
-                                  className="h-full bg-purple-500 rounded-full"
-                                  style={{ width: `${metrics.capacityUtilization}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground">
-                    No metrics available for this warehouse
+                    ))}
                   </div>
                 )}
+
+                <ZoneCreateDialog
+                  open={showAddZone}
+                  onOpenChange={setShowAddZone}
+                  onSubmit={(zoneData) => createZoneMutation.mutate(zoneData)}
+                  warehouseId={selectedWarehouseData?.id}
+                  warehouseCapacity={selectedWarehouseData?.capacity?.available || 0}
+                />
               </TabsContent>
+
+              {metrics && (
+                <TabsContent value="metrics" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Picking Accuracy</p>
+                            <h3 className="text-2xl font-bold">{metrics.pickingAccuracy}%</h3>
+                          </div>
+                          <FontAwesomeIcon icon="bullseye" className="h-8 w-8 text-blue-500" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Orders Processed</p>
+                            <h3 className="text-2xl font-bold">{metrics.ordersProcessed}</h3>
+                          </div>
+                          <FontAwesomeIcon icon="boxes-stacked" className="h-8 w-8 text-yellow-500" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Inventory Turns</p>
+                            <h3 className="text-2xl font-bold">{metrics.inventoryTurns}</h3>
+                          </div>
+                          <FontAwesomeIcon icon="rotate" className="h-8 w-8 text-green-500" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Equipment Utilization</p>
+                            <h3 className="text-2xl font-bold">{metrics.equipmentUtilization || 0}%</h3>
+                          </div>
+                          <FontAwesomeIcon icon="tools" className="h-8 w-8 text-purple-500" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
           </CardContent>
         </Card>

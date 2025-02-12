@@ -136,6 +136,7 @@ export interface WarehouseMetrics {
   orderFulfillmentTime: number;
   inventoryAccuracy: number;
   laborEfficiency: number;
+  equipmentUtilization: number; // Added field
 }
 
 export interface InventoryTransaction {
