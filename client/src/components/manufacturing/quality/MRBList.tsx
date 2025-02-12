@@ -44,24 +44,14 @@ import { MRBDetailsDialog } from "./dialogs/MRBDetailsDialog";
 
 const fetchMRBItems = async (): Promise<MRB[]> => {
   try {
-    const [mrbResponse, ncrResponse] = await Promise.all([
-      fetch('/api/manufacturing/quality/mrb'),
-      fetch('/api/manufacturing/quality/ncrs'),
-    ]);
+    const response = await fetch('/api/manufacturing/quality/mrb');
 
-    if (!mrbResponse.ok || !ncrResponse.ok) {
-      throw new Error('Failed to fetch MRB or NCR data');
+    if (!response.ok) {
+      throw new Error('Failed to fetch MRB data');
     }
 
-    const [mrbs, ncrs] = await Promise.all([
-      mrbResponse.json(),
-      ncrResponse.json(),
-    ]);
-
-    // Log fetched data for debugging
-    console.log('Fetched MRBs:', mrbs);
-    console.log('Fetched NCRs:', ncrs);
-
+    const mrbs = await response.json();
+    console.log('Fetched MRBs:', mrbs); // Debug log
     return mrbs;
   } catch (error) {
     console.error('Error in fetchMRBItems:', error);
@@ -80,7 +70,7 @@ export default function MRBList() {
   const [mrbToDelete, setMrbToDelete] = useState<MRB | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: mrbItems = [], isLoading, error } = useQuery<MRB[]>({
+  const { data: mrbItems = [], isLoading, error, refetch } = useQuery<MRB[]>({
     queryKey: ['/api/manufacturing/quality/mrb'],
     queryFn: fetchMRBItems,
     refetchInterval: 5000,
@@ -89,18 +79,13 @@ export default function MRBList() {
 
   const filteredMRBs = mrbItems.filter(mrb => {
     const status = mrb.status.toLowerCase();
-    console.log('Processing MRB:', mrb.number, 'Status:', status, 'Current tab:', currentTab);
-
-    // Specifically check for the 'closed' status in the closed tab
+    
     if (currentTab === "closed") {
       const isClosed = status === 'closed';
-      console.log(`MRB ${mrb.number} is${isClosed ? '' : ' not'} closed`);
       return isClosed;
     }
 
-    // For open tab, show all non-closed items
     const isOpen = !['closed'].includes(status);
-    console.log(`MRB ${mrb.number} is${isOpen ? '' : ' not'} open`);
     return isOpen;
   });
 
@@ -149,8 +134,11 @@ export default function MRBList() {
   };
 
   const handleDelete = async (mrbId: string) => {
+    if (!mrbId) return;
+
     setIsDeleting(true);
     try {
+      console.log('Attempting to delete MRB:', mrbId);
       const response = await fetch(`/api/manufacturing/quality/mrb/${mrbId}`, {
         method: 'DELETE',
         headers: {
@@ -160,21 +148,24 @@ export default function MRBList() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('Delete response:', response.status, errorData);
         throw new Error(errorData.message || 'Failed to delete MRB');
       }
 
-      // Invalidate and refetch queries after successful deletion
-      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
-      // Also invalidate NCR queries since they might be linked
-      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-
+      // Close the delete dialog first
       setMrbToDelete(null);
       setShowDeleteDialog(false);
+
+      // Then invalidate the query cache
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
 
       toast({
         title: "Success",
         description: "MRB deleted successfully",
       });
+
+      // Force an immediate refetch to update the UI
+      await refetch();
     } catch (error) {
       console.error('Error deleting MRB:', error);
       toast({

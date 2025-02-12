@@ -36,12 +36,17 @@ const fileUpload = multer({
 });
 
 // Initialize Cosmos DB client
-const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
-const database = cosmosClient.database("NomadAIEngineDB");
-
-// Initialize containers
 async function initializeContainer() {
   try {
+    if (!process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING) {
+      throw new Error('Azure Cosmos DB connection string is not configured');
+    }
+
+    const client = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING);
+    const { database } = await client.databases.createIfNotExists({
+      id: "NomadAIEngineDB"
+    });
+
     const { container } = await database.containers.createIfNotExists({
       id: "quality-management",
       partitionKey: { paths: ["/userKey"] },
@@ -297,6 +302,7 @@ router.get('/mrb', async (req, res) => {
     const { resources: mrbs } = await container.items
       .query({
         query: 'SELECT * FROM c WHERE c.type = "mrb" ORDER BY c._ts DESC',
+        parameters: [],
         partitionKey: 'default'
       })
       .fetchAll();
@@ -305,26 +311,24 @@ router.get('/mrb', async (req, res) => {
     const { resources: relevantNcrs } = await container.items
       .query({
         query: 'SELECT * FROM c WHERE (c.status = "pending_disposition" OR c.status = "closed" OR c.status = "in_review") AND STARTSWITH(c.id, "NCR-")',
+        parameters: [],
         partitionKey: 'default'
       })
       .fetchAll();
 
-    console.log(`Found ${mrbs.length} raw MRBs`);
+    console.log(`Found ${mrbs.length} MRBs`);
     console.log(`Found ${relevantNcrs.length} NCRs (pending and closed)`);
-    console.log('MRB statuses:', mrbs.map(m => m.status));
-    console.log('NCR statuses:', relevantNcrs.map(n => n.status));
 
     // Convert NCRs to MRB format
     const ncrMrbs = relevantNcrs.map(ncr => ({
       id: `mrb-${ncr.id}`,
+      type: "mrb",
       number: ncr.mrbNumber || `MRB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
       title: `NCR: ${ncr.title || 'Untitled'}`,
-      type: ncr.type || "material",
-      severity: ncr.severity || "minor",
-      status: ncr.status,
       sourceType: "NCR",
       sourceId: ncr.id,
-      ncrNumber: ncr.number,
+      status: ncr.status,
+      severity: ncr.severity || "minor",
       partNumber: ncr.partNumber || "N/A",
       lotNumber: ncr.lotNumber || "N/A",
       quantity: ncr.quantityAffected || 0,
@@ -333,40 +337,21 @@ router.get('/mrb', async (req, res) => {
         decision: "use_as_is",
         justification: "",
         conditions: "",
-        approvedBy: [],
+        approvedBy: []
       },
-      costImpact: ncr.costImpact || {
-        materialCost: 0,
-        laborCost: 0,
-        reworkCost: 0,
-        totalCost: 0,
-        currency: "USD"
-      },
-      nonconformance: {
-        description: ncr.description || "",
-        detectedBy: ncr.reportedBy || "",
-        detectedDate: ncr.createdAt || new Date().toISOString(),
-        defectType: ncr.type || "unknown",
-        rootCause: ncr.rootCause || ""
-      },
-      attachments: ncr.attachments || [],
-      history: ncr.history || [],
       createdAt: ncr.createdAt || new Date().toISOString(),
       updatedAt: ncr.updatedAt || new Date().toISOString(),
-      createdBy: ncr.reportedBy || "system"
+      userKey: 'default'
     }));
 
     // Combine and return both sets
     const combinedResults = [...mrbs, ...ncrMrbs];
     console.log(`Sending combined results (${combinedResults.length} total items)`);
-    console.log('Combined MRB statuses:', combinedResults.map(m => m.status));
 
-    res.setHeader('Content-Type', 'application/json');
-    return res.json(combinedResults);
+    res.json(combinedResults);
   } catch (error) {
     console.error('Error fetching MRBs:', error);
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(500).json({ 
+    res.status(500).json({ 
       message: error instanceof Error ? error.message : 'Failed to fetch MRBs',
       details: error instanceof Error ? error.stack : undefined
     });
@@ -554,6 +539,120 @@ router.post('/mrb/:id/disposition/approve', async (req, res) => {
     console.error('Error approving disposition:', error);
     res.status(500).json({
       message: error instanceof Error ? error.message : 'Failed to approve disposition',
+      details: error instanceof Error ? error.stack : undefined
+    });
+  }
+});
+
+// Delete MRB endpoint with improved error handling and consistent deletion
+router.delete('/mrb/:id', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+
+    const { id } = req.params;
+    console.log(`Processing deletion request for MRB ${id}`);
+
+    // First check if this is a virtual MRB (created from NCR)
+    const isVirtualMrb = id.startsWith('mrb-');
+    const ncrId = isVirtualMrb ? id.substring(4) : null;
+
+    if (isVirtualMrb) {
+      console.log(`Handling virtual MRB deletion for NCR ${ncrId}`);
+      // For virtual MRBs, we need to update the linked NCR
+      const { resources: [ncr] } = await container.items
+        .query({
+          query: "SELECT * FROM c WHERE c.id = @id",
+          parameters: [{ name: "@id", value: ncrId }],
+          partitionKey: 'default'
+        })
+        .fetchAll();
+
+      if (ncr) {
+        // Update NCR to remove MRB reference
+        ncr.mrbId = null;
+        ncr.mrbNumber = null;
+        ncr.status = 'open';
+        ncr.updatedAt = new Date().toISOString();
+        await container.items.upsert(ncr);
+        console.log(`Successfully updated NCR ${ncrId}`);
+      }
+
+      return res.status(200).json({ message: 'Virtual MRB deleted successfully' });
+    } else {
+      console.log(`Handling regular MRB deletion for ${id}`);
+      try {
+        // First check if the MRB exists
+        const { resources: [mrb] } = await container.items
+          .query({
+            query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'mrb'",
+            parameters: [{ name: "@id", value: id }],
+            partitionKey: 'default'
+          })
+          .fetchAll();
+
+        if (!mrb) {
+          console.log(`MRB ${id} not found`);
+          return res.status(404).json({ message: 'MRB not found' });
+        }
+
+        // If MRB has linked NCRs, update them first
+        if (mrb.linkedNCRs && Array.isArray(mrb.linkedNCRs)) {
+          const updatePromises = mrb.linkedNCRs.map(async (link: { ncrId: string }) => {
+            const { resources: [ncr] } = await container.items
+              .query({
+                query: "SELECT * FROM c WHERE c.id = @id",
+                parameters: [{ name: "@id", value: link.ncrId }],
+                partitionKey: 'default'
+              })
+              .fetchAll();
+
+            if (ncr) {
+              ncr.mrbId = null;
+              ncr.mrbNumber = null;
+              ncr.status = 'open';
+              ncr.updatedAt = new Date().toISOString();
+              return container.items.upsert(ncr);
+            }
+          });
+
+          await Promise.all(updatePromises.filter(Boolean));
+        }
+
+        // Delete the MRB using the CosmosDB item.delete() method
+        try {
+          const { resource: deletedItem } = await container.items
+            .query({
+              query: "SELECT * FROM c WHERE c.id = @id",
+              parameters: [{ name: "@id", value: id }]
+            })
+            .fetchAll()
+            .then(({ resources: [item] }) => {
+              if (!item) {
+                throw new Error('MRB not found');
+              }
+              return container.item(item.id, item.userKey || 'default').delete();
+            });
+
+          console.log(`Successfully deleted MRB ${id}`);
+          return res.status(200).json({ 
+            message: 'MRB deleted successfully',
+            deletedItemId: deletedItem?.id
+          });
+        } catch (deleteError) {
+          console.error('Specific error during MRB deletion:', deleteError);
+          throw new Error(deleteError instanceof Error ? deleteError.message : 'Unknown deletion error');
+        }
+      } catch (error) {
+        console.error('Error in MRB deletion process:', error);
+        throw error;
+      }
+    }
+  } catch (error) {
+    console.error('Error deleting MRB:', error);
+    return res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to delete MRB',
       details: error instanceof Error ? error.stack : undefined
     });
   }
@@ -808,7 +907,7 @@ router.post('/inspections/:id/attachments', upload.single('file'), async (req, r
     }
 
     const { id } = req.params;
-    console.log(`Looking for Inspection with ID: ${id}`);
+    console.log(`Looking for Inspectionwith ID: ${id}`);
 
     const { resources: [inspection] } = await container.items
       .query({
@@ -820,6 +919,7 @@ router.post('/inspections/:id/attachments', upload.single('file'), async (req, r
 
     if (!inspection) {
       return res.status(404).json({ message: 'Inspection not found' });
+    }
     }
 
     console.log('Found Inspection:', inspection);
