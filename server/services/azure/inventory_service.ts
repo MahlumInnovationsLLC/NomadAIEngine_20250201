@@ -1,6 +1,6 @@
 import { CosmosClient } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
-import type { InventoryItem, InventoryAllocationEvent, InventoryStats } from "../../../client/src/types/inventory";
+import type { InventoryItem, InventoryStats } from "../../../client/src/types/inventory";
 
 const client = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING!);
 const database = client.database("NomadAIEngineDB");
@@ -9,50 +9,30 @@ const inventoryAllocationsContainer = database.container("inventory-allocations"
 
 export async function initializeInventoryDatabase() {
   try {
+    console.log("Starting inventory database initialization...");
+
     // Create containers if they don't exist
-    await database.containers.createIfNotExists({
+    const { container: invContainer } = await database.containers.createIfNotExists({
       id: "inventory",
       partitionKey: { paths: ["/id"] }
     });
+    console.log("Inventory container verified/created");
 
-    await database.containers.createIfNotExists({
+    const { container: allocContainer } = await database.containers.createIfNotExists({
       id: "inventory-allocations",
       partitionKey: { paths: ["/itemId"] }
     });
+    console.log("Inventory allocations container verified/created");
 
-    // Add some sample inventory items if none exist
-    const { resources } = await inventoryContainer.items.query("SELECT TOP 1 * FROM c").fetchAll();
-    if (resources.length === 0) {
-      const sampleItems: Partial<InventoryItem>[] = [
-        {
-          id: uuidv4(),
-          name: "Raw Material A",
-          sku: "RM-001",
-          category: "raw_materials",
-          quantity: 1000,
-          unit: "kg",
-          reorderPoint: 200,
-          location: "Warehouse A",
-          status: "in_stock",
-          lastUpdated: new Date().toISOString()
-        },
-        {
-          id: uuidv4(),
-          name: "Component B",
-          sku: "COMP-002",
-          category: "components",
-          quantity: 500,
-          unit: "pieces",
-          reorderPoint: 100,
-          location: "Warehouse B",
-          status: "in_stock",
-          lastUpdated: new Date().toISOString()
-        }
-      ];
-
-      for (const item of sampleItems) {
-        await inventoryContainer.items.create(item);
-      }
+    // Verify container access
+    try {
+      await invContainer.items.query("SELECT VALUE COUNT(1) FROM c").fetchAll();
+      console.log("Successfully verified inventory container access");
+      await allocContainer.items.query("SELECT VALUE COUNT(1) FROM c").fetchAll();
+      console.log("Successfully verified allocations container access");
+    } catch (error) {
+      console.error("Error verifying container access:", error);
+      throw new Error("Failed to verify container access");
     }
 
     console.log("Inventory database initialized successfully");
@@ -63,10 +43,15 @@ export async function initializeInventoryDatabase() {
 }
 
 export async function getAllInventoryItems(): Promise<InventoryItem[]> {
-  const { resources } = await inventoryContainer.items
-    .query("SELECT * FROM c")
-    .fetchAll();
-  return resources;
+  try {
+    const { resources } = await inventoryContainer.items
+      .query("SELECT * FROM c")
+      .fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Failed to get inventory items:", error);
+    throw error;
+  }
 }
 
 export async function getInventoryItem(id: string): Promise<InventoryItem | null> {
@@ -83,17 +68,17 @@ export async function allocateInventory(
   itemId: string,
   quantity: number,
   productionLineId: string
-): Promise<InventoryAllocationEvent> {
+): Promise<any> {
   const item = await getInventoryItem(itemId);
   if (!item) {
     throw new Error("Inventory item not found");
   }
 
-  if (item.quantity < quantity) {
+  if (item.qtyOnHand < quantity) {
     throw new Error("Insufficient inventory");
   }
 
-  const allocationEvent: InventoryAllocationEvent = {
+  const allocationEvent = {
     itemId,
     quantity,
     allocatedTo: productionLineId,
@@ -105,9 +90,10 @@ export async function allocateInventory(
   // Update inventory quantity
   await inventoryContainer.item(itemId, itemId).replace({
     ...item,
-    quantity: item.quantity - quantity,
+    qtyOnHand: item.qtyOnHand - quantity,
     lastUpdated: new Date().toISOString(),
-    status: item.quantity - quantity <= item.reorderPoint ? "low_stock" : "in_stock"
+    status: item.qtyOnHand - quantity <= 0 ? "out_of_stock" : 
+           item.qtyOnHand - quantity < 10 ? "low_stock" : "in_stock"
   });
 
   // Record allocation
@@ -128,10 +114,10 @@ export async function updateInventoryQuantity(
 
   const updatedItem: InventoryItem = {
     ...item,
-    quantity: newQuantity,
+    qtyOnHand: newQuantity,
     lastUpdated: new Date().toISOString(),
     status: newQuantity <= 0 ? "out_of_stock" :
-            newQuantity <= item.reorderPoint ? "low_stock" : "in_stock"
+            newQuantity < 10 ? "low_stock" : "in_stock"
   };
 
   const { resource } = await inventoryContainer.item(itemId, itemId).replace(updatedItem);
@@ -140,30 +126,54 @@ export async function updateInventoryQuantity(
 
 export async function bulkImportInventory(items: Partial<InventoryItem>[]): Promise<InventoryItem[]> {
   try {
-    const container = database.container("inventory");
+    console.log(`Starting bulk import of ${items.length} items`);
     const importedItems: InventoryItem[] = [];
 
-    for (const item of items) {
-      const newItem: InventoryItem = {
-        id: uuidv4(),
-        sku: item.sku!,
-        name: item.name!,
-        category: item.category!,
-        quantity: item.quantity || 0,
-        unit: item.unit!,
-        reorderPoint: item.reorderPoint || 0,
-        location: item.location || "",
-        status: "in_stock",
-        lastUpdated: new Date().toISOString(),
-        ...item
-      };
+    // Verify container accessibility before starting import
+    try {
+      await inventoryContainer.items.query("SELECT VALUE COUNT(1) FROM c").fetchAll();
+      console.log("Container access verified before import");
+    } catch (error) {
+      console.error("Failed to verify container access:", error);
+      throw new Error("Database connection issue - please try again");
+    }
 
-      const { resource } = await container.items.create(newItem);
-      if (resource) {
-        importedItems.push(resource);
+    for (const item of items) {
+      try {
+        const newItem: InventoryItem = {
+          id: uuidv4(),
+          partNo: item.partNo!,
+          binLocation: item.binLocation!,
+          warehouse: item.warehouse!,
+          qtyOnHand: item.qtyOnHand || 0,
+          description: item.description || '',
+          glCode: item.glCode || '',
+          prodCode: item.prodCode || '',
+          vendCode: item.vendCode || '',
+          cost: item.cost || 0,
+          lastUpdated: new Date().toISOString(),
+          status: item.qtyOnHand && item.qtyOnHand > 0 ? 
+                 (item.qtyOnHand < 10 ? 'low_stock' : 'in_stock') : 
+                 'out_of_stock'
+        };
+
+        console.log(`Attempting to create item in database: ${JSON.stringify(newItem)}`);
+        const { resource } = await inventoryContainer.items.create(newItem);
+
+        if (resource) {
+          console.log(`Successfully imported item: ${resource.id}`);
+          importedItems.push(resource);
+        } else {
+          console.error("No resource returned from create operation");
+          throw new Error("Failed to create inventory item - no resource returned");
+        }
+      } catch (createError) {
+        console.error(`Failed to import item ${item.partNo}:`, createError);
+        throw new Error(`Failed to import item ${item.partNo}: ${createError instanceof Error ? createError.message : 'Unknown error'}`);
       }
     }
 
+    console.log(`Successfully imported ${importedItems.length} items`);
     return importedItems;
   } catch (error) {
     console.error("Failed to bulk import inventory items:", error);
@@ -173,37 +183,31 @@ export async function bulkImportInventory(items: Partial<InventoryItem>[]): Prom
 
 export async function getInventoryStats(): Promise<InventoryStats> {
   try {
+    console.log("Fetching inventory statistics");
     const { resources: items } = await inventoryContainer.items
       .query("SELECT * FROM c")
       .fetchAll();
 
     const totalItems = items.length;
-    const lowStockItems = items.filter(item => 
-      item.quantity <= item.reorderPoint && item.quantity > 0
-    ).length;
-    const outOfStockItems = items.filter(item => 
-      item.quantity <= 0
-    ).length;
+    const lowStockItems = items.filter(item => item.qtyOnHand <= 10).length;
+    const outOfStockItems = items.filter(item => item.qtyOnHand <= 0).length;
 
-    // Calculate total inventory value
+    // Calculate total value
     const totalValue = items.reduce((sum, item) => {
-      return sum + (item.quantity * (item.cost || 0));
+      return sum + (item.qtyOnHand * (item.cost || 0));
     }, 0);
 
-    // Get recent updates (last 5)
-    const { resources: recentMovements } = await inventoryContainer.items
-      .query({
-        query: "SELECT TOP 5 * FROM c ORDER BY c.lastUpdated DESC",
-      })
-      .fetchAll();
-
-    const recentUpdates = recentMovements.map(item => ({
-      itemId: item.id,
-      previousQuantity: item.quantity,
-      newQuantity: item.quantity,
-      reason: "Stock Update",
-      timestamp: item.lastUpdated
-    }));
+    // Get recent updates
+    const recentUpdates = items
+      .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+      .slice(0, 5)
+      .map(item => ({
+        itemId: item.id,
+        previousQuantity: item.qtyOnHand,
+        newQuantity: item.qtyOnHand,
+        reason: "Stock Update",
+        timestamp: item.lastUpdated
+      }));
 
     return {
       totalItems,

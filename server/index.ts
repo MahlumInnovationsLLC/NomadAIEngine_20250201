@@ -14,8 +14,9 @@ import logisticsRoutes from "./routes/logistics";
 import warehouseRoutes from "./routes/warehouse";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Increase JSON and URL-encoded limits
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // CORS middleware
 app.use((req, res, next) => {
