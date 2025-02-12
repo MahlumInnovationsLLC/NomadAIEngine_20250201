@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { database, containers, getContainer } from "../services/azure/cosmos_service";
+import { database, containers, getContainer } from "../../services/azure/cosmos_service";
 import { v4 as uuidv4 } from "uuid";
 
 const router = Router();
