@@ -27,7 +27,6 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { CAPA } from "@/types/manufacturing/capa";
 
 const defaultValues: Partial<CAPA> = {
   title: "",
