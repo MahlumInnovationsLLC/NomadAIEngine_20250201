@@ -23,12 +23,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { read, utils, write } from 'xlsx';
 
 interface ImportRow {
-  sku: string;
-  name: string;
-  category: string;
-  quantity: number;
-  location: string;
-  [key: string]: any;
+  PartNo: string;
+  BinLocation: string;
+  Warehouse: string;
+  QtyOnHand: number;
+  Description: string;
+  GLCode: string;
+  ProdCode: string;
+  VendCode: string;
+  Cost: number;
 }
 
 interface BulkImportDialogProps {
@@ -49,11 +52,15 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
     data.forEach((row, index) => {
       const rowErrors: string[] = [];
 
-      if (!row.sku) rowErrors.push("SKU is required");
-      if (!row.name) rowErrors.push("Name is required");
-      if (!row.category) rowErrors.push("Category is required");
-      if (isNaN(row.quantity) || row.quantity < 0) rowErrors.push("Quantity must be a positive number");
-      if (!row.location) rowErrors.push("Location is required");
+      if (!row.PartNo) rowErrors.push("Part Number is required");
+      if (!row.BinLocation) rowErrors.push("Bin Location is required");
+      if (!row.Warehouse) rowErrors.push("Warehouse is required");
+      if (isNaN(row.QtyOnHand) || row.QtyOnHand < 0) rowErrors.push("Quantity must be a positive number");
+      if (!row.Description) rowErrors.push("Description is required");
+      if (!row.GLCode) rowErrors.push("GL Code is required");
+      if (!row.ProdCode) rowErrors.push("Product Code is required");
+      if (!row.VendCode) rowErrors.push("Vendor Code is required");
+      if (isNaN(row.Cost) || row.Cost < 0) rowErrors.push("Cost must be a positive number");
 
       if (rowErrors.length > 0) {
         errors[index] = rowErrors;
@@ -134,31 +141,31 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
   };
 
   const downloadTemplate = () => {
-    const template = [
-      {
-        sku: "EXAMPLE-001",
-        name: "Example Item",
-        category: "Raw Materials",
-        quantity: 100,
-        location: "ZONE-A"
-      }
-    ];
+    const template = [{
+      PartNo: "EXAMPLE-001",
+      BinLocation: "A-01-01",
+      Warehouse: "MAIN",
+      QtyOnHand: 100,
+      Description: "Example Part",
+      GLCode: "1000",
+      ProdCode: "PRD001",
+      VendCode: "VEN001",
+      Cost: 29.99
+    }];
 
     const ws = utils.json_to_sheet(template);
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Template");
+    write(wb, { bookType: 'xlsx', type: 'array' });
 
-    // Generate the XLSX file
-    const wbout = write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([write(wb, { bookType: 'xlsx', type: 'array' })], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
 
-    // Create a Blob from the array buffer
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-    // Create download link and trigger download
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'warehouse-import-template.xlsx';
+    a.download = 'material-import-template.xlsx';
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -206,20 +213,24 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px]">
+      <DialogContent className="sm:max-w-[900px]">
         <DialogHeader>
-          <DialogTitle>Import Warehouse Data</DialogTitle>
+          <DialogTitle>Import Material Data</DialogTitle>
           <DialogDescription className="space-y-2">
             <p>
-              Upload an Excel file (.xlsx) containing warehouse data.
+              Upload an Excel file (.xlsx) containing material data.
               The file should include the following columns:
             </p>
             <ul className="list-disc list-inside space-y-1 text-sm">
-              <li>SKU (required): Unique identifier for the item</li>
-              <li>Name (required): Item name or description</li>
-              <li>Category (required): Item category</li>
-              <li>Quantity (required): Number of items (must be positive)</li>
-              <li>Location (required): Storage location or zone</li>
+              <li>PartNo (required): Unique identifier for the part</li>
+              <li>BinLocation (required): Storage bin location</li>
+              <li>Warehouse (required): Warehouse identifier</li>
+              <li>QtyOnHand (required): Current quantity in stock</li>
+              <li>Description (required): Part description</li>
+              <li>GLCode (required): General Ledger code</li>
+              <li>ProdCode (required): Product code</li>
+              <li>VendCode (required): Vendor code</li>
+              <li>Cost (required): Unit cost</li>
             </ul>
             <Button
               variant="outline"
@@ -292,26 +303,34 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
                 Clear
               </Button>
             </div>
-            <ScrollArea className="h-[300px]">
+            <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead>Part No</TableHead>
+                    <TableHead>Bin Location</TableHead>
+                    <TableHead>Warehouse</TableHead>
+                    <TableHead>Qty On Hand</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>GL Code</TableHead>
+                    <TableHead>Prod Code</TableHead>
+                    <TableHead>Vend Code</TableHead>
+                    <TableHead>Cost</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {previewData.map((row, index) => (
                     <TableRow key={index}>
-                      <TableCell>{row.sku}</TableCell>
-                      <TableCell>{row.name}</TableCell>
-                      <TableCell>{row.category}</TableCell>
-                      <TableCell>{row.quantity}</TableCell>
-                      <TableCell>{row.location}</TableCell>
+                      <TableCell>{row.PartNo}</TableCell>
+                      <TableCell>{row.BinLocation}</TableCell>
+                      <TableCell>{row.Warehouse}</TableCell>
+                      <TableCell>{row.QtyOnHand}</TableCell>
+                      <TableCell>{row.Description}</TableCell>
+                      <TableCell>{row.GLCode}</TableCell>
+                      <TableCell>{row.ProdCode}</TableCell>
+                      <TableCell>{row.VendCode}</TableCell>
+                      <TableCell>${row.Cost.toFixed(2)}</TableCell>
                       <TableCell>
                         {validationErrors[index] ? (
                           <Badge 

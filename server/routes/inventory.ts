@@ -3,11 +3,23 @@ import {
   getAllInventoryItems,
   getInventoryItem,
   allocateInventory,
-  updateInventoryQuantity
+  updateInventoryQuantity,
+  getInventoryStats
 } from "../services/azure/inventory_service";
 import { bulkImportInventory } from "../services/azure/inventory_service";
 
 const router = Router();
+
+// Get inventory statistics
+router.get("/stats", async (_req, res) => {
+  try {
+    const stats = await getInventoryStats();
+    res.json(stats);
+  } catch (error) {
+    console.error("Failed to get inventory stats:", error);
+    res.status(500).json({ error: "Failed to get inventory statistics" });
+  }
+});
 
 // Get all inventory items
 router.get("/items", async (req, res) => {

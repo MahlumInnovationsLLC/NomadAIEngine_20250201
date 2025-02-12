@@ -1,6 +1,6 @@
 import { CosmosClient } from "@azure/cosmos";
 import { v4 as uuidv4 } from 'uuid';
-import type { InventoryItem, InventoryAllocationEvent } from "../../../client/src/types/inventory";
+import type { InventoryItem, InventoryAllocationEvent, InventoryStats } from "../../../client/src/types/inventory";
 
 const client = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING!);
 const database = client.database("NomadAIEngineDB");
@@ -138,8 +138,6 @@ export async function updateInventoryQuantity(
   return resource!;
 }
 
-import type { InventoryItem } from "../../../client/src/types/inventory";
-
 export async function bulkImportInventory(items: Partial<InventoryItem>[]): Promise<InventoryItem[]> {
   try {
     const container = database.container("inventory");
@@ -169,6 +167,53 @@ export async function bulkImportInventory(items: Partial<InventoryItem>[]): Prom
     return importedItems;
   } catch (error) {
     console.error("Failed to bulk import inventory items:", error);
+    throw error;
+  }
+}
+
+export async function getInventoryStats(): Promise<InventoryStats> {
+  try {
+    const { resources: items } = await inventoryContainer.items
+      .query("SELECT * FROM c")
+      .fetchAll();
+
+    const totalItems = items.length;
+    const lowStockItems = items.filter(item => 
+      item.quantity <= item.reorderPoint && item.quantity > 0
+    ).length;
+    const outOfStockItems = items.filter(item => 
+      item.quantity <= 0
+    ).length;
+
+    // Calculate total inventory value
+    const totalValue = items.reduce((sum, item) => {
+      return sum + (item.quantity * (item.cost || 0));
+    }, 0);
+
+    // Get recent updates (last 5)
+    const { resources: recentMovements } = await inventoryContainer.items
+      .query({
+        query: "SELECT TOP 5 * FROM c ORDER BY c.lastUpdated DESC",
+      })
+      .fetchAll();
+
+    const recentUpdates = recentMovements.map(item => ({
+      itemId: item.id,
+      previousQuantity: item.quantity,
+      newQuantity: item.quantity,
+      reason: "Stock Update",
+      timestamp: item.lastUpdated
+    }));
+
+    return {
+      totalItems,
+      lowStockItems,
+      outOfStockItems,
+      totalValue,
+      recentUpdates
+    };
+  } catch (error) {
+    console.error("Failed to get inventory stats:", error);
     throw error;
   }
 }

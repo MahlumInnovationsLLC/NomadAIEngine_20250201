@@ -8,6 +8,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 
+interface ImportRow {
+  PartNo: string;
+  BinLocation: string;
+  Warehouse: string;
+  QtyOnHand: number;
+  Description: string;
+  GLCode: string;
+  ProdCode: string;
+  VendCode: string;
+  Cost: number;
+}
+
 interface BulkImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -53,7 +65,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
     if (!file) return;
 
     setFile(file);
-    
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
@@ -80,33 +92,42 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
   };
 
   const downloadTemplate = () => {
-    const template = [
-      {
-        sku: "EXAMPLE-001",
-        name: "Example Item",
-        category: "Raw Materials",
-        currentStock: 100,
-        minimumStock: 10,
-        reorderPoint: 20,
-        unit: "pcs",
-        binLocation: "A-01-01",
-        abcClass: "A"
-      }
-    ];
+    const template = [{
+      PartNo: "EXAMPLE-001",
+      BinLocation: "A-01-01",
+      Warehouse: "MAIN",
+      QtyOnHand: 100,
+      Description: "Example Part",
+      GLCode: "1000",
+      ProdCode: "PRD001",
+      VendCode: "VEN001",
+      Cost: 29.99
+    }];
 
     const ws = XLSX.utils.json_to_sheet(template);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
-    XLSX.writeFile(wb, "inventory_import_template.xlsx");
+
+    const blob = new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'material-import-template.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-[900px]">
         <DialogHeader>
-          <DialogTitle>Bulk Import Inventory Items</DialogTitle>
+          <DialogTitle>Import Material Data</DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <Button variant="outline" onClick={downloadTemplate}>
@@ -130,25 +151,33 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
           )}
 
           {preview.length > 0 && (
-            <div className="border rounded-md max-h-[300px] overflow-auto">
+            <div className="border rounded-md max-h-[400px] overflow-auto">
               <table className="w-full">
                 <thead className="bg-muted sticky top-0">
                   <tr>
-                    {Object.keys(preview[0]).map((header) => (
-                      <th key={header} className="p-2 text-left text-sm">
-                        {header}
-                      </th>
-                    ))}
+                    <th className="p-2 text-left">Part No</th>
+                    <th className="p-2 text-left">Bin Location</th>
+                    <th className="p-2 text-left">Warehouse</th>
+                    <th className="p-2 text-left">Qty On Hand</th>
+                    <th className="p-2 text-left">Description</th>
+                    <th className="p-2 text-left">GL Code</th>
+                    <th className="p-2 text-left">Prod Code</th>
+                    <th className="p-2 text-left">Vend Code</th>
+                    <th className="p-2 text-left">Cost</th>
                   </tr>
                 </thead>
                 <tbody>
                   {preview.slice(0, 5).map((row, index) => (
                     <tr key={index} className="border-t">
-                      {Object.values(row).map((value: any, i) => (
-                        <td key={i} className="p-2 text-sm">
-                          {value}
-                        </td>
-                      ))}
+                      <td className="p-2">{row.PartNo}</td>
+                      <td className="p-2">{row.BinLocation}</td>
+                      <td className="p-2">{row.Warehouse}</td>
+                      <td className="p-2">{row.QtyOnHand}</td>
+                      <td className="p-2">{row.Description}</td>
+                      <td className="p-2">{row.GLCode}</td>
+                      <td className="p-2">{row.ProdCode}</td>
+                      <td className="p-2">{row.VendCode}</td>
+                      <td className="p-2">${row.Cost.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>

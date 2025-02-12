@@ -3,11 +3,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import MaterialDashboard from "@/components/material/MaterialDashboard";
 import type { MaterialStats } from "@/types/material";
+import type { InventoryStats } from "@/types/inventory";
+import { formatCurrency } from "@/lib/utils";
 
 export default function MaterialHandling() {
   const { data: materialStats } = useQuery<MaterialStats>({
     queryKey: ['/api/material/stats'],
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const { data: inventoryStats } = useQuery<InventoryStats>({
+    queryKey: ['/api/inventory/stats'],
+    refetchInterval: 30000,
   });
 
   return (
@@ -24,8 +31,8 @@ export default function MaterialHandling() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Inventory</p>
-                  <h3 className="text-2xl font-bold">{materialStats?.totalItems || 0}</h3>
+                  <p className="text-sm font-medium text-muted-foreground">Total Items</p>
+                  <h3 className="text-2xl font-bold">{inventoryStats?.totalItems || 0}</h3>
                 </div>
                 <FontAwesomeIcon icon="boxes-stacked" className="h-8 w-8 text-muted-foreground" />
               </div>
@@ -36,20 +43,8 @@ export default function MaterialHandling() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Active Orders</p>
-                  <h3 className="text-2xl font-bold">{materialStats?.activeOrders || 0}</h3>
-                </div>
-                <FontAwesomeIcon icon="truck-fast" className="h-8 w-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
                   <p className="text-sm font-medium text-muted-foreground">Low Stock Items</p>
-                  <h3 className="text-2xl font-bold">{materialStats?.lowStockItems || 0}</h3>
+                  <h3 className="text-2xl font-bold">{inventoryStats?.lowStockItems || 0}</h3>
                 </div>
                 <FontAwesomeIcon icon="triangle-exclamation" className="h-8 w-8 text-yellow-500" />
               </div>
@@ -60,10 +55,22 @@ export default function MaterialHandling() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Warehouse Capacity</p>
-                  <h3 className="text-2xl font-bold">{materialStats?.warehouseCapacity || 0}%</h3>
+                  <p className="text-sm font-medium text-muted-foreground">Out of Stock</p>
+                  <h3 className="text-2xl font-bold">{inventoryStats?.outOfStockItems || 0}</h3>
                 </div>
-                <FontAwesomeIcon icon="warehouse" className="h-8 w-8 text-green-500" />
+                <FontAwesomeIcon icon="empty-set" className="h-8 w-8 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Value</p>
+                  <h3 className="text-2xl font-bold">{formatCurrency(inventoryStats?.totalValue || 0)}</h3>
+                </div>
+                <FontAwesomeIcon icon="sack-dollar" className="h-8 w-8 text-green-500" />
               </div>
             </CardContent>
           </Card>
