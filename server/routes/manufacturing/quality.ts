@@ -381,7 +381,7 @@ router.post('/mrb', async (req, res) => {
     }
 
     console.log('Creating new MRB:', req.body);
-    const { linkedNCRs, ...mrbData } = req.body;
+    const { linkedNCRs, tasks, notes, ...mrbData } = req.body;
 
     const newMRB = {
       ...mrbData,
@@ -389,10 +389,14 @@ router.post('/mrb', async (req, res) => {
       id: `MRB-${Date.now()}`,
       userKey: 'default',
       linkedNCRs: linkedNCRs || [], // Ensure linkedNCRs is always an array
+      tasks: tasks || [],
+      notes: notes || [],
+      collaborators: mrbData.collaborators || [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
+    console.log('Attempting to create MRB with enhanced data:', newMRB);
     const { resource: createdMrb } = await container.items.create(newMRB);
 
     // Update status and link NCRs if provided
@@ -435,7 +439,8 @@ router.post('/mrb', async (req, res) => {
   } catch (error) {
     console.error('Error creating MRB:', error);
     res.status(500).json({ 
-      message: error instanceof Error ? error.message : 'Failed to create MRB' 
+      message: error instanceof Error ? error.message : 'Failed to create MRB',
+      details: error instanceof Error ? error.stack : undefined 
     });
   }
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import crypto from 'crypto';
 
 // Define schema for MRB actions and dispositions
 const MRBActionSchema = z.object({
@@ -14,6 +15,39 @@ const MRBActionSchema = z.object({
 const LinkedNCRSchema = z.object({
   ncrId: z.string(),
   dispositionNotes: z.string(),
+});
+
+// Define schema for collaborator tasks
+const TaskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  assignedTo: z.string(),
+  dueDate: z.string(),
+  status: z.enum(["pending", "in_progress", "completed", "blocked"]),
+  priority: z.enum(["low", "medium", "high", "critical"]),
+  createdBy: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  completedAt: z.string().optional(),
+  comments: z.array(z.object({
+    id: z.string(),
+    text: z.string(),
+    author: z.string(),
+    timestamp: z.string(),
+  })),
+});
+
+// Define schema for notes
+const NoteSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  content: z.string(),
+  author: z.string(),
+  category: z.enum(["general", "technical", "quality", "disposition", "other"]),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  tags: z.array(z.string()).optional(),
 });
 
 export const MRBSchema = z.object({
@@ -49,6 +83,15 @@ export const MRBSchema = z.object({
   capaNumber: z.string().optional(),
   linkedNCRs: z.array(LinkedNCRSchema).optional(),
 
+  // Enhanced Collaboration Features
+  tasks: z.array(TaskSchema).default([]),
+  notes: z.array(NoteSchema).default([]),
+  collaborators: z.array(z.object({
+    userId: z.string(),
+    role: z.enum(["reviewer", "approver", "contributor"]),
+    addedAt: z.string(),
+  })).default([]),
+
   // Review Details
   nonconformance: z.object({
     description: z.string(),
@@ -56,6 +99,8 @@ export const MRBSchema = z.object({
     detectedDate: z.string(),
     defectType: z.string(),
     rootCause: z.string().optional(),
+    containmentActions: z.array(z.string()).optional(),
+    correctiveActions: z.array(z.string()).optional(),
   }).optional(),
 
   // Cost Impact
@@ -65,6 +110,7 @@ export const MRBSchema = z.object({
     reworkCost: z.number(),
     totalCost: z.number(),
     currency: z.string().default("USD"),
+    comments: z.string().optional(),
   }).optional(),
 
   // Disposition
@@ -86,6 +132,8 @@ export const MRBSchema = z.object({
       comment: z.string().optional(),
     })),
     approvalDate: z.string().optional(),
+    implementationPlan: z.string().optional(),
+    verificationMethod: z.string().optional(),
   }),
 
   // Attachments and Documentation
@@ -94,8 +142,12 @@ export const MRBSchema = z.object({
     name: z.string(),
     type: z.string(),
     url: z.string(),
+    category: z.enum(["document", "image", "drawing", "report", "other"]),
+    description: z.string().optional(),
     uploadedBy: z.string(),
     uploadedAt: z.string(),
+    size: z.number(),
+    metadata: z.record(z.string()).optional(),
   })),
 
   // Audit Trail
@@ -106,16 +158,29 @@ export const MRBSchema = z.object({
     user: z.string(),
     timestamp: z.string(),
     notes: z.string().optional(),
+    changes: z.record(z.unknown()).optional(),
   })).optional(),
+
+  // Enhanced tracking fields
+  reviewDueDate: z.string().optional(),
+  priority: z.enum(["low", "medium", "high", "critical"]).default("medium"),
+  tags: z.array(z.string()).default([]),
+  department: z.string().optional(),
+  projectId: z.string().optional(),
+  customFields: z.record(z.unknown()).optional(),
 
   createdBy: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  closedAt: z.string().optional(),
+  closedBy: z.string().optional(),
 });
 
 export type MRB = z.infer<typeof MRBSchema>;
 export type MRBAction = z.infer<typeof MRBActionSchema>;
 export type LinkedNCR = z.infer<typeof LinkedNCRSchema>;
+export type MRBTask = z.infer<typeof TaskSchema>;
+export type MRBNote = z.infer<typeof NoteSchema>;
 
 export const defaultMRBAction = {
   description: "",
@@ -123,4 +188,29 @@ export const defaultMRBAction = {
   dueDate: new Date().toISOString(),
   status: "pending" as const,
   comments: "",
+};
+
+export const defaultMRBTask = {
+  id: crypto.randomUUID(),
+  title: "",
+  description: "",
+  assignedTo: "",
+  dueDate: new Date().toISOString(),
+  status: "pending" as const,
+  priority: "medium" as const,
+  createdBy: "current-user",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  comments: [],
+};
+
+export const defaultMRBNote = {
+  id: crypto.randomUUID(),
+  title: "",
+  content: "",
+  author: "current-user",
+  category: "general" as const,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  tags: [],
 };
