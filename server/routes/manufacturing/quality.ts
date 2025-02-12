@@ -623,22 +623,17 @@ router.delete('/mrb/:id', async (req, res) => {
           await Promise.all(updatePromises.filter(Boolean));
         }
 
-        // First get the MRB document
-        const { resources: [mrbDoc] } = await container.items
-          .query({
-            query: "SELECT * FROM c WHERE c.id = @id",
-            parameters: [{ name: "@id", value: id }],
-            partitionKey: 'default'
-          })
-          .fetchAll();
-
-        if (!mrbDoc) {
-          console.log(`MRB ${id} not found`);
-          return res.status(404).json({ message: 'MRB not found' });
+        // Delete the MRB directly
+        try {
+          await container.item(id, 'default').delete();
+          console.log(`Successfully deleted MRB ${id}`);
+        } catch (deleteError) {
+          console.error('Error deleting MRB document:', deleteError);
+          return res.status(500).json({ 
+            message: 'Failed to delete MRB',
+            details: deleteError instanceof Error ? deleteError.message : 'Unknown error'
+          });
         }
-
-        // Delete using the document
-        await container.item(mrbDoc.id, mrbDoc.userKey).delete();
 
         console.log(`Successfully deleted MRB ${id}`);
         return res.status(200).json({ 
