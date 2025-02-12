@@ -584,18 +584,21 @@ router.delete('/mrb/:id', async (req, res) => {
       console.log(`Handling regular MRB deletion for ${id}`);
       try {
         // First check if the MRB exists
-        const { resources: [mrb] } = await container.items
+        const { resources: mrbs } = await container.items
           .query({
-            query: "SELECT * FROM c WHERE c.id = @id",
-            parameters: [{ name: "@id", value: id }],
-            partitionKey: 'default'
+            query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'mrb'",
+            parameters: [{ name: "@id", value: id }]
           })
           .fetchAll();
+
+        const mrb = mrbs[0];
 
         if (!mrb) {
           console.log(`MRB ${id} not found`);
           return res.status(404).json({ message: 'MRB not found' });
         }
+
+        console.log('Found MRB to delete:', mrb);
 
         // If MRB has linked NCRs, update them first
         if (mrb.linkedNCRs && Array.isArray(mrb.linkedNCRs)) {
