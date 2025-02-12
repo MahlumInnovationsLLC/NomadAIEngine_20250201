@@ -586,7 +586,7 @@ router.delete('/mrb/:id', async (req, res) => {
         // First check if the MRB exists
         const { resources: [mrb] } = await container.items
           .query({
-            query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'mrb'",
+            query: "SELECT * FROM c WHERE c.id = @id",
             parameters: [{ name: "@id", value: id }],
             partitionKey: 'default'
           })
@@ -620,30 +620,14 @@ router.delete('/mrb/:id', async (req, res) => {
           await Promise.all(updatePromises.filter(Boolean));
         }
 
-        // Delete the MRB using the CosmosDB item.delete() method
-        try {
-          const { resource: deletedItem } = await container.items
-            .query({
-              query: "SELECT * FROM c WHERE c.id = @id",
-              parameters: [{ name: "@id", value: id }]
-            })
-            .fetchAll()
-            .then(({ resources: [item] }) => {
-              if (!item) {
-                throw new Error('MRB not found');
-              }
-              return container.item(item.id, item.userKey || 'default').delete();
-            });
+        // Delete the MRB directly using the item reference
+        const { resource: deletedItem } = await container.item(id, 'default').delete();
 
-          console.log(`Successfully deleted MRB ${id}`);
-          return res.status(200).json({ 
-            message: 'MRB deleted successfully',
-            deletedItemId: deletedItem?.id
-          });
-        } catch (deleteError) {
-          console.error('Specific error during MRB deletion:', deleteError);
-          throw new Error(deleteError instanceof Error ? deleteError.message : 'Unknown deletion error');
-        }
+        console.log(`Successfully deleted MRB ${id}`);
+        return res.status(200).json({ 
+          message: 'MRB deleted successfully',
+          deletedItemId: deletedItem?.id
+        });
       } catch (error) {
         console.error('Error in MRB deletion process:', error);
         throw error;
