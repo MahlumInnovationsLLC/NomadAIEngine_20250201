@@ -27,6 +27,7 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { CAPA } from "@/types/manufacturing/capa";
 
 const defaultValues: Partial<CAPA> = {
   title: "",
@@ -212,7 +213,12 @@ export function CAPADialog({
           <DialogTitle>{initialData ? "Edit CAPA" : "Create CAPA"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(createCAPA.mutate)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit((data) => {
+              createCAPA.mutate(data);
+            })}
+            className="space-y-4"
+          >
             <ScrollArea className="h-[80vh] px-4">
               <div className="space-y-6">
                 {/* Basic Information Section */}

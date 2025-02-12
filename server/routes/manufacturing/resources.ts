@@ -1,22 +1,22 @@
 import { Router } from "express";
-import { CosmosClient } from "@azure/cosmos";
+import { database, containers, getContainer } from "../services/azure/cosmos_service";
 import { v4 as uuidv4 } from "uuid";
 
 const router = Router();
 
-// Initialize Cosmos DB client
-const client = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || "");
-const database = client.database("NomadAIEngineDB");
-const resourcesContainer = database.container("resources");
-
 // Get all team members
 router.get("/team", async (req, res) => {
   try {
+    const container = getContainer('resources');
+    if (!container) {
+      throw new Error('Resources container not initialized');
+    }
+
     const querySpec = {
       query: "SELECT * FROM c WHERE c.type = 'team_member'"
     };
 
-    const { resources } = await resourcesContainer.items.query(querySpec).fetchAll();
+    const { resources } = await container.items.query(querySpec).fetchAll();
     res.json(resources);
   } catch (error) {
     console.error("Error fetching team members:", error);
@@ -27,11 +27,16 @@ router.get("/team", async (req, res) => {
 // Get resource allocations
 router.get("/allocations", async (req, res) => {
   try {
+    const container = getContainer('resources');
+    if (!container) {
+      throw new Error('Resources container not initialized');
+    }
+
     const querySpec = {
       query: "SELECT * FROM c WHERE c.type = 'resource_allocation'"
     };
 
-    const { resources } = await resourcesContainer.items.query(querySpec).fetchAll();
+    const { resources } = await container.items.query(querySpec).fetchAll();
     res.json(resources);
   } catch (error) {
     console.error("Error fetching resource allocations:", error);
@@ -42,6 +47,11 @@ router.get("/allocations", async (req, res) => {
 // Add new team member
 router.post("/team", async (req, res) => {
   try {
+    const container = getContainer('resources');
+    if (!container) {
+      throw new Error('Resources container not initialized');
+    }
+
     const teamMember = {
       id: uuidv4(),
       type: "team_member",
@@ -50,7 +60,7 @@ router.post("/team", async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    const { resource } = await resourcesContainer.items.create(teamMember);
+    const { resource } = await container.items.create(teamMember);
     res.status(201).json(resource);
   } catch (error) {
     console.error("Error creating team member:", error);
@@ -61,6 +71,11 @@ router.post("/team", async (req, res) => {
 // Update resource allocation
 router.post("/allocations", async (req, res) => {
   try {
+    const container = getContainer('resources');
+    if (!container) {
+      throw new Error('Resources container not initialized');
+    }
+
     const allocation = {
       id: uuidv4(),
       type: "resource_allocation",
@@ -69,7 +84,7 @@ router.post("/allocations", async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    const { resource } = await resourcesContainer.items.create(allocation);
+    const { resource } = await container.items.create(allocation);
     res.status(201).json(resource);
   } catch (error) {
     console.error("Error creating resource allocation:", error);
