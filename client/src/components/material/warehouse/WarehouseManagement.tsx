@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ZoneUtilizationDialog } from "./ZoneUtilizationDialog";
 import { ZoneCreateDialog } from "./ZoneCreateDialog";
 import WarehouseEdit from "../../warehouse/WarehouseEdit";
+import { BulkImportDialog } from "./BulkImportDialog";
 
 interface WarehouseManagementProps {
   selectedWarehouse: string | null;
@@ -39,6 +40,7 @@ export function WarehouseManagement({
   const [activeTab, setActiveTab] = useState("overview");
   const [editWarehouse, setEditWarehouse] = useState<string | null>(null);
   const [showAddZone, setShowAddZone] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -250,18 +252,61 @@ export function WarehouseManagement({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold">Warehouse Management</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Material Handling & Supply Chain</h2>
           <p className="text-muted-foreground">
-            Manage and monitor warehouse operations across facilities
+            Comprehensive inventory management and supply chain optimization system
           </p>
         </div>
-        <Button onClick={() => setEditWarehouse('new')}>
-          <FontAwesomeIcon icon="plus" className="mr-2" />
-          Add Warehouse
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowBulkImport(true)}
+          >
+            <FontAwesomeIcon icon="file-import" className="mr-2 h-4 w-4" />
+            Bulk Import
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditWarehouse('new')}
+          >
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            Add Material
+          </Button>
+        </div>
+      </div>
+
+      {/* Tab navigation */}
+      <div className="flex space-x-2 border-b">
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "px-4",
+            activeTab === "inventory" && "bg-muted"
+          )}
+          onClick={() => setActiveTab("inventory")}
+        >
+          <FontAwesomeIcon icon="box" className="mr-2 h-4 w-4" />
+          Inventory
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "px-4",
+            activeTab === "supply-chain" && "bg-muted"
+          )}
+          onClick={() => setActiveTab("supply-chain")}
+        >
+          <FontAwesomeIcon icon="truck" className="mr-2 h-4 w-4" />
+          Supply Chain
         </Button>
       </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {warehouses.map(renderWarehouseCard)}
@@ -495,6 +540,10 @@ export function WarehouseManagement({
           </CardContent>
         </Card>
       )}
+      <BulkImportDialog
+        open={showBulkImport}
+        onOpenChange={setShowBulkImport}
+      />
     </div>
   );
 }
