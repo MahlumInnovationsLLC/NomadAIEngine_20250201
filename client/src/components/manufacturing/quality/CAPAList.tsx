@@ -28,6 +28,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { CAPA } from "@/types/manufacturing/capa";
 import { CAPADialog } from "./dialogs/CAPADialog";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface CAPACategory {
   id: number;
@@ -55,10 +57,12 @@ const fetchCategories = async (): Promise<CAPACategory[]> => {
 export default function CAPAList() {
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedCAPA, setSelectedCAPA] = useState<CAPA | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [importFile, setImportFile] = useState<File | null>(null);
 
-  const { data: capas = [], isLoading: isLoadingCAPAs } = useQuery<CAPA[]>({
+  const { data: capas = [], isLoading: isLoadingCAPAs, refetch } = useQuery<CAPA[]>({
     queryKey: ['/api/manufacturing/quality/capas'],
     queryFn: fetchCAPAs,
   });
@@ -67,6 +71,48 @@ export default function CAPAList() {
     queryKey: ['/api/manufacturing/quality/capa-categories'],
     queryFn: fetchCategories,
   });
+
+  const handleFileImport = async () => {
+    if (!importFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select a file to import",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', importFile);
+
+    try {
+      const response = await fetch('/api/manufacturing/quality/capas/import', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Import failed');
+      }
+
+      const result = await response.json();
+      toast({
+        title: "Import Successful",
+        description: `Successfully imported ${result.count} CAPAs`
+      });
+
+      setShowImportDialog(false);
+      setImportFile(null);
+      refetch(); // Refresh the CAPA list
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Failed to import CAPAs",
+        variant: "destructive"
+      });
+    }
+  };
 
   const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (status) {
@@ -157,6 +203,10 @@ export default function CAPAList() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+            <FontAwesomeIcon icon="file-import" className="mr-2 h-4 w-4" />
+            Import CAPAs
+          </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
             <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
             Create New CAPA
@@ -238,6 +288,36 @@ export default function CAPAList() {
         </CardContent>
       </Card>
 
+      {/* Import Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import CAPAs</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Upload a CSV or Excel file containing CAPA data. The file should include the following columns:
+                title, description, type, priority, area, category_id, department
+              </p>
+              <Input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleFileImport} disabled={!importFile}>
+                Import
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <CAPADialog
         open={showCreateDialog || !!selectedCAPA}
         onOpenChange={(open) => {
@@ -252,6 +332,7 @@ export default function CAPAList() {
               ? "CAPA updated successfully"
               : "CAPA created successfully",
           });
+          refetch();
         }}
       />
     </div>

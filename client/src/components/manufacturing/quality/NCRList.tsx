@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { NCRDetailsDialog } from "./dialogs/NCRDetailsDialog";
-import { NonConformanceReport } from "@/types/manufacturing";
+import { NonConformanceReport } from "@/types/manufacturing/ncr";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -105,6 +105,8 @@ export default function NCRList() {
         return 'default';
       case 'closed':
         return 'outline';
+      case 'draft':
+        return 'secondary';
       default:
         return 'secondary';
     }
@@ -141,7 +143,7 @@ export default function NCRList() {
       <TableBody>
         {ncrs.map((ncr) => (
           <TableRow 
-            key={ncr.id || ncr.number}
+            key={ncr.id}
             className="cursor-pointer hover:bg-muted/50"
             onClick={() => setSelectedNCR(ncr)}
           >
@@ -245,6 +247,7 @@ export default function NCRList() {
           <TabsTrigger value="under_review">Under Review</TabsTrigger>
           <TabsTrigger value="pending_disposition">Pending Disposition</TabsTrigger>
           <TabsTrigger value="closed">Closed</TabsTrigger>
+          <TabsTrigger value="draft">Draft</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -304,7 +307,7 @@ export default function NCRList() {
 
       {(showCreateDialog || selectedNCR) && (
         <NCRDialog
-          open={showCreateDialog}
+          open={showCreateDialog || !!selectedNCR}
           onOpenChange={(open) => {
             if (!open) {
               setShowCreateDialog(false);
@@ -312,6 +315,12 @@ export default function NCRList() {
             }
           }}
           defaultValues={selectedNCR}
+          onSuccess={() => {
+            setShowCreateDialog(false);
+            setSelectedNCR(null);
+            refetch();
+          }}
+          isEditing={!!selectedNCR}
         />
       )}
 
@@ -324,6 +333,10 @@ export default function NCRList() {
             }
           }}
           ncr={selectedNCR}
+          onSuccess={() => {
+            setSelectedNCR(null);
+            refetch();
+          }}
         />
       )}
     </div>

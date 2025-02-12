@@ -155,23 +155,21 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDeta
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Disposition</h3>
                 <Badge variant="outline" className="capitalize">
-                  {typeof ncr.disposition === 'string' 
-                    ? ncr.disposition.replace('_', ' ')
-                    : ncr.disposition?.decision?.replace('_', ' ') || 'pending'}
+                  {ncr.disposition.decision.replace('_', ' ')}
                 </Badge>
-                {typeof ncr.disposition === 'object' && ncr.disposition?.justification && (
+                {ncr.disposition.justification && (
                   <div>
                     <h4 className="font-medium mb-1">Justification</h4>
                     <p className="text-muted-foreground">{ncr.disposition.justification}</p>
                   </div>
                 )}
-                {typeof ncr.disposition === 'object' && ncr.disposition?.conditions && (
+                {ncr.disposition.conditions && (
                   <div>
                     <h4 className="font-medium mb-1">Conditions</h4>
                     <p className="text-muted-foreground">{ncr.disposition.conditions}</p>
                   </div>
                 )}
-                {typeof ncr.disposition === 'object' && ncr.disposition?.approvedBy && (
+                {ncr.disposition.approvedBy && ncr.disposition.approvedBy.length > 0 && (
                   <div>
                     <h4 className="font-medium mb-1">Approvals</h4>
                     <div className="space-y-2">
@@ -198,15 +196,15 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDeta
                         <div className="grid grid-cols-3 gap-4">
                           <div className="col-span-3">
                             <h4 className="font-medium mb-1">Action</h4>
-                            <p className="text-muted-foreground">{action.action || 'No action specified'}</p>
+                            <p className="text-muted-foreground">{action.action}</p>
                           </div>
                           <div>
                             <h4 className="font-medium mb-1">Assigned To</h4>
-                            <p className="text-muted-foreground">{action.assignedTo || 'Unassigned'}</p>
+                            <p className="text-muted-foreground">{action.assignedTo}</p>
                           </div>
                           <div>
                             <h4 className="font-medium mb-1">Due Date</h4>
-                            <p className="text-muted-foreground">{action.dueDate || 'No date set'}</p>
+                            <p className="text-muted-foreground">{action.dueDate}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -281,6 +279,7 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDeta
           onOpenChange={setShowEditDialog}
           defaultValues={ncr}
           onSuccess={handleEditSuccess}
+          isEditing
         />
       )}
     </>

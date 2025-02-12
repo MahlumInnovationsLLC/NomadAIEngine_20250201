@@ -21,6 +21,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { SCAR } from "@/types/manufacturing/scar";
 import { SCARDialog } from "./dialogs/SCARDialog";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const fetchSCARs = async (): Promise<SCAR[]> => {
   const response = await fetch('/api/manufacturing/quality/scars');
@@ -33,12 +35,56 @@ const fetchSCARs = async (): Promise<SCAR[]> => {
 export default function SCARList() {
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedSCAR, setSelectedSCAR] = useState<SCAR | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
-  const { data: scars = [], isLoading } = useQuery<SCAR[]>({
+  const { data: scars = [], isLoading, refetch } = useQuery<SCAR[]>({
     queryKey: ['/api/manufacturing/quality/scars'],
     queryFn: fetchSCARs,
   });
+
+  const handleFileImport = async () => {
+    if (!importFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select a file to import",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', importFile);
+
+    try {
+      const response = await fetch('/api/manufacturing/quality/scars/import', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Import failed');
+      }
+
+      const result = await response.json();
+      toast({
+        title: "Import Successful",
+        description: `Successfully imported ${result.count} SCARs`
+      });
+
+      setShowImportDialog(false);
+      setImportFile(null);
+      refetch(); // Refresh the SCAR list
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Failed to import SCARs",
+        variant: "destructive"
+      });
+    }
+  };
 
   const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (status) {
@@ -94,10 +140,16 @@ export default function SCARList() {
             Track and manage supplier quality issues and corrective actions
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-          New SCAR
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+            <FontAwesomeIcon icon="file-import" className="mr-2 h-4 w-4" />
+            Import SCARs
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            New SCAR
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -170,6 +222,36 @@ export default function SCARList() {
         </CardContent>
       </Card>
 
+      {/* Import Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import SCARs</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Upload a CSV or Excel file containing SCAR data. The file should include the following columns:
+                supplier_name, issue_category, issue_severity, description, response_required_date
+              </p>
+              <Input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleFileImport} disabled={!importFile}>
+                Import
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <SCARDialog
         open={showCreateDialog || !!selectedSCAR}
         onOpenChange={(open) => {
@@ -184,6 +266,7 @@ export default function SCARList() {
               ? "SCAR updated successfully"
               : "SCAR created successfully",
           });
+          refetch();
         }}
       />
     </div>
