@@ -907,7 +907,7 @@ router.post('/inspections/:id/attachments', upload.single('file'), async (req, r
     }
 
     const { id } = req.params;
-    console.log(`Looking for Inspectionwith ID: ${id}`);
+    console.log(`Looking for Inspection with ID: ${id}`);
 
     const { resources: [inspection] } = await container.items
       .query({
@@ -919,7 +919,6 @@ router.post('/inspections/:id/attachments', upload.single('file'), async (req, r
 
     if (!inspection) {
       return res.status(404).json({ message: 'Inspection not found' });
-    }
     }
 
     console.log('Found Inspection:', inspection);
