@@ -23,6 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { NCRDetailsDialog } from "./dialogs/NCRDetailsDialog";
 import { NonConformanceReport } from "@/types/manufacturing";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const fetchNCRs = async (): Promise<NonConformanceReport[]> => {
   const response = await fetch('/api/manufacturing/quality/ncrs');
@@ -40,21 +42,58 @@ const fetchNCRs = async (): Promise<NonConformanceReport[]> => {
 export default function NCRList() {
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedNCR, setSelectedNCR] = useState<NonConformanceReport | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
-  const { data: ncrs = [], isLoading, error } = useQuery<NonConformanceReport[]>({
+  const { data: ncrs = [], isLoading, error, refetch } = useQuery<NonConformanceReport[]>({
     queryKey: ['/api/manufacturing/quality/ncrs'],
     queryFn: fetchNCRs,
     staleTime: 5000,
-    retry: 2,
-    onError: (error) => {
+    retry: 2
+  });
+
+  const handleFileImport = async () => {
+    if (!importFile) {
       toast({
-        title: "Error loading NCRs",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
+        title: "No file selected",
+        description: "Please select a file to import",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', importFile);
+
+    try {
+      const response = await fetch('/api/manufacturing/quality/ncrs/import', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Import failed');
+      }
+
+      const result = await response.json();
+      toast({
+        title: "Import Successful",
+        description: `Successfully imported ${result.count} NCRs`
+      });
+
+      setShowImportDialog(false);
+      setImportFile(null);
+      refetch(); // Refresh the NCR list
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Failed to import NCRs",
         variant: "destructive"
       });
     }
-  });
+  };
 
   const getStatusBadgeVariant = (status: NonConformanceReport['status']) => {
     switch (status) {
@@ -187,10 +226,16 @@ export default function NCRList() {
             Track and manage product or process non-conformances
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-          New NCR
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+            <FontAwesomeIcon icon="file-import" className="mr-2 h-4 w-4" />
+            Import NCRs
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            New NCR
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="all" className="space-y-4">
@@ -226,6 +271,36 @@ export default function NCRList() {
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Add Import Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import NCRs</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Upload a CSV or Excel file containing NCR data. The file should include the following columns:
+                title, description, type, severity, area, lotNumber, quantityAffected
+              </p>
+              <Input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleFileImport} disabled={!importFile}>
+                Import
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {(showCreateDialog || selectedNCR) && (
         <NCRDialog
