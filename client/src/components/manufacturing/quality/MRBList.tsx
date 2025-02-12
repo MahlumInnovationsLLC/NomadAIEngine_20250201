@@ -3,12 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { 
-  faEye, 
-  faEdit, 
-  faEllipsisVertical, 
+import {
+  faEye,
+  faEdit,
+  faEllipsisVertical,
   faPlus,
-  faTrash
+  faTrash,
+  faSpinner
 } from '@fortawesome/pro-light-svg-icons';
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -77,6 +78,7 @@ export default function MRBList() {
   const [currentTab, setCurrentTab] = useState<"open" | "closed">("open");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [mrbToDelete, setMrbToDelete] = useState<MRB | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: mrbItems = [], isLoading, error } = useQuery<MRB[]>({
     queryKey: ['/api/manufacturing/quality/mrb'],
@@ -147,6 +149,7 @@ export default function MRBList() {
   };
 
   const handleDelete = async (mrbId: string) => {
+    setIsDeleting(true);
     try {
       const response = await fetch(`/api/manufacturing/quality/mrb/${mrbId}`, {
         method: 'DELETE',
@@ -162,6 +165,9 @@ export default function MRBList() {
 
       // Invalidate and refetch queries after successful deletion
       await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
+      // Also invalidate NCR queries since they might be linked
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
+
       setMrbToDelete(null);
       setShowDeleteDialog(false);
 
@@ -176,6 +182,8 @@ export default function MRBList() {
         description: error instanceof Error ? error.message : "Failed to delete MRB",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -246,7 +254,7 @@ export default function MRBList() {
                 </TableHeader>
                 <TableBody>
                   {filteredMRBs.map((mrb) => (
-                    <TableRow 
+                    <TableRow
                       key={mrb.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => {
@@ -390,24 +398,32 @@ export default function MRBList() {
             <AlertDialogDescription>
               Are you sure you want to delete this MRB? This action cannot be undone.
               {mrbToDelete && (
-                <div className="mt-2">
-                  <strong>MRB Number:</strong> {mrbToDelete.number}
+                <div className="mt-2 space-y-2">
+                  <div><strong>MRB Number:</strong> {mrbToDelete.number}</div>
+                  <div><strong>Part Number:</strong> {mrbToDelete.partNumber}</div>
+                  <div><strong>Type:</strong> {mrbToDelete.type}</div>
                 </div>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowDeleteDialog(false);
-              setMrbToDelete(null);
-            }}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => mrbToDelete && handleDelete(mrbToDelete.id)}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {isDeleting ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faTrash} className="mr-2" />
+                  Delete
+                </>
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
