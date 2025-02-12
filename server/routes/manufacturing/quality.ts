@@ -623,9 +623,9 @@ router.delete('/mrb/:id', async (req, res) => {
           await Promise.all(updatePromises.filter(Boolean));
         }
 
-        // Delete the MRB directly
+        // Delete the MRB using the found document
         try {
-          await container.item(id, 'default').delete();
+          await container.item(mrb.id, mrb.userKey || 'default').delete();
           console.log(`Successfully deleted MRB ${id}`);
         } catch (deleteError) {
           console.error('Error deleting MRB document:', deleteError);
