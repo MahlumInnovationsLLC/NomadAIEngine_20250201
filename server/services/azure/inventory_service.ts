@@ -130,12 +130,47 @@ export async function updateInventoryQuantity(
     ...item,
     quantity: newQuantity,
     lastUpdated: new Date().toISOString(),
-    status: newQuantity <= 0 ? "out_of_stock" : 
+    status: newQuantity <= 0 ? "out_of_stock" :
             newQuantity <= item.reorderPoint ? "low_stock" : "in_stock"
   };
 
   const { resource } = await inventoryContainer.item(itemId, itemId).replace(updatedItem);
   return resource!;
+}
+
+import type { InventoryItem } from "../../../client/src/types/inventory";
+
+export async function bulkImportInventory(items: Partial<InventoryItem>[]): Promise<InventoryItem[]> {
+  try {
+    const container = database.container("inventory");
+    const importedItems: InventoryItem[] = [];
+
+    for (const item of items) {
+      const newItem: InventoryItem = {
+        id: uuidv4(),
+        sku: item.sku!,
+        name: item.name!,
+        category: item.category!,
+        quantity: item.quantity || 0,
+        unit: item.unit!,
+        reorderPoint: item.reorderPoint || 0,
+        location: item.location || "",
+        status: "in_stock",
+        lastUpdated: new Date().toISOString(),
+        ...item
+      };
+
+      const { resource } = await container.items.create(newItem);
+      if (resource) {
+        importedItems.push(resource);
+      }
+    }
+
+    return importedItems;
+  } catch (error) {
+    console.error("Failed to bulk import inventory items:", error);
+    throw error;
+  }
 }
 
 // Initialize the database when the module loads

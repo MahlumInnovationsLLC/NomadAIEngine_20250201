@@ -7,10 +7,22 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 
+interface InventoryItem {
+  id: string;
+  partNumber: string;
+  name: string;
+  category: string;
+  quantity: number;
+  minQuantity: number;
+  maxQuantity: number;
+  onOrder: number;
+  location: string;
+}
+
 export default function PartsInventoryManager() {
   const [view, setView] = useState<'inventory' | 'orders' | 'suppliers'>('inventory');
 
-  const { data: inventory = [] } = useQuery({
+  const { data: inventory = [] } = useQuery<InventoryItem[]>({
     queryKey: ['/api/maintenance/inventory'],
     enabled: true,
   });
@@ -45,7 +57,7 @@ export default function PartsInventoryManager() {
               <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">Low Stock Items</div>
                 <div className="text-2xl font-bold text-yellow-500">
-                  {inventory.filter((item: any) => item.quantity <= item.minQuantity).length}
+                  {inventory.filter(item => item.quantity <= item.minQuantity).length}
                 </div>
               </CardContent>
             </Card>
@@ -53,7 +65,7 @@ export default function PartsInventoryManager() {
               <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">Out of Stock</div>
                 <div className="text-2xl font-bold text-red-500">
-                  {inventory.filter((item: any) => item.quantity === 0).length}
+                  {inventory.filter(item => item.quantity === 0).length}
                 </div>
               </CardContent>
             </Card>
@@ -61,7 +73,7 @@ export default function PartsInventoryManager() {
               <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">On Order</div>
                 <div className="text-2xl font-bold text-blue-500">
-                  {inventory.filter((item: any) => item.onOrder > 0).length}
+                  {inventory.filter(item => item.onOrder > 0).length}
                 </div>
               </CardContent>
             </Card>
@@ -80,7 +92,7 @@ export default function PartsInventoryManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {inventory.map((item: any) => (
+              {inventory.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.partNumber}</TableCell>
                   <TableCell>{item.name}</TableCell>

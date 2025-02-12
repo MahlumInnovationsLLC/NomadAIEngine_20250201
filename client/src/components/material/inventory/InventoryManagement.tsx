@@ -23,6 +23,7 @@ import type { Material, Warehouse } from "@/types/material";
 import { MaterialDetailsDialog } from "./MaterialDetailsDialog";
 import { StockAdjustmentDialog } from "./StockAdjustmentDialog";
 import { MaterialAllocationDialog } from "./MaterialAllocationDialog";
+import { BulkImportDialog } from "./BulkImportDialog";
 
 interface InventoryManagementProps {
   selectedWarehouse: string | null;
@@ -38,6 +39,7 @@ export function InventoryManagement({
   const [showStockAdjustment, setShowStockAdjustment] = useState(false);
   const [showAllocation, setShowAllocation] = useState(false);
   const [filterABCClass, setFilterABCClass] = useState<'A' | 'B' | 'C' | null>(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   const { data: materials = [] } = useQuery<Material[]>({
     queryKey: ['/api/material/inventory', selectedWarehouse],
@@ -122,6 +124,10 @@ export function InventoryManagement({
           </DropdownMenu>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowBulkImport(true)}>
+            <FontAwesomeIcon icon="file-import" className="mr-2" />
+            Bulk Import
+          </Button>
           <Button variant="outline" onClick={() => setShowStockAdjustment(true)}>
             <FontAwesomeIcon icon="balance-scale" className="mr-2" />
             Stock Adjustment
@@ -242,6 +248,10 @@ export function InventoryManagement({
         onOpenChange={setShowAllocation}
         materials={materials}
         warehouses={warehouses}
+      />
+      <BulkImportDialog
+        open={showBulkImport}
+        onOpenChange={setShowBulkImport}
       />
     </div>
   );
