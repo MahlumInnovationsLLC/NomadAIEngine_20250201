@@ -298,10 +298,10 @@ router.get('/mrb', async (req, res) => {
 
     console.log('Fetching MRBs and pending disposition NCRs from Cosmos DB...');
 
-    // First, get all MRB records, including closed ones
+    // Get all MRB records, excluding deleted ones
     const { resources: mrbs } = await container.items
       .query({
-        query: 'SELECT * FROM c WHERE c.type = "mrb" ORDER BY c._ts DESC',
+        query: 'SELECT * FROM c WHERE c.type = "mrb" AND (NOT IS_DEFINED(c.deleted) OR c.deleted = false) ORDER BY c._ts DESC',
         parameters: [],
         partitionKey: 'default'
       })
