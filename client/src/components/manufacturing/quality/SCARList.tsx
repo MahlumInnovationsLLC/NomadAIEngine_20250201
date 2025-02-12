@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,16 @@ import type { SCAR } from "@/types/manufacturing/scar";
 import { SCARDialog } from "./dialogs/SCARDialog";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+type SCARStatus = SCAR['status'];
+
+const STATUS_GROUPS = {
+  open: ["draft", "issued"] as SCARStatus[],
+  in_progress: ["supplier_response", "review"] as SCARStatus[],
+  closed: ["closed"] as SCARStatus[]
+} as const;
+
+type StatusGroupKey = keyof typeof STATUS_GROUPS;
 
 const fetchSCARs = async (): Promise<SCAR[]> => {
   const response = await fetch('/api/manufacturing/quality/scars');
@@ -38,11 +49,50 @@ export default function SCARList() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedSCAR, setSelectedSCAR] = useState<SCAR | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState<StatusGroupKey | 'all'>('all');
 
   const { data: scars = [], isLoading, refetch } = useQuery<SCAR[]>({
     queryKey: ['/api/manufacturing/quality/scars'],
     queryFn: fetchSCARs,
   });
+
+  const filteredSCARs = scars.filter(scar => 
+    activeTab === 'all' ? true : STATUS_GROUPS[activeTab as StatusGroupKey].includes(scar.status)
+  );
+
+  const getStatusBadgeVariant = (status: SCARStatus): "default" | "destructive" | "outline" | "secondary" => {
+    switch (status) {
+      case 'draft':
+        return 'secondary';
+      case 'issued':
+        return 'default';
+      case 'supplier_response':
+        return 'default';
+      case 'review':
+        return 'secondary';
+      case 'closed':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const getSeverityBadgeVariant = (severity: string): "default" | "destructive" | "outline" | "secondary" => {
+    switch (severity) {
+      case 'critical':
+        return 'destructive';
+      case 'major':
+        return 'destructive';
+      case 'minor':
+        return 'secondary';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString();
+  };
 
   const handleFileImport = async () => {
     if (!importFile) {
@@ -76,7 +126,7 @@ export default function SCARList() {
 
       setShowImportDialog(false);
       setImportFile(null);
-      refetch(); // Refresh the SCAR list
+      refetch();
     } catch (error) {
       toast({
         title: "Import Failed",
@@ -84,40 +134,6 @@ export default function SCARList() {
         variant: "destructive"
       });
     }
-  };
-
-  const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
-    switch (status) {
-      case 'draft':
-        return 'secondary';
-      case 'issued':
-        return 'default';
-      case 'supplier_response':
-        return 'default';
-      case 'review':
-        return 'secondary';
-      case 'closed':
-        return 'outline';
-      default:
-        return 'secondary';
-    }
-  };
-
-  const getSeverityBadgeVariant = (severity: string): "default" | "destructive" | "outline" | "secondary" => {
-    switch (severity) {
-      case 'critical':
-        return 'destructive';
-      case 'major':
-        return 'destructive';
-      case 'minor':
-        return 'secondary';
-      default:
-        return 'secondary';
-    }
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString();
   };
 
   if (isLoading) {
@@ -157,68 +173,102 @@ export default function SCARList() {
           <CardTitle>SCAR List</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>SCAR #</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Issue Date</TableHead>
-                <TableHead>Response Required</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {scars.map((scar) => (
-                <TableRow key={scar.id}>
-                  <TableCell className="font-medium">{scar.number}</TableCell>
-                  <TableCell>{scar.supplierName}</TableCell>
-                  <TableCell className="capitalize">{scar.issue.category}</TableCell>
-                  <TableCell>
-                    <Badge variant={getSeverityBadgeVariant(scar.issue.severity)}>
-                      {scar.issue.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(scar.status)}>
-                      {scar.status.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(scar.issueDate)}</TableCell>
-                  <TableCell>{formatDate(scar.responseRequired)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setSelectedSCAR(scar)}>
-                          <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <FontAwesomeIcon icon="check-square" className="mr-2 h-4 w-4" />
-                          Update Status
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <FontAwesomeIcon icon="paper-plane" className="mr-2 h-4 w-4" />
-                          Send to Supplier
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          <Tabs
+            defaultValue="all"
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as StatusGroupKey | 'all')}
+            className="space-y-4"
+          >
+            <TabsList>
+              <TabsTrigger value="all">
+                All
+                <Badge variant="secondary" className="ml-2">
+                  {scars.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="open">
+                Open
+                <Badge variant="secondary" className="ml-2">
+                  {scars.filter(scar => STATUS_GROUPS.open.includes(scar.status)).length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="in_progress">
+                In Progress
+                <Badge variant="secondary" className="ml-2">
+                  {scars.filter(scar => STATUS_GROUPS.in_progress.includes(scar.status)).length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="closed">
+                Closed
+                <Badge variant="secondary" className="ml-2">
+                  {scars.filter(scar => STATUS_GROUPS.closed.includes(scar.status)).length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>SCAR #</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Issue Date</TableHead>
+                  <TableHead>Response Required</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredSCARs.map((scar) => (
+                  <TableRow key={scar.id}>
+                    <TableCell className="font-medium">{scar.number}</TableCell>
+                    <TableCell>{scar.supplierName}</TableCell>
+                    <TableCell className="capitalize">{scar.issue.category}</TableCell>
+                    <TableCell>
+                      <Badge variant={getSeverityBadgeVariant(scar.issue.severity)}>
+                        {scar.issue.severity}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(scar.status)}>
+                        {scar.status.replace('_', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDate(scar.issueDate)}</TableCell>
+                    <TableCell>{formatDate(scar.responseRequired)}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setSelectedSCAR(scar)}>
+                            <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <FontAwesomeIcon icon="check-square" className="mr-2 h-4 w-4" />
+                            Update Status
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <FontAwesomeIcon icon="paper-plane" className="mr-2 h-4 w-4" />
+                            Send to Supplier
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Tabs>
         </CardContent>
       </Card>
 

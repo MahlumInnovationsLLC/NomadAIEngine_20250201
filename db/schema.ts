@@ -248,7 +248,7 @@ export const userNotifications = pgTable("user_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Add to the existing schema, after notifications table
+// Add after the existing schema, after notifications table
 export const facilityNotifications = pgTable("facility_notifications", {
   id: serial("id").primaryKey(),
   buildingSystemId: integer("building_system_id").references(() => buildingSystems.id),
@@ -617,7 +617,8 @@ export const capas = pgTable("capas", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   status: text("status", {
-    enum: ["draft", "open", "in_progress", "completed", "verified", "closed"]
+    enum: ["draft", "open", "in_progress", "pending_review", "under_investigation",
+           "implementing", "pending_verification", "completed", "verified", "closed", "cancelled"]
   }).notNull().default("draft"),
   priority: text("priority", {
     enum: ["low", "medium", "high", "critical"]
@@ -625,66 +626,7 @@ export const capas = pgTable("capas", {
   type: text("type", {
     enum: ["corrective", "preventive", "improvement"]
   }).notNull(),
-  category_id: integer("category_id").references(() => capaCategories.id),
-
-  // 8D Methodology Steps
-  d1_description: text("d1_description").notNull(),
-  d1_owner: text("d1_owner").notNull(),
-  d1_due_date: timestamp("d1_due_date").notNull(),
-  d1_status: text("d1_status", { enum: ["pending", "in_progress", "completed", "verified"] }).notNull().default("pending"),
-  d1_completed_date: timestamp("d1_completed_date"),
-  d1_comments: text("d1_comments"),
-  d1_team_members: text("d1_team_members").array(),
-
-  d2_description: text("d2_description").notNull(),
-  d2_owner: text("d2_owner").notNull(),
-  d2_due_date: timestamp("d2_due_date").notNull(),
-  d2_status: text("d2_status", { enum: ["pending", "in_progress", "completed", "verified"] }).notNull().default("pending"),
-  d2_completed_date: timestamp("d2_completed_date"),
-  d2_comments: text("d2_comments"),
-
-  d3_description: text("d3_description").notNull(),
-  d3_owner: text("d3_owner").notNull(),
-  d3_due_date: timestamp("d3_due_date").notNull(),
-  d3_status: text("d3_status", { enum: ["pending", "in_progress", "completed", "verified"] }).notNull().default("pending"),
-  d3_completed_date: timestamp("d3_completed_date"),
-  d3_comments: text("d3_comments"),
-
-  d4_description: text("d4_description").notNull(),
-  d4_owner: text("d4_owner").notNull(),
-  d4_due_date: timestamp("d4_due_date").notNull(),
-  d4_status: text("d4_status", { enum: ["pending", "in_progress", "completed", "verified"] }).notNull().default("pending"),
-  d4_completed_date: timestamp("d4_completed_date"),
-  d4_comments: text("d4_comments"),
-
-  d5_description: text("d5_description").notNull(),
-  d5_owner: text("d5_owner").notNull(),
-  d5_due_date: timestamp("d5_due_date").notNull(),
-  d5_status: text("d5_status", { enum: ["pending", "in_progress", "completed", "verified"] }).notNull().default("pending"),
-  d5_completed_date: timestamp("d5_completed_date"),
-  d5_comments: text("d5_comments"),
-
-  d6_description: text("d6_description").notNull(),
-  d6_owner: text("d6_owner").notNull(),
-  d6_due_date: timestamp("d6_due_date").notNull(),
-  d6_status: text("d6_status", { enum: ["pending", "in_progress", "completed", "verified"] }).notNull().default("pending"),
-  d6_completed_date: timestamp("d6_completed_date"),
-  d6_comments: text("d6_comments"),
-
-  d7_description: text("d7_description").notNull(),
-  d7_owner: text("d7_owner").notNull(),
-  d7_due_date: timestamp("d7_due_date").notNull(),
-  d7_status: text("d7_status", { enum: ["pending", "in_progress", "completed", "verified"] }).notNull().default("pending"),
-  d7_completed_date: timestamp("d7_completed_date"),
-  d7_comments: text("d7_comments"),
-
-  d8_description: text("d8_description").notNull(),
-  d8_owner: text("d8_owner").notNull(),
-  d8_due_date: timestamp("d8_due_date").notNull(),
-  d8_status: text("d8_status", { enum: ["pending", "in_progress", "completed", "verified"] }).notNull().default("pending"),
-  d8_completed_date: timestamp("d8_completed_date"),
-  d8_comments: text("d8_comments"),
-
+  categoryId: integer("category_id").references(() => capaCategories.id),
   verificationMethod: text("verification_method").notNull(),
   effectivenessReview: text("effectiveness_review"),
   scheduledReviewDate: timestamp("scheduled_review_date").notNull(),
@@ -702,19 +644,21 @@ export const capaActions = pgTable("capa_actions", {
   capaId: uuid("capa_id").references(() => capas.id),
   action: text("action").notNull(),
   type: text("type", {
-    enum: ["corrective", "preventive"]
+    enum: ["corrective", "preventive", "status_change"]
   }).notNull(),
   assignedTo: text("assigned_to").notNull(),
   dueDate: timestamp("due_date").notNull(),
   status: text("status", {
     enum: ["pending", "in_progress", "completed", "verified"]
   }).notNull().default("pending"),
+  comment: text("comment"),
   completedDate: timestamp("completed_date"),
   verifiedBy: text("verified_by"),
   verificationDate: timestamp("verification_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
 // Update the supplier corrective actions table schema
 export const supplierCorrectiveActions = pgTable("supplier_corrective_actions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -766,9 +710,8 @@ export const supplierCorrectiveActions = pgTable("supplier_corrective_actions", 
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Add after existing tables and before relations section
-export const materialReviewBoards = pgTable("material_review_boards", {
-  id: uuid("id").defaultRandom().primaryKey(),
+// Add after the existing tables and before relations section
+export const materialReviewBoards = pgTable("material_review_boards", {  id: uuid("id").defaultRandom().primaryKey(),
   number: text("number").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -850,7 +793,7 @@ export const mrbActions = pgTable("mrb_actions", {
 });
 
 // Relations
-export const documentsRelations =relations(documents, ({ many }) => ({
+export const documentsRelations = relations(documents, ({ many }) => ({
   versions: many(documentVersions),
   approvals: many(documentApprovals),
   collaborators: many(documentCollaborators),
@@ -873,10 +816,11 @@ export const documentApprovalsRelations = relations(documentApprovals, ({ one })
 export const documentCollaboratorsRelations = relations(documentCollaborators, ({ one }) => ({
   document: one(documents, {
     fields: [documentCollaborators.documentId],
-    references: [documents.id],  }),
+    references: [documents.id],
+  }),
 }));
 
-export const chatsRelations = relations(chats, ({ many }) => ({messages:many(messages),
+export const chatsRelations = relations(chats, ({ many }) => ({ messages: many(messages),
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
@@ -1120,7 +1064,7 @@ export const facilityNotificationsRelations = relations(facilityNotifications, (
 // Add after the capaCategories relations section
 export const capasRelations = relations(capas, ({ one }) => ({
   category: one(capaCategories, {
-    fields: [capas.category_id],
+    fields: [capas.categoryId],
     references: [capaCategories.id],
   }),
 }));
@@ -1215,6 +1159,24 @@ export const selectFacilityInspectionSchema = createSelectSchema(facilityInspect
 export const insertFacilityNotificationSchema = createInsertSchema(facilityNotifications);
 export const selectFacilityNotificationSchema = createSelectSchema(facilityNotifications);
 
+// Add schemas for CAPA
+export const insertCapaCategorySchema = createInsertSchema(capaCategories);
+export const selectCapaCategorySchema = createSelectSchema(capaCategories);
+
+export const insertCapaSchema = createInsertSchema(capas);
+export const selectCapaSchema = createSelectSchema(capas);
+
+export const insertCapaActionSchema = createInsertSchema(capaActions);
+export const selectCapaActionSchema = createSelectSchema(capaActions);
+
+
+export const insertMtbSchema = createInsertSchema(materialReviewBoards);
+export const selectMtbSchema = createSelectSchema(materialReviewBoards);
+
+export const insertMtbActionSchema = createInsertSchema(mrbActions);
+export const selectMtbActionSchema = createSelectSchema(mrbActions);
+
+
 // Types
 export type Document = typeof documents.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
@@ -1297,6 +1259,7 @@ export type FacilityNotification = typeof facilityNotifications.$inferSelect;
 // Add types for CAPA
 export type Capa = typeof capas.$inferSelect;
 export type CapaAction = typeof capaActions.$inferSelect;
+export type CapaCategory = typeof capaCategories.$inferSelect;
 export type MaterialReviewBoard = typeof materialReviewBoards.$inferSelect;
 export type MrbAction = typeof mrbActions.$inferSelect;
 import { integer } from "drizzle-orm/pg-core";

@@ -894,34 +894,18 @@ router.put('/inspections/:id/update-ncrs', async (req, res) => {
 // Get all CAPA categories
 router.get('/capa-categories', async (req, res) => {
   try {
+    console.log('Fetching CAPA categories from database...');
     const allCategories = await db.query.capaCategories.findMany({
       orderBy: [desc(capaCategories.name)]
     });
 
+    console.log(`Successfully fetched ${allCategories.length} CAPA categories:`, allCategories);
     res.json(allCategories);
   } catch (error) {
     console.error('Error fetching CAPA categories:', error);
     res.status(500).json({
-      message: error instanceof Error ? error.message : 'Failed to fetch CAPA categories'
-    });
-  }
-});
-
-// Create CAPA category
-router.post('/capa-categories', async (req, res) => {
-  try {
-    const newCategory = await db.insert(capaCategories).values({
-      name: req.body.name,
-      description: req.body.description,
-      severity: req.body.severity,
-      requiresApproval: req.body.requiresApproval ?? false,
-    }).returning();
-
-    res.status(201).json(newCategory[0]);
-  } catch (error) {
-    console.error('Error creating CAPA category:', error);
-    res.status(500).json({
-      message: error instanceof Error ? error.message : 'Failed to create CAPA category'
+      message: error instanceof Error ? error.message : 'Failed to fetch CAPA categories',
+      details: error instanceof Error ? error.stack : undefined
     });
   }
 });
@@ -929,6 +913,7 @@ router.post('/capa-categories', async (req, res) => {
 // Get all CAPAs
 router.get('/capas', async (req, res) => {
   try {
+    console.log('Fetching CAPAs from database with related categories...');
     const allCapas = await db.query.capas.findMany({
       orderBy: [desc(capas.createdAt)],
       with: {
@@ -936,16 +921,18 @@ router.get('/capas', async (req, res) => {
       },
     });
 
+    console.log(`Successfully fetched ${allCapas.length} CAPAs:`, allCapas);
     res.json(allCapas);
-  } catch (error) {
+} catch (error) {
     console.error('Error fetching CAPAs:', error);
     res.status(500).json({
-      message: error instanceof Error ? error.message : 'Failed to fetch CAPAs'
+      message: error instanceof Error ? error.message : 'Failed to fetch CAPAs',
+      details: error instanceof Error ? error.stack : undefined
     });
   }
 });
 
-// Create new CAPA
+// Update the CAPA creation endpoint to handle the new status workflow
 router.post('/capas', async (req, res) => {
   try {
     const newCapa = await db.insert(capas).values({
@@ -993,6 +980,68 @@ router.post('/capas', async (req, res) => {
   }
 });
 
+// Add a new endpoint for CAPA status transitions
+router.put('/capas/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newStatus, comment } = req.body;
+
+    // Validate status transition
+    const validTransitions: Record<string, string[]> = {
+      'draft': ['open'],
+      'open': ['in_progress', 'cancelled'],
+      'in_progress': ['pending_review', 'under_investigation'],
+      'under_investigation': ['implementing'],
+      'implementing': ['pending_verification'],
+      'pending_verification': ['completed'],
+      'completed': ['verified'],
+      'verified': ['closed'],
+      'pending_review': ['implementing', 'cancelled']
+    };
+
+    const capa = await db.query.capas.findFirst({
+      where: eq(capas.id, id)
+    });
+
+    if (!capa) {
+      return res.status(404).json({ message: 'CAPA not found' });
+    }
+
+    if (!validTransitions[capa.status]?.includes(newStatus)) {
+      return res.status(400).json({ 
+        message: `Invalid status transition from ${capa.status} to ${newStatus}` 
+      });
+    }
+
+    // Update CAPA status
+    const [updatedCapa] = await db.update(capas)
+      .set({ 
+        status: newStatus, 
+        updatedAt: new Date().toISOString() 
+      })
+      .where(eq(capas.id, id))
+      .returning();
+
+    // Log the status change in CAPA history
+    await db.insert(capaActions).values({
+      capaId: id,
+      action: `Status changed from ${capa.status} to ${newStatus}`,
+      type: 'status_change',
+      assignedTo: req.body.updatedBy || 'system',
+      status: 'completed',
+      comment: comment,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    res.json(updatedCapa);
+  } catch (error) {
+    console.error('Error updating CAPA status:', error);
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to update CAPA status'
+    });
+  }
+});
 
 // Add import route for CAPAs
 router.post('/capas/import', fileUpload.single('file'), async (req, res) => {
