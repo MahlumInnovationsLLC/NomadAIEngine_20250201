@@ -625,10 +625,14 @@ router.delete('/mrb/:id', async (req, res) => {
 
         // Delete the MRB using the found document
         try {
-          await container.item(mrb.id, mrb.userKey || 'default').delete();
-          console.log(`Successfully deleted MRB ${id}`);
+          await container.items.upsert({
+            ...mrb,
+            deleted: true,
+            deletedAt: new Date().toISOString()
+          });
+          console.log(`Successfully marked MRB ${id} as deleted`);
         } catch (deleteError) {
-          console.error('Error deleting MRB document:', deleteError);
+          console.error('Error marking MRB as deleted:', deleteError);
           return res.status(500).json({ 
             message: 'Failed to delete MRB',
             details: deleteError instanceof Error ? deleteError.message : 'Unknown error'
