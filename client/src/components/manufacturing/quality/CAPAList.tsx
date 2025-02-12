@@ -36,6 +36,7 @@ interface CAPACategory {
   name: string;
   description: string | null;
   severity: string;
+  requires_approval: boolean;
 }
 
 const fetchCAPAs = async (): Promise<CAPA[]> => {
@@ -104,7 +105,7 @@ export default function CAPAList() {
 
       setShowImportDialog(false);
       setImportFile(null);
-      refetch(); // Refresh the CAPA list
+      refetch();
     } catch (error) {
       toast({
         title: "Import Failed",
@@ -121,13 +122,21 @@ export default function CAPAList() {
       case 'open':
         return 'default';
       case 'in_progress':
+      case 'implementing':
         return 'default';
+      case 'pending_review':
+      case 'under_investigation':
+        return 'secondary';
+      case 'pending_verification':
+        return 'outline';
       case 'completed':
         return 'secondary';
       case 'verified':
         return 'default';
       case 'closed':
         return 'outline';
+      case 'cancelled':
+        return 'destructive';
       default:
         return 'secondary';
     }
@@ -198,7 +207,7 @@ export default function CAPAList() {
               <SelectItem value="all">All Categories</SelectItem>
               {categories.map((category) => (
                 <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.name}
+                  {category.name} ({category.severity})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -248,7 +257,7 @@ export default function CAPAList() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={getStatusBadgeVariant(capa.status)}>
-                      {capa.status.replace('_', ' ')}
+                      {capa.status.replace(/_/g, ' ')}
                     </Badge>
                   </TableCell>
                   <TableCell>
