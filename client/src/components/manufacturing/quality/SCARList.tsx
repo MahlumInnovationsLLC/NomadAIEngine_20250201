@@ -1,8 +1,18 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { 
+  faPlus,
+  faFileImport,
+  faEye,
+  faEdit,
+  faPaperPlane,
+  faCheckSquare,
+  faEllipsisVertical,
+  faTrash
+} from '@fortawesome/pro-light-svg-icons';
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -45,13 +55,14 @@ const fetchSCARs = async (): Promise<SCAR[]> => {
 
 export default function SCARList() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedSCAR, setSelectedSCAR] = useState<SCAR | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<StatusGroupKey | 'all'>('all');
 
-  const { data: scars = [], isLoading, refetch } = useQuery<SCAR[]>({
+  const { data: scars = [], isLoading } = useQuery<SCAR[]>({
     queryKey: ['/api/manufacturing/quality/scars'],
     queryFn: fetchSCARs,
   });
@@ -126,12 +137,46 @@ export default function SCARList() {
 
       setShowImportDialog(false);
       setImportFile(null);
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/scars'] });
     } catch (error) {
       toast({
         title: "Import Failed",
         description: error instanceof Error ? error.message : "Failed to import SCARs",
         variant: "destructive"
+      });
+    }
+  };
+
+  const handleDelete = async (scarId: string) => {
+    if (!window.confirm('Are you sure you want to delete this SCAR?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/manufacturing/quality/scars/${scarId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete SCAR');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/scars'] });
+
+      toast({
+        title: "Success",
+        description: "SCAR deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting SCAR:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete SCAR",
+        variant: "destructive",
       });
     }
   };
@@ -158,11 +203,11 @@ export default function SCARList() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-            <FontAwesomeIcon icon="file-import" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faFileImport} className="mr-2 h-4 w-4" />
             Import SCARs
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
-            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
             New SCAR
           </Button>
         </div>
@@ -241,24 +286,28 @@ export default function SCARList() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
-                            <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                            <FontAwesomeIcon icon={faEllipsisVertical} className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setSelectedSCAR(scar)}>
-                            <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                            <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                          <DropdownMenuItem onClick={() => setSelectedSCAR(scar)}>
+                            <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(scar.id)} className="text-destructive">
+                            <FontAwesomeIcon icon={faTrash} className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
                           <DropdownMenuItem>
-                            <FontAwesomeIcon icon="check-square" className="mr-2 h-4 w-4" />
+                            <FontAwesomeIcon icon={faCheckSquare} className="mr-2 h-4 w-4" />
                             Update Status
                           </DropdownMenuItem>
                           <DropdownMenuItem>
-                            <FontAwesomeIcon icon="paper-plane" className="mr-2 h-4 w-4" />
+                            <FontAwesomeIcon icon={faPaperPlane} className="mr-2 h-4 w-4" />
                             Send to Supplier
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -316,7 +365,7 @@ export default function SCARList() {
               ? "SCAR updated successfully"
               : "SCAR created successfully",
           });
-          refetch();
+          queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/scars'] });
         }}
       />
     </div>

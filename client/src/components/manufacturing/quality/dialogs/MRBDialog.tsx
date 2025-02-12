@@ -20,9 +20,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn, generateUUID } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, PlusCircle, X } from "lucide-react";
+import { CalendarIcon, PlusCircle, Upload, X } from "lucide-react";
 import {
   MRB,
   MRBSchema,
@@ -32,6 +33,7 @@ import {
   defaultMRBNote
 } from "@/types/manufacturing/mrb";
 import { useQuery } from "@tanstack/react-query";
+import {Label} from "@/components/ui/label";
 
 interface MRBDialogProps {
   open: boolean;
@@ -65,8 +67,10 @@ interface PendingNCR {
 export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDialogProps) {
   const [selectedNCRs, setSelectedNCRs] = useState<{[key: string]: { ncr: PendingNCR, notes: string }}>({});
   const [activeTab, setActiveTab] = useState("ncrs");
-  const [tasks, setTasks] = useState<MRBTask[]>([]);
-  const [notes, setNotes] = useState<MRBNote[]>([]);
+  const [tasks, setTasks] = useState<MRBTask[]>(initialData?.tasks || []);
+  const [notes, setNotes] = useState<MRBNote[]>(initialData?.notes || []);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [uploadedAttachments, setUploadedAttachments] = useState<any[]>(initialData?.attachments || []);
   const isEditing = !!initialData;
 
   const { data: pendingNCRs = [], isLoading } = useQuery<PendingNCR[]>({
@@ -104,6 +108,50 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
       linkedNCRs: []
     },
   });
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files) return;
+
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append('files', file);
+    });
+
+    try {
+      const response = await fetch('/api/manufacturing/quality/mrb/attachments', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload attachments');
+      }
+
+      const uploadedFiles = await response.json();
+      setUploadedAttachments((prev) => [...prev, ...uploadedFiles]);
+    } catch (error) {
+      console.error('Error uploading attachments:', error);
+    }
+  };
+
+  const addCollaborator = (userId: string, role: 'reviewer' | 'approver' | 'contributor') => {
+    const updatedForm = { ...form.getValues() };
+    updatedForm.collaborators = [
+      ...(updatedForm.collaborators || []),
+      {
+        userId,
+        role,
+        addedAt: new Date().toISOString()
+      }
+    ];
+    form.reset(updatedForm);
+  };
+
+  const removeCollaborator = (userId: string) => {
+    const updatedForm = { ...form.getValues() };
+    updatedForm.collaborators = updatedForm.collaborators.filter(c => c.userId !== userId);
+    form.reset(updatedForm);
+  };
 
   const addTask = () => {
     setTasks([...tasks, { ...defaultMRBTask, id: generateUUID() }]);
@@ -160,6 +208,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
         ...data,
         tasks,
         notes,
+        attachments: uploadedAttachments,
         linkedNCRs: Object.entries(selectedNCRs).map(([id, { notes }]) => ({
           ncrId: id,
           dispositionNotes: notes
@@ -188,24 +237,21 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
     }
   };
 
-  if (isEditing) {
-    return null; 
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Create New Material Review Board</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit" : "Create New"} Material Review Board</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex-1">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="ncrs">NCRs</TabsTrigger>
                 <TabsTrigger value="tasks">Tasks</TabsTrigger>
                 <TabsTrigger value="notes">Notes</TabsTrigger>
+                <TabsTrigger value="collaborators">Collaborators</TabsTrigger>
                 <TabsTrigger value="attachments">Attachments</TabsTrigger>
               </TabsList>
 
@@ -225,7 +271,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
                         <Card key={ncr.id} className={cn(
                           "border-2 relative",
                           ncr.assignedToMrb ? "opacity-50 cursor-not-allowed border-muted" :
-                          selectedNCRs[ncr.id] ? "border-primary" : "border-border hover:border-border/80"
+                            selectedNCRs[ncr.id] ? "border-primary" : "border-border hover:border-border/80"
                         )}>
                           {ncr.assignedToMrb && (
                             <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
@@ -336,7 +382,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
                               />
                             </FormControl>
                           </FormItem>
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-3 gap-4">
                             <FormItem>
                               <FormLabel>Assigned To</FormLabel>
                               <FormControl>
@@ -346,6 +392,23 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
                                   placeholder="Assignee"
                                 />
                               </FormControl>
+                            </FormItem>
+                            <FormItem>
+                              <FormLabel>Priority</FormLabel>
+                              <Select
+                                value={task.priority}
+                                onValueChange={(value) => updateTask(index, { priority: value as any })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select priority" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="low">Low</SelectItem>
+                                  <SelectItem value="medium">Medium</SelectItem>
+                                  <SelectItem value="high">High</SelectItem>
+                                  <SelectItem value="critical">Critical</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </FormItem>
                             <FormItem>
                               <FormLabel>Due Date</FormLabel>
@@ -439,22 +502,127 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
                               />
                             </FormControl>
                           </FormItem>
+                          <FormItem>
+                            <FormLabel>Category</FormLabel>
+                            <Select
+                              value={note.category}
+                              onValueChange={(value) => updateNote(index, { category: value as any })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="general">General</SelectItem>
+                                <SelectItem value="technical">Technical</SelectItem>
+                                <SelectItem value="quality">Quality</SelectItem>
+                                <SelectItem value="disposition">Disposition</SelectItem>
+                                <SelectItem value="engineering">Engineering</SelectItem>
+                                <SelectItem value="production">Production</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
                         </CardContent>
                       </Card>
                     ))}
                   </div>
                 </TabsContent>
 
+                <TabsContent value="collaborators" className="mt-0">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-4">
+                          <FormItem>
+                            <FormLabel>User ID</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter user ID" />
+                            </FormControl>
+                          </FormItem>
+                          <FormItem>
+                            <FormLabel>Role</FormLabel>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select role" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="reviewer">Reviewer</SelectItem>
+                                <SelectItem value="approver">Approver</SelectItem>
+                                <SelectItem value="contributor">Contributor</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                          <Button type="button" className="self-end">
+                            Add Collaborator
+                          </Button>
+                        </div>
+
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium mb-2">Current Collaborators</h4>
+                          {form.getValues().collaborators?.map((collaborator) => (
+                            <div key={collaborator.userId} className="flex items-center justify-between py-2">
+                              <div>
+                                <span className="font-medium">{collaborator.userId}</span>
+                                <Badge className="ml-2">{collaborator.role}</Badge>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeCollaborator(collaborator.userId)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
                 <TabsContent value="attachments" className="mt-0">
-                  <div className="space-y-4">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <p className="text-center text-muted-foreground">
-                          Attachment management will be implemented in the next iteration
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="grid w-full max-w-sm items-center gap-1.5">
+                          <Label htmlFor="mrb-attachments">Upload Files</Label>
+                          <Input
+                            id="mrb-attachments"
+                            type="file"
+                            multiple
+                            onChange={(e) => handleFileUpload(e.target.files)}
+                          />
+                        </div>
+
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium mb-2">Uploaded Attachments</h4>
+                          <div className="space-y-2">
+                            {uploadedAttachments.map((attachment) => (
+                              <div key={attachment.id} className="flex items-center justify-between py-2 px-3 border rounded-md">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm font-medium">{attachment.name}</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    ({Math.round(attachment.size / 1024)}KB)
+                                  </span>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setUploadedAttachments(uploadedAttachments.filter(a => a.id !== attachment.id));
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
               </ScrollArea>
             </Tabs>
@@ -471,7 +639,7 @@ export function MRBDialog({ open, onOpenChange, initialData, onSuccess }: MRBDia
                 type="submit"
                 disabled={Object.keys(selectedNCRs).length === 0}
               >
-                Create MRB
+                {isEditing ? "Update" : "Create"} MRB
               </Button>
             </div>
           </form>

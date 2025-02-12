@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { 
+  faEye, 
+  faEdit, 
+  faEllipsisVertical, 
+  faPlus,
+  faTrash
+} from '@fortawesome/pro-light-svg-icons';
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -19,6 +26,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { MRB } from "@/types/manufacturing/mrb";
 import { MRBDialog } from "./dialogs/MRBDialog";
@@ -53,12 +70,15 @@ const fetchMRBItems = async (): Promise<MRB[]> => {
 
 export default function MRBList() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedMRB, setSelectedMRB] = useState<MRB | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [currentTab, setCurrentTab] = useState<"open" | "closed">("open");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [mrbToDelete, setMrbToDelete] = useState<MRB | null>(null);
 
-  const { data: mrbItems = [], isLoading, error, refetch } = useQuery<MRB[]>({
+  const { data: mrbItems = [], isLoading, error } = useQuery<MRB[]>({
     queryKey: ['/api/manufacturing/quality/mrb'],
     queryFn: fetchMRBItems,
     refetchInterval: 5000,
@@ -81,12 +101,6 @@ export default function MRBList() {
     console.log(`MRB ${mrb.number} is${isOpen ? '' : ' not'} open`);
     return isOpen;
   });
-
-  // Debug logging
-  console.log('Current tab:', currentTab);
-  console.log('All MRB items:', mrbItems);
-  console.log('Filtered MRBs:', filteredMRBs);
-  console.log('Filtered statuses:', filteredMRBs.map(mrb => mrb.status));
 
   const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
     const normalizedStatus = status.toLowerCase();
@@ -117,8 +131,7 @@ export default function MRBList() {
       default:
         return 'outline';
     }
-  };
-  
+  };  
 
   const getSeverityBadgeVariant = (severity: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (severity) {
@@ -130,6 +143,39 @@ export default function MRBList() {
         return 'secondary';
       default:
         return 'secondary';
+    }
+  };
+
+  const handleDelete = async (mrbId: string) => {
+    try {
+      const response = await fetch(`/api/manufacturing/quality/mrb/${mrbId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete MRB');
+      }
+
+      // Invalidate and refetch queries after successful deletion
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
+      setMrbToDelete(null);
+      setShowDeleteDialog(false);
+
+      toast({
+        title: "Success",
+        description: "MRB deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting MRB:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete MRB",
+        variant: "destructive",
+      });
     }
   };
 
@@ -167,7 +213,7 @@ export default function MRBList() {
           </p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
-          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+          <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
           New MRB
         </Button>
       </div>
@@ -239,7 +285,7 @@ export default function MRBList() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="icon">
-                              <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                              <FontAwesomeIcon icon={faEllipsisVertical} className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -248,18 +294,31 @@ export default function MRBList() {
                               setSelectedMRB(mrb);
                               setShowDetailsDialog(true);
                             }}>
-                              <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                              <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
                             {currentTab === "open" && (
-                              <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedMRB(mrb);
-                                setShowCreateDialog(true);
-                              }}>
-                                <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedMRB(mrb);
+                                  setShowCreateDialog(true);
+                                }}>
+                                  <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMrbToDelete(mrb);
+                                    setShowDeleteDialog(true);
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faTrash} className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -282,7 +341,7 @@ export default function MRBList() {
           }}
           mrb={selectedMRB}
           onSuccess={async () => {
-            await refetch();
+            await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
             setShowDetailsDialog(false);
             setSelectedMRB(null);
           }}
@@ -297,7 +356,7 @@ export default function MRBList() {
         }}
         initialData={selectedMRB ?? undefined}
         onSuccess={async (savedMRB) => {
-          await refetch();
+          await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/mrb'] });
           setShowCreateDialog(false);
           if (savedMRB.sourceType && savedMRB.sourceId) {
             try {
@@ -323,6 +382,36 @@ export default function MRBList() {
           }
         }}
       />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete MRB</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this MRB? This action cannot be undone.
+              {mrbToDelete && (
+                <div className="mt-2">
+                  <strong>MRB Number:</strong> {mrbToDelete.number}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowDeleteDialog(false);
+              setMrbToDelete(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => mrbToDelete && handleDelete(mrbToDelete.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

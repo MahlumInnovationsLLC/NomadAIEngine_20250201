@@ -2,7 +2,15 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { 
+  faEllipsisVertical,
+  faEye,
+  faEdit,
+  faPlus,
+  faFileImport,
+  faClipboardList
+} from '@fortawesome/pro-light-svg-icons';
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -167,23 +175,23 @@ export default function NCRList() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon">
-                    <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                    <FontAwesomeIcon icon={faEllipsisVertical} className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
-                    <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                    <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
                     View Details
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={(e) => {
                     e.stopPropagation();
                     setSelectedNCR(ncr);
                   }}>
-                    <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                    <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                    <FontAwesomeIcon icon="clipboard-list" className="mr-2 h-4 w-4" />
+                    <FontAwesomeIcon icon={faClipboardList} className="mr-2 h-4 w-4" />
                     Create CAPA
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -230,11 +238,11 @@ export default function NCRList() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-            <FontAwesomeIcon icon="file-import" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faFileImport} className="mr-2 h-4 w-4" />
             Import NCRs
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
-            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
             New NCR
           </Button>
         </div>

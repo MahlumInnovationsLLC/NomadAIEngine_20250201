@@ -3,6 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPlus,
+  faTrash,
+  faCircleInfo,
+  faEdit,
+  faEye,
+  faEllipsisVertical
+} from '@fortawesome/pro-light-svg-icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -12,7 +20,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useQuery } from "@tanstack/react-query";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { CAPA } from "@/types/manufacturing/capa";
 import { CAPADialog } from "./dialogs/CAPADialog";
@@ -40,6 +54,7 @@ type StatusGroupKey = keyof typeof STATUS_GROUPS;
 
 export default function CAPAList() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedCAPA, setSelectedCAPA] = useState<CAPA | null>(null);
   const [activeTab, setActiveTab] = useState<StatusGroupKey | "all">("all");
@@ -149,9 +164,43 @@ export default function CAPAList() {
     }
   };
 
-  const filteredCAPAs = capas.filter(capa => 
+  const filteredCAPAs = capas.filter(capa =>
     activeTab === 'all' ? true : STATUS_GROUPS[activeTab as StatusGroupKey].includes(capa.status)
   );
+
+  const handleDelete = async (capaId: string) => {
+    if (!window.confirm('Are you sure you want to delete this CAPA?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/manufacturing/quality/capas/${capaId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete CAPA');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/capas'] });
+
+      toast({
+        title: "Success",
+        description: "CAPA deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting CAPA:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete CAPA",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -164,7 +213,7 @@ export default function CAPAList() {
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setShowCreateDialog(true)}>
-            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
             Create New CAPA
           </Button>
         </div>
@@ -248,13 +297,30 @@ export default function CAPAList() {
                     <TableCell>{new Date(capa.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>{new Date(capa.scheduledReviewDate).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedCAPA(capa)}
-                      >
-                        View Details
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <FontAwesomeIcon icon={faEllipsisVertical} className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setSelectedCAPA(capa)}>
+                            <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setSelectedCAPA(capa)}>
+                            <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(capa.id)}
+                            className="text-destructive"
+                          >
+                            <FontAwesomeIcon icon={faTrash} className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -278,7 +344,7 @@ export default function CAPAList() {
               ? "CAPA updated successfully"
               : "CAPA created successfully",
           });
-          refetch();
+          queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/capas'] });
         }}
       />
     </div>

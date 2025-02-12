@@ -404,12 +404,13 @@ export interface QualityInspection {
   inspectionDate: string;
   inspector: string;
   productionLineId: string;
-  projectNumber?: string; // Added project number field
+  projectNumber?: string;
   templateType: 'inspection' | 'audit' | 'ncr' | 'capa' | 'scar';
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   results: {
     checklistItems: {
       id: string;
+      label: string; 
       parameter: string;
       specification: string;
       measurement?: string | number;
@@ -425,6 +426,15 @@ export interface QualityInspection {
     }[];
   };
   notes?: string;
+  attachments?: { 
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+    uploadedAt: string;
+    uploadedBy: string;
+  }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -875,8 +885,8 @@ export interface AuditTemplate {
       text: string;
       guidance: string;
       evidenceRequired: string[];
-      findingTypes?: ('observation' | 'minor' | 'major' | 'opportunity')[]; // Added finding types
-      requiredFindings?: boolean; // Indicates if findings are required for this requirement
+      findingTypes?: ('observation' | 'minor' | 'major' | 'opportunity')[]; 
+      requiredFindings?: boolean; 
     }[];
   }[];
   createdBy: string;
