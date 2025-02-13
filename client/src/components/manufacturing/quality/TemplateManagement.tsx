@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faFileImport, faPlus, faEdit, faDownload, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { faFileImport, faPlus, faEdit, faDownload, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import {
