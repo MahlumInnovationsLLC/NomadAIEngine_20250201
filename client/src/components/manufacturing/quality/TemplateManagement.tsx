@@ -18,6 +18,7 @@ import { CreateTemplateDialog } from "./dialogs/CreateTemplateDialog";
 import { EditTemplateDialog } from "./dialogs/EditTemplateDialog";
 import { ImportTemplateDialog } from "./dialogs/ImportTemplateDialog";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TemplateManagementProps {
   open: boolean;
@@ -34,7 +35,6 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
   const [templates, setTemplates] = useState<QualityFormTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load templates when component mounts or socket connection changes
   useEffect(() => {
     if (socket && open) {
       setIsLoading(true);
@@ -43,7 +43,6 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
         setIsLoading(false);
       });
 
-      // Listen for template updates
       socket.on('quality:template:updated', (updatedTemplates: QualityFormTemplate[]) => {
         setTemplates(updatedTemplates);
       });
@@ -56,11 +55,9 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
 
   const handleExportTemplate = (template: QualityFormTemplate) => {
     const templateCopy = { ...template };
-    // Remove internal fields if they exist
-    delete templateCopy._id;
-    delete templateCopy.__v;
+    const { _id, __v, ...exportTemplate } = templateCopy as any;
 
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templateCopy, null, 2));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportTemplate, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", `template_${template.name.toLowerCase().replace(/\s+/g, '_')}.json`);
@@ -92,14 +89,13 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
     });
   };
 
-  // Generate usage statistics based on template ID to ensure consistency
   const getTemplateUsage = (templateId: string) => {
     const hash = templateId.split('').reduce((acc, char) => {
       return char.charCodeAt(0) + ((acc << 5) - acc);
     }, 0);
 
     return {
-      usageCount: Math.abs(hash % 100), // Consistent number between 0-99
+      usageCount: Math.abs(hash % 100),
       lastUsed: new Date(Date.now() - (Math.abs(hash % 30) * 24 * 60 * 60 * 1000)).toISOString()
     };
   };
@@ -107,24 +103,52 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh]">
-        <DialogHeader>
+        <DialogHeader className="space-y-4">
           <div className="flex justify-between items-center">
-            <DialogTitle>Quality Inspection Templates</DialogTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-                <FontAwesomeIcon icon="upload" className="mr-2 h-4 w-4" />
-                Import Template
-              </Button>
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                Create Template
-              </Button>
+            <DialogTitle className="text-2xl">Quality Inspection Templates</DialogTitle>
+            <div className="flex items-center gap-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowImportDialog(true)}
+                      className="flex items-center"
+                      size="lg"
+                    >
+                      <FontAwesomeIcon icon="file-import" className="mr-2" />
+                      Import Template
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Import a quality inspection template from a JSON file
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={() => setShowCreateDialog(true)}
+                      className="flex items-center"
+                      size="lg"
+                    >
+                      <FontAwesomeIcon icon="plus" className="mr-2" />
+                      Create Template
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Create a new quality inspection template
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </DialogHeader>
 
         <Card>
-          <CardContent>
+          <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -134,20 +158,28 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                   <TableHead>Times Used</TableHead>
                   <TableHead>Last Used</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4">
-                      Loading templates...
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <div className="flex items-center justify-center gap-2">
+                        <FontAwesomeIcon icon="spinner" className="animate-spin" />
+                        <span>Loading templates...</span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : templates.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4">
-                      No templates found. Create your first template to get started.
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <div className="space-y-2">
+                        <p className="text-muted-foreground">No templates found</p>
+                        <p className="text-sm text-muted-foreground">
+                          Create a new template or import an existing one to get started
+                        </p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -166,24 +198,39 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedTemplate(template);
-                                setShowEditDialog(true);
-                              }}
-                            >
-                              <FontAwesomeIcon icon="edit" className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleExportTemplate(template)}
-                            >
-                              <FontAwesomeIcon icon="download" className="h-4 w-4" />
-                            </Button>
+                          <div className="flex gap-2 justify-end">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setSelectedTemplate(template);
+                                      setShowEditDialog(true);
+                                    }}
+                                  >
+                                    <FontAwesomeIcon icon="edit" className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Edit Template</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleExportTemplate(template)}
+                                  >
+                                    <FontAwesomeIcon icon="download" className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Export Template</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -216,6 +263,7 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
           <ImportTemplateDialog
             open={showImportDialog}
             onOpenChange={setShowImportDialog}
+            onSuccess={handleTemplateCreated}
           />
         )}
       </DialogContent>

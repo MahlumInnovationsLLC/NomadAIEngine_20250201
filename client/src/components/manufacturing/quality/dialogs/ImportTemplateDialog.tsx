@@ -22,9 +22,10 @@ import { cn } from "@/lib/utils";
 interface ImportTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
 }
 
-export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialogProps) {
+export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTemplateDialogProps) {
   const { toast } = useToast();
   const socket = useWebSocket({ namespace: 'manufacturing' });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -50,6 +51,11 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
           section.fields.forEach((field: any, fieldIdx: number) => {
             if (!field.label) errors.push(`Field ${fieldIdx + 1} in section ${idx + 1} must have a label`);
             if (!field.type) errors.push(`Field ${fieldIdx + 1} in section ${idx + 1} must have a type`);
+            if (field.type === 'select' || field.type === 'multiselect') {
+              if (!field.options || !Array.isArray(field.options) || field.options.length === 0) {
+                errors.push(`Field ${fieldIdx + 1} in section ${idx + 1} must have options array`);
+              }
+            }
           });
         }
       });
@@ -72,6 +78,11 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
         if (errors.length > 0) {
           setValidationErrors(errors);
           setPreviewData(null);
+          toast({
+            title: "Validation Error",
+            description: "The template file contains errors. Please fix them and try again.",
+            variant: "destructive",
+          });
         } else {
           setPreviewData(templateData as QualityFormTemplate);
         }
@@ -119,7 +130,6 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
       setIsLoading(true);
       setUploadProgress(0);
 
-      // Simulate upload progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
@@ -143,6 +153,7 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
         title: "Success",
         description: "Template imported successfully",
       });
+      onSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error('Error importing template:', error);
@@ -160,7 +171,7 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
     const sampleTemplate: QualityFormTemplate = {
       id: "sample-template",
       name: "Sample Quality Inspection Template",
-      type: "inspection",
+      type: "in-process",
       description: "A comprehensive template for quality inspections",
       version: 1,
       isActive: true,
@@ -198,22 +209,18 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
               label: "Length (mm)",
               type: "number",
               required: true,
-              min: 0,
-              max: 1000,
               description: "Measure length in millimeters"
             },
             {
               id: "notes",
               label: "Additional Notes",
-              type: "textarea",
+              type: "text",
               required: false,
               description: "Any additional observations"
             }
           ]
         }
-      ],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      ]
     };
 
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sampleTemplate, null, 2));
@@ -229,14 +236,18 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle>Import Template</DialogTitle>
+          <DialogTitle>Import Quality Template</DialogTitle>
           <DialogDescription>
-            Import a quality inspection template from a JSON file
+            Import a quality inspection template from a JSON file. Download the sample template to see the required format.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="flex items-center gap-4">
+            <Button variant="outline" onClick={handleDownloadSample}>
+              <FontAwesomeIcon icon="download" className="mr-2" />
+              Download Sample Template
+            </Button>
             <div className="flex-1">
               <label
                 htmlFor="template-file"
@@ -257,12 +268,6 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
                   onChange={handleFileChange}
                 />
               </label>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <Button variant="outline" onClick={handleDownloadSample}>
-                <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
-                Download Sample
-              </Button>
             </div>
           </div>
 
