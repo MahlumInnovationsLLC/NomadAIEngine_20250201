@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import {
@@ -18,7 +18,6 @@ import { CreateTemplateDialog } from "./dialogs/CreateTemplateDialog";
 import { EditTemplateDialog } from "./dialogs/EditTemplateDialog";
 import { ImportTemplateDialog } from "./dialogs/ImportTemplateDialog";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TemplateManagementProps {
   open: boolean;
@@ -102,48 +101,28 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh]">
-        <DialogHeader className="space-y-4">
-          <div className="flex justify-between items-center">
-            <DialogTitle className="text-2xl">Quality Inspection Templates</DialogTitle>
-            <div className="flex items-center gap-3">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setShowImportDialog(true)}
-                      className="flex items-center"
-                      size="lg"
-                    >
-                      <FontAwesomeIcon icon="file-import" className="mr-2" />
-                      Import Template
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Import a quality inspection template from a JSON file
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      onClick={() => setShowCreateDialog(true)}
-                      className="flex items-center"
-                      size="lg"
-                    >
-                      <FontAwesomeIcon icon="plus" className="mr-2" />
-                      Create Template
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Create a new quality inspection template
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader className="mb-6">
+          <DialogTitle className="text-2xl font-semibold">Quality Inspection Templates</DialogTitle>
+          <DialogDescription>
+            Manage your quality inspection templates
+          </DialogDescription>
+          <div className="flex justify-end gap-4 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowImportDialog(true)}
+              className="flex items-center"
+            >
+              <FontAwesomeIcon icon="file-import" className="mr-2" />
+              Import Template
+            </Button>
+            <Button
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center"
+            >
+              <FontAwesomeIcon icon="plus" className="mr-2" />
+              Create Template
+            </Button>
           </div>
         </DialogHeader>
 
@@ -165,21 +144,17 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
-                      <div className="flex items-center justify-center gap-2">
-                        <FontAwesomeIcon icon="spinner" className="animate-spin" />
-                        <span>Loading templates...</span>
-                      </div>
+                      <FontAwesomeIcon icon="spinner" className="animate-spin mr-2" />
+                      Loading templates...
                     </TableCell>
                   </TableRow>
                 ) : templates.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
-                      <div className="space-y-2">
-                        <p className="text-muted-foreground">No templates found</p>
-                        <p className="text-sm text-muted-foreground">
-                          Create a new template or import an existing one to get started
-                        </p>
-                      </div>
+                      <p className="text-muted-foreground">No templates found</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Create a new template or import an existing one to get started
+                      </p>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -198,39 +173,26 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-2 justify-end">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
-                                      setSelectedTemplate(template);
-                                      setShowEditDialog(true);
-                                    }}
-                                  >
-                                    <FontAwesomeIcon icon="edit" className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Edit Template</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleExportTemplate(template)}
-                                  >
-                                    <FontAwesomeIcon icon="download" className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Export Template</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTemplate(template);
+                                setShowEditDialog(true);
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <FontAwesomeIcon icon="edit" className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleExportTemplate(template)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <FontAwesomeIcon icon="download" className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
