@@ -17,6 +17,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import { Badge } from '@/components/ui/badge';
 
 interface AdvancedImportDialogProps {
   open: boolean;
@@ -28,7 +29,7 @@ interface OCRResult {
   confidence: number;
   boundingBox: number[];
   category?: string;
-  severity?: string;
+  severity?: 'critical' | 'major' | 'minor';
 }
 
 interface Analytics {
@@ -42,9 +43,20 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<OCRResult[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [failureAnalysis, setFailureAnalysis] = useState<{
+    category: string;
+    sentiment: 'critical' | 'major' | 'minor';
+    confidence: number;
+  }[]>([]);
   const { toast } = useToast();
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+  const SENTIMENT_COLORS = {
+    critical: 'text-red-500',
+    major: 'text-orange-500',
+    minor: 'text-yellow-500'
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -52,6 +64,15 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
 
     setIsProcessing(true);
     setProgress(0);
+
+    // Preview image if it's an image file
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewImage(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
 
     const formData = new FormData();
     formData.append('file', file);
@@ -77,6 +98,11 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
       const data = await response.json();
       setResults(data.results);
       setAnalytics(data.analytics);
+      setFailureAnalysis(data.results.map(result => ({
+        category: result.category || 'Uncategorized',
+        sentiment: result.severity || 'minor',
+        confidence: result.confidence
+      })));
 
       toast({
         title: "Document processed successfully",
@@ -105,6 +131,39 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
         </DialogHeader>
 
         <div className="space-y-4">
+          {previewImage && (
+            <div className="border rounded-lg p-4">
+              <h3 className="text-lg font-medium mb-2">Document Preview</h3>
+              <div className="flex gap-4">
+                <div className="w-1/2">
+                  <img
+                    src={previewImage}
+                    alt="Document preview"
+                    className="max-h-[300px] object-contain border rounded"
+                  />
+                </div>
+                <div className="w-1/2">
+                  <h4 className="font-medium mb-2">Detected Issues</h4>
+                  <div className="space-y-2">
+                    {results.map((result, index) => (
+                      <div key={index} className="flex items-center justify-between border rounded p-2">
+                        <div>
+                          <span className={`font-medium ${SENTIMENT_COLORS[result.severity as keyof typeof SENTIMENT_COLORS]}`}>
+                            {result.category || 'Uncategorized'}
+                          </span>
+                          <p className="text-sm text-gray-600">{result.text}</p>
+                        </div>
+                        <Badge variant={result.severity === 'critical' ? 'destructive' : 'secondary'}>
+                          {Math.round(result.confidence * 100)}%
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {!isProcessing && !results.length && (
             <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg">
               <input
@@ -150,7 +209,7 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
                         <div>
                           <p className="font-medium">{result.text}</p>
                           <p className="text-sm text-gray-500">
-                            Category: {result.category} | Severity: {result.severity}
+                            Category: {result.category || 'Uncategorized'} | Severity: {result.severity || 'minor'}
                           </p>
                         </div>
                         <div className="text-sm text-gray-500">
