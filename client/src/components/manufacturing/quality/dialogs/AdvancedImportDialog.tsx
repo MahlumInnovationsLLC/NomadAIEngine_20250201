@@ -57,7 +57,7 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
     formData.append('file', file);
 
     try {
-      // Simulate progress
+      // Simulate progress while processing
       const progressInterval = setInterval(() => {
         setProgress(prev => Math.min(prev + 10, 90));
       }, 500);
