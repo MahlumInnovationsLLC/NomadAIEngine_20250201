@@ -566,5 +566,20 @@ export async function addProductionMetrics(metrics: ProductionMetrics): Promise<
   }
 }
 
+// Add getQualityTemplates function
+export async function getQualityTemplates() {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.type = 'template'"
+    };
+
+    const { resources } = await qualityInspectionContainer.items.query(querySpec).fetchAll();
+    return resources;
+  } catch (error) {
+    console.error("Failed to get quality templates:", error);
+    throw error;
+  }
+}
+
 // Initialize the database when the module loads
 initializeManufacturingDatabase().catch(console.error);
