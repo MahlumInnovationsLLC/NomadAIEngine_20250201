@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { QualityFormTemplate, InspectionTemplateType } from "@/types/manufacturing";
+import type { QualityFormTemplate, InspectionTemplateType, Project } from "@/types/manufacturing";
 import { useWebSocket } from "@/hooks/use-websocket";
 
 const inspectionFormSchema = z.object({
@@ -43,7 +43,8 @@ interface CreateInspectionDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
   type: InspectionTemplateType;
-  projects?: Array<{ id: string; projectNumber: string; name: string }>;
+  projects?: Project[];
+  template?: QualityFormTemplate | null;
 }
 
 export function CreateInspectionDialog({ 

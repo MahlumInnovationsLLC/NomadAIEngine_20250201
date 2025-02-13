@@ -26,6 +26,7 @@ import { CreateInspectionDialog } from "./dialogs/CreateInspectionDialog";
 import { InspectionDetailsDialog } from "./dialogs/InspectionDetailsDialog";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
+import { ImportInspectionsDialog } from "./dialogs/ImportInspectionsDialog";
 
 interface QualityInspectionListProps {
   inspections?: QualityInspection[];
@@ -42,6 +43,7 @@ export default function QualityInspectionList({ inspections = [], type, projects
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   // Filter inspections by type
   const filteredInspections = inspections.filter(inspection => inspection.type === type);
@@ -109,7 +111,14 @@ export default function QualityInspectionList({ inspections = [], type, projects
             Manage {type.replace('-', ' ')} inspections and quality checks
           </p>
         </div>
-        <div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowImportDialog(true)}
+          >
+            <FontAwesomeIcon icon="file-import" className="mr-2 h-4 w-4" />
+            Import
+          </Button>
           <Button onClick={() => {
             setSelectedTemplate(null);
             setShowCreateDialog(true);
@@ -196,7 +205,7 @@ export default function QualityInspectionList({ inspections = [], type, projects
                             setSelectedInspection(inspection);
                             setShowNCRDialog(true);
                           }}>
-                            <FontAwesomeIcon icon="exclamation-triangle" className="mr-2 h-4 w-4" />
+                            <FontAwesomeIcon icon="triangle-exclamation" className="mr-2 h-4 w-4" />
                             Create NCR
                           </DropdownMenuItem>
                         )}
@@ -240,6 +249,18 @@ export default function QualityInspectionList({ inspections = [], type, projects
                 id: updated.id,
                 updates: updated
               });
+            }
+          }}
+        />
+      )}
+      {showImportDialog && (
+        <ImportInspectionsDialog
+          open={showImportDialog}
+          onOpenChange={setShowImportDialog}
+          type={type}
+          onSuccess={() => {
+            if (socket) {
+              socket.emit('quality:inspection:list');
             }
           }}
         />
