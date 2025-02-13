@@ -581,5 +581,23 @@ export async function getQualityTemplates() {
   }
 }
 
+export async function saveQualityTemplate(template: any) {
+  try {
+    const now = new Date().toISOString();
+    const newTemplate = {
+      ...template,
+      type: 'template',
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const { resource } = await qualityInspectionContainer.items.create(newTemplate);
+    return resource;
+  } catch (error) {
+    console.error("Failed to save quality template:", error);
+    throw error;
+  }
+}
+
 // Initialize the database when the module loads
 initializeManufacturingDatabase().catch(console.error);
