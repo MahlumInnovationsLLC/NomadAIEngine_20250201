@@ -8,7 +8,10 @@ import {
   updateQualityInspection,
   getProject,
   updateProject,
-  calculateProjectStatus
+  calculateProjectStatus,
+  saveQualityTemplate,
+  getQualityTemplates,
+  updateQualityTemplate
 } from "../services/azure/facility_service";
 import crypto from 'crypto';
 import qualityRoutes from './manufacturing/quality';
@@ -26,6 +29,47 @@ export function setupManufacturingSocketIO(io: Server) {
 
   manufacturingNamespace.on('connection', (socket) => {
     console.log('Manufacturing client connected');
+
+    // Template events
+    socket.on('quality:template:create', async (data) => {
+      try {
+        console.log('Creating quality template:', data);
+        const result = await saveQualityTemplate(data);
+        socket.emit('quality:template:created', result);
+        // Also broadcast to all clients
+        socket.broadcast.emit('quality:template:updated', await getQualityTemplates());
+      } catch (error) {
+        console.error('Failed to create quality template:', error);
+        socket.emit('error', { 
+          message: 'Failed to create quality template',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
+    socket.on('quality:template:list', async () => {
+      try {
+        console.log('Fetching quality templates');
+        const templates = await getQualityTemplates();
+        socket.emit('quality:template:list', { templates });
+      } catch (error) {
+        console.error('Failed to get quality templates:', error);
+        socket.emit('error', { message: 'Failed to get quality templates' });
+      }
+    });
+
+    socket.on('quality:template:update', async ({ id, updates }) => {
+      try {
+        console.log('Updating quality template:', id, updates);
+        const result = await updateQualityTemplate(id, updates);
+        socket.emit('quality:template:updated', result);
+        // Also broadcast to all clients
+        socket.broadcast.emit('quality:template:updated', await getQualityTemplates());
+      } catch (error) {
+        console.error('Failed to update quality template:', error);
+        socket.emit('error', { message: 'Failed to update quality template' });
+      }
+    });
 
     // Quality Inspection events
     socket.on('quality:inspection:create', async (data) => {

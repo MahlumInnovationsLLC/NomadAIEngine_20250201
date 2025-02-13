@@ -137,10 +137,6 @@ export const QualityControlPanel = () => {
             <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
             Export Report
           </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-            New Inspection
-          </Button>
           <Button onClick={() => setShowCreateAuditDialog(true)} variant="secondary">
             <FontAwesomeIcon icon="clipboard-check" className="mr-2 h-4 w-4" />
             New Audit

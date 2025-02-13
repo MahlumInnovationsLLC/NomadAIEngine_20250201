@@ -21,6 +21,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { PreviewTemplateDialog } from "./PreviewTemplateDialog";
 import { EditTemplateDialog } from "./EditTemplateDialog";
+import { CreateTemplateDialog } from "./CreateTemplateDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface InspectionTemplateDialogProps {
   open: boolean;
@@ -40,6 +42,8 @@ export function InspectionTemplateDialog({
   const [activeTab, setActiveTab] = useState("templates");
   const [previewTemplate, setPreviewTemplate] = useState<QualityFormTemplate | null>(null);
   const [editTemplate, setEditTemplate] = useState<QualityFormTemplate | null>(null);
+  const [showCreateTemplateDialog, setShowCreateTemplateDialog] = useState(false);
+  const queryClient = useQueryClient();
 
   const getTemplates = (): QualityFormTemplate[] => {
     try {
@@ -112,10 +116,7 @@ export function InspectionTemplateDialog({
   };
 
   const handleCreateTemplate = () => {
-    toast({
-      title: "Create Template",
-      description: "Template creation coming in next release",
-    });
+    setShowCreateTemplateDialog(true);
   };
 
   const formatDate = (date: string) => {
@@ -128,15 +129,13 @@ export function InspectionTemplateDialog({
 
   const templates = getTemplates();
 
-  // Replace random mock data with consistent data based on template id
   const getTemplateUsage = (templateId: string) => {
-    // Generate consistent usage data based on templateId
     const hash = templateId.split('').reduce((acc, char) => {
       return char.charCodeAt(0) + ((acc << 5) - acc);
     }, 0);
 
     return {
-      usageCount: Math.abs(hash % 100), // Consistent number between 0-99
+      usageCount: Math.abs(hash % 100),
       lastUsed: new Date(Date.now() - (Math.abs(hash % 30) * 24 * 60 * 60 * 1000)).toISOString()
     };
   };
@@ -351,6 +350,18 @@ export function InspectionTemplateDialog({
           open={Boolean(editTemplate)}
           onOpenChange={(open) => !open && setEditTemplate(null)}
           template={editTemplate}
+        />
+      )}
+
+      {showCreateTemplateDialog && (
+        <CreateTemplateDialog
+          open={showCreateTemplateDialog}
+          onOpenChange={setShowCreateTemplateDialog}
+          onSuccess={() => {
+            setShowCreateTemplateDialog(false);
+            // Fix for TypeScript error - use proper invalidateQueries syntax
+            queryClient.invalidateQueries({ queryKey: ['quality', 'templates'] });
+          }}
         />
       )}
     </>

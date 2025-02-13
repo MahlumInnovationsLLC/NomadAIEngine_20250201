@@ -140,20 +140,27 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
         updatedAt: new Date().toISOString(),
       };
 
-      return new Promise((resolve, reject) => {
+      await new Promise((resolve, reject) => {
         socket.emit('quality:template:create', template, (response: any) => {
-          if (response.error) reject(new Error(response.error));
-          else resolve(response);
+          if (response?.error) {
+            reject(new Error(response.error));
+          } else {
+            resolve(response);
+          }
         });
-      }).then(() => {
-        toast({
-          title: "Success",
-          description: "Template created successfully",
-        });
-        form.reset();
-        onSuccess?.();
-        onOpenChange(false);
+
+        // Add timeout for socket response
+        setTimeout(() => reject(new Error('Socket timeout')), 5000);
       });
+
+      toast({
+        title: "Success",
+        description: "Template created successfully",
+      });
+
+      form.reset();
+      onSuccess?.();
+      onOpenChange(false);
     } catch (error) {
       console.error('Error creating template:', error);
       toast({
