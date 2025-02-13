@@ -26,27 +26,50 @@ import { CreateInspectionDialog } from "./dialogs/CreateInspectionDialog";
 import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { InspectionDetailsDialog } from "./dialogs/InspectionDetailsDialog";
+import {
+  fabInspectionTemplates,
+  productionQCTemplates,
+  finalQCTemplates,
+  executiveReviewTemplates,
+  pdiTemplates,
+} from "@/templates/qualityTemplates";
 
 interface QualityInspectionListProps {
   inspections: QualityInspection[];
+  type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
 }
 
-export default function QualityInspectionList({ inspections }: QualityInspectionListProps) {
+export default function QualityInspectionList({ inspections, type }: QualityInspectionListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("inspections");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
 
+  // Filter templates based on inspection type
+  const getTemplatesForType = () => {
+    switch (type) {
+      case 'final-qc':
+        return finalQCTemplates;
+      case 'in-process':
+        return [...fabInspectionTemplates, ...productionQCTemplates].filter(t => t.inspectionType === 'in-process');
+      case 'executive-review':
+        return executiveReviewTemplates;
+      case 'pdi':
+        return pdiTemplates;
+      default:
+        return [];
+    }
+  };
+
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {
       const response = await fetch('/api/manufacturing/quality/inspections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ ...data, templateType: type })
       });
       if (!response.ok) throw new Error('Failed to create inspection');
       return response.json();
@@ -149,15 +172,20 @@ export default function QualityInspectionList({ inspections }: QualityInspection
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold">Quality Management</h3>
+          <h3 className="text-lg font-semibold">
+            {type === 'final-qc' ? 'Final Quality Control' :
+             type === 'in-process' ? 'In-Process Inspection' :
+             type === 'executive-review' ? 'Executive Review' :
+             'Pre-Delivery Inspection'}
+          </h3>
           <p className="text-sm text-muted-foreground">
-            Manage inspections, templates, and non-conformance reports
+            Manage {type.replace('-', ' ')} inspections and quality checks
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowTemplateDialog(true)}>
             <FontAwesomeIcon icon="file-alt" className="mr-2 h-4 w-4" />
-            Manage Templates
+            View Templates
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
             <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
@@ -185,8 +213,8 @@ export default function QualityInspectionList({ inspections }: QualityInspection
             </TableHeader>
             <TableBody>
               {inspections.map((inspection) => (
-                <TableRow 
-                  key={inspection.id} 
+                <TableRow
+                  key={inspection.id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleInspectionClick(inspection)}
                 >
@@ -252,6 +280,8 @@ export default function QualityInspectionList({ inspections }: QualityInspection
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
           onSubmit={createInspectionMutation.mutate}
+          type={type}
+          templates={getTemplatesForType()}
         />
       )}
 
@@ -259,6 +289,8 @@ export default function QualityInspectionList({ inspections }: QualityInspection
         <InspectionTemplateDialog
           open={showTemplateDialog}
           onOpenChange={setShowTemplateDialog}
+          type={type}
+          templates={getTemplatesForType()}
         />
       )}
 

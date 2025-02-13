@@ -32,6 +32,7 @@ export const fabInspectionTemplates: QualityFormTemplate[] = [
     description: "Quality inspection form for subframe fabrication process",
     version: 1,
     isActive: true,
+    inspectionType: "in-process",
     createdBy: "system",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -104,58 +105,6 @@ export const fabInspectionTemplates: QualityFormTemplate[] = [
               "Cracks",
               "Incomplete Fusion"
             ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    id: "fab-birdcage-template",
-    name: "Birdcage Inspection Form",
-    type: "inspection",
-    description: "Quality inspection for birdcage assembly",
-    version: 1,
-    isActive: true,
-    createdBy: "system",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    sections: [
-      {
-        id: "assembly-check",
-        title: "Assembly Verification",
-        description: "Verify proper assembly and fitment",
-        fields: [
-          {
-            id: "component-alignment",
-            label: "Component Alignment",
-            type: "select",
-            required: true,
-            options: ["Pass", "Fail"]
-          },
-          {
-            id: "fastener-torque",
-            label: "Fastener Torque Check",
-            type: "select",
-            required: true,
-            options: ["Pass", "Fail"]
-          }
-        ]
-      },
-      {
-        id: "measurements",
-        title: "Critical Measurements",
-        fields: [
-          {
-            id: "diagonal-measurements",
-            label: "Diagonal Measurements",
-            type: "text",
-            required: true
-          },
-          {
-            id: "clearances",
-            label: "Component Clearances",
-            type: "text",
-            required: true
           }
         ]
       }
@@ -321,51 +270,210 @@ export const productionQCTemplates: QualityFormTemplate[] = [
 
 export const finalQCTemplates: QualityFormTemplate[] = [
   {
-    id: "final-qc-checklist",
-    name: "Final Quality Control Checklist",
+    id: "final-qc-comprehensive",
+    name: "Comprehensive Final QC Inspection",
     type: "inspection",
-    description: "Final quality control inspection before delivery",
+    description: "Complete quality control inspection before delivery",
     version: 1,
     isActive: true,
+    inspectionType: "final-qc",
     createdBy: "system",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     sections: [
       {
+        id: "visual-inspection",
+        title: "Visual Inspection",
+        description: "Check overall appearance and finish",
+        fields: [
+          {
+            id: "exterior-finish",
+            label: "Exterior Finish",
+            type: "select",
+            required: true,
+            options: ["Pass", "Fail", "Needs Review"]
+          },
+          {
+            id: "paint-quality",
+            label: "Paint Quality",
+            type: "select",
+            required: true,
+            options: ["Pass", "Fail", "Needs Review"]
+          },
+          {
+            id: "alignment",
+            label: "Panel Alignment",
+            type: "select",
+            required: true,
+            options: ["Pass", "Fail", "Needs Review"]
+          }
+        ]
+      },
+      {
+        id: "functional-tests",
+        title: "Functional Testing",
+        description: "Verify all systems are operational",
+        fields: [
+          {
+            id: "electrical",
+            label: "Electrical Systems",
+            type: "select",
+            required: true,
+            options: ["Pass", "Fail", "Needs Review"]
+          },
+          {
+            id: "mechanical",
+            label: "Mechanical Systems",
+            type: "select",
+            required: true,
+            options: ["Pass", "Fail", "Needs Review"]
+          },
+          {
+            id: "hydraulic",
+            label: "Hydraulic Systems",
+            type: "select",
+            required: true,
+            options: ["Pass", "Fail", "Needs Review"]
+          }
+        ]
+      },
+      {
         id: "documentation",
         title: "Documentation Check",
+        description: "Verify all required documentation is complete",
         fields: [
           {
             id: "manuals",
-            label: "Operation Manuals",
+            label: "User Manuals",
             type: "checkbox",
             required: true
           },
           {
             id: "certificates",
-            label: "Certificates",
+            label: "Safety Certificates",
+            type: "checkbox",
+            required: true
+          },
+          {
+            id: "warranty",
+            label: "Warranty Documentation",
             type: "checkbox",
             required: true
           }
         ]
-      },
+      }
+    ]
+  }
+];
+
+export const executiveReviewTemplates: QualityFormTemplate[] = [
+  {
+    id: "executive-final-review",
+    name: "Executive Final Review",
+    type: "inspection",
+    description: "Executive level final review of product quality",
+    version: 1,
+    isActive: true,
+    inspectionType: "executive-review",
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sections: [
       {
-        id: "final-inspection",
-        title: "Final Inspection Points",
+        id: "quality-verification",
+        title: "Quality Verification",
+        description: "Verify overall quality standards met",
         fields: [
           {
-            id: "appearance",
-            label: "Overall Appearance",
+            id: "overall-quality",
+            label: "Overall Quality Assessment",
             type: "select",
             required: true,
-            options: ["Acceptable", "Needs Attention"]
+            options: ["Excellent", "Good", "Fair", "Poor"]
           },
           {
-            id: "functionality",
-            label: "Functionality Check",
+            id: "customer-requirements",
+            label: "Customer Requirements Met",
+            type: "select",
+            required: true,
+            options: ["Yes", "No", "Partial"]
+          }
+        ]
+      },
+      {
+        id: "final-approval",
+        title: "Final Approval",
+        description: "Executive approval for release",
+        fields: [
+          {
+            id: "approval-status",
+            label: "Approval Status",
+            type: "select",
+            required: true,
+            options: ["Approved", "Rejected", "Pending Modifications"]
+          },
+          {
+            id: "comments",
+            label: "Executive Comments",
+            type: "text",
+            required: true
+          }
+        ]
+      }
+    ]
+  }
+];
+
+export const pdiTemplates: QualityFormTemplate[] = [
+  {
+    id: "pre-delivery-inspection",
+    name: "Pre-Delivery Inspection",
+    type: "inspection",
+    description: "Final inspection before customer delivery",
+    version: 1,
+    isActive: true,
+    inspectionType: "pdi",
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sections: [
+      {
+        id: "final-verification",
+        title: "Final Verification",
+        description: "Verify all aspects before delivery",
+        fields: [
+          {
+            id: "cleanliness",
+            label: "Vehicle Cleanliness",
             type: "select",
             required: true,
             options: ["Pass", "Fail"]
+          },
+          {
+            id: "equipment-check",
+            label: "Equipment Check",
+            type: "select",
+            required: true,
+            options: ["Complete", "Incomplete"]
+          }
+        ]
+      },
+      {
+        id: "delivery-documents",
+        title: "Delivery Documentation",
+        description: "Verify all delivery documents are prepared",
+        fields: [
+          {
+            id: "delivery-checklist",
+            label: "Delivery Checklist Complete",
+            type: "checkbox",
+            required: true
+          },
+          {
+            id: "customer-documents",
+            label: "Customer Documentation Ready",
+            type: "checkbox",
+            required: true
           }
         ]
       }
@@ -409,166 +517,4 @@ export const postDeliveryQCTemplates: QualityFormTemplate[] = [
   }
 ];
 
-export const auditTemplates: AuditTemplate[] = [
-  {
-    id: "iso9001-internal",
-    name: "ISO 9001:2015 Internal Audit Template",
-    type: "internal",
-    standard: "ISO 9001:2015",
-    version: 1,
-    isActive: true,
-    sections: [
-      {
-        id: "context",
-        title: "Context of the Organization",
-        reference: "4",
-        requirements: [
-          {
-            id: "4.1",
-            text: "Understanding the organization and its context",
-            guidance: "Verify documentation of internal and external issues relevant to strategic direction",
-            evidenceRequired: [
-              "Strategic planning documents",
-              "SWOT analysis",
-              "Risk assessments"
-            ]
-          },
-          {
-            id: "4.2",
-            text: "Understanding needs and expectations of interested parties",
-            guidance: "Check identification and monitoring of stakeholder requirements",
-            evidenceRequired: [
-              "Stakeholder analysis",
-              "Requirements tracking",
-              "Communication records"
-            ]
-          }
-        ]
-      },
-      {
-        id: "leadership",
-        title: "Leadership",
-        reference: "5",
-        requirements: [
-          {
-            id: "5.1",
-            text: "Leadership and commitment",
-            guidance: "Evaluate top management's involvement in QMS",
-            evidenceRequired: [
-              "Management review minutes",
-              "Policy statements",
-              "Resource allocation records"
-            ]
-          },
-          {
-            id: "5.2",
-            text: "Quality Policy",
-            guidance: "Verify policy communication and understanding",
-            evidenceRequired: [
-              "Quality policy document",
-              "Communication records",
-              "Employee interviews"
-            ]
-          }
-        ]
-      },
-      {
-        id: "planning",
-        title: "Planning",
-        reference: "6",
-        requirements: [
-          {
-            id: "6.1",
-            text: "Actions to address risks and opportunities",
-            guidance: "Review risk management process and effectiveness",
-            evidenceRequired: [
-              "Risk registers",
-              "Opportunity assessments",
-              "Action plans"
-            ]
-          },
-          {
-            id: "6.2",
-            text: "Quality objectives and planning",
-            guidance: "Evaluate alignment of objectives with policy",
-            evidenceRequired: [
-              "Quality objectives",
-              "Performance metrics",
-              "Implementation plans"
-            ]
-          }
-        ]
-      }
-    ],
-    createdBy: "system",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: "iso9001-certification",
-    name: "ISO 9001:2015 Certification Audit Template",
-    type: "certification",
-    standard: "ISO 9001:2015",
-    version: 1,
-    isActive: true,
-    sections: [
-      {
-        id: "qms",
-        title: "Quality Management System",
-        reference: "4.4",
-        requirements: [
-          {
-            id: "4.4.1",
-            text: "QMS Processes",
-            guidance: "Verify process approach implementation",
-            evidenceRequired: [
-              "Process maps",
-              "Process metrics",
-              "Interaction matrices"
-            ]
-          },
-          {
-            id: "4.4.2",
-            text: "Documented Information",
-            guidance: "Check documentation control and retention",
-            evidenceRequired: [
-              "Document control procedure",
-              "Records retention schedule",
-              "Document access logs"
-            ]
-          }
-        ]
-      },
-      {
-        id: "operation",
-        title: "Operation",
-        reference: "8",
-        requirements: [
-          {
-            id: "8.1",
-            text: "Operational planning and control",
-            guidance: "Review process controls and monitoring",
-            evidenceRequired: [
-              "Production plans",
-              "Quality control records",
-              "Process validation reports"
-            ]
-          },
-          {
-            id: "8.5",
-            text: "Production and service provision",
-            guidance: "Evaluate control of production/service delivery",
-            evidenceRequired: [
-              "Work instructions",
-              "Inspection records",
-              "Service delivery records"
-            ]
-          }
-        ]
-      }
-    ],
-    createdBy: "system",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
+export { auditTemplates };

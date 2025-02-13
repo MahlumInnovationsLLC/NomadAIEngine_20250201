@@ -21,17 +21,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { QualityFormTemplate } from "@/types/manufacturing"; // Added import
-import {
-  fabInspectionTemplates,
-  paintQCTemplates,
-  productionQCTemplates,
-  finalQCTemplates,
-  postDeliveryQCTemplates,
-} from "@/templates/qualityTemplates"; // Added import
+import { QualityFormTemplate } from "@/types/manufacturing";
+import type { InspectionTemplateType } from "@/types/manufacturing";
 
 const inspectionFormSchema = z.object({
-  type: z.enum(["incoming", "in-process", "final", "audit"]),
   templateId: z.string().min(1, "Please select a template"),
   productionLineId: z.string().min(1, "Production line is required"),
   inspector: z.string().min(1, "Inspector name is required"),
@@ -46,32 +39,31 @@ interface CreateInspectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
+  type: InspectionTemplateType;
+  templates: QualityFormTemplate[];
 }
 
-export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateInspectionDialogProps) {
+export function CreateInspectionDialog({ 
+  open, 
+  onOpenChange, 
+  onSubmit, 
+  type,
+  templates 
+}: CreateInspectionDialogProps) {
   const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const allTemplates = [
-    ...fabInspectionTemplates,
-    ...paintQCTemplates,
-    ...productionQCTemplates,
-    ...finalQCTemplates,
-    ...postDeliveryQCTemplates,
-  ];
-
   const form = useForm<FormValues>({
     resolver: zodResolver(inspectionFormSchema),
     defaultValues: {
-      type: "in-process",
       priority: "medium",
       notes: "",
     },
   });
 
   const handleTemplateChange = (templateId: string) => {
-    const template = allTemplates.find((t) => t.id === templateId);
+    const template = templates.find((t) => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
     }
@@ -80,13 +72,13 @@ export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateI
   const handleSubmit = async (values: FormValues) => {
     try {
       setIsSubmitting(true);
-      const template = allTemplates.find((t) => t.id === values.templateId);
+      const template = templates.find((t) => t.id === values.templateId);
       if (!template) {
         throw new Error("Template not found");
       }
 
       const inspectionData = {
-        templateType: values.type,
+        templateType: type,
         templateId: values.templateId,
         inspector: values.inspector,
         productionLineId: values.productionLineId,
@@ -133,9 +125,9 @@ export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateI
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl h-[85vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Create New Quality Inspection</DialogTitle>
+          <DialogTitle>Create New {type.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Inspection</DialogTitle>
           <DialogDescription>
-            Create a new quality inspection using a template or custom form.
+            Create a new quality inspection using a template.
           </DialogDescription>
         </DialogHeader>
 
@@ -144,30 +136,6 @@ export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateI
             <div className="flex-1 overflow-y-auto">
               <div className="space-y-4 p-1">
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Inspection Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="incoming">Incoming</SelectItem>
-                            <SelectItem value="in-process">In-Process</SelectItem>
-                            <SelectItem value="final">Final</SelectItem>
-                            <SelectItem value="audit">Audit</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <FormField
                     control={form.control}
                     name="templateId"
@@ -184,7 +152,7 @@ export function CreateInspectionDialog({ open, onOpenChange, onSubmit }: CreateI
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {allTemplates.map((template) => (
+                            {templates.map((template) => (
                               <SelectItem key={template.id} value={template.id}>
                                 {template.name}
                               </SelectItem>

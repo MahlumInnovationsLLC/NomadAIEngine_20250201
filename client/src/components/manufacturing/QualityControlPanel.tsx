@@ -24,6 +24,7 @@ import FindingsList from "./quality/FindingsList";
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
   const [qmsActiveView, setQmsActiveView] = useState("inspections");
+  const [inspectionTypeView, setInspectionTypeView] = useState("final-qc");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCreateAuditDialog, setShowCreateAuditDialog] = useState(false);
 
@@ -39,6 +40,22 @@ export const QualityControlPanel = () => {
   const { data: qualityAudits, refetch: refetchAudits } = useQuery<QualityAudit[]>({
     queryKey: ['/api/manufacturing/quality/audits'],
   });
+
+  // Filter inspections based on type
+  const filteredInspections = qualityInspections?.filter(inspection => {
+    switch (inspectionTypeView) {
+      case 'in-process':
+        return inspection.templateType === 'in-process';
+      case 'final-qc':
+        return inspection.templateType === 'final-qc';
+      case 'executive-review':
+        return inspection.templateType === 'executive-review';
+      case 'pdi':
+        return inspection.templateType === 'pdi';
+      default:
+        return true;
+    }
+  }) || [];
 
   return (
     <div className="space-y-4">
@@ -143,21 +160,50 @@ export const QualityControlPanel = () => {
                 </TabsList>
 
                 <TabsContent value="inspections">
-                  <QualityInspectionList inspections={qualityInspections || []} />
+                  <Card>
+                    <CardHeader>
+                      <div className="flex justify-between items-center">
+                        <CardTitle>Quality Inspections</CardTitle>
+                        <Button onClick={() => setShowCreateDialog(true)}>
+                          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                          New Inspection
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <Tabs value={inspectionTypeView} onValueChange={setInspectionTypeView} className="space-y-4">
+                        <TabsList className="w-full">
+                          <TabsTrigger value="in-process">In-Process</TabsTrigger>
+                          <TabsTrigger value="final-qc">Final QC</TabsTrigger>
+                          <TabsTrigger value="executive-review">Executive Review</TabsTrigger>
+                          <TabsTrigger value="pdi">PDI</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="in-process">
+                          <QualityInspectionList inspections={filteredInspections} type="in-process" />
+                        </TabsContent>
+                        <TabsContent value="final-qc">
+                          <QualityInspectionList inspections={filteredInspections} type="final-qc" />
+                        </TabsContent>
+                        <TabsContent value="executive-review">
+                          <QualityInspectionList inspections={filteredInspections} type="executive-review" />
+                        </TabsContent>
+                        <TabsContent value="pdi">
+                          <QualityInspectionList inspections={filteredInspections} type="pdi" />
+                        </TabsContent>
+                      </Tabs>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="ncr">
                   <NCRList />
                 </TabsContent>
-
                 <TabsContent value="capa">
                   <CAPAList />
                 </TabsContent>
-
                 <TabsContent value="scar">
                   <SCARList />
                 </TabsContent>
-
                 <TabsContent value="mrb">
                   <MRBList />
                 </TabsContent>

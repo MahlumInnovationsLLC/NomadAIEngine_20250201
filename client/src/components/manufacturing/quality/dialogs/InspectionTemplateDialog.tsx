@@ -1,7 +1,4 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -9,349 +6,82 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QualityFormTemplate } from "@/types/manufacturing";
-import {
-  fabInspectionTemplates,
-  paintQCTemplates,
-  productionQCTemplates,
-  finalQCTemplates,
-  postDeliveryQCTemplates
-} from "@/templates/qualityTemplates";
-
-const templateFormSchema = z.object({
-  name: z.string().min(1, "Template name is required"),
-  type: z.enum(["inspection", "audit", "ncr", "capa", "scar"]),
-  description: z.string().min(1, "Description is required"),
-  sections: z.array(
-    z.object({
-      title: z.string(),
-      description: z.string().optional(),
-      fields: z.array(
-        z.object({
-          label: z.string(),
-          type: z.enum(["text", "number", "select", "multiselect", "checkbox", "date", "file"]),
-          required: z.boolean(),
-          options: z.array(z.string()).optional(),
-        })
-      ),
-    })
-  ),
-});
+import type { InspectionTemplateType } from "@/types/manufacturing";
 
 interface InspectionTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editTemplate?: QualityFormTemplate;
+  type: InspectionTemplateType;
+  templates: QualityFormTemplate[];
 }
 
 export function InspectionTemplateDialog({
   open,
   onOpenChange,
-  editTemplate,
+  type,
+  templates,
 }: InspectionTemplateDialogProps) {
-  const [sections, setSections] = useState(editTemplate?.sections || []);
-  const [selectedBaseTemplate, setSelectedBaseTemplate] = useState<string | null>(null);
-
-  const form = useForm<z.infer<typeof templateFormSchema>>({
-    resolver: zodResolver(templateFormSchema),
-    defaultValues: editTemplate || {
-      name: "",
-      type: "inspection",
-      description: "",
-      sections: [],
-    },
-  });
-
-  const onSubmit = async (values: z.infer<typeof templateFormSchema>) => {
-    try {
-      console.log("Saving template:", values);
-      onOpenChange(false);
-    } catch (error) {
-      console.error("Error saving template:", error);
+  const getTypeTitle = () => {
+    switch (type) {
+      case 'final-qc':
+        return 'Final Quality Control';
+      case 'in-process':
+        return 'In-Process Inspection';
+      case 'executive-review':
+        return 'Executive Review';
+      case 'pdi':
+        return 'Pre-Delivery Inspection';
+      default:
+        return 'Quality Inspection';
     }
-  };
-
-  const loadBaseTemplate = (templateId: string | null) => {
-    if (!templateId) {
-      form.reset({
-        name: "",
-        type: "inspection",
-        description: "",
-        sections: [],
-      });
-      setSections([]);
-      return;
-    }
-
-    const allTemplates = [
-      ...fabInspectionTemplates,
-      ...paintQCTemplates,
-      ...productionQCTemplates,
-      ...finalQCTemplates,
-      ...postDeliveryQCTemplates
-    ];
-
-    const template = allTemplates.find(t => t.id === templateId);
-    if (template) {
-      form.reset({
-        name: `Copy of ${template.name}`,
-        type: template.type,
-        description: template.description,
-        sections: template.sections,
-      });
-      setSections(template.sections);
-    }
-  };
-
-  const addSection = () => {
-    setSections([
-      ...sections,
-      {
-        id: crypto.randomUUID(),
-        title: `Section ${sections.length + 1}`,
-        fields: [],
-      },
-    ]);
-  };
-
-  const addField = (sectionIndex: number) => {
-    const newSections = [...sections];
-    newSections[sectionIndex].fields.push({
-      id: crypto.randomUUID(),
-      label: `Field ${newSections[sectionIndex].fields.length + 1}`,
-      type: "text",
-      required: false,
-    });
-    setSections(newSections);
-  };
-
-  const removeSection = (index: number) => {
-    setSections(sections.filter((_, i) => i !== index));
-  };
-
-  const removeField = (sectionIndex: number, fieldIndex: number) => {
-    const newSections = [...sections];
-    newSections[sectionIndex].fields.splice(fieldIndex, 1);
-    setSections(newSections);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle>{editTemplate ? "Edit Template" : "Create New Template"}</DialogTitle>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>{getTypeTitle()} Templates</DialogTitle>
           <DialogDescription>
-            Design a quality form template by adding sections and fields
+            Available templates for {type.split('-').join(' ')} quality inspections
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-            <div className="space-y-6 overflow-y-auto flex-grow pr-4">
-              {!editTemplate && (
-                <FormItem>
-                  <FormLabel>Start from Template</FormLabel>
-                  <Select
-                    value={selectedBaseTemplate || undefined}
-                    onValueChange={(value) => {
-                      setSelectedBaseTemplate(value);
-                      loadBaseTemplate(value);
-                    }}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a base template" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="new">Create from scratch</SelectItem>
-                      <SelectItem value="fab-subframe-template">Subframe Inspection</SelectItem>
-                      <SelectItem value="fab-birdcage-template">Birdcage Inspection</SelectItem>
-                      <SelectItem value="post-paint-qc">Post Paint QC</SelectItem>
-                      <SelectItem value="equipment-id-qc">Equipment ID QC</SelectItem>
-                      <SelectItem value="testing-qc">Testing QC</SelectItem>
-                      <SelectItem value="final-qc-checklist">Final QC</SelectItem>
-                      <SelectItem value="post-delivery-inspection">Post-Delivery QC</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Template Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter template name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Template Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="inspection">Inspection</SelectItem>
-                          <SelectItem value="audit">Audit</SelectItem>
-                          <SelectItem value="ncr">NCR</SelectItem>
-                          <SelectItem value="capa">CAPA</SelectItem>
-                          <SelectItem value="scar">SCAR</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter template description" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Template Sections</h4>
-                  <Button type="button" variant="outline" onClick={addSection}>
-                    <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                    Add Section
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto py-4">
+          {templates.map((template) => (
+            <Card key={template.id}>
+              <CardHeader>
+                <CardTitle>{template.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {template.description}
+                </p>
+                <div className="space-y-2">
+                  <div className="text-sm">
+                    <span className="font-medium">Version:</span> {template.version}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">Sections:</span> {template.sections.length}
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button variant="outline" className="w-full">
+                    <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                    Preview
+                  </Button>
+                  <Button variant="outline" className="w-full">
+                    <FontAwesomeIcon icon="copy" className="mr-2 h-4 w-4" />
+                    Use Template
                   </Button>
                 </div>
-
-                {sections.map((section, sectionIndex) => (
-                  <div key={section.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="space-y-4 flex-1">
-                        <Input
-                          value={section.title}
-                          onChange={(e) => {
-                            const newSections = [...sections];
-                            newSections[sectionIndex].title = e.target.value;
-                            setSections(newSections);
-                          }}
-                          placeholder="Section Title"
-                        />
-                        <Input
-                          value={section.description || ""}
-                          onChange={(e) => {
-                            const newSections = [...sections];
-                            newSections[sectionIndex].description = e.target.value;
-                            setSections(newSections);
-                          }}
-                          placeholder="Section Description (optional)"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeSection(sectionIndex)}
-                      >
-                        <FontAwesomeIcon icon="trash" className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {section.fields.map((field, fieldIndex) => (
-                        <div key={field.id} className="flex gap-2">
-                          <Input
-                            value={field.label}
-                            onChange={(e) => {
-                              const newSections = [...sections];
-                              newSections[sectionIndex].fields[fieldIndex].label = e.target.value;
-                              setSections(newSections);
-                            }}
-                            placeholder="Field Label"
-                          />
-                          <Select
-                            value={field.type}
-                            onValueChange={(value: any) => {
-                              const newSections = [...sections];
-                              newSections[sectionIndex].fields[fieldIndex].type = value;
-                              setSections(newSections);
-                            }}
-                          >
-                            <SelectTrigger className="w-[200px]">
-                              <SelectValue placeholder="Field Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="text">Text</SelectItem>
-                              <SelectItem value="number">Number</SelectItem>
-                              <SelectItem value="select">Select</SelectItem>
-                              <SelectItem value="multiselect">Multi-Select</SelectItem>
-                              <SelectItem value="checkbox">Checkbox</SelectItem>
-                              <SelectItem value="date">Date</SelectItem>
-                              <SelectItem value="file">File Upload</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeField(sectionIndex, fieldIndex)}
-                          >
-                            <FontAwesomeIcon icon="trash" className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addField(sectionIndex)}
-                      >
-                        <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                        Add Field
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-6 border-t mt-6">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">{editTemplate ? "Update" : "Create"} Template</Button>
-            </div>
-          </form>
-        </Form>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   );

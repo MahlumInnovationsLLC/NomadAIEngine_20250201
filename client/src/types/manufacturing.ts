@@ -405,12 +405,12 @@ export interface QualityInspection {
   inspector: string;
   productionLineId: string;
   projectNumber?: string;
-  templateType: 'inspection' | 'audit' | 'ncr' | 'capa' | 'scar';
+  templateType: InspectionTemplateType; // Update to use new type
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   results: {
     checklistItems: {
       id: string;
-      label: string; 
+      label: string;
       parameter: string;
       specification: string;
       measurement?: string | number;
@@ -426,7 +426,7 @@ export interface QualityInspection {
     }[];
   };
   notes?: string;
-  attachments?: { 
+  attachments?: {
     id: string;
     name: string;
     url: string;
@@ -552,11 +552,16 @@ export interface ProjectTask {
   status: 'not_started' | 'in_progress' | 'completed';
 }
 
+// Update the template type for better categorization
+export type InspectionTemplateType = 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
+
+// Update QualityFormTemplate interface
 export interface QualityFormTemplate {
   id: string;
   name: string;
   type: 'inspection' | 'audit' | 'ncr' | 'capa' | 'scar';
   description: string;
+  inspectionType?: InspectionTemplateType; // Add new field for inspection categorization
   sections: {
     id: string;
     title: string;
@@ -580,6 +585,7 @@ export interface QualityFormTemplate {
   version: number;
   isActive: boolean;
 }
+
 
 export interface NonConformanceReport {
   id: string;
@@ -885,8 +891,8 @@ export interface AuditTemplate {
       text: string;
       guidance: string;
       evidenceRequired: string[];
-      findingTypes?: ('observation' | 'minor' | 'major' | 'opportunity')[]; 
-      requiredFindings?: boolean; 
+      findingTypes?: ('observation' | 'minor' | 'major' | 'opportunity')[];
+      requiredFindings?: boolean;
     }[];
   }[];
   createdBy: string;
