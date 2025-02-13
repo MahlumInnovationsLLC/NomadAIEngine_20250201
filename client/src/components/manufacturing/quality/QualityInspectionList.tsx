@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { QualityInspection, QualityFormTemplate, NonConformanceReport } from "@/types/manufacturing";
+import { QualityInspection, QualityFormTemplate } from "@/types/manufacturing";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 
@@ -33,6 +33,7 @@ import {
   executiveReviewTemplates,
   pdiTemplates,
 } from "@/templates/qualityTemplates";
+import TemplateManagement from "./TemplateManagement";
 
 interface QualityInspectionListProps {
   inspections: QualityInspection[];
@@ -49,7 +50,11 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
 
-  // Filter templates based on inspection type
+  // Fetch projects for project number selection
+  const { data: projects } = useQuery({
+    queryKey: ['/api/manufacturing/projects'],
+  });
+
   const getTemplatesForType = () => {
     switch (type) {
       case 'final-qc':
@@ -92,51 +97,9 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
     },
   });
 
-  const updateInspectionMutation = useMutation({
-    mutationFn: async (inspection: QualityInspection) => {
-      if (!socket) throw new Error('Socket connection not available');
-      return new Promise((resolve, reject) => {
-        socket.emit('quality:inspection:update', 
-          { id: inspection.id, updates: inspection }, 
-          (response: any) => {
-            if (response.error) reject(new Error(response.error));
-            else resolve(response);
-          }
-        );
-      });
-    },
-    onSuccess: (updatedInspection) => {
-      toast({
-        title: 'Success',
-        description: 'Inspection has been updated successfully.',
-      });
-    },
-    onError: (error: Error) => {
-      console.error('Update error:', error);
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const handleStatusUpdate = (id: string, newStatus: QualityInspection['status']) => {
-    const inspection = inspections.find(i => i.id === id);
-    if (inspection) {
-      const updatedInspection = { ...inspection, status: newStatus };
-      updateInspectionMutation.mutate(updatedInspection);
-    }
-  };
-
   const handleInspectionClick = (inspection: QualityInspection) => {
     setSelectedInspection(inspection);
     setShowDetailsDialog(true);
-  };
-
-  const handleCreateNCR = (inspection: QualityInspection) => {
-    setSelectedInspection(inspection);
-    setShowNCRDialog(true);
   };
 
   const getStatusColor = (status: QualityInspection['status']) => {
@@ -158,13 +121,14 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
 
   return (
     <div className="space-y-4">
+      <TemplateManagement />
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">
             {type === 'final-qc' ? 'Final Quality Control' :
-             type === 'in-process' ? 'In-Process Inspection' :
-             type === 'executive-review' ? 'Executive Review' :
-             'Pre-Delivery Inspection'}
+              type === 'in-process' ? 'In-Process Inspection' :
+              type === 'executive-review' ? 'Executive Review' :
+              'Pre-Delivery Inspection'}
           </h3>
           <p className="text-sm text-muted-foreground">
             Manage {type.replace('-', ' ')} inspections and quality checks
@@ -191,6 +155,8 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
+                <TableHead>Project Number</TableHead>
+                <TableHead>Part Number</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Inspector</TableHead>
@@ -207,6 +173,20 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
                   onClick={() => handleInspectionClick(inspection)}
                 >
                   <TableCell>{formatDate(inspection.inspectionDate)}</TableCell>
+                  <TableCell>
+                    {inspection.projectId ? (
+                      <span className="font-medium">{inspection.projectNumber}</span>
+                    ) : (
+                      <span className="text-muted-foreground">No Project</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {inspection.partNumber ? (
+                      <span className="font-medium">{inspection.partNumber}</span>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium capitalize">
                     {inspection.templateType}
                   </TableCell>
@@ -236,15 +216,11 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
                           <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          setSelectedInspection(inspection);
-                          setShowDetailsDialog(true);
-                        }}>
-                          <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
                         {inspection.results.defectsFound.length > 0 && (
-                          <DropdownMenuItem onClick={() => handleCreateNCR(inspection)}>
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedInspection(inspection);
+                            setShowNCRDialog(true);
+                          }}>
                             <FontAwesomeIcon icon="exclamation-triangle" className="mr-2 h-4 w-4" />
                             Create NCR
                           </DropdownMenuItem>
@@ -265,6 +241,7 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
           onOpenChange={setShowCreateDialog}
           onSubmit={createInspectionMutation.mutate}
           type={type}
+          projects={projects}
         />
       )}
 
@@ -290,7 +267,14 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
           open={showDetailsDialog}
           onOpenChange={setShowDetailsDialog}
           inspection={selectedInspection}
-          onUpdate={updateInspectionMutation.mutate}
+          onUpdate={(updated) => {
+            if (socket) {
+              socket.emit('quality:inspection:update', {
+                id: updated.id,
+                updates: updated
+              });
+            }
+          }}
         />
       )}
     </div>

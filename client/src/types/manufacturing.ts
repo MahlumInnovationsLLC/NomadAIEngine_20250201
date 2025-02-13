@@ -404,8 +404,10 @@ export interface QualityInspection {
   inspectionDate: string;
   inspector: string;
   productionLineId: string;
+  projectId?: string;
   projectNumber?: string;
-  templateType: InspectionTemplateType; // Update to use new type
+  partNumber?: string; // Add part number field
+  templateType: InspectionTemplateType;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   results: {
     checklistItems: {

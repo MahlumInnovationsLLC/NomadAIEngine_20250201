@@ -32,6 +32,8 @@ import type { QualityFormTemplate, InspectionTemplateType } from "@/types/manufa
 
 const inspectionFormSchema = z.object({
   templateId: z.string().min(1, "Please select a template"),
+  projectId: z.string().optional(),
+  partNumber: z.string().optional(), // Add part number to schema
   productionLineId: z.string().min(1, "Production line is required"),
   inspector: z.string().min(1, "Inspector name is required"),
   dueDate: z.string().min(1, "Due date is required"),
@@ -46,6 +48,7 @@ interface CreateInspectionDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
   type: InspectionTemplateType;
+  projects?: Array<{ id: string; projectNumber: string; name: string }>;
 }
 
 export function CreateInspectionDialog({ 
@@ -53,12 +56,12 @@ export function CreateInspectionDialog({
   onOpenChange, 
   onSubmit, 
   type,
+  projects = [],
 }: CreateInspectionDialogProps) {
   const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get appropriate templates based on type
   const templates = useMemo(() => {
     switch (type) {
       case 'in-process':
@@ -75,7 +78,13 @@ export function CreateInspectionDialog({
   }, [type]);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(inspectionFormSchema),
+    resolver: zodResolver(
+      type === 'final-qc' 
+        ? inspectionFormSchema.extend({
+            projectId: z.string().min(1, "Project is required for Final QC inspections")
+          })
+        : inspectionFormSchema
+    ),
     defaultValues: {
       priority: "medium",
       notes: "",
@@ -98,9 +107,19 @@ export function CreateInspectionDialog({
         throw new Error("Template not found");
       }
 
+      // Get project number if project is selected
+      let projectNumber = undefined;
+      if (values.projectId) {
+        const project = projects.find(p => p.id === values.projectId);
+        projectNumber = project?.projectNumber;
+      }
+
       const inspectionData = {
         templateType: type,
         templateId: values.templateId,
+        projectId: values.projectId,
+        projectNumber,
+        partNumber: values.partNumber, // Include part number in submission
         inspector: values.inspector,
         productionLineId: values.productionLineId,
         dueDate: values.dueDate,
@@ -125,7 +144,6 @@ export function CreateInspectionDialog({
       await onSubmit(inspectionData);
       form.reset();
       onOpenChange(false);
-
       toast({
         title: "Success",
         description: "New inspection has been created successfully.",
@@ -177,6 +195,45 @@ export function CreateInspectionDialog({
                             ))}
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="projectId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project</FormLabel>
+                        <Select onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select project" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {projects.map((project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.projectNumber} - {project.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="partNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Part Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter part number (optional)" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

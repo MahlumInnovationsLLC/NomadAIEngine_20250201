@@ -5,9 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { useToast } from "@/hooks/use-toast";
 import SPCChartView from "./quality/SPCChartView";
 import QualityMetricsOverview from "./quality/QualityMetricsOverview";
 import QualityInspectionList from "./quality/QualityInspectionList";
+import { ProjectInspectionView } from "./quality/ProjectInspectionView";
 import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
 import DefectAnalytics from "./quality/DefectAnalytics";
 import { CreateInspectionDialog } from "./quality/dialogs/CreateInspectionDialog";
@@ -21,7 +23,6 @@ import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
 import { auditTemplates } from "@/templates/qualityTemplates";
 import AuditAnalytics from "./quality/AuditAnalytics";
 import FindingsList from "./quality/FindingsList";
-import { toast } from "@/components/ui/toast";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
@@ -32,19 +33,17 @@ export const QualityControlPanel = () => {
 
   const queryClient = useQueryClient();
   const socket = useWebSocket({ namespace: 'manufacturing' });
+  const { toast } = useToast();
 
-  // Connect Socket.IO event handlers
   useEffect(() => {
     if (!socket) return;
 
-    // Listen for real-time inspection updates
     socket.on('quality:inspection:created', (newInspection: QualityInspection) => {
       queryClient.setQueryData<QualityInspection[]>(
         ['/api/manufacturing/quality/inspections'],
         (old) => old ? [...old, newInspection] : [newInspection]
       );
 
-      // Show success toast
       toast({
         title: "Inspection Created",
         description: "New quality inspection has been created successfully.",
@@ -59,7 +58,6 @@ export const QualityControlPanel = () => {
         ) || []
       );
 
-      // Show success toast
       toast({
         title: "Inspection Updated",
         description: "Quality inspection has been updated successfully.",
@@ -70,7 +68,7 @@ export const QualityControlPanel = () => {
       socket.off('quality:inspection:created');
       socket.off('quality:inspection:updated');
     };
-  }, [socket, queryClient]);
+  }, [socket, queryClient, toast]);
 
   const { data: qualityMetrics } = useQuery<QualityMetrics>({
     queryKey: ['/api/manufacturing/quality/metrics'],
@@ -84,14 +82,12 @@ export const QualityControlPanel = () => {
     queryKey: ['/api/manufacturing/quality/audits'],
   });
 
-  // Create inspection handler using Socket.IO
   const handleCreateInspection = async (data: any) => {
     try {
       if (!socket) {
         throw new Error('Socket connection not available');
       }
 
-      // Emit the create inspection event
       socket.emit('quality:inspection:create', {
         ...data,
         templateType: inspectionTypeView
@@ -108,7 +104,6 @@ export const QualityControlPanel = () => {
     }
   };
 
-  // Filter inspections based on type
   const filteredInspections = qualityInspections?.filter(inspection => {
     switch (inspectionTypeView) {
       case 'in-process':
@@ -220,6 +215,7 @@ export const QualityControlPanel = () => {
               <Tabs value={qmsActiveView} onValueChange={setQmsActiveView} className="space-y-4">
                 <TabsList className="w-full">
                   <TabsTrigger value="inspections">Inspections</TabsTrigger>
+                  <TabsTrigger value="projects">Project View</TabsTrigger>
                   <TabsTrigger value="ncr">NCR</TabsTrigger>
                   <TabsTrigger value="capa">CAPA</TabsTrigger>
                   <TabsTrigger value="scar">SCAR</TabsTrigger>
@@ -260,6 +256,10 @@ export const QualityControlPanel = () => {
                       </Tabs>
                     </CardContent>
                   </Card>
+                </TabsContent>
+
+                <TabsContent value="projects">
+                  <ProjectInspectionView />
                 </TabsContent>
 
                 <TabsContent value="ncr">
@@ -343,7 +343,6 @@ export const QualityControlPanel = () => {
                               className="w-full"
                               onClick={() => {
                                 setShowCreateAuditDialog(true);
-                                // We'll implement template selection later
                               }}
                             >
                               Use Template
