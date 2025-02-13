@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCog, faDownload, faClipboardCheck } from '@fortawesome/free-solid-svg-icons';
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import SPCChartView from "./quality/SPCChartView";
@@ -13,6 +14,7 @@ import { ProjectInspectionView } from "./quality/ProjectInspectionView";
 import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
 import DefectAnalytics from "./quality/DefectAnalytics";
 import { CreateInspectionDialog } from "./quality/dialogs/CreateInspectionDialog";
+import TemplateManagement from "./quality/TemplateManagement";
 import type { QualityInspection, QualityMetrics, QualityAudit } from "@/types/manufacturing";
 import NCRList from "./quality/NCRList";
 import CAPAList from "./quality/CAPAList";
@@ -29,8 +31,8 @@ export const QualityControlPanel = () => {
   const [qmsActiveView, setQmsActiveView] = useState("inspections");
   const [inspectionTypeView, setInspectionTypeView] = useState("final-qc");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showCreateAuditDialog, setShowCreateAuditDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [showCreateAuditDialog, setShowCreateAuditDialog] = useState(false); // Added state for audit dialog
 
   const queryClient = useQueryClient();
   const socket = useWebSocket({ namespace: 'manufacturing' });
@@ -120,6 +122,17 @@ export const QualityControlPanel = () => {
     }
   }) || [];
 
+  const templateButton = (
+    <Button 
+      variant="outline" 
+      onClick={() => setShowTemplateDialog(true)}
+      className="flex items-center gap-2"
+    >
+      <FontAwesomeIcon icon={faCog} className="h-4 w-4" />
+      Manage Templates
+    </Button>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -134,11 +147,11 @@ export const QualityControlPanel = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
-            <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faDownload} className="mr-2 h-4 w-4" />
             Export Report
           </Button>
           <Button onClick={() => setShowCreateAuditDialog(true)} variant="secondary">
-            <FontAwesomeIcon icon="clipboard-check" className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon={faClipboardCheck} className="mr-2 h-4 w-4" />
             New Audit
           </Button>
         </div>
@@ -206,7 +219,10 @@ export const QualityControlPanel = () => {
         <TabsContent value="nomad-qms">
           <Card>
             <CardHeader>
-              <CardTitle>Quality Management System</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>Quality Management System</CardTitle>
+                {qmsActiveView === "inspections" && templateButton}
+              </div>
             </CardHeader>
             <CardContent>
               <Tabs value={qmsActiveView} onValueChange={setQmsActiveView} className="space-y-4">
@@ -357,7 +373,7 @@ export const QualityControlPanel = () => {
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
           onSubmit={handleCreateInspection}
-          type={inspectionTypeView as any}
+          type={inspectionTypeView}
         />
       )}
 
@@ -388,6 +404,10 @@ export const QualityControlPanel = () => {
           }}
         />
       )}
+      <TemplateManagement 
+        open={showTemplateDialog} 
+        onOpenChange={setShowTemplateDialog} 
+      />
     </div>
   );
 };

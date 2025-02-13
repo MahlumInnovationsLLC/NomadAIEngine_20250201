@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileImport, faPlus, faEdit, faDownload, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { faFileImport, faPlus, faEdit, faDownload, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faFileImport, faPlus, faPenToSquare, faDownload, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import {
   Table,
   TableBody,
@@ -57,9 +55,10 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
 
   const handleExportTemplate = (template: QualityFormTemplate) => {
     const templateCopy = { ...template };
-    const { _id, __v, ...exportTemplate } = templateCopy as any;
+    delete (templateCopy as any)._id;
+    delete (templateCopy as any).__v;
 
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportTemplate, null, 2));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templateCopy, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", `template_${template.name.toLowerCase().replace(/\s+/g, '_')}.json`);
@@ -73,58 +72,26 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
     });
   };
 
-  const handleTemplateCreated = () => {
-    if (socket) {
-      socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
-        setTemplates(response.templates || []);
-      });
-    }
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getTemplateUsage = (templateId: string) => {
-    const hash = templateId.split('').reduce((acc, char) => {
-      return char.charCodeAt(0) + ((acc << 5) - acc);
-    }, 0);
-
-    return {
-      usageCount: Math.abs(hash % 100),
-      lastUsed: new Date(Date.now() - (Math.abs(hash % 30) * 24 * 60 * 60 * 1000)).toISOString()
-    };
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
-        <DialogHeader className="mb-6">
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <DialogTitle className="text-2xl font-semibold">Quality Inspection Templates</DialogTitle>
-          <DialogDescription>
-            Manage your quality inspection templates
-          </DialogDescription>
-          <div className="flex justify-end gap-4 mt-4">
-            <Button
+          <div className="flex items-center gap-3">
+            <Button 
               variant="outline"
               onClick={() => setShowImportDialog(true)}
-              className="flex items-center"
+              className="flex items-center gap-2 hover:bg-accent py-2 px-4"
             >
-              <FontAwesomeIcon icon={faFileImport} className="mr-2" />
-              Import Template
+              <FontAwesomeIcon icon={faFileImport} className="h-4 w-4" />
+              <span>Import Template</span>
             </Button>
             <Button
               onClick={() => setShowCreateDialog(true)}
-              className="flex items-center"
+              className="flex items-center gap-2 py-2 px-4"
             >
-              <FontAwesomeIcon icon={faPlus} className="mr-2" />
-              Create Template
+              <FontAwesomeIcon icon={faPlus} className="h-4 w-4" />
+              <span>Create Template</span>
             </Button>
           </div>
         </DialogHeader>
@@ -137,8 +104,6 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Version</TableHead>
-                  <TableHead>Times Used</TableHead>
-                  <TableHead>Last Used</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -146,14 +111,14 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={5} className="text-center py-8">
                       <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
                       Loading templates...
                     </TableCell>
                   </TableRow>
                 ) : templates.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={5} className="text-center py-8">
                       <p className="text-muted-foreground">No templates found</p>
                       <p className="text-sm text-muted-foreground mt-2">
                         Create a new template or import an existing one to get started
@@ -161,46 +126,41 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                     </TableCell>
                   </TableRow>
                 ) : (
-                  templates.map((template) => {
-                    const usage = getTemplateUsage(template.id);
-                    return (
-                      <TableRow key={template.id}>
-                        <TableCell className="font-medium">{template.name}</TableCell>
-                        <TableCell className="capitalize">{template.type.replace('-', ' ')}</TableCell>
-                        <TableCell>v{template.version}</TableCell>
-                        <TableCell>{usage.usageCount} times</TableCell>
-                        <TableCell>{formatDate(usage.lastUsed)}</TableCell>
-                        <TableCell>
-                          <Badge variant={template.isActive ? "default" : "secondary"}>
-                            {template.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedTemplate(template);
-                                setShowEditDialog(true);
-                              }}
-                              className="h-8 w-8 p-0"
-                            >
-                              <FontAwesomeIcon icon={faEdit} className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleExportTemplate(template)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <FontAwesomeIcon icon={faDownload} className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                  templates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell className="font-medium">{template.name}</TableCell>
+                      <TableCell>{template.type}</TableCell>
+                      <TableCell>v{template.version}</TableCell>
+                      <TableCell>
+                        <Badge variant={template.isActive ? "default" : "secondary"}>
+                          {template.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedTemplate(template);
+                              setShowEditDialog(true);
+                            }}
+                            className="h-8 w-8 p-0"
+                          >
+                            <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleExportTemplate(template)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <FontAwesomeIcon icon={faDownload} className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -211,7 +171,14 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
           <CreateTemplateDialog
             open={showCreateDialog}
             onOpenChange={setShowCreateDialog}
-            onSuccess={handleTemplateCreated}
+            onSuccess={() => {
+              setShowCreateDialog(false);
+              if (socket) {
+                socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
+                  setTemplates(response.templates || []);
+                });
+              }
+            }}
           />
         )}
 
@@ -220,7 +187,14 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
             open={showEditDialog}
             onOpenChange={setShowEditDialog}
             template={selectedTemplate}
-            onSuccess={handleTemplateCreated}
+            onSuccess={() => {
+              setShowEditDialog(false);
+              if (socket) {
+                socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
+                  setTemplates(response.templates || []);
+                });
+              }
+            }}
           />
         )}
 
@@ -228,7 +202,14 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
           <ImportTemplateDialog
             open={showImportDialog}
             onOpenChange={setShowImportDialog}
-            onSuccess={handleTemplateCreated}
+            onSuccess={() => {
+              setShowImportDialog(false);
+              if (socket) {
+                socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
+                  setTemplates(response.templates || []);
+                });
+              }
+            }}
           />
         )}
       </DialogContent>
