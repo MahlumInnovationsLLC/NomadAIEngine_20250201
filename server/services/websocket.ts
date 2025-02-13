@@ -33,7 +33,7 @@ interface NotificationPayload {
 }
 
 export class WebSocketManager {
-  private io: SocketIOServer;
+  public io: SocketIOServer;
   private users: Map<string, User> = new Map();
   private clients: Map<string, string> = new Map();
   private shipmentSubscriptions: Map<string, Set<string>> = new Map();
@@ -54,6 +54,7 @@ export class WebSocketManager {
   }
 
   private setupSocketIO() {
+    // Main namespace handlers
     this.io.on('connection', (socket) => {
       console.log('Socket.IO client connected');
       const userId = socket.handshake.query.userId as string;
@@ -165,7 +166,6 @@ export class WebSocketManager {
     });
   }
 
-  // Existing methods remain unchanged
   private handleUserJoin(userId: string, name: string, socketId: string) {
     this.registerUser(userId, socketId);
     this.broadcastTrainingLevel(userId);
@@ -243,11 +243,13 @@ export class WebSocketManager {
   public cleanup() {
     this.io.close();
   }
+
   public async sendNotification(userId: string, payload: NotificationPayload) {
     try {
       // Insert notification into database
       const [notification] = await db.insert(notifications)
         .values({
+          type: payload.type,
           message: payload.message,
           title: payload.title,
           priority: payload.priority,

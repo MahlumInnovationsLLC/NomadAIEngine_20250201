@@ -5,7 +5,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeManufacturingDatabase } from "./services/azure/facility_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
-import manufacturingRoutes from "./routes/manufacturing";
+import manufacturingRoutes, { setupManufacturingSocketIO } from "./routes/manufacturing";
 import inventoryRoutes from "./routes/inventory";
 import aiRoutes from "./routes/ai";
 import salesRoutes from "./routes/sales";
@@ -80,8 +80,9 @@ const startServer = async (retryCount = 0) => {
 
     server = createServer(app);
 
-    // Setup WebSocket server
+    // Setup WebSocket server with Socket.IO
     const wsServer = setupWebSocketServer(server);
+    setupManufacturingSocketIO(wsServer.io); // Setup manufacturing namespace
     app.set('wsServer', wsServer);
 
     // Register API routes
@@ -146,7 +147,7 @@ const startServer = async (retryCount = 0) => {
 
       server!.listen(PORT, '0.0.0.0', () => {
         server!.removeListener('error', handleError);
-        log(`Server running on port ${PORT} with WebSocket support`);
+        log(`Server running on port ${PORT} with Socket.IO support`);
         resolve();
       });
     });

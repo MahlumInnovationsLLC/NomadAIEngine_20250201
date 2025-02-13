@@ -24,6 +24,7 @@ interface AuditTemplate {
     updatedAt: string;
 }
 
+// Keep existing templates
 export const fabInspectionTemplates: QualityFormTemplate[] = [
   {
     id: "fab-subframe-template",
@@ -517,4 +518,112 @@ export const postDeliveryQCTemplates: QualityFormTemplate[] = [
   }
 ];
 
-export { auditTemplates };
+export const auditTemplates: AuditTemplate[] = [
+  {
+    id: "iso9001-internal",
+    name: "ISO 9001:2015 Internal Audit Template",
+    type: "internal",
+    standard: "ISO 9001:2015",
+    version: 1,
+    isActive: true,
+    sections: [
+      {
+        id: "context",
+        title: "Context of the Organization",
+        reference: "4",
+        requirements: [
+          {
+            id: "4.1",
+            text: "Understanding the organization and its context",
+            guidance: "Verify documentation of internal and external issues relevant to strategic direction",
+            evidenceRequired: [
+              "Strategic planning documents",
+              "SWOT analysis",
+              "Risk assessments"
+            ]
+          },
+          {
+            id: "4.2",
+            text: "Understanding needs and expectations of interested parties",
+            guidance: "Check identification and monitoring of stakeholder requirements",
+            evidenceRequired: [
+              "Stakeholder analysis",
+              "Requirements tracking",
+              "Communication records"
+            ]
+          }
+        ]
+      },
+      {
+        id: "leadership",
+        title: "Leadership",
+        reference: "5",
+        requirements: [
+          {
+            id: "5.1",
+            text: "Leadership and commitment",
+            guidance: "Evaluate top management's involvement in QMS",
+            evidenceRequired: [
+              "Management review minutes",
+              "Policy statements",
+              "Resource allocation records"
+            ]
+          },
+          {
+            id: "5.2",
+            text: "Quality Policy",
+            guidance: "Verify policy communication and understanding",
+            evidenceRequired: [
+              "Quality policy document",
+              "Communication records",
+              "Employee interviews"
+            ]
+          }
+        ]
+      }
+    ],
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "iso9001-certification",
+    name: "ISO 9001:2015 Certification Audit Template",
+    type: "certification",
+    standard: "ISO 9001:2015",
+    version: 1,
+    isActive: true,
+    sections: [
+      {
+        id: "qms",
+        title: "Quality Management System",
+        reference: "4.4",
+        requirements: [
+          {
+            id: "4.4.1",
+            text: "QMS Processes",
+            guidance: "Verify process approach implementation",
+            evidenceRequired: [
+              "Process maps",
+              "Process metrics",
+              "Interaction matrices"
+            ]
+          },
+          {
+            id: "4.4.2",
+            text: "Documented Information",
+            guidance: "Check documentation control and retention",
+            evidenceRequired: [
+              "Document control procedure",
+              "Records retention schedule",
+              "Document access logs"
+            ]
+          }
+        ]
+      }
+    ],
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];

@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { useWebSocket } from "@/hooks/use-websocket";
 import SPCChartView from "./quality/SPCChartView";
 import QualityMetricsOverview from "./quality/QualityMetricsOverview";
 import QualityInspectionList from "./quality/QualityInspectionList";
@@ -20,6 +21,7 @@ import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
 import { auditTemplates } from "@/templates/qualityTemplates";
 import AuditAnalytics from "./quality/AuditAnalytics";
 import FindingsList from "./quality/FindingsList";
+import { toast } from "@/components/ui/toast";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
@@ -28,18 +30,83 @@ export const QualityControlPanel = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCreateAuditDialog, setShowCreateAuditDialog] = useState(false);
 
+  const queryClient = useQueryClient();
+  const socket = useWebSocket({ namespace: 'manufacturing' });
+
+  // Connect Socket.IO event handlers
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for real-time inspection updates
+    socket.on('quality:inspection:created', (newInspection: QualityInspection) => {
+      queryClient.setQueryData<QualityInspection[]>(
+        ['/api/manufacturing/quality/inspections'],
+        (old) => old ? [...old, newInspection] : [newInspection]
+      );
+
+      // Show success toast
+      toast({
+        title: "Inspection Created",
+        description: "New quality inspection has been created successfully.",
+      });
+    });
+
+    socket.on('quality:inspection:updated', (updatedInspection: QualityInspection) => {
+      queryClient.setQueryData<QualityInspection[]>(
+        ['/api/manufacturing/quality/inspections'],
+        (old) => old?.map(inspection =>
+          inspection.id === updatedInspection.id ? updatedInspection : inspection
+        ) || []
+      );
+
+      // Show success toast
+      toast({
+        title: "Inspection Updated",
+        description: "Quality inspection has been updated successfully.",
+      });
+    });
+
+    return () => {
+      socket.off('quality:inspection:created');
+      socket.off('quality:inspection:updated');
+    };
+  }, [socket, queryClient]);
+
   const { data: qualityMetrics } = useQuery<QualityMetrics>({
     queryKey: ['/api/manufacturing/quality/metrics'],
   });
 
-  const { data: qualityInspections, refetch: refetchInspections } = useQuery<QualityInspection[]>({
+  const { data: qualityInspections } = useQuery<QualityInspection[]>({
     queryKey: ['/api/manufacturing/quality/inspections'],
-    refetchInterval: 30000,
   });
 
   const { data: qualityAudits, refetch: refetchAudits } = useQuery<QualityAudit[]>({
     queryKey: ['/api/manufacturing/quality/audits'],
   });
+
+  // Create inspection handler using Socket.IO
+  const handleCreateInspection = async (data: any) => {
+    try {
+      if (!socket) {
+        throw new Error('Socket connection not available');
+      }
+
+      // Emit the create inspection event
+      socket.emit('quality:inspection:create', {
+        ...data,
+        templateType: inspectionTypeView
+      });
+      setShowCreateDialog(false);
+    } catch (error) {
+      console.error('Error creating inspection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create inspection. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
 
   // Filter inspections based on type
   const filteredInspections = qualityInspections?.filter(inspection => {
@@ -236,20 +303,20 @@ export const QualityControlPanel = () => {
                   <TabsTrigger value="templates">Templates</TabsTrigger>
                 </TabsList>
                 <TabsContent value="upcoming">
-                  <AuditList 
-                    audits={qualityAudits?.filter(a => a.status === 'planned') || []} 
+                  <AuditList
+                    audits={qualityAudits?.filter(a => a.status === 'planned') || []}
                     type="upcoming"
                   />
                 </TabsContent>
                 <TabsContent value="in-progress">
-                  <AuditList 
-                    audits={qualityAudits?.filter(a => a.status === 'in_progress') || []} 
+                  <AuditList
+                    audits={qualityAudits?.filter(a => a.status === 'in_progress') || []}
                     type="in-progress"
                   />
                 </TabsContent>
                 <TabsContent value="completed">
-                  <AuditList 
-                    audits={qualityAudits?.filter(a => a.status === 'completed') || []} 
+                  <AuditList
+                    audits={qualityAudits?.filter(a => a.status === 'completed') || []}
                     type="completed"
                   />
                 </TabsContent>
@@ -271,8 +338,8 @@ export const QualityControlPanel = () => {
                             <p className="text-sm text-muted-foreground mb-4">
                               {template.standard} - Version {template.version}
                             </p>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               className="w-full"
                               onClick={() => {
                                 setShowCreateAuditDialog(true);
@@ -297,27 +364,8 @@ export const QualityControlPanel = () => {
         <CreateInspectionDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
-          onSubmit={async (data) => {
-            try {
-              const response = await fetch('/api/manufacturing/quality/inspections', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-              });
-
-              if (!response.ok) {
-                throw new Error(`Failed to create inspection: ${response.statusText}`);
-              }
-
-              await refetchInspections();
-              setShowCreateDialog(false);
-            } catch (error) {
-              console.error('Error creating inspection:', error);
-              throw error;
-            }
-          }}
+          onSubmit={handleCreateInspection}
+          type={inspectionTypeView as any}
         />
       )}
 

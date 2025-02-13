@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { Socket, io } from 'socket.io-client';
 
-export function useWebSocket() {
+interface UseWebSocketOptions {
+  namespace?: string;
+}
+
+export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    const newSocket = io(window.location.origin, {
+    const namespace = options.namespace ? `/${options.namespace}` : '';
+    const newSocket = io(window.location.origin + namespace, {
       withCredentials: true,
       query: {
         userId: '1', // This should be replaced with actual user ID from auth context
@@ -17,7 +22,7 @@ export function useWebSocket() {
     });
 
     newSocket.on('connect', () => {
-      console.log('Socket.IO connected');
+      console.log('Socket.IO connected to namespace:', namespace || 'default');
       // Join the user's room
       newSocket.emit('presence:join', {
         userId: '1', // Replace with actual user ID
@@ -33,6 +38,7 @@ export function useWebSocket() {
       console.log('Socket.IO disconnected');
     });
 
+    // Common event handlers
     newSocket.on('ONLINE_USERS_UPDATE', (data) => {
       console.log('Online users updated:', data);
     });
@@ -68,7 +74,10 @@ export function useWebSocket() {
         newSocket.close();
       }
     };
-  }, []);
+  }, [options.namespace]);
 
   return socket;
 }
+
+// Example usage for manufacturing namespace:
+// const socket = useWebSocket({ namespace: 'manufacturing' });

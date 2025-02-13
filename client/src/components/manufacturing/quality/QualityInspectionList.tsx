@@ -18,9 +18,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QualityInspection, QualityFormTemplate, NonConformanceReport } from "@/types/manufacturing";
 import { useToast } from "@/hooks/use-toast";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 import { CreateInspectionDialog } from "./dialogs/CreateInspectionDialog";
 import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
@@ -42,6 +42,7 @@ interface QualityInspectionListProps {
 export default function QualityInspectionList({ inspections, type }: QualityInspectionListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const socket = useWebSocket({ namespace: 'manufacturing' });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showNCRDialog, setShowNCRDialog] = useState(false);
@@ -66,19 +67,15 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
 
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {
-      const response = await fetch('/api/manufacturing/quality/inspections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, templateType: type })
+      if (!socket) throw new Error('Socket connection not available');
+      return new Promise((resolve, reject) => {
+        socket.emit('quality:inspection:create', { ...data, templateType: type }, (response: any) => {
+          if (response.error) reject(new Error(response.error));
+          else resolve(response);
+        });
       });
-      if (!response.ok) throw new Error('Failed to create inspection');
-      return response.json();
     },
     onSuccess: (newInspection) => {
-      queryClient.setQueryData<QualityInspection[]>(
-        ['/api/manufacturing/quality/inspections'],
-        (old = []) => [...old, newInspection]
-      );
       setShowCreateDialog(false);
       toast({
         title: 'Success',
@@ -97,19 +94,18 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
 
   const updateInspectionMutation = useMutation({
     mutationFn: async (inspection: QualityInspection) => {
-      const response = await fetch(`/api/manufacturing/quality/inspections/${inspection.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inspection)
+      if (!socket) throw new Error('Socket connection not available');
+      return new Promise((resolve, reject) => {
+        socket.emit('quality:inspection:update', 
+          { id: inspection.id, updates: inspection }, 
+          (response: any) => {
+            if (response.error) reject(new Error(response.error));
+            else resolve(response);
+          }
+        );
       });
-      if (!response.ok) throw new Error('Failed to update inspection');
-      return response.json();
     },
     onSuccess: (updatedInspection) => {
-      queryClient.setQueryData<QualityInspection[]>(
-        ['/api/manufacturing/quality/inspections'],
-        (old = []) => old.map(item => item.id === updatedInspection.id ? updatedInspection : item)
-      );
       toast({
         title: 'Success',
         description: 'Inspection has been updated successfully.',
@@ -142,14 +138,6 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
     setSelectedInspection(inspection);
     setShowNCRDialog(true);
   };
-
-  const { data: templates = [] } = useQuery<QualityFormTemplate[]>({
-    queryKey: ['/api/manufacturing/quality/templates'],
-  });
-
-  const { data: ncrs = [] } = useQuery<NonConformanceReport[]>({
-    queryKey: ['/api/manufacturing/quality/ncrs'],
-  });
 
   const getStatusColor = (status: QualityInspection['status']) => {
     switch (status) {
@@ -261,10 +249,6 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
                             Create NCR
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem onClick={() => {}}>
-                          <FontAwesomeIcon icon="file-pdf" className="mr-2 h-4 w-4" />
-                          Export Report
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -281,7 +265,6 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
           onOpenChange={setShowCreateDialog}
           onSubmit={createInspectionMutation.mutate}
           type={type}
-          templates={getTemplatesForType()}
         />
       )}
 

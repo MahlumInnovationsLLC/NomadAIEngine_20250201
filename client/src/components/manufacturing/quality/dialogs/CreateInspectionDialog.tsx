@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,8 +21,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { QualityFormTemplate } from "@/types/manufacturing";
-import type { InspectionTemplateType } from "@/types/manufacturing";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  fabInspectionTemplates,
+  finalQCTemplates,
+  executiveReviewTemplates,
+  pdiTemplates
+} from "@/templates/qualityTemplates";
+import type { QualityFormTemplate, InspectionTemplateType } from "@/types/manufacturing";
 
 const inspectionFormSchema = z.object({
   templateId: z.string().min(1, "Please select a template"),
@@ -40,7 +46,6 @@ interface CreateInspectionDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
   type: InspectionTemplateType;
-  templates: QualityFormTemplate[];
 }
 
 export function CreateInspectionDialog({ 
@@ -48,11 +53,26 @@ export function CreateInspectionDialog({
   onOpenChange, 
   onSubmit, 
   type,
-  templates 
 }: CreateInspectionDialogProps) {
   const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Get appropriate templates based on type
+  const templates = useMemo(() => {
+    switch (type) {
+      case 'in-process':
+        return fabInspectionTemplates;
+      case 'final-qc':
+        return finalQCTemplates;
+      case 'executive-review':
+        return executiveReviewTemplates;
+      case 'pdi':
+        return pdiTemplates;
+      default:
+        return [];
+    }
+  }, [type]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(inspectionFormSchema),
@@ -66,6 +86,7 @@ export function CreateInspectionDialog({
     const template = templates.find((t) => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
+      form.setValue("templateId", templateId);
     }
   };
 
@@ -88,7 +109,7 @@ export function CreateInspectionDialog({
         status: "pending",
         inspectionDate: new Date().toISOString(),
         results: {
-          checklistItems: selectedTemplate?.sections.flatMap(section =>
+          checklistItems: template.sections.flatMap(section =>
             section.fields.map(field => ({
               id: field.id,
               label: field.label,
@@ -96,7 +117,7 @@ export function CreateInspectionDialog({
               value: null,
               status: "pending"
             }))
-          ) || [],
+          ),
           defectsFound: [],
         },
       };
@@ -142,10 +163,7 @@ export function CreateInspectionDialog({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Template</FormLabel>
-                        <Select onValueChange={(value) => {
-                          field.onChange(value);
-                          handleTemplateChange(value);
-                        }}>
+                        <Select onValueChange={handleTemplateChange}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select template" />
@@ -246,7 +264,7 @@ export function CreateInspectionDialog({
                 />
 
                 {selectedTemplate && (
-                  <div className="border rounded-lg p-4">
+                  <div className="border rounded-lg p-4 mt-4">
                     <h4 className="font-semibold mb-2">Template Preview</h4>
                     {selectedTemplate.sections.map((section) => (
                       <div key={section.id} className="mb-4">
@@ -256,7 +274,7 @@ export function CreateInspectionDialog({
                         )}
                         <div className="grid grid-cols-2 gap-4">
                           {section.fields.map((field) => (
-                            <div key={field.id}>
+                            <div key={field.id} className="space-y-2">
                               <label className="text-sm font-medium">{field.label}</label>
                               <div className="mt-1">
                                 {field.type === 'text' && <Input disabled placeholder="Text input" />}
@@ -265,6 +283,16 @@ export function CreateInspectionDialog({
                                   <Select disabled>
                                     <SelectTrigger>
                                       <SelectValue placeholder="Select option" />
+                                    </SelectTrigger>
+                                  </Select>
+                                )}
+                                {field.type === 'checkbox' && (
+                                  <Checkbox disabled />
+                                )}
+                                {field.type === 'multiselect' && (
+                                  <Select disabled>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select options" />
                                     </SelectTrigger>
                                   </Select>
                                 )}
