@@ -599,5 +599,26 @@ export async function saveQualityTemplate(template: any) {
   }
 }
 
+export async function updateQualityTemplate(id: string, updates: any) {
+  try {
+    const { resource: existingTemplate } = await qualityInspectionContainer.item(id, id).read();
+    if (!existingTemplate) {
+      throw new Error('Template not found');
+    }
+
+    const updatedTemplate = {
+      ...existingTemplate,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource } = await qualityInspectionContainer.item(id, id).replace(updatedTemplate);
+    return resource;
+  } catch (error) {
+    console.error("Failed to update quality template:", error);
+    throw error;
+  }
+}
+
 // Initialize the database when the module loads
 initializeManufacturingDatabase().catch(console.error);
