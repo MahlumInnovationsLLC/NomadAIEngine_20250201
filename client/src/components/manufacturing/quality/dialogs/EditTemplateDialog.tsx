@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { QualityFormTemplate, InspectionTemplateType } from "@/types/manufacturing";
+import { QualityFormTemplate } from "@/types/manufacturing";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 const templateFormSchema = z.object({
   name: z.string().min(1, "Template name is required"),
@@ -51,7 +52,9 @@ interface EditTemplateDialogProps {
 
 export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplateDialogProps) {
   const { toast } = useToast();
+  const socket = useWebSocket({ namespace: 'manufacturing' });
   const [sections, setSections] = useState<FormValues['sections']>(template.sections);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(templateFormSchema),
@@ -69,6 +72,11 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
       description: '',
       fields: [],
     }]);
+    form.setValue('sections', [...sections, {
+      title: '',
+      description: '',
+      fields: [],
+    }]);
   };
 
   const handleAddField = (sectionIndex: number) => {
@@ -79,22 +87,34 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
       required: false,
     });
     setSections(newSections);
+    form.setValue(`sections.${sectionIndex}.fields`, newSections[sectionIndex].fields);
   };
 
   const handleSubmit = async (values: FormValues) => {
     try {
-      // TODO: Implement template update logic with WebSocket
-      toast({
-        title: "Success",
-        description: "Template updated successfully",
+      setIsSubmitting(true);
+      if (!socket) throw new Error('Socket connection not available');
+
+      return new Promise((resolve, reject) => {
+        socket.emit('quality:template:update', { id: template.id, ...values }, (response: any) => {
+          if (response.error) reject(new Error(response.error));
+          else resolve(response);
+        });
+      }).then(() => {
+        toast({
+          title: "Success",
+          description: "Template updated successfully",
+        });
+        onOpenChange(false);
       });
-      onOpenChange(false);
     } catch (error) {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update template",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -266,7 +286,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={isSubmitting}>
                 Update Template
               </Button>
             </div>

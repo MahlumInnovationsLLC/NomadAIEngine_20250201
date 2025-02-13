@@ -18,21 +18,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { QualityInspection, QualityFormTemplate } from "@/types/manufacturing";
+import { QualityInspection } from "@/types/manufacturing";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 
 import { CreateInspectionDialog } from "./dialogs/CreateInspectionDialog";
-import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
-import { NCRDialog } from "./dialogs/NCRDialog";
 import { InspectionDetailsDialog } from "./dialogs/InspectionDetailsDialog";
-import {
-  fabInspectionTemplates,
-  productionQCTemplates,
-  finalQCTemplates,
-  executiveReviewTemplates,
-  pdiTemplates,
-} from "@/templates/qualityTemplates";
+import { NCRDialog } from "./dialogs/NCRDialog";
 import TemplateManagement from "./TemplateManagement";
 
 interface QualityInspectionListProps {
@@ -45,30 +37,15 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
   const queryClient = useQueryClient();
   const socket = useWebSocket({ namespace: 'manufacturing' });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
+  const [showTemplateManagement, setShowTemplateManagement] = useState(false);
 
   // Fetch projects for project number selection
   const { data: projects } = useQuery({
     queryKey: ['/api/manufacturing/projects'],
   });
-
-  const getTemplatesForType = () => {
-    switch (type) {
-      case 'final-qc':
-        return finalQCTemplates;
-      case 'in-process':
-        return [...fabInspectionTemplates, ...productionQCTemplates].filter(t => t.inspectionType === 'in-process');
-      case 'executive-review':
-        return executiveReviewTemplates;
-      case 'pdi':
-        return pdiTemplates;
-      default:
-        return [];
-    }
-  };
 
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {
@@ -121,7 +98,6 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
 
   return (
     <div className="space-y-4">
-      <TemplateManagement />
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">
@@ -135,9 +111,9 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowTemplateDialog(true)}>
+          <Button variant="outline" onClick={() => setShowTemplateManagement(true)}>
             <FontAwesomeIcon icon="file-alt" className="mr-2 h-4 w-4" />
-            View Templates
+            Manage Templates
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
             <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
@@ -147,9 +123,6 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Recent Inspections</CardTitle>
-        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -245,14 +218,10 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
         />
       )}
 
-      {showTemplateDialog && (
-        <InspectionTemplateDialog
-          open={showTemplateDialog}
-          onOpenChange={setShowTemplateDialog}
-          type={type}
-          templates={getTemplatesForType()}
-        />
-      )}
+      <TemplateManagement 
+        open={showTemplateManagement}
+        onOpenChange={setShowTemplateManagement}
+      />
 
       {showNCRDialog && selectedInspection && (
         <NCRDialog

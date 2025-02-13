@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,18 +22,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  fabInspectionTemplates,
-  finalQCTemplates,
-  executiveReviewTemplates,
-  pdiTemplates
-} from "@/templates/qualityTemplates";
 import type { QualityFormTemplate, InspectionTemplateType } from "@/types/manufacturing";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 const inspectionFormSchema = z.object({
   templateId: z.string().min(1, "Please select a template"),
   projectId: z.string().optional(),
-  partNumber: z.string().optional(), // Add part number to schema
+  partNumber: z.string().optional(),
   productionLineId: z.string().min(1, "Production line is required"),
   inspector: z.string().min(1, "Inspector name is required"),
   dueDate: z.string().min(1, "Due date is required"),
@@ -59,23 +54,11 @@ export function CreateInspectionDialog({
   projects = [],
 }: CreateInspectionDialogProps) {
   const { toast } = useToast();
+  const socket = useWebSocket({ namespace: 'manufacturing' });
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const templates = useMemo(() => {
-    switch (type) {
-      case 'in-process':
-        return fabInspectionTemplates;
-      case 'final-qc':
-        return finalQCTemplates;
-      case 'executive-review':
-        return executiveReviewTemplates;
-      case 'pdi':
-        return pdiTemplates;
-      default:
-        return [];
-    }
-  }, [type]);
+  const [templates, setTemplates] = useState<QualityFormTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(
@@ -90,6 +73,17 @@ export function CreateInspectionDialog({
       notes: "",
     },
   });
+
+  useEffect(() => {
+    if (socket && open) {
+      setIsLoadingTemplates(true);
+      socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
+        const filteredTemplates = (response.templates || []).filter(t => t.inspectionType === type);
+        setTemplates(filteredTemplates);
+        setIsLoadingTemplates(false);
+      });
+    }
+  }, [socket, open, type]);
 
   const handleTemplateChange = (templateId: string) => {
     const template = templates.find((t) => t.id === templateId);
@@ -107,7 +101,6 @@ export function CreateInspectionDialog({
         throw new Error("Template not found");
       }
 
-      // Get project number if project is selected
       let projectNumber = undefined;
       if (values.projectId) {
         const project = projects.find(p => p.id === values.projectId);
@@ -119,7 +112,7 @@ export function CreateInspectionDialog({
         templateId: values.templateId,
         projectId: values.projectId,
         projectNumber,
-        partNumber: values.partNumber, // Include part number in submission
+        partNumber: values.partNumber,
         inspector: values.inspector,
         productionLineId: values.productionLineId,
         dueDate: values.dueDate,
@@ -184,7 +177,7 @@ export function CreateInspectionDialog({
                         <Select onValueChange={handleTemplateChange}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select template" />
+                              <SelectValue placeholder={isLoadingTemplates ? "Loading templates..." : "Select template"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>

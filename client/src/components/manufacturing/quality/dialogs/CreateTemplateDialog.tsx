@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { InspectionTemplateType } from "@/types/manufacturing";
+import { QualityFormTemplate } from "@/types/manufacturing";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 const templateFormSchema = z.object({
   name: z.string().min(1, "Template name is required"),
@@ -46,12 +47,14 @@ type FormValues = z.infer<typeof templateFormSchema>;
 interface CreateTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialogProps) {
+export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTemplateDialogProps) {
   const { toast } = useToast();
+  const socket = useWebSocket({ namespace: 'manufacturing' });
   const [sections, setSections] = useState<FormValues['sections']>([]);
-  const [currentSection, setCurrentSection] = useState<number>(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(templateFormSchema),
@@ -66,6 +69,11 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
       description: '',
       fields: [],
     }]);
+    form.setValue('sections', [...sections, {
+      title: '',
+      description: '',
+      fields: [],
+    }]);
   };
 
   const handleAddField = (sectionIndex: number) => {
@@ -76,22 +84,36 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
       required: false,
     });
     setSections(newSections);
+    form.setValue(`sections.${sectionIndex}.fields`, newSections[sectionIndex].fields);
   };
 
   const handleSubmit = async (values: FormValues) => {
     try {
-      // TODO: Implement template creation logic with WebSocket
-      toast({
-        title: "Success",
-        description: "Template created successfully",
+      setIsSubmitting(true);
+      if (!socket) throw new Error('Socket connection not available');
+
+      return new Promise((resolve, reject) => {
+        socket.emit('quality:template:create', values, (response: any) => {
+          if (response.error) reject(new Error(response.error));
+          else resolve(response);
+        });
+      }).then(() => {
+        toast({
+          title: "Success",
+          description: "Template created successfully",
+        });
+        form.reset();
+        onSuccess?.();
+        onOpenChange(false);
       });
-      onOpenChange(false);
     } catch (error) {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create template",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -263,8 +285,8 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                Create Template
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Template"}
               </Button>
             </div>
           </form>
