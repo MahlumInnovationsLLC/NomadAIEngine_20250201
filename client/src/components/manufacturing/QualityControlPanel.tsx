@@ -224,20 +224,6 @@ export const QualityControlPanel = () => {
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Quality Inspections</CardTitle>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => setShowTemplateDialog(true)}
-                            className="transition-colors hover:bg-secondary"
-                          >
-                            <FontAwesomeIcon icon="file-alt" className="mr-2 h-4 w-4" />
-                            Manage Templates
-                          </Button>
-                          <Button onClick={() => setShowCreateDialog(true)}>
-                            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                            New Inspection
-                          </Button>
-                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
