@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, ClipboardCheck, FileImport } from 'lucide-react';
+import { FontAwesomeIcon } from '@/components/ui/font-awesome-icon';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -179,7 +179,7 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
                 htmlFor="file-upload"
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-500 flex items-center gap-2"
               >
-                <FileImport className="w-4 h-4" />
+                <FontAwesomeIcon icon="file-import" className="w-4 h-4" />
                 Select Document
               </label>
               <p className="mt-2 text-sm text-gray-500">
