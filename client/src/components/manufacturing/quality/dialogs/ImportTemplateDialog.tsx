@@ -1,5 +1,7 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -51,11 +53,6 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
           section.fields.forEach((field: any, fieldIdx: number) => {
             if (!field.label) errors.push(`Field ${fieldIdx + 1} in section ${idx + 1} must have a label`);
             if (!field.type) errors.push(`Field ${fieldIdx + 1} in section ${idx + 1} must have a type`);
-            if (field.type === 'select' || field.type === 'multiselect') {
-              if (!field.options || !Array.isArray(field.options) || field.options.length === 0) {
-                errors.push(`Field ${fieldIdx + 1} in section ${idx + 1} must have options array`);
-              }
-            }
           });
         }
       });
@@ -71,31 +68,128 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
       setValidationErrors([]);
 
       try {
-        const fileContent = await file.text();
-        const templateData = JSON.parse(fileContent);
-        const errors = validateTemplate(templateData);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const workbook = XLSX.read(e.target?.result, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const data = XLSX.utils.sheet_to_json(worksheet);
+            
+            const templateData = convertExcelToTemplate(data);
+            const errors = validateTemplate(templateData);
 
-        if (errors.length > 0) {
-          setValidationErrors(errors);
-          setPreviewData(null);
-          toast({
-            title: "Validation Error",
-            description: "The template file contains errors. Please fix them and try again.",
-            variant: "destructive",
-          });
-        } else {
-          setPreviewData(templateData as QualityFormTemplate);
-        }
+            if (errors.length > 0) {
+              setValidationErrors(errors);
+              setPreviewData(null);
+              toast({
+                title: "Validation Error",
+                description: "The template file contains errors. Please fix them and try again.",
+                variant: "destructive",
+              });
+            } else {
+              setPreviewData(templateData as QualityFormTemplate);
+            }
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: "Invalid template file format. Please check the file structure.",
+              variant: "destructive",
+            });
+            setSelectedFile(null);
+            setPreviewData(null);
+          }
+        };
+        reader.readAsArrayBuffer(file);
       } catch (error) {
         toast({
           title: "Error",
-          description: "Invalid template file format. Please select a valid JSON file.",
+          description: "Failed to read the file. Please try again.",
           variant: "destructive",
         });
-        setSelectedFile(null);
-        setPreviewData(null);
       }
     }
+  };
+
+  const convertExcelToTemplate = (data: any[]): QualityFormTemplate => {
+    // Group the data by section
+    const sections = data.reduce((acc: any, row: any) => {
+      if (!acc[row.Section]) {
+        acc[row.Section] = {
+          id: row.Section.toLowerCase().replace(/\s+/g, '-'),
+          title: row.Section,
+          fields: []
+        };
+      }
+      
+      acc[row.Section].fields.push({
+        id: row.FieldId,
+        label: row.Label,
+        type: row.Type,
+        required: row.Required === 'Yes',
+        description: row.Description,
+        options: row.Options ? row.Options.split(',').map((opt: string) => opt.trim()) : undefined
+      });
+      
+      return acc;
+    }, {});
+
+    return {
+      id: "imported-template",
+      name: data[0].TemplateName || "Imported Template",
+      type: data[0].TemplateType || "in-process",
+      description: data[0].Description || "Imported quality inspection template",
+      version: 1,
+      isActive: true,
+      sections: Object.values(sections)
+    };
+  };
+
+  const handleDownloadSample = () => {
+    const sampleData = [
+      {
+        TemplateName: "Sample Quality Inspection Template",
+        TemplateType: "in-process",
+        Description: "A comprehensive template for quality inspections",
+        Section: "Visual Inspection",
+        FieldId: "surface-quality",
+        Label: "Surface Quality",
+        Type: "select",
+        Required: "Yes",
+        Description: "Assess the overall surface finish",
+        Options: "Excellent,Good,Fair,Poor"
+      },
+      {
+        TemplateName: "",
+        TemplateType: "",
+        Description: "",
+        Section: "Visual Inspection",
+        FieldId: "defects",
+        Label: "Visible Defects",
+        Type: "multiselect",
+        Required: "Yes",
+        Description: "Select all visible defects",
+        Options: "Scratches,Dents,Discoloration,None"
+      },
+      {
+        TemplateName: "",
+        TemplateType: "",
+        Description: "",
+        Section: "Measurements",
+        FieldId: "length",
+        Label: "Length (mm)",
+        Type: "number",
+        Required: "Yes",
+        Description: "Measure length in millimeters",
+        Options: ""
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    
+    XLSX.writeFile(wb, "quality_template_sample.xlsx");
   };
 
   const handleImport = async () => {
@@ -117,15 +211,6 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
       return;
     }
 
-    if (!socket) {
-      toast({
-        title: "Error",
-        description: "Socket connection not available",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       setIsLoading(true);
       setUploadProgress(0);
@@ -142,8 +227,6 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
             resolve(response);
           }
         });
-
-        setTimeout(() => reject(new Error('Socket timeout')), 5000);
       });
 
       clearInterval(progressInterval);
@@ -167,78 +250,13 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
     }
   };
 
-  const handleDownloadSample = () => {
-    const sampleTemplate: QualityFormTemplate = {
-      id: "sample-template",
-      name: "Sample Quality Inspection Template",
-      type: "in-process",
-      description: "A comprehensive template for quality inspections",
-      version: 1,
-      isActive: true,
-      sections: [
-        {
-          id: "visual-inspection",
-          title: "Visual Inspection",
-          description: "Check for visual defects and appearance",
-          fields: [
-            {
-              id: "surface-quality",
-              label: "Surface Quality",
-              type: "select",
-              required: true,
-              options: ["Excellent", "Good", "Fair", "Poor"],
-              description: "Assess the overall surface finish"
-            },
-            {
-              id: "defects",
-              label: "Visible Defects",
-              type: "multiselect",
-              required: true,
-              options: ["Scratches", "Dents", "Discoloration", "None"],
-              description: "Select all visible defects"
-            }
-          ]
-        },
-        {
-          id: "measurements",
-          title: "Measurements",
-          description: "Record key measurements",
-          fields: [
-            {
-              id: "length",
-              label: "Length (mm)",
-              type: "number",
-              required: true,
-              description: "Measure length in millimeters"
-            },
-            {
-              id: "notes",
-              label: "Additional Notes",
-              type: "text",
-              required: false,
-              description: "Any additional observations"
-            }
-          ]
-        }
-      ]
-    };
-
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sampleTemplate, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "sample_template.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Import Quality Template</DialogTitle>
           <DialogDescription>
-            Import a quality inspection template from a JSON file. Download the sample template to see the required format.
+            Import a quality inspection template from an Excel file. Download the sample template to see the required format.
           </DialogDescription>
         </DialogHeader>
 
@@ -258,12 +276,12 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
                   <p className="mb-2 text-sm text-muted-foreground">
                     <span className="font-semibold">Click to upload</span> or drag and drop
                   </p>
-                  <p className="text-xs text-muted-foreground">JSON files only</p>
+                  <p className="text-xs text-muted-foreground">Excel files only (.xlsx)</p>
                 </div>
                 <input
                   id="template-file"
                   type="file"
-                  accept=".json"
+                  accept=".xlsx"
                   className="hidden"
                   onChange={handleFileChange}
                 />
@@ -303,7 +321,7 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="preview">Preview</TabsTrigger>
-                <TabsTrigger value="json">JSON</TabsTrigger>
+                <TabsTrigger value="json">Raw Data</TabsTrigger>
               </TabsList>
               <TabsContent value="preview">
                 <Card>
@@ -324,9 +342,6 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
                             <Card key={section.id}>
                               <CardHeader>
                                 <CardTitle className="text-base">{section.title}</CardTitle>
-                                {section.description && (
-                                  <p className="text-sm text-muted-foreground">{section.description}</p>
-                                )}
                               </CardHeader>
                               <CardContent>
                                 <div className="grid gap-4">
