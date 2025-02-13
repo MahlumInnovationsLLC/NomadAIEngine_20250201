@@ -34,8 +34,7 @@ interface QualityInspectionListProps {
   projects?: Project[];
 }
 
-// Placeholder for AdvancedImportButton component -  needs to be implemented separately.
-const AdvancedImportButton = () => <Button>Advanced Import</Button>;
+import { AdvancedImportButton } from './AdvancedImportButton';
 
 
 export default function QualityInspectionList({ inspections = [], type, projects = [] }: QualityInspectionListProps) {

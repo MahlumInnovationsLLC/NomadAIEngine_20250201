@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { AdvancedImportDialog } from './dialogs/AdvancedImportDialog';
@@ -7,7 +8,6 @@ export function AdvancedImportButton() {
   const [open, setOpen] = React.useState(false);
 
   const handleClick = () => {
-    console.log('Advanced Import button clicked');
     setOpen(true);
   };
 
@@ -23,10 +23,7 @@ export function AdvancedImportButton() {
       </Button>
       <AdvancedImportDialog
         open={open}
-        onOpenChange={(isOpen) => {
-          console.log('Dialog state changed:', isOpen);
-          setOpen(isOpen);
-        }}
+        onOpenChange={setOpen}
       />
     </>
   );
