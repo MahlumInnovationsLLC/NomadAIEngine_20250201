@@ -12,8 +12,12 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { QualityFormTemplate } from "@/types/manufacturing";
 import { useWebSocket } from "@/hooks/use-websocket";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 interface ImportTemplateDialogProps {
   open: boolean;
@@ -26,16 +30,51 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<QualityFormTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("preview");
+
+  const validateTemplate = (template: any): string[] => {
+    const errors: string[] = [];
+
+    if (!template.name) errors.push("Template name is required");
+    if (!template.type) errors.push("Template type is required");
+    if (!template.sections || !Array.isArray(template.sections)) {
+      errors.push("Template must have sections array");
+    } else {
+      template.sections.forEach((section: any, idx: number) => {
+        if (!section.title) errors.push(`Section ${idx + 1} must have a title`);
+        if (!section.fields || !Array.isArray(section.fields)) {
+          errors.push(`Section ${idx + 1} must have fields array`);
+        } else {
+          section.fields.forEach((field: any, fieldIdx: number) => {
+            if (!field.label) errors.push(`Field ${fieldIdx + 1} in section ${idx + 1} must have a label`);
+            if (!field.type) errors.push(`Field ${fieldIdx + 1} in section ${idx + 1} must have a type`);
+          });
+        }
+      });
+    }
+
+    return errors;
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
+      setValidationErrors([]);
 
       try {
         const fileContent = await file.text();
-        const templateData = JSON.parse(fileContent) as QualityFormTemplate;
-        setPreviewData(templateData);
+        const templateData = JSON.parse(fileContent);
+        const errors = validateTemplate(templateData);
+
+        if (errors.length > 0) {
+          setValidationErrors(errors);
+          setPreviewData(null);
+        } else {
+          setPreviewData(templateData as QualityFormTemplate);
+        }
       } catch (error) {
         toast({
           title: "Error",
@@ -52,7 +91,16 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
     if (!selectedFile || !previewData) {
       toast({
         title: "Error",
-        description: "Please select a template file to import",
+        description: "Please select a valid template file to import",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (validationErrors.length > 0) {
+      toast({
+        title: "Error",
+        description: "Please fix validation errors before importing",
         variant: "destructive",
       });
       return;
@@ -69,6 +117,13 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
 
     try {
       setIsLoading(true);
+      setUploadProgress(0);
+
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
       await new Promise((resolve, reject) => {
         socket.emit('quality:template:create', previewData, (response: any) => {
           if (response?.error) {
@@ -80,6 +135,9 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
 
         setTimeout(() => reject(new Error('Socket timeout')), 5000);
       });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
       toast({
         title: "Success",
@@ -102,28 +160,54 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
     const sampleTemplate: QualityFormTemplate = {
       id: "sample-template",
       name: "Sample Quality Inspection Template",
-      type: "final-qc",
-      description: "A sample template for quality inspections",
+      type: "inspection",
+      description: "A comprehensive template for quality inspections",
       version: 1,
       isActive: true,
       sections: [
         {
-          id: "section-1",
+          id: "visual-inspection",
           title: "Visual Inspection",
-          description: "Check for visual defects",
+          description: "Check for visual defects and appearance",
           fields: [
             {
-              id: "field-1",
+              id: "surface-quality",
               label: "Surface Quality",
               type: "select",
               required: true,
               options: ["Excellent", "Good", "Fair", "Poor"],
+              description: "Assess the overall surface finish"
             },
             {
-              id: "field-2",
-              label: "Comments",
-              type: "text",
+              id: "defects",
+              label: "Visible Defects",
+              type: "multiselect",
+              required: true,
+              options: ["Scratches", "Dents", "Discoloration", "None"],
+              description: "Select all visible defects"
+            }
+          ]
+        },
+        {
+          id: "measurements",
+          title: "Measurements",
+          description: "Record key measurements",
+          fields: [
+            {
+              id: "length",
+              label: "Length (mm)",
+              type: "number",
+              required: true,
+              min: 0,
+              max: 1000,
+              description: "Measure length in millimeters"
+            },
+            {
+              id: "notes",
+              label: "Additional Notes",
+              type: "textarea",
               required: false,
+              description: "Any additional observations"
             }
           ]
         }
@@ -183,57 +267,114 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
           </div>
 
           {selectedFile && (
-            <p className="text-sm text-muted-foreground">
-              Selected file: {selectedFile.name}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Selected file: {selectedFile.name}
+              </p>
+              <Badge variant={validationErrors.length > 0 ? "destructive" : "success"}>
+                {validationErrors.length > 0 ? "Invalid" : "Valid"}
+              </Badge>
+            </div>
+          )}
+
+          {validationErrors.length > 0 && (
+            <Card className="border-destructive">
+              <CardHeader>
+                <CardTitle className="text-destructive">Validation Errors</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="list-disc list-inside space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <li key={index} className="text-sm text-destructive">
+                      {error}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           )}
 
           {previewData && (
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="text-lg font-semibold mb-2">Template Preview</h3>
-                <ScrollArea className="h-[300px] rounded-md border p-4">
-                  <div className="space-y-4">
-                    <div>
-                      <p className="font-medium">Name:</p>
-                      <p className="text-sm text-muted-foreground">{previewData.name}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium">Type:</p>
-                      <p className="text-sm text-muted-foreground capitalize">
-                        {previewData.type.replace('-', ' ')}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-medium">Description:</p>
-                      <p className="text-sm text-muted-foreground">{previewData.description}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium">Sections:</p>
-                      <div className="space-y-2">
-                        {previewData.sections.map((section) => (
-                          <div key={section.id} className="border rounded p-2">
-                            <p className="font-medium">{section.title}</p>
-                            <p className="text-sm text-muted-foreground">{section.description}</p>
-                            <div className="mt-2">
-                              <p className="text-sm font-medium">Fields:</p>
-                              <ul className="list-disc list-inside">
-                                {section.fields.map((field) => (
-                                  <li key={field.id} className="text-sm text-muted-foreground">
-                                    {field.label} ({field.type})
-                                    {field.required && " *"}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="preview">Preview</TabsTrigger>
+                <TabsTrigger value="json">JSON</TabsTrigger>
+              </TabsList>
+              <TabsContent value="preview">
+                <Card>
+                  <CardContent className="p-4">
+                    <ScrollArea className="h-[300px] rounded-md border p-4">
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-lg font-semibold">{previewData.name}</h3>
+                          <p className="text-sm text-muted-foreground mt-1">{previewData.description}</p>
+                          <div className="flex gap-2 mt-2">
+                            <Badge>{previewData.type}</Badge>
+                            <Badge variant="outline">v{previewData.version}</Badge>
                           </div>
-                        ))}
+                        </div>
+
+                        <div className="space-y-4">
+                          {previewData.sections.map((section) => (
+                            <Card key={section.id}>
+                              <CardHeader>
+                                <CardTitle className="text-base">{section.title}</CardTitle>
+                                {section.description && (
+                                  <p className="text-sm text-muted-foreground">{section.description}</p>
+                                )}
+                              </CardHeader>
+                              <CardContent>
+                                <div className="grid gap-4">
+                                  {section.fields.map((field) => (
+                                    <div key={field.id} className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">{field.label}</span>
+                                        {field.required && (
+                                          <Badge variant="destructive" className="text-[10px]">Required</Badge>
+                                        )}
+                                      </div>
+                                      <p className="text-sm text-muted-foreground">{field.description}</p>
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="outline">{field.type}</Badge>
+                                        {field.options && (
+                                          <span className="text-sm text-muted-foreground">
+                                            {field.options.join(", ")}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="json">
+                <Card>
+                  <CardContent className="p-4">
+                    <ScrollArea className="h-[300px] rounded-md border">
+                      <pre className="p-4 text-sm">
+                        {JSON.stringify(previewData, null, 2)}
+                      </pre>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {isLoading && (
+            <div className="space-y-2">
+              <Progress value={uploadProgress} className="w-full" />
+              <p className="text-sm text-center text-muted-foreground">
+                Importing template... {uploadProgress}%
+              </p>
+            </div>
           )}
         </div>
 
@@ -241,9 +382,9 @@ export function ImportTemplateDialog({ open, onOpenChange }: ImportTemplateDialo
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleImport} 
-            disabled={!selectedFile || !previewData || isLoading}
+          <Button
+            onClick={handleImport}
+            disabled={!selectedFile || !previewData || isLoading || validationErrors.length > 0}
           >
             {isLoading ? "Importing..." : "Import Template"}
           </Button>

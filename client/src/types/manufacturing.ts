@@ -558,36 +558,41 @@ export interface ProjectTask {
 export type InspectionTemplateType = 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
 
 // Update QualityFormTemplate interface
+
+export interface QualityFormField {
+  id: string;
+  label: string;
+  type: 'text' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'file' | 'textarea';
+  required: boolean;
+  options?: string[];
+  description?: string;
+  validation?: {
+    min?: number;
+    max?: number;
+    pattern?: string;
+  };
+}
+
+export interface QualityFormSection {
+  id: string;
+  title: string;
+  description?: string;
+  fields: QualityFormField[];
+}
+
 export interface QualityFormTemplate {
   id: string;
   name: string;
   type: 'inspection' | 'audit' | 'ncr' | 'capa' | 'scar';
   description: string;
-  inspectionType?: InspectionTemplateType; // Add new field for inspection categorization
-  sections: {
-    id: string;
-    title: string;
-    description?: string;
-    fields: {
-      id: string;
-      label: string;
-      type: 'text' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'file';
-      required: boolean;
-      options?: string[];
-      validation?: {
-        min?: number;
-        max?: number;
-        pattern?: string;
-      };
-    }[];
-  }[];
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
+  inspectionType?: InspectionTemplateType;
+  sections: QualityFormSection[];
   version: number;
   isActive: boolean;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
-
 
 export interface NonConformanceReport {
   id: string;
