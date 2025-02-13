@@ -40,7 +40,6 @@ export default function QualityInspectionList({ inspections = [], type, projects
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
 
@@ -79,11 +78,6 @@ export default function QualityInspectionList({ inspections = [], type, projects
     setShowDetailsDialog(true);
   };
 
-  const handleTemplateSelect = (template: QualityFormTemplate) => {
-    setSelectedTemplate(template);
-    setShowCreateDialog(true);
-  };
-
   const getStatusColor = (status: QualityInspection['status']) => {
     switch (status) {
       case 'completed':
@@ -115,15 +109,7 @@ export default function QualityInspectionList({ inspections = [], type, projects
             Manage {type.replace('-', ' ')} inspections and quality checks
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowTemplateDialog(true)}
-            className="transition-colors hover:bg-secondary"
-          >
-            <FontAwesomeIcon icon="file-alt" className="mr-2 h-4 w-4" />
-            Manage Templates
-          </Button>
+        <div>
           <Button onClick={() => {
             setSelectedTemplate(null);
             setShowCreateDialog(true);
@@ -232,15 +218,6 @@ export default function QualityInspectionList({ inspections = [], type, projects
           type={type}
           projects={projects}
           template={selectedTemplate}
-        />
-      )}
-
-      {showTemplateDialog && (
-        <InspectionTemplateDialog
-          open={showTemplateDialog}
-          onOpenChange={setShowTemplateDialog}
-          type={type}
-          onSelectTemplate={handleTemplateSelect}
         />
       )}
 

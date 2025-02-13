@@ -45,7 +45,6 @@ export const QualityControlPanel = () => {
         ['/api/manufacturing/quality/inspections'],
         (old) => old ? [...old, newInspection] : [newInspection]
       );
-
       toast({
         title: "Inspection Created",
         description: "New quality inspection has been created successfully.",
@@ -59,7 +58,6 @@ export const QualityControlPanel = () => {
           inspection.id === updatedInspection.id ? updatedInspection : inspection
         ) || []
       );
-
       toast({
         title: "Inspection Updated",
         description: "Quality inspection has been updated successfully.",
@@ -109,10 +107,14 @@ export const QualityControlPanel = () => {
     }
   };
 
-  const handleManageTemplates = (type: 'inspection' | 'ncr' | 'capa' | 'scar' | 'mrb') => {
-    setSelectedTemplateType(type);
-    setShowTemplateDialog(true);
-  };
+  // Update template type based on active QMS view
+  useEffect(() => {
+    setSelectedTemplateType(qmsActiveView === 'inspections' ? 'inspection' :
+      qmsActiveView === 'ncr' ? 'ncr' :
+      qmsActiveView === 'capa' ? 'capa' :
+      qmsActiveView === 'scar' ? 'scar' :
+      qmsActiveView === 'mrb' ? 'mrb' : 'inspection');
+  }, [qmsActiveView]);
 
   return (
     <div className="space-y-4">
@@ -130,13 +132,6 @@ export const QualityControlPanel = () => {
           <Button variant="outline">
             <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
             Export Report
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => handleManageTemplates('inspection')}
-          >
-            <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
-            Manage Templates
           </Button>
           <Button onClick={() => setShowCreateAuditDialog(true)} variant="secondary">
             <FontAwesomeIcon icon="clipboard-check" className="mr-2 h-4 w-4" />
@@ -158,6 +153,28 @@ export const QualityControlPanel = () => {
         <TabsContent value="nomad-qms">
           <Card>
             <CardContent>
+              <div className="flex justify-between items-center mb-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold">Quality Management System</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Manage quality processes and documentation
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowTemplateDialog(true)}
+                  >
+                    <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
+                    Manage Templates
+                  </Button>
+                  <Button onClick={() => setShowCreateDialog(true)}>
+                    <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                    New Inspection
+                  </Button>
+                </div>
+              </div>
+
               <Tabs value={qmsActiveView} onValueChange={setQmsActiveView} className="space-y-4">
                 <TabsList className="w-full">
                   <TabsTrigger value="inspections">Inspections</TabsTrigger>
@@ -171,7 +188,11 @@ export const QualityControlPanel = () => {
                 <TabsContent value="inspections">
                   <Card>
                     <CardContent>
-                      <Tabs value={inspectionTypeView} onValueChange={setInspectionTypeView} className="space-y-4">
+                      <Tabs 
+                        value={inspectionTypeView} 
+                        onValueChange={(value) => setInspectionTypeView(value as typeof inspectionTypeView)} 
+                        className="space-y-4"
+                      >
                         <TabsList className="w-full">
                           <TabsTrigger value="in-process">In-Process</TabsTrigger>
                           <TabsTrigger value="final-qc">Final QC</TabsTrigger>
