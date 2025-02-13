@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { faFileImport, faPlus, faEdit, faDownload, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import {
   Table,
   TableBody,
@@ -113,14 +114,14 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
               onClick={() => setShowImportDialog(true)}
               className="flex items-center"
             >
-              <FontAwesomeIcon icon="file-import" className="mr-2" />
+              <FontAwesomeIcon icon={faFileImport} className="mr-2" />
               Import Template
             </Button>
             <Button
               onClick={() => setShowCreateDialog(true)}
               className="flex items-center"
             >
-              <FontAwesomeIcon icon="plus" className="mr-2" />
+              <FontAwesomeIcon icon={faPlus} className="mr-2" />
               Create Template
             </Button>
           </div>
@@ -144,7 +145,7 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
-                      <FontAwesomeIcon icon="spinner" className="animate-spin mr-2" />
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
                       Loading templates...
                     </TableCell>
                   </TableRow>
@@ -183,7 +184,7 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                               }}
                               className="h-8 w-8 p-0"
                             >
-                              <FontAwesomeIcon icon="edit" className="h-4 w-4" />
+                              <FontAwesomeIcon icon={faEdit} className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -191,7 +192,7 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                               onClick={() => handleExportTemplate(template)}
                               className="h-8 w-8 p-0"
                             >
-                              <FontAwesomeIcon icon="download" className="h-4 w-4" />
+                              <FontAwesomeIcon icon={faDownload} className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
