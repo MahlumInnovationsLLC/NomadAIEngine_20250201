@@ -8,18 +8,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 
-interface ImportRow {
-  PartNo: string;
-  BinLocation: string;
-  Warehouse: string;
-  QtyOnHand: number;
-  Description: string;
-  GLCode: string;
-  ProdCode: string;
-  VendCode: string;
-  Cost: number;
-}
-
 interface BulkImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,80 +16,171 @@ interface BulkImportDialogProps {
 export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<any[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<string>('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const importMutation = useMutation({
-    mutationFn: async (data: any[]) => {
-      const response = await fetch('/api/inventory/bulk-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: data }),
-      });
-      if (!response.ok) {
-        throw new Error('Import failed');
+    mutationFn: async (file: File) => {
+      setImporting(true);
+      setImportProgress('Preparing file for upload...');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/api/inventory/bulk-import', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || errorData.details || 'Import failed');
+        }
+
+        const result = await response.json();
+        console.log('Import result:', result);
+        return result;
+      } catch (error) {
+        console.error('Import error:', error);
+        throw error;
       }
-      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/material/inventory'] });
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${preview.length} items`,
+        description: `Successfully imported ${data.count} items`,
       });
       onOpenChange(false);
+      setFile(null);
+      setPreview([]);
+      setImporting(false);
+      setImportProgress('');
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error('Import error:', error);
       toast({
         title: "Import Failed",
         description: error.message,
         variant: "destructive",
       });
+      setImporting(false);
+      setImportProgress('');
     },
   });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
+
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'text/csv', // .csv
+      'text/tab-separated-values' // .tsv
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload an Excel file (.xlsx, .xls) or CSV/TSV file",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setFile(file);
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        setPreview(jsonData);
-      } catch (error) {
-        toast({
-          title: "Error Reading File",
-          description: "Please ensure the file is a valid Excel spreadsheet",
-          variant: "destructive",
-        });
-      }
-    };
-    reader.readAsArrayBuffer(file);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+
+          if (workbook.SheetNames.length === 0) {
+            throw new Error("The Excel file is empty");
+          }
+
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+          if (jsonData.length === 0) {
+            throw new Error("No data found in the file");
+          }
+
+          const transformedData = jsonData.map((row: any) => {
+            const sku = row.PartNo || row.sku;
+            const name = row.Description || row.name;
+
+            if (!sku && !name) {
+              throw new Error("Each row must have either a SKU/PartNo or Name/Description");
+            }
+
+            return {
+              sku: sku?.toString().trim() || `SKU-${Date.now()}`,
+              name: name?.toString().trim() || `Item ${sku}`,
+              description: (row.Description || row.description)?.toString().trim() || '',
+              category: row.Category?.toString().trim() || 'Uncategorized',
+              quantity: parseFloat(row.QtyOnHand || row.quantity) || 0,
+              unit: row.Unit?.toString().trim() || 'pcs',
+              minimumStock: parseFloat(row.MinStock || row.minimumStock) || 0,
+              reorderPoint: parseFloat(row.ReorderPoint || row.reorderPoint) || 0,
+              binLocation: row.BinLocation?.toString().trim() || '',
+              warehouse: row.Warehouse?.toString().trim() || '',
+              cost: parseFloat(row.Cost || row.cost) || 0,
+              supplier: (row.VendCode || row.supplier)?.toString().trim() || '',
+              leadTime: parseInt(row.LeadTime || row.leadTime) || 0,
+              batchNumber: row.BatchNumber?.toString().trim() || '',
+              notes: row.Notes?.toString().trim() || ''
+            };
+          });
+
+          setPreview(transformedData);
+        } catch (error) {
+          toast({
+            title: "Error Reading File",
+            description: error instanceof Error ? error.message : "Failed to read the Excel file",
+            variant: "destructive",
+          });
+          setFile(null);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      toast({
+        title: "Error Reading File",
+        description: "Failed to process the file",
+        variant: "destructive",
+      });
+      setFile(null);
+    }
   };
 
   const handleImport = () => {
-    if (!preview.length) return;
-    importMutation.mutate(preview);
+    if (!file) return;
+    importMutation.mutate(file);
   };
 
   const downloadTemplate = () => {
     const template = [{
       PartNo: "EXAMPLE-001",
+      Description: "Example Part",
+      Category: "Raw Material",
+      QtyOnHand: 100,
+      Unit: "pcs",
+      MinStock: 10,
+      ReorderPoint: 20,
       BinLocation: "A-01-01",
       Warehouse: "MAIN",
-      QtyOnHand: 100,
-      Description: "Example Part",
-      GLCode: "1000",
-      ProdCode: "PRD001",
+      Cost: 29.99,
       VendCode: "VEN001",
-      Cost: 29.99
+      LeadTime: 7,
+      BatchNumber: "BATCH001",
+      Notes: "Example notes"
     }];
 
     const ws = XLSX.utils.json_to_sheet(template);
@@ -115,7 +194,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'material-import-template.xlsx';
+    a.download = 'inventory-import-template.xlsx';
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -126,7 +205,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px]">
         <DialogHeader>
-          <DialogTitle>Import Material Data</DialogTitle>
+          <DialogTitle>Import Inventory Data</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex items-center gap-4">
@@ -136,7 +215,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
             </Button>
             <Input
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv,.tsv"
               onChange={handleFileChange}
               className="max-w-xs"
             />
@@ -155,29 +234,27 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
               <table className="w-full">
                 <thead className="bg-muted sticky top-0">
                   <tr>
-                    <th className="p-2 text-left">Part No</th>
+                    <th className="p-2 text-left">SKU</th>
+                    <th className="p-2 text-left">Name</th>
+                    <th className="p-2 text-left">Category</th>
+                    <th className="p-2 text-left">Quantity</th>
+                    <th className="p-2 text-left">Unit</th>
                     <th className="p-2 text-left">Bin Location</th>
                     <th className="p-2 text-left">Warehouse</th>
-                    <th className="p-2 text-left">Qty On Hand</th>
-                    <th className="p-2 text-left">Description</th>
-                    <th className="p-2 text-left">GL Code</th>
-                    <th className="p-2 text-left">Prod Code</th>
-                    <th className="p-2 text-left">Vend Code</th>
                     <th className="p-2 text-left">Cost</th>
                   </tr>
                 </thead>
                 <tbody>
                   {preview.slice(0, 5).map((row, index) => (
                     <tr key={index} className="border-t">
-                      <td className="p-2">{row.PartNo}</td>
-                      <td className="p-2">{row.BinLocation}</td>
-                      <td className="p-2">{row.Warehouse}</td>
-                      <td className="p-2">{row.QtyOnHand}</td>
-                      <td className="p-2">{row.Description}</td>
-                      <td className="p-2">{row.GLCode}</td>
-                      <td className="p-2">{row.ProdCode}</td>
-                      <td className="p-2">{row.VendCode}</td>
-                      <td className="p-2">${row.Cost.toFixed(2)}</td>
+                      <td className="p-2">{row.sku}</td>
+                      <td className="p-2">{row.name}</td>
+                      <td className="p-2">{row.category}</td>
+                      <td className="p-2">{row.quantity}</td>
+                      <td className="p-2">{row.unit}</td>
+                      <td className="p-2">{row.binLocation}</td>
+                      <td className="p-2">{row.warehouse}</td>
+                      <td className="p-2">${row.cost.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -189,20 +266,32 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
               )}
             </div>
           )}
+
+          {importing && (
+            <Alert>
+              <AlertDescription>
+                <div className="flex items-center gap-2">
+                  <FontAwesomeIcon icon="spinner" className="animate-spin" />
+                  <span>{importProgress || 'Importing...'}</span>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         <DialogFooter>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={importing}
           >
             Cancel
           </Button>
           <Button
             onClick={handleImport}
-            disabled={!preview.length || importMutation.isPending}
+            disabled={!file || importing}
           >
-            {importMutation.isPending ? (
+            {importing ? (
               <>
                 <FontAwesomeIcon icon="spinner" className="mr-2 animate-spin" />
                 Importing...

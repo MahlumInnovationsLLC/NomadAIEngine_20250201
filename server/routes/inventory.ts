@@ -9,107 +9,154 @@ import {
 } from "../services/azure/inventory_service";
 import multer from 'multer';
 import { parse } from 'csv-parse';
+import * as XLSX from 'xlsx';
 
 const router = Router();
-// Configure multer with increased size limit
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 50 * 1024 * 1024 // Increased to 50MB limit for large files
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv',
+      'text/tab-separated-values'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Please upload an Excel or CSV file.'));
+    }
   }
 });
 
 // Bulk import inventory items
 router.post("/bulk-import", upload.single('file'), async (req, res) => {
+  console.log("Starting bulk import process...");
   try {
-    console.log("Starting bulk import process");
-
     if (!req.file) {
       console.error("No file uploaded");
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    console.log("File received:", {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size
-    });
+    console.log(`Processing file: ${req.file.originalname}, size: ${req.file.size} bytes`);
+    let records: any[] = [];
 
-    const csvData = req.file.buffer.toString('utf-8');
-    console.log("CSV data sample:", csvData.substring(0, 200)); // Log first 200 chars for debugging
-
-    // Parse CSV data
-    parse(csvData, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-      delimiter: '\t' // Add tab delimiter for TSV files
-    }, async (err, records) => {
-      if (err) {
-        console.error("CSV parsing error:", err);
-        return res.status(400).json({ 
-          error: "Failed to parse CSV file",
-          details: err.message 
-        });
-      }
-
-      console.log(`Successfully parsed ${records.length} records from CSV`);
-      console.log("Sample record:", records[0]);
-
+    // Handle Excel files
+    if (req.file.mimetype.includes('excel') || req.file.originalname.match(/\.xlsx?$/i)) {
+      console.log("Processing Excel file...");
       try {
-        // Transform CSV records to match schema
-        const transformedItems = records.map((record: any) => {
-          const item = {
-            partNo: record.PartNo?.toString().trim(),
-            binLocation: record.BinLocation?.toString().trim(),
-            warehouse: record.Warehouse?.toString().trim(),
-            qtyOnHand: parseFloat(record.QtyOnHand) || 0,
-            description: record.Description?.toString().trim() || '',
-            glCode: record.GLCode?.toString().trim() || '',
-            prodCode: record.ProdCode?.toString().trim() || '',
-            vendCode: record.VendCode?.toString().trim() || '',
-            cost: parseFloat(record.Cost) || 0
-          };
-          console.log("Transformed item:", item);
-          return item;
-        });
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        console.log(`Found ${workbook.SheetNames.length} sheets`);
 
-        // Validate required fields
-        const invalidItems = transformedItems.filter(item => 
-          !item.partNo || !item.binLocation || !item.warehouse || 
-          isNaN(item.qtyOnHand) || item.qtyOnHand < 0
-        );
-
-        if (invalidItems.length > 0) {
-          console.error("Found invalid items:", invalidItems);
-          return res.status(400).json({
-            error: "Invalid items found in CSV",
-            details: {
-              message: "Some items are missing required fields or have invalid data",
-              invalidItems
-            }
-          });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) {
+          return res.status(400).json({ error: "Excel file is empty" });
         }
 
-        console.log(`Importing ${transformedItems.length} valid items`);
-        const importedItems = await bulkImportInventory(transformedItems);
-
-        console.log(`Successfully imported ${importedItems.length} items`);
-        res.status(201).json({
-          message: "Successfully imported inventory items",
-          count: importedItems.length,
-          items: importedItems
-        });
+        records = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        console.log(`Successfully parsed ${records.length} records from Excel`);
       } catch (error) {
-        console.error("Failed to process inventory items:", error);
-        res.status(500).json({
-          error: "Failed to import inventory items",
+        console.error("Error parsing Excel file:", error);
+        return res.status(400).json({ 
+          error: "Failed to parse Excel file",
           details: error instanceof Error ? error.message : "Unknown error"
         });
       }
-    });
+    } 
+    // Handle CSV/TSV files
+    else {
+      console.log("Processing CSV/TSV file...");
+      try {
+        const fileContent = req.file.buffer.toString('utf-8');
+        const delimiter = fileContent.includes('\t') ? '\t' : ',';
+
+        records = await new Promise((resolve, reject) => {
+          parse(fileContent, {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+            delimiter: delimiter,
+            relax_column_count: true
+          }, (err, data) => {
+            if (err) reject(err);
+            else resolve(data);
+          });
+        });
+        console.log(`Successfully parsed ${records.length} records from CSV/TSV`);
+      } catch (error) {
+        console.error("Error parsing CSV/TSV file:", error);
+        return res.status(400).json({ 
+          error: "Failed to parse CSV/TSV file",
+          details: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+
+    if (!Array.isArray(records) || records.length === 0) {
+      console.error("No valid records found in file");
+      return res.status(400).json({ error: "No valid records found in the file" });
+    }
+
+    console.log(`Beginning transformation of ${records.length} records...`);
+    try {
+      const transformedItems = records.map((record: any, index: number) => {
+        try {
+          // Get identifier fields
+          const sku = record.PartNo || record.sku;
+          const name = record.Description || record.name;
+
+          // Require at least one identifier
+          if (!sku && !name) {
+            throw new Error(`Row ${index + 1}: Each row must have either a SKU/PartNo or Name/Description`);
+          }
+
+          // Transform with optional fields and defaults
+          return {
+            sku: sku?.toString().trim() || `SKU-${Date.now()}-${index}`,
+            name: name?.toString().trim() || `Item ${sku}`,
+            description: (record.Description || record.description)?.toString().trim() || '',
+            category: record.Category?.toString().trim() || 'Uncategorized',
+            currentStock: parseFloat(record.QtyOnHand || record.quantity) || 0,
+            unit: record.Unit?.toString().trim() || 'pcs',
+            minimumStock: parseFloat(record.MinStock || record.minimumStock) || 0,
+            reorderPoint: parseFloat(record.ReorderPoint || record.reorderPoint) || 0,
+            binLocation: record.BinLocation?.toString().trim() || '',
+            warehouse: record.Warehouse?.toString().trim() || '',
+            cost: parseFloat(record.Cost || record.cost) || 0,
+            supplier: (record.VendCode || record.supplier)?.toString().trim() || '',
+            leadTime: parseInt(record.LeadTime || record.leadTime) || 0,
+            batchNumber: record.BatchNumber?.toString().trim() || '',
+            expiryDate: record.ExpiryDate || record.expiryDate || null,
+            notes: record.Notes?.toString().trim() || ''
+          };
+        } catch (error) {
+          console.error(`Error transforming record at index ${index}:`, error);
+          throw error;
+        }
+      });
+
+      console.log(`Successfully transformed ${transformedItems.length} records. Starting import...`);
+      const importedItems = await bulkImportInventory(transformedItems);
+      console.log(`Successfully imported ${importedItems.length} items`);
+
+      res.status(201).json({
+        message: "Successfully imported inventory items",
+        count: importedItems.length,
+        items: importedItems
+      });
+    } catch (error) {
+      console.error("Error processing inventory items:", error);
+      res.status(400).json({
+        error: "Failed to process inventory items",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   } catch (error) {
-    console.error("Failed to handle file upload:", error);
+    console.error("File upload error:", error);
     res.status(500).json({ 
       error: "Failed to process file upload",
       details: error instanceof Error ? error.message : "Unknown error"
