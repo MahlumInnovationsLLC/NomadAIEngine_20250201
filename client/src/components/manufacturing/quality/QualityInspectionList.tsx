@@ -34,6 +34,10 @@ interface QualityInspectionListProps {
   projects?: Project[];
 }
 
+// Placeholder for AdvancedImportButton component -  needs to be implemented separately.
+const AdvancedImportButton = () => <Button>Advanced Import</Button>;
+
+
 export default function QualityInspectionList({ inspections = [], type, projects = [] }: QualityInspectionListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -112,6 +116,7 @@ export default function QualityInspectionList({ inspections = [], type, projects
           </p>
         </div>
         <div className="flex gap-2">
+          <AdvancedImportButton />
           <Button
             variant="outline"
             onClick={() => setShowImportDialog(true)}
