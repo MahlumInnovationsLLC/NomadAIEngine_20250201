@@ -60,7 +60,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
     resolver: zodResolver(templateFormSchema),
     defaultValues: {
       name: template.name,
-      inspectionType: template.inspectionType,
+      inspectionType: template.type,
       description: template.description,
       sections: template.sections,
     },

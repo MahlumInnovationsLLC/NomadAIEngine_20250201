@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { QualityInspection, QualityFormTemplate } from "@/types/manufacturing";
+import { QualityInspection, QualityFormTemplate, Project } from "@/types/manufacturing";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 
@@ -30,9 +30,10 @@ import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 interface QualityInspectionListProps {
   inspections: QualityInspection[];
   type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
+  projects?: Project[];
 }
 
-export default function QualityInspectionList({ inspections, type }: QualityInspectionListProps) {
+export default function QualityInspectionList({ inspections, type, projects = [] }: QualityInspectionListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const socket = useWebSocket({ namespace: 'manufacturing' });
@@ -42,10 +43,6 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
-
-  const { data: projects } = useQuery({
-    queryKey: ['/api/manufacturing/projects'],
-  });
 
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {

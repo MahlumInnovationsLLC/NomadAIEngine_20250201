@@ -22,24 +22,33 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
-import { QualityFormTemplate } from "@/types/manufacturing";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { v4 as uuidv4 } from 'uuid';
 
 const templateFormSchema = z.object({
   name: z.string().min(1, "Template name is required"),
-  inspectionType: z.enum(['in-process', 'final-qc', 'executive-review', 'pdi'] as const),
+  type: z.enum(['in-process', 'final-qc', 'executive-review', 'pdi'] as const),
   description: z.string().min(1, "Description is required"),
   sections: z.array(z.object({
+    id: z.string(),
     title: z.string().min(1, "Section title is required"),
     description: z.string().optional(),
     fields: z.array(z.object({
+      id: z.string(),
       label: z.string().min(1, "Field label is required"),
       type: z.enum(['text', 'number', 'select', 'multiselect', 'checkbox', 'date', 'file']),
       required: z.boolean(),
       options: z.array(z.string()).optional(),
+      validation: z.object({
+        min: z.number().optional(),
+        max: z.number().optional(),
+      }).optional(),
     })),
-  })),
+  })).min(1, "At least one section is required"),
 });
 
 type FormValues = z.infer<typeof templateFormSchema>;
@@ -53,38 +62,67 @@ interface CreateTemplateDialogProps {
 export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTemplateDialogProps) {
   const { toast } = useToast();
   const socket = useWebSocket({ namespace: 'manufacturing' });
-  const [sections, setSections] = useState<FormValues['sections']>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(templateFormSchema),
     defaultValues: {
-      sections: [],
+      sections: [{
+        id: uuidv4(),
+        title: '',
+        description: '',
+        fields: [{
+          id: uuidv4(),
+          label: '',
+          type: 'text',
+          required: false,
+        }],
+      }],
     },
   });
 
   const handleAddSection = () => {
-    setSections([...sections, {
-      title: '',
-      description: '',
-      fields: [],
-    }]);
-    form.setValue('sections', [...sections, {
-      title: '',
-      description: '',
-      fields: [],
-    }]);
+    const sections = form.getValues('sections');
+    form.setValue('sections', [
+      ...sections,
+      {
+        id: uuidv4(),
+        title: '',
+        description: '',
+        fields: [{
+          id: uuidv4(),
+          label: '',
+          type: 'text',
+          required: false,
+        }],
+      },
+    ]);
+  };
+
+  const handleRemoveSection = (index: number) => {
+    const sections = form.getValues('sections');
+    if (sections.length > 1) {
+      form.setValue('sections', sections.filter((_, i) => i !== index));
+    }
   };
 
   const handleAddField = (sectionIndex: number) => {
-    const newSections = [...sections];
-    newSections[sectionIndex].fields.push({
+    const sections = form.getValues('sections');
+    sections[sectionIndex].fields.push({
+      id: uuidv4(),
       label: '',
       type: 'text',
       required: false,
     });
-    setSections(newSections);
-    form.setValue(`sections.${sectionIndex}.fields`, newSections[sectionIndex].fields);
+    form.setValue(`sections`, sections);
+  };
+
+  const handleRemoveField = (sectionIndex: number, fieldIndex: number) => {
+    const sections = form.getValues('sections');
+    if (sections[sectionIndex].fields.length > 1) {
+      sections[sectionIndex].fields = sections[sectionIndex].fields.filter((_, i) => i !== fieldIndex);
+      form.setValue(`sections`, sections);
+    }
   };
 
   const handleSubmit = async (values: FormValues) => {
@@ -92,8 +130,18 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
       setIsSubmitting(true);
       if (!socket) throw new Error('Socket connection not available');
 
+      // Add metadata
+      const template = {
+        ...values,
+        id: uuidv4(),
+        version: 1,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
       return new Promise((resolve, reject) => {
-        socket.emit('quality:template:create', values, (response: any) => {
+        socket.emit('quality:template:create', template, (response: any) => {
           if (response.error) reject(new Error(response.error));
           else resolve(response);
         });
@@ -107,6 +155,7 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
         onOpenChange(false);
       });
     } catch (error) {
+      console.error('Error creating template:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create template",
@@ -119,87 +168,99 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[85vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Create Inspection Template</DialogTitle>
+          <DialogTitle>Create Quality Inspection Template</DialogTitle>
           <DialogDescription>
-            Create a new quality inspection template with custom sections and fields.
+            Design a new quality inspection template with custom sections and fields
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
-            <div className="flex-1 overflow-y-auto">
-              <div className="space-y-4 p-1">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Template Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter template name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="inspectionType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Inspection Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="in-process">In-Process</SelectItem>
-                            <SelectItem value="final-qc">Final QC</SelectItem>
-                            <SelectItem value="executive-review">Executive Review</SelectItem>
-                            <SelectItem value="pdi">PDI</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-y-auto space-y-6 p-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="description"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel>Template Name</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter template description"
-                          className="min-h-[100px]"
-                          {...field}
-                        />
+                        <Input placeholder="Enter template name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-medium">Template Sections</h4>
-                    <Button type="button" variant="outline" onClick={handleAddSection}>
-                      <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                      Add Section
-                    </Button>
-                  </div>
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="in-process">In-Process Inspection</SelectItem>
+                          <SelectItem value="final-qc">Final Quality Control</SelectItem>
+                          <SelectItem value="executive-review">Executive Review</SelectItem>
+                          <SelectItem value="pdi">Pre-Delivery Inspection</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-                  {sections.map((section, sectionIndex) => (
-                    <div key={sectionIndex} className="border rounded-lg p-4">
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter template description"
+                        className="min-h-[100px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-lg font-medium">Template Sections</h4>
+                  <Button type="button" variant="outline" onClick={handleAddSection}>
+                    <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                    Add Section
+                  </Button>
+                </div>
+
+                {form.getValues('sections').map((section, sectionIndex) => (
+                  <Card key={section.id} className="relative">
+                    <CardContent className="pt-6">
+                      <div className="absolute top-2 right-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveSection(sectionIndex)}
+                          disabled={form.getValues('sections').length === 1}
+                        >
+                          <FontAwesomeIcon icon="trash" className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+
                       <div className="space-y-4">
                         <FormField
                           control={form.control}
@@ -208,16 +269,33 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
                             <FormItem>
                               <FormLabel>Section Title</FormLabel>
                               <FormControl>
-                                <Input {...field} />
+                                <Input placeholder="Enter section title" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
 
-                        <div className="space-y-2">
+                        <FormField
+                          control={form.control}
+                          name={`sections.${sectionIndex}.description`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Section Description (Optional)</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Enter section description"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="space-y-4">
                           <div className="flex justify-between items-center">
-                            <h5 className="text-sm font-medium">Fields</h5>
+                            <h5 className="font-medium">Fields</h5>
                             <Button
                               type="button"
                               variant="outline"
@@ -230,59 +308,91 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
                           </div>
 
                           {section.fields.map((field, fieldIndex) => (
-                            <div key={fieldIndex} className="grid grid-cols-2 gap-4 border-t pt-2">
-                              <FormField
-                                control={form.control}
-                                name={`sections.${sectionIndex}.fields.${fieldIndex}.label`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Field Label</FormLabel>
-                                    <FormControl>
-                                      <Input {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
+                            <div key={field.id} className="relative border rounded-lg p-4">
+                              <div className="absolute top-2 right-2">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveField(sectionIndex, fieldIndex)}
+                                  disabled={section.fields.length === 1}
+                                >
+                                  <FontAwesomeIcon icon="times" className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
 
-                              <FormField
-                                control={form.control}
-                                name={`sections.${sectionIndex}.fields.${fieldIndex}.type`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Field Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name={`sections.${sectionIndex}.fields.${fieldIndex}.label`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Field Label</FormLabel>
                                       <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select type" />
-                                        </SelectTrigger>
+                                        <Input placeholder="Enter field label" {...field} />
                                       </FormControl>
-                                      <SelectContent>
-                                        <SelectItem value="text">Text</SelectItem>
-                                        <SelectItem value="number">Number</SelectItem>
-                                        <SelectItem value="select">Select</SelectItem>
-                                        <SelectItem value="multiselect">Multi-Select</SelectItem>
-                                        <SelectItem value="checkbox">Checkbox</SelectItem>
-                                        <SelectItem value="date">Date</SelectItem>
-                                        <SelectItem value="file">File Upload</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name={`sections.${sectionIndex}.fields.${fieldIndex}.type`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Field Type</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select type" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="text">Text</SelectItem>
+                                          <SelectItem value="number">Number</SelectItem>
+                                          <SelectItem value="select">Select</SelectItem>
+                                          <SelectItem value="multiselect">Multi-Select</SelectItem>
+                                          <SelectItem value="checkbox">Checkbox</SelectItem>
+                                          <SelectItem value="date">Date</SelectItem>
+                                          <SelectItem value="file">File Upload</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="mt-2 flex items-center gap-2">
+                                <FormField
+                                  control={form.control}
+                                  name={`sections.${sectionIndex}.fields.${fieldIndex}.required`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-2">
+                                      <FormControl>
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="!mt-0">Required Field</FormLabel>
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
                             </div>
                           ))}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 mt-4 border-t">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
