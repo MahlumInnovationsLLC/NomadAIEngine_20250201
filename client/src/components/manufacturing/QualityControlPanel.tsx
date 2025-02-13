@@ -227,10 +227,6 @@ export const QualityControlPanel = () => {
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Quality Inspections</CardTitle>
-                        <Button onClick={() => setShowCreateDialog(true)}>
-                          <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-                          New Inspection
-                        </Button>
                       </div>
                     </CardHeader>
                     <CardContent>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import {
@@ -18,14 +18,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { QualityInspection } from "@/types/manufacturing";
+import { QualityInspection, QualityFormTemplate } from "@/types/manufacturing";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
 
 import { CreateInspectionDialog } from "./dialogs/CreateInspectionDialog";
 import { InspectionDetailsDialog } from "./dialogs/InspectionDetailsDialog";
 import { NCRDialog } from "./dialogs/NCRDialog";
-import TemplateManagement from "./TemplateManagement";
+import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 
 interface QualityInspectionListProps {
   inspections: QualityInspection[];
@@ -39,10 +39,10 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showNCRDialog, setShowNCRDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
-  const [showTemplateManagement, setShowTemplateManagement] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
 
-  // Fetch projects for project number selection
   const { data: projects } = useQuery({
     queryKey: ['/api/manufacturing/projects'],
   });
@@ -79,6 +79,11 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
     setShowDetailsDialog(true);
   };
 
+  const handleTemplateSelect = (template: QualityFormTemplate) => {
+    setSelectedTemplate(template);
+    setShowCreateDialog(true);
+  };
+
   const getStatusColor = (status: QualityInspection['status']) => {
     switch (status) {
       case 'completed':
@@ -98,7 +103,7 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-4">
         <div>
           <h3 className="text-lg font-semibold">
             {type === 'final-qc' ? 'Final Quality Control' :
@@ -111,11 +116,18 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowTemplateManagement(true)}>
+          <Button
+            variant="outline"
+            onClick={() => setShowTemplateDialog(true)}
+            className="transition-colors hover:bg-secondary"
+          >
             <FontAwesomeIcon icon="file-alt" className="mr-2 h-4 w-4" />
             Manage Templates
           </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button onClick={() => {
+            setSelectedTemplate(null);
+            setShowCreateDialog(true);
+          }}>
             <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
             New Inspection
           </Button>
@@ -215,13 +227,18 @@ export default function QualityInspectionList({ inspections, type }: QualityInsp
           onSubmit={createInspectionMutation.mutate}
           type={type}
           projects={projects}
+          template={selectedTemplate}
         />
       )}
 
-      <TemplateManagement 
-        open={showTemplateManagement}
-        onOpenChange={setShowTemplateManagement}
-      />
+      {showTemplateDialog && (
+        <InspectionTemplateDialog
+          open={showTemplateDialog}
+          onOpenChange={setShowTemplateDialog}
+          type={type}
+          onSelectTemplate={handleTemplateSelect}
+        />
+      )}
 
       {showNCRDialog && selectedInspection && (
         <NCRDialog
