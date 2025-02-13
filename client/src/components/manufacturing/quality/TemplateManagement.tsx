@@ -24,6 +24,10 @@ import {
   finalQCTemplates,
   executiveReviewTemplates,
   pdiTemplates,
+  capaTemplates,
+  ncrTemplates,
+  scarTemplates,
+  mrbTemplates
 } from "@/templates/qualityTemplates";
 
 type TemplateType = 'inspection' | 'ncr' | 'capa' | 'scar' | 'mrb';
@@ -42,37 +46,49 @@ export default function TemplateManagement({ open, onOpenChange, templateType }:
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
   const [templates, setTemplates] = useState<QualityFormTemplate[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Load templates when dialog opens or template type changes
   useEffect(() => {
     if (open) {
-      setIsLoading(true);
       setError(null);
-
-      // Initialize with local templates first
       let initialTemplates: QualityFormTemplate[] = [];
-      if (templateType === 'inspection') {
-        initialTemplates = [
-          ...fabInspectionTemplates,
-          ...paintQCTemplates,
-          ...finalQCTemplates,
-          ...executiveReviewTemplates,
-          ...pdiTemplates
-        ].filter(template => template.type === 'inspection');
+
+      // Get initial templates based on type
+      switch (templateType) {
+        case 'inspection':
+          initialTemplates = [
+            ...fabInspectionTemplates,
+            ...paintQCTemplates,
+            ...finalQCTemplates,
+            ...executiveReviewTemplates,
+            ...pdiTemplates
+          ].filter(template => template.type === 'inspection');
+          break;
+        case 'capa':
+          initialTemplates = [...capaTemplates];
+          break;
+        case 'ncr':
+          initialTemplates = [...ncrTemplates];
+          break;
+        case 'scar':
+          initialTemplates = [...scarTemplates];
+          break;
+        case 'mrb':
+          initialTemplates = [...mrbTemplates];
+          break;
       }
 
       // Set initial templates
       setTemplates(initialTemplates);
 
-      // Fetch additional templates from server if socket is available
+      // Only fetch from server if socket exists and we want to supplement local templates
       if (socket) {
+        setIsLoading(true);
         socket.emit('quality:template:list', { type: templateType }, (response: { templates?: QualityFormTemplate[], error?: string }) => {
           if (response?.error) {
             console.error('Template fetch error:', response.error);
-            if (initialTemplates.length === 0) {
-              setError(`No ${templateType} templates available`);
-            }
           } else if (Array.isArray(response?.templates)) {
             const serverTemplates = response.templates.filter(t => t.type === templateType);
             setTemplates(prev => {
@@ -83,8 +99,6 @@ export default function TemplateManagement({ open, onOpenChange, templateType }:
           }
           setIsLoading(false);
         });
-      } else {
-        setIsLoading(false);
       }
     }
   }, [open, templateType, socket]);
@@ -167,7 +181,7 @@ export default function TemplateManagement({ open, onOpenChange, templateType }:
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8">
                       <FontAwesomeIcon icon="spinner" className="animate-spin mr-2" />
-                      Loading templates...
+                      Loading additional templates...
                     </TableCell>
                   </TableRow>
                 ) : templates.length === 0 ? (

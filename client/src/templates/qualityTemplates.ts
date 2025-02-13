@@ -518,6 +518,203 @@ export const postDeliveryQCTemplates: QualityFormTemplate[] = [
   }
 ];
 
+export const capaTemplates: QualityFormTemplate[] = [
+  {
+    id: "capa-process-improvement",
+    name: "Process Improvement CAPA",
+    type: "capa",
+    description: "Template for process-related corrective actions",
+    version: 1,
+    isActive: true,
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sections: [
+      {
+        id: "issue-identification",
+        title: "Issue Identification",
+        description: "Identify and describe the problem",
+        fields: [
+          {
+            id: "issue-description",
+            label: "Issue Description",
+            type: "textarea",
+            required: true
+          },
+          {
+            id: "impact-assessment",
+            label: "Impact Assessment",
+            type: "select",
+            required: true,
+            options: ["Critical", "Major", "Minor"]
+          }
+        ]
+      },
+      {
+        id: "root-cause",
+        title: "Root Cause Analysis",
+        description: "Determine the root cause of the issue",
+        fields: [
+          {
+            id: "root-cause-category",
+            label: "Root Cause Category",
+            type: "select",
+            required: true,
+            options: ["Process", "People", "Equipment", "Materials", "Environment"]
+          },
+          {
+            id: "root-cause-description",
+            label: "Root Cause Description",
+            type: "textarea",
+            required: true
+          }
+        ]
+      }
+    ]
+  }
+];
+
+export const ncrTemplates: QualityFormTemplate[] = [
+  {
+    id: "ncr-production",
+    name: "Production NCR Template",
+    type: "ncr",
+    description: "Non-conformance report for production issues",
+    version: 1,
+    isActive: true,
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sections: [
+      {
+        id: "non-conformance-details",
+        title: "Non-Conformance Details",
+        description: "Document the non-conforming condition",
+        fields: [
+          {
+            id: "defect-type",
+            label: "Type of Defect",
+            type: "select",
+            required: true,
+            options: ["Dimensional", "Visual", "Functional", "Documentation"]
+          },
+          {
+            id: "affected-quantity",
+            label: "Affected Quantity",
+            type: "number",
+            required: true
+          }
+        ]
+      }
+    ]
+  }
+];
+
+export const scarTemplates: QualityFormTemplate[] = [
+  {
+    id: "scar-quality-issue",
+    name: "Supplier Quality SCAR",
+    type: "scar",
+    description: "Supplier corrective action request for quality issues",
+    version: 1,
+    isActive: true,
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sections: [
+      {
+        id: "supplier-info",
+        title: "Supplier Information",
+        fields: [
+          {
+            id: "supplier-name",
+            label: "Supplier Name",
+            type: "text",
+            required: true
+          },
+          {
+            id: "part-number",
+            label: "Part Number",
+            type: "text",
+            required: true
+          }
+        ]
+      },
+      {
+        id: "issue-details",
+        title: "Issue Details",
+        fields: [
+          {
+            id: "defect-description",
+            label: "Defect Description",
+            type: "textarea",
+            required: true
+          },
+          {
+            id: "lot-number",
+            label: "Lot Number",
+            type: "text",
+            required: true
+          }
+        ]
+      }
+    ]
+  }
+];
+
+export const mrbTemplates: QualityFormTemplate[] = [
+  {
+    id: "mrb-disposition",
+    name: "MRB Disposition Template",
+    type: "mrb",
+    description: "Material Review Board disposition form",
+    version: 1,
+    isActive: true,
+    createdBy: "system",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sections: [
+      {
+        id: "material-review",
+        title: "Material Review",
+        fields: [
+          {
+            id: "disposition",
+            label: "Disposition",
+            type: "select",
+            required: true,
+            options: ["Use As Is", "Rework", "Scrap", "Return to Vendor"]
+          },
+          {
+            id: "justification",
+            label: "Justification",
+            type: "textarea",
+            required: true
+          }
+        ]
+      },
+      {
+        id: "approvals",
+        title: "Required Approvals",
+        fields: [
+          {
+            id: "engineering-approval",
+            label: "Engineering Approval",
+            type: "checkbox",
+            required: true
+          },
+          {
+            id: "quality-approval",
+            label: "Quality Approval",
+            type: "checkbox",
+            required: true
+          }
+        ]
+      }
+    ]
+  }
+];
+
 export const auditTemplates: AuditTemplate[] = [
   {
     id: "iso9001-internal",
