@@ -20,12 +20,15 @@ import { EditTemplateDialog } from "./dialogs/EditTemplateDialog";
 import { ImportTemplateDialog } from "./dialogs/ImportTemplateDialog";
 import { Badge } from "@/components/ui/badge";
 
+type TemplateType = 'inspection' | 'ncr' | 'capa' | 'scar' | 'mrb';
+
 interface TemplateManagementProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  templateType: TemplateType;
 }
 
-export default function TemplateManagement({ open, onOpenChange }: TemplateManagementProps) {
+export default function TemplateManagement({ open, onOpenChange, templateType }: TemplateManagementProps) {
   const { toast } = useToast();
   const socket = useWebSocket({ namespace: 'manufacturing' });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -38,20 +41,20 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
   useEffect(() => {
     if (socket && open) {
       setIsLoading(true);
-      socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
+      socket.emit('quality:template:list', { type: templateType }, (response: { templates: QualityFormTemplate[] }) => {
         setTemplates(response.templates || []);
         setIsLoading(false);
       });
 
       socket.on('quality:template:updated', (updatedTemplates: QualityFormTemplate[]) => {
-        setTemplates(updatedTemplates);
+        setTemplates(updatedTemplates.filter(t => t.type === templateType));
       });
 
       return () => {
         socket.off('quality:template:updated');
       };
     }
-  }, [socket, open]);
+  }, [socket, open, templateType]);
 
   const handleExportTemplate = (template: QualityFormTemplate) => {
     const templateCopy = { ...template };
@@ -72,13 +75,23 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
     });
   };
 
+  const categoryDisplayNames: Record<TemplateType, string> = {
+    inspection: 'Quality Inspections',
+    ncr: 'Non-Conformance Reports',
+    capa: 'Corrective Actions',
+    scar: 'Supplier Corrective Actions',
+    mrb: 'Material Review Board'
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <DialogTitle className="text-2xl font-semibold">Quality Inspection Templates</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold">
+            {categoryDisplayNames[templateType]} Templates
+          </DialogTitle>
           <div className="flex items-center gap-3">
-            <Button 
+            <Button
               variant="outline"
               onClick={() => setShowImportDialog(true)}
               className="flex items-center gap-2 hover:bg-accent py-2 px-4"
@@ -102,7 +115,6 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
                   <TableHead>Version</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -111,14 +123,14 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={4} className="text-center py-8">
                       <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
                       Loading templates...
                     </TableCell>
                   </TableRow>
                 ) : templates.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={4} className="text-center py-8">
                       <p className="text-muted-foreground">No templates found</p>
                       <p className="text-sm text-muted-foreground mt-2">
                         Create a new template or import an existing one to get started
@@ -129,7 +141,6 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
                   templates.map((template) => (
                     <TableRow key={template.id}>
                       <TableCell className="font-medium">{template.name}</TableCell>
-                      <TableCell>{template.type}</TableCell>
                       <TableCell>v{template.version}</TableCell>
                       <TableCell>
                         <Badge variant={template.isActive ? "default" : "secondary"}>
@@ -171,10 +182,11 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
           <CreateTemplateDialog
             open={showCreateDialog}
             onOpenChange={setShowCreateDialog}
+            templateType={templateType}
             onSuccess={() => {
               setShowCreateDialog(false);
               if (socket) {
-                socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
+                socket.emit('quality:template:list', { type: templateType }, (response: { templates: QualityFormTemplate[] }) => {
                   setTemplates(response.templates || []);
                 });
               }
@@ -190,7 +202,7 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
             onSuccess={() => {
               setShowEditDialog(false);
               if (socket) {
-                socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
+                socket.emit('quality:template:list', { type: templateType }, (response: { templates: QualityFormTemplate[] }) => {
                   setTemplates(response.templates || []);
                 });
               }
@@ -202,10 +214,11 @@ export default function TemplateManagement({ open, onOpenChange }: TemplateManag
           <ImportTemplateDialog
             open={showImportDialog}
             onOpenChange={setShowImportDialog}
+            templateType={templateType}
             onSuccess={() => {
               setShowImportDialog(false);
               if (socket) {
-                socket.emit('quality:template:list', (response: { templates: QualityFormTemplate[] }) => {
+                socket.emit('quality:template:list', { type: templateType }, (response: { templates: QualityFormTemplate[] }) => {
                   setTemplates(response.templates || []);
                 });
               }

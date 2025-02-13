@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -21,13 +20,16 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
+type TemplateType = 'inspection' | 'ncr' | 'capa' | 'scar' | 'mrb';
+
 interface ImportTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  templateType: TemplateType;
   onSuccess: () => void;
 }
 
-export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTemplateDialogProps) {
+export function ImportTemplateDialog({ open, onOpenChange, templateType, onSuccess }: ImportTemplateDialogProps) {
   const { toast } = useToast();
   const socket = useWebSocket({ namespace: 'manufacturing' });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -42,6 +44,8 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
 
     if (!template.name) errors.push("Template name is required");
     if (!template.type) errors.push("Template type is required");
+    if (template.type !== templateType) errors.push(`Template type must be ${templateType}`);
+
     if (!template.sections || !Array.isArray(template.sections)) {
       errors.push("Template must have sections array");
     } else {
@@ -75,7 +79,7 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const data = XLSX.utils.sheet_to_json(worksheet);
-            
+
             const templateData = convertExcelToTemplate(data);
             const errors = validateTemplate(templateData);
 
@@ -121,75 +125,115 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
           fields: []
         };
       }
-      
+
       acc[row.Section].fields.push({
-        id: row.FieldId,
+        id: row.FieldId || `field-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         label: row.Label,
         type: row.Type,
         required: row.Required === 'Yes',
         description: row.Description,
-        options: row.Options ? row.Options.split(',').map((opt: string) => opt.trim()) : undefined
+        options: row.Options ? row.Options.split(',').map((opt: string) => opt.trim()) : undefined,
+        validation: row.Validation ? JSON.parse(row.Validation) : undefined
       });
-      
+
       return acc;
     }, {});
 
     return {
       id: "imported-template",
-      name: data[0].TemplateName || "Imported Template",
-      type: data[0].TemplateType || "in-process",
-      description: data[0].Description || "Imported quality inspection template",
+      name: data[0].TemplateName || `Imported ${templateType.toUpperCase()} Template`,
+      type: templateType,
+      description: data[0].Description || `Imported ${templateType.toUpperCase()} template`,
       version: 1,
       isActive: true,
       sections: Object.values(sections)
     };
   };
 
-  const handleDownloadSample = () => {
-    const sampleData = [
+  const getSampleData = () => {
+    const commonFields = [
       {
-        TemplateName: "Sample Quality Inspection Template",
-        TemplateType: "in-process",
-        Description: "A comprehensive template for quality inspections",
-        Section: "Visual Inspection",
-        FieldId: "surface-quality",
-        Label: "Surface Quality",
-        Type: "select",
+        TemplateName: `Sample ${templateType.toUpperCase()} Template`,
+        TemplateType: templateType,
+        Description: `A comprehensive template for ${templateType}`,
+        Section: "General Information",
+        FieldId: "date",
+        Label: "Date",
+        Type: "date",
         Required: "Yes",
-        Description: "Assess the overall surface finish",
-        Options: "Excellent,Good,Fair,Poor"
-      },
-      {
-        TemplateName: "",
-        TemplateType: "",
-        Description: "",
-        Section: "Visual Inspection",
-        FieldId: "defects",
-        Label: "Visible Defects",
-        Type: "multiselect",
-        Required: "Yes",
-        Description: "Select all visible defects",
-        Options: "Scratches,Dents,Discoloration,None"
-      },
-      {
-        TemplateName: "",
-        TemplateType: "",
-        Description: "",
-        Section: "Measurements",
-        FieldId: "length",
-        Label: "Length (mm)",
-        Type: "number",
-        Required: "Yes",
-        Description: "Measure length in millimeters",
+        Description: "Date of the record",
         Options: ""
       }
     ];
 
+    const typeSpecificFields = {
+      inspection: [
+        {
+          Section: "Visual Inspection",
+          FieldId: "surface-quality",
+          Label: "Surface Quality",
+          Type: "select",
+          Required: "Yes",
+          Description: "Assess the overall surface finish",
+          Options: "Excellent,Good,Fair,Poor"
+        }
+      ],
+      ncr: [
+        {
+          Section: "Non-Conformance Details",
+          FieldId: "defect-type",
+          Label: "Defect Type",
+          Type: "select",
+          Required: "Yes",
+          Description: "Type of non-conformance",
+          Options: "Dimensional,Visual,Functional,Documentation"
+        }
+      ],
+      capa: [
+        {
+          Section: "Root Cause Analysis",
+          FieldId: "root-cause",
+          Label: "Root Cause",
+          Type: "textarea",
+          Required: "Yes",
+          Description: "Detailed description of the root cause",
+          Options: ""
+        }
+      ],
+      scar: [
+        {
+          Section: "Supplier Information",
+          FieldId: "supplier-id",
+          Label: "Supplier ID",
+          Type: "text",
+          Required: "Yes",
+          Description: "Unique identifier for the supplier",
+          Options: ""
+        }
+      ],
+      mrb: [
+        {
+          Section: "Material Review",
+          FieldId: "disposition",
+          Label: "Disposition",
+          Type: "select",
+          Required: "Yes",
+          Description: "Final disposition decision",
+          Options: "Use As Is,Rework,Scrap,Return to Vendor"
+        }
+      ]
+    };
+
+    return [...commonFields, ...typeSpecificFields[templateType]];
+  };
+
+  const handleDownloadSample = () => {
+    const sampleData = getSampleData();
     const ws = XLSX.utils.json_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
-    
-    XLSX.writeFile(wb, "quality_template_sample.xlsx");
+
+    XLSX.writeFile(wb, `${templateType}_template_sample.xlsx`);
   };
 
   const handleImport = async () => {
@@ -254,9 +298,9 @@ export function ImportTemplateDialog({ open, onOpenChange, onSuccess }: ImportTe
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle>Import Quality Template</DialogTitle>
+          <DialogTitle>Import {templateType.toUpperCase()} Template</DialogTitle>
           <DialogDescription>
-            Import a quality inspection template from an Excel file. Download the sample template to see the required format.
+            Import a {templateType} template from an Excel file. Download the sample template to see the required format.
           </DialogDescription>
         </DialogHeader>
 

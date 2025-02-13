@@ -3,8 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCog, faDownload, faClipboardCheck } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import SPCChartView from "./quality/SPCChartView";
@@ -22,17 +21,17 @@ import SCARList from "./quality/SCARList";
 import MRBList from "./quality/MRBList";
 import AuditList from "./quality/AuditList";
 import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
-import { auditTemplates } from "@/templates/qualityTemplates";
 import AuditAnalytics from "./quality/AuditAnalytics";
 import FindingsList from "./quality/FindingsList";
 
 export const QualityControlPanel = () => {
   const [activeView, setActiveView] = useState("overview");
   const [qmsActiveView, setQmsActiveView] = useState("inspections");
-  const [inspectionTypeView, setInspectionTypeView] = useState("final-qc");
+  const [inspectionTypeView, setInspectionTypeView] = useState<'in-process' | 'final-qc' | 'executive-review' | 'pdi'>('final-qc');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [showCreateAuditDialog, setShowCreateAuditDialog] = useState(false); // Added state for audit dialog
+  const [showCreateAuditDialog, setShowCreateAuditDialog] = useState(false);
+  const [selectedTemplateType, setSelectedTemplateType] = useState<'inspection' | 'ncr' | 'capa' | 'scar' | 'mrb'>('inspection');
 
   const queryClient = useQueryClient();
   const socket = useWebSocket({ namespace: 'manufacturing' });
@@ -41,7 +40,7 @@ export const QualityControlPanel = () => {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('quality:inspection:created', (newInspection: QualityInspection) => {
+    const handleInspectionCreated = (newInspection: QualityInspection) => {
       queryClient.setQueryData<QualityInspection[]>(
         ['/api/manufacturing/quality/inspections'],
         (old) => old ? [...old, newInspection] : [newInspection]
@@ -51,9 +50,9 @@ export const QualityControlPanel = () => {
         title: "Inspection Created",
         description: "New quality inspection has been created successfully.",
       });
-    });
+    };
 
-    socket.on('quality:inspection:updated', (updatedInspection: QualityInspection) => {
+    const handleInspectionUpdated = (updatedInspection: QualityInspection) => {
       queryClient.setQueryData<QualityInspection[]>(
         ['/api/manufacturing/quality/inspections'],
         (old) => old?.map(inspection =>
@@ -65,11 +64,14 @@ export const QualityControlPanel = () => {
         title: "Inspection Updated",
         description: "Quality inspection has been updated successfully.",
       });
-    });
+    };
+
+    socket.on('quality:inspection:created', handleInspectionCreated);
+    socket.on('quality:inspection:updated', handleInspectionUpdated);
 
     return () => {
-      socket.off('quality:inspection:created');
-      socket.off('quality:inspection:updated');
+      socket.off('quality:inspection:created', handleInspectionCreated);
+      socket.off('quality:inspection:updated', handleInspectionUpdated);
     };
   }, [socket, queryClient, toast]);
 
@@ -85,7 +87,7 @@ export const QualityControlPanel = () => {
     queryKey: ['/api/manufacturing/quality/audits'],
   });
 
-  const handleCreateInspection = async (data: any) => {
+  const handleCreateInspection = async (data: Partial<QualityInspection>) => {
     try {
       if (!socket) {
         throw new Error('Socket connection not available');
@@ -93,7 +95,7 @@ export const QualityControlPanel = () => {
 
       socket.emit('quality:inspection:create', {
         ...data,
-        templateType: inspectionTypeView
+        type: inspectionTypeView
       });
       setShowCreateDialog(false);
     } catch (error) {
@@ -107,31 +109,10 @@ export const QualityControlPanel = () => {
     }
   };
 
-  const filteredInspections = qualityInspections?.filter(inspection => {
-    switch (inspectionTypeView) {
-      case 'in-process':
-        return inspection.templateType === 'in-process';
-      case 'final-qc':
-        return inspection.templateType === 'final-qc';
-      case 'executive-review':
-        return inspection.templateType === 'executive-review';
-      case 'pdi':
-        return inspection.templateType === 'pdi';
-      default:
-        return true;
-    }
-  }) || [];
-
-  const templateButton = (
-    <Button 
-      variant="outline" 
-      onClick={() => setShowTemplateDialog(true)}
-      className="flex items-center gap-2"
-    >
-      <FontAwesomeIcon icon={faCog} className="h-4 w-4" />
-      Manage Templates
-    </Button>
-  );
+  const handleManageTemplates = (type: 'inspection' | 'ncr' | 'capa' | 'scar' | 'mrb') => {
+    setSelectedTemplateType(type);
+    setShowTemplateDialog(true);
+  };
 
   return (
     <div className="space-y-4">
@@ -139,7 +120,7 @@ export const QualityControlPanel = () => {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold tracking-tight">Quality Assurance</h2>
-            <FontAwesomeIcon icon={['fal', 'circle-check']} className="h-5 w-5 text-green-500" />
+            <FontAwesomeIcon icon="circle-check" className="h-5 w-5 text-green-500" />
           </div>
           <p className="text-muted-foreground">
             Monitor and optimize production quality metrics
@@ -147,55 +128,21 @@ export const QualityControlPanel = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
-            <FontAwesomeIcon icon={faDownload} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon="download" className="mr-2 h-4 w-4" />
             Export Report
           </Button>
+          <Button 
+            variant="outline"
+            onClick={() => handleManageTemplates('inspection')}
+          >
+            <FontAwesomeIcon icon="cog" className="mr-2 h-4 w-4" />
+            Manage Templates
+          </Button>
           <Button onClick={() => setShowCreateAuditDialog(true)} variant="secondary">
-            <FontAwesomeIcon icon={faClipboardCheck} className="mr-2 h-4 w-4" />
+            <FontAwesomeIcon icon="clipboard-check" className="mr-2 h-4 w-4" />
             New Audit
           </Button>
         </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Quality Score</CardTitle>
-            <FontAwesomeIcon icon="chart-line" className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">98.5%</div>
-            <p className="text-xs text-muted-foreground">
-              +2.1% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Defects</CardTitle>
-            <FontAwesomeIcon icon="exclamation-triangle" className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">
-              4 critical issues pending
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Supplier Score</CardTitle>
-            <FontAwesomeIcon icon="truck" className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">94.2%</div>
-            <p className="text-xs text-muted-foreground">
-              Based on last 100 deliveries
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       <Tabs defaultValue={activeView} className="space-y-4" onValueChange={setActiveView}>
@@ -208,22 +155,8 @@ export const QualityControlPanel = () => {
           <TabsTrigger value="audits">Audits</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview">
-          <QualityMetricsOverview metrics={qualityMetrics} />
-        </TabsContent>
-
-        <TabsContent value="spc">
-          <SPCChartView />
-        </TabsContent>
-
         <TabsContent value="nomad-qms">
           <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Quality Management System</CardTitle>
-                {qmsActiveView === "inspections" && templateButton}
-              </div>
-            </CardHeader>
             <CardContent>
               <Tabs value={qmsActiveView} onValueChange={setQmsActiveView} className="space-y-4">
                 <TabsList className="w-full">
@@ -237,11 +170,6 @@ export const QualityControlPanel = () => {
 
                 <TabsContent value="inspections">
                   <Card>
-                    <CardHeader>
-                      <div className="flex justify-between items-center">
-                        <CardTitle>Quality Inspections</CardTitle>
-                      </div>
-                    </CardHeader>
                     <CardContent>
                       <Tabs value={inspectionTypeView} onValueChange={setInspectionTypeView} className="space-y-4">
                         <TabsList className="w-full">
@@ -251,16 +179,28 @@ export const QualityControlPanel = () => {
                           <TabsTrigger value="pdi">PDI</TabsTrigger>
                         </TabsList>
                         <TabsContent value="in-process">
-                          <QualityInspectionList inspections={filteredInspections} type="in-process" />
+                          <QualityInspectionList 
+                            inspections={qualityInspections} 
+                            type="in-process" 
+                          />
                         </TabsContent>
                         <TabsContent value="final-qc">
-                          <QualityInspectionList inspections={filteredInspections} type="final-qc" />
+                          <QualityInspectionList 
+                            inspections={qualityInspections} 
+                            type="final-qc" 
+                          />
                         </TabsContent>
                         <TabsContent value="executive-review">
-                          <QualityInspectionList inspections={filteredInspections} type="executive-review" />
+                          <QualityInspectionList 
+                            inspections={qualityInspections} 
+                            type="executive-review" 
+                          />
                         </TabsContent>
                         <TabsContent value="pdi">
-                          <QualityInspectionList inspections={filteredInspections} type="pdi" />
+                          <QualityInspectionList 
+                            inspections={qualityInspections} 
+                            type="pdi" 
+                          />
                         </TabsContent>
                       </Tabs>
                     </CardContent>
@@ -288,6 +228,14 @@ export const QualityControlPanel = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="overview">
+          <QualityMetricsOverview metrics={qualityMetrics} />
+        </TabsContent>
+
+        <TabsContent value="spc">
+          <SPCChartView />
+        </TabsContent>
+
         <TabsContent value="suppliers">
           <SupplierQualityDashboard />
         </TabsContent>
@@ -309,7 +257,6 @@ export const QualityControlPanel = () => {
                   <TabsTrigger value="completed">Completed</TabsTrigger>
                   <TabsTrigger value="findings">Findings</TabsTrigger>
                   <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                  <TabsTrigger value="templates">Templates</TabsTrigger>
                 </TabsList>
                 <TabsContent value="upcoming">
                   <AuditList
@@ -334,33 +281,6 @@ export const QualityControlPanel = () => {
                 </TabsContent>
                 <TabsContent value="analytics">
                   <AuditAnalytics />
-                </TabsContent>
-                <TabsContent value="templates">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {auditTemplates.map((template) => (
-                        <Card key={template.id}>
-                          <CardHeader>
-                            <CardTitle>{template.name}</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              {template.standard} - Version {template.version}
-                            </p>
-                            <Button
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => {
-                                setShowCreateAuditDialog(true);
-                              }}
-                            >
-                              Use Template
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
                 </TabsContent>
               </Tabs>
             </CardContent>
@@ -404,9 +324,11 @@ export const QualityControlPanel = () => {
           }}
         />
       )}
+
       <TemplateManagement 
         open={showTemplateDialog} 
-        onOpenChange={setShowTemplateDialog} 
+        onOpenChange={setShowTemplateDialog}
+        templateType={selectedTemplateType}
       />
     </div>
   );

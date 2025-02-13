@@ -28,12 +28,12 @@ import { NCRDialog } from "./dialogs/NCRDialog";
 import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 
 interface QualityInspectionListProps {
-  inspections: QualityInspection[];
+  inspections?: QualityInspection[];
   type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
   projects?: Project[];
 }
 
-export default function QualityInspectionList({ inspections, type, projects = [] }: QualityInspectionListProps) {
+export default function QualityInspectionList({ inspections = [], type, projects = [] }: QualityInspectionListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const socket = useWebSocket({ namespace: 'manufacturing' });
@@ -43,6 +43,9 @@ export default function QualityInspectionList({ inspections, type, projects = []
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
+
+  // Filter inspections by type
+  const filteredInspections = inspections.filter(inspection => inspection.type === type);
 
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {
@@ -148,7 +151,7 @@ export default function QualityInspectionList({ inspections, type, projects = []
               </TableRow>
             </TableHeader>
             <TableBody>
-              {inspections.map((inspection) => (
+              {filteredInspections.map((inspection) => (
                 <TableRow
                   key={inspection.id}
                   className="cursor-pointer hover:bg-muted/50"
@@ -170,7 +173,7 @@ export default function QualityInspectionList({ inspections, type, projects = []
                     )}
                   </TableCell>
                   <TableCell className="font-medium capitalize">
-                    {inspection.templateType}
+                    {inspection.type}
                   </TableCell>
                   <TableCell>
                     <Badge className={getStatusColor(inspection.status)}>
@@ -194,12 +197,16 @@ export default function QualityInspectionList({ inspections, type, projects = []
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleInspectionClick(inspection)}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          handleInspectionClick(inspection);
+                        }}>
                           <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
                         {inspection.results.defectsFound.length > 0 && (
-                          <DropdownMenuItem onClick={() => {
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
                             setSelectedInspection(inspection);
                             setShowNCRDialog(true);
                           }}>

@@ -406,7 +406,8 @@ export interface QualityInspection {
   productionLineId: string;
   projectId?: string;
   projectNumber?: string;
-  partNumber?: string; // Add part number field
+  partNumber?: string;
+  type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
   templateType: InspectionTemplateType;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   results: {
@@ -558,7 +559,6 @@ export interface ProjectTask {
 export type InspectionTemplateType = 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
 
 // Update QualityFormTemplate interface
-
 export interface QualityFormField {
   id: string;
   label: string;
@@ -583,7 +583,7 @@ export interface QualityFormSection {
 export interface QualityFormTemplate {
   id: string;
   name: string;
-  type: 'inspection' | 'audit' | 'ncr' | 'capa' | 'scar';
+  type: 'inspection' | 'ncr' | 'capa' | 'scar' | 'mrb';
   description: string;
   inspectionType?: InspectionTemplateType;
   sections: QualityFormSection[];

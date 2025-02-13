@@ -25,13 +25,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { v4 as uuidv4 } from 'uuid';
 
+// Define the template types
+type TemplateType = 'inspection' | 'ncr' | 'capa' | 'scar' | 'mrb';
+type InspectionType = 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
+
 const templateFormSchema = z.object({
   name: z.string().min(1, "Template name is required"),
-  type: z.enum(['in-process', 'final-qc', 'executive-review', 'pdi'] as const),
+  type: z.enum(['inspection', 'ncr', 'capa', 'scar', 'mrb'] as const),
+  inspectionType: z.enum(['in-process', 'final-qc', 'executive-review', 'pdi'] as const).optional(),
   description: z.string().min(1, "Description is required"),
   sections: z.array(z.object({
     id: z.string(),
@@ -40,12 +44,13 @@ const templateFormSchema = z.object({
     fields: z.array(z.object({
       id: z.string(),
       label: z.string().min(1, "Field label is required"),
-      type: z.enum(['text', 'number', 'select', 'multiselect', 'checkbox', 'date', 'file']),
+      type: z.enum(['text', 'number', 'select', 'multiselect', 'checkbox', 'date', 'file', 'textarea']),
       required: z.boolean(),
       options: z.array(z.string()).optional(),
       validation: z.object({
         min: z.number().optional(),
         max: z.number().optional(),
+        pattern: z.string().optional(),
       }).optional(),
     })),
   })).min(1, "At least one section is required"),
@@ -56,10 +61,16 @@ type FormValues = z.infer<typeof templateFormSchema>;
 interface CreateTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  templateType: TemplateType;
   onSuccess?: () => void;
 }
 
-export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTemplateDialogProps) {
+export function CreateTemplateDialog({ 
+  open, 
+  onOpenChange, 
+  templateType,
+  onSuccess 
+}: CreateTemplateDialogProps) {
   const { toast } = useToast();
   const socket = useWebSocket({ namespace: 'manufacturing' });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +78,7 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
   const form = useForm<FormValues>({
     resolver: zodResolver(templateFormSchema),
     defaultValues: {
+      type: templateType,
       sections: [{
         id: uuidv4(),
         title: '',
@@ -173,13 +185,24 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
     }
   };
 
+  const getCategoryDisplayName = (type: TemplateType) => {
+    const names: Record<TemplateType, string> = {
+      inspection: 'Quality Inspection',
+      ncr: 'Non-Conformance Report',
+      capa: 'Corrective Action',
+      scar: 'Supplier Corrective Action',
+      mrb: 'Material Review Board'
+    };
+    return names[type];
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Create Quality Inspection Template</DialogTitle>
+          <DialogTitle>Create {getCategoryDisplayName(templateType)} Template</DialogTitle>
           <DialogDescription>
-            Design a new quality inspection template with custom sections and fields
+            Design a new {templateType} template with custom sections and fields
           </DialogDescription>
         </DialogHeader>
 
@@ -201,29 +224,31 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Template Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="in-process">In-Process Inspection</SelectItem>
-                          <SelectItem value="final-qc">Final Quality Control</SelectItem>
-                          <SelectItem value="executive-review">Executive Review</SelectItem>
-                          <SelectItem value="pdi">Pre-Delivery Inspection</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {templateType === 'inspection' && (
+                  <FormField
+                    control={form.control}
+                    name="inspectionType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Inspection Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="in-process">In-Process Inspection</SelectItem>
+                            <SelectItem value="final-qc">Final Quality Control</SelectItem>
+                            <SelectItem value="executive-review">Executive Review</SelectItem>
+                            <SelectItem value="pdi">Pre-Delivery Inspection</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
 
               <FormField
@@ -363,6 +388,7 @@ export function CreateTemplateDialog({ open, onOpenChange, onSuccess }: CreateTe
                                           <SelectItem value="checkbox">Checkbox</SelectItem>
                                           <SelectItem value="date">Date</SelectItem>
                                           <SelectItem value="file">File Upload</SelectItem>
+                                          <SelectItem value="textarea">Textarea</SelectItem>
                                         </SelectContent>
                                       </Select>
                                       <FormMessage />
