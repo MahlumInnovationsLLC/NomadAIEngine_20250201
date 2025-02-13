@@ -36,10 +36,18 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('OCR Analysis Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('OCR Analysis Error:', {
+      error: errorMessage,
+      fileInfo: req.file ? {
+        name: req.file.originalname,
+        size: req.file.size,
+        type: req.file.mimetype
+      } : 'No file data'
+    });
     res.status(500).json({ 
       error: 'Failed to process document',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: errorMessage
     });
   }
 });

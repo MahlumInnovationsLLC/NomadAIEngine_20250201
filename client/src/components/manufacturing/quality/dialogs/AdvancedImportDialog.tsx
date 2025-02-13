@@ -92,7 +92,8 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
       setProgress(100);
 
       if (!response.ok) {
-        throw new Error('Failed to process document');
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Failed to process document');
       }
 
       const data = await response.json();
