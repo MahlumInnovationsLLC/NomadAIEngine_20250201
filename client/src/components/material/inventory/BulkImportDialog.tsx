@@ -18,6 +18,10 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
   const [preview, setPreview] = useState<any[]>([]);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<string>('');
+  const [importStats, setImportStats] = useState<{
+    processed: number;
+    total: number;
+  } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -51,13 +55,14 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
       queryClient.invalidateQueries({ queryKey: ['/api/material/inventory'] });
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${data.count} items`,
+        description: `Successfully imported ${data.count} items out of ${data.totalProcessed} processed records`,
       });
       onOpenChange(false);
       setFile(null);
       setPreview([]);
       setImporting(false);
       setImportProgress('');
+      setImportStats(null);
     },
     onError: (error: Error) => {
       console.error('Import error:', error);
@@ -68,6 +73,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
       });
       setImporting(false);
       setImportProgress('');
+      setImportStats(null);
     },
   });
 
@@ -91,7 +97,17 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
       return;
     }
 
+    if (file.size > 100 * 1024 * 1024) { // 100MB limit
+      toast({
+        title: "File Too Large",
+        description: "Maximum file size is 100MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setFile(file);
+    setImportProgress('Reading file...');
 
     try {
       const reader = new FileReader();
@@ -112,7 +128,9 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
             throw new Error("No data found in the file");
           }
 
-          const transformedData = jsonData.map((row: any) => {
+          setImportProgress(`Found ${jsonData.length} records`);
+
+          const transformedData = jsonData.slice(0, 5).map((row: any) => {
             const sku = row.PartNo || row.sku;
             const name = row.Description || row.name;
 
@@ -140,6 +158,8 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
           });
 
           setPreview(transformedData);
+          setImportStats({ processed: 0, total: jsonData.length });
+          setImportProgress('');
         } catch (error) {
           toast({
             title: "Error Reading File",
@@ -147,6 +167,8 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
             variant: "destructive",
           });
           setFile(null);
+          setImportProgress('');
+          setImportStats(null);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -157,6 +179,8 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
         variant: "destructive",
       });
       setFile(null);
+      setImportProgress('');
+      setImportStats(null);
     }
   };
 
@@ -221,10 +245,11 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
             />
           </div>
 
-          {preview.length > 0 && (
+          {importStats && (
             <Alert>
               <AlertDescription>
-                Found {preview.length} items to import. Please review the data before proceeding.
+                Found {importStats.total} records to import
+                {importStats.processed > 0 && ` (${importStats.processed} processed)`}
               </AlertDescription>
             </Alert>
           )}
@@ -299,7 +324,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
             ) : (
               <>
                 <FontAwesomeIcon icon="file-import" className="mr-2" />
-                Import {preview.length} Items
+                Import {importStats?.total || 0} Items
               </>
             )}
           </Button>

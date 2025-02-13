@@ -15,7 +15,7 @@ const router = Router();
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024 // Increased to 50MB limit for large files
+    fileSize: 100 * 1024 * 1024 // Increased to 100MB limit for large files
   },
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
@@ -49,7 +49,7 @@ router.post("/bulk-import", upload.single('file'), async (req, res) => {
     if (req.file.mimetype.includes('excel') || req.file.originalname.match(/\.xlsx?$/i)) {
       console.log("Processing Excel file...");
       try {
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
         console.log(`Found ${workbook.SheetNames.length} sheets`);
 
         const sheetName = workbook.SheetNames[0];
@@ -57,7 +57,10 @@ router.post("/bulk-import", upload.single('file'), async (req, res) => {
           return res.status(400).json({ error: "Excel file is empty" });
         }
 
-        records = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        records = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { 
+          raw: false,
+          defval: '' // Set empty string as default for empty cells
+        });
         console.log(`Successfully parsed ${records.length} records from Excel`);
       } catch (error) {
         console.error("Error parsing Excel file:", error);
@@ -101,52 +104,75 @@ router.post("/bulk-import", upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: "No valid records found in the file" });
     }
 
+    // Log the first record for debugging
+    console.log("Sample record:", JSON.stringify(records[0], null, 2));
     console.log(`Beginning transformation of ${records.length} records...`);
+
     try {
-      const transformedItems = records.map((record: any, index: number) => {
-        try {
-          // Get identifier fields
-          const sku = record.PartNo || record.sku;
-          const name = record.Description || record.name;
+      // Process records in chunks to avoid memory issues
+      const chunkSize = 1000;
+      const chunks = [];
+      for (let i = 0; i < records.length; i += chunkSize) {
+        chunks.push(records.slice(i, i + chunkSize));
+      }
 
-          // Require at least one identifier
-          if (!sku && !name) {
-            throw new Error(`Row ${index + 1}: Each row must have either a SKU/PartNo or Name/Description`);
+      let importedItems = [];
+      for (let i = 0; i < chunks.length; i++) {
+        console.log(`Processing chunk ${i + 1} of ${chunks.length}...`);
+        const chunk = chunks[i];
+
+        const transformedChunk = chunk.map((record: any, index: number) => {
+          try {
+            // Get identifier fields
+            const sku = record.PartNo || record.sku;
+            const name = record.Description || record.name;
+
+            // Require at least one identifier
+            if (!sku && !name) {
+              console.warn(`Row ${i * chunkSize + index + 1}: Missing identifier fields`);
+              return null;
+            }
+
+            // Transform with optional fields and defaults
+            return {
+              sku: sku?.toString().trim() || `SKU-${Date.now()}-${i * chunkSize + index}`,
+              name: name?.toString().trim() || `Item ${sku}`,
+              description: (record.Description || record.description)?.toString().trim() || '',
+              category: record.Category?.toString().trim() || 'Uncategorized',
+              currentStock: parseFloat(record.QtyOnHand || record.quantity) || 0,
+              unit: record.Unit?.toString().trim() || 'pcs',
+              minimumStock: parseFloat(record.MinStock || record.minimumStock) || 0,
+              reorderPoint: parseFloat(record.ReorderPoint || record.reorderPoint) || 0,
+              binLocation: record.BinLocation?.toString().trim() || '',
+              warehouse: record.Warehouse?.toString().trim() || '',
+              cost: parseFloat(record.Cost || record.cost) || 0,
+              supplier: (record.VendCode || record.supplier)?.toString().trim() || '',
+              leadTime: parseInt(record.LeadTime || record.leadTime) || 0,
+              batchNumber: record.BatchNumber?.toString().trim() || '',
+              expiryDate: record.ExpiryDate || record.expiryDate || null,
+              notes: record.Notes?.toString().trim() || ''
+            };
+          } catch (error) {
+            console.error(`Error transforming record at index ${i * chunkSize + index}:`, error);
+            return null;
           }
+        }).filter(item => item !== null); // Remove any failed transformations
 
-          // Transform with optional fields and defaults
-          return {
-            sku: sku?.toString().trim() || `SKU-${Date.now()}-${index}`,
-            name: name?.toString().trim() || `Item ${sku}`,
-            description: (record.Description || record.description)?.toString().trim() || '',
-            category: record.Category?.toString().trim() || 'Uncategorized',
-            currentStock: parseFloat(record.QtyOnHand || record.quantity) || 0,
-            unit: record.Unit?.toString().trim() || 'pcs',
-            minimumStock: parseFloat(record.MinStock || record.minimumStock) || 0,
-            reorderPoint: parseFloat(record.ReorderPoint || record.reorderPoint) || 0,
-            binLocation: record.BinLocation?.toString().trim() || '',
-            warehouse: record.Warehouse?.toString().trim() || '',
-            cost: parseFloat(record.Cost || record.cost) || 0,
-            supplier: (record.VendCode || record.supplier)?.toString().trim() || '',
-            leadTime: parseInt(record.LeadTime || record.leadTime) || 0,
-            batchNumber: record.BatchNumber?.toString().trim() || '',
-            expiryDate: record.ExpiryDate || record.expiryDate || null,
-            notes: record.Notes?.toString().trim() || ''
-          };
-        } catch (error) {
-          console.error(`Error transforming record at index ${index}:`, error);
-          throw error;
-        }
-      });
+        console.log(`Transformed ${transformedChunk.length} items in chunk ${i + 1}`);
 
-      console.log(`Successfully transformed ${transformedItems.length} records. Starting import...`);
-      const importedItems = await bulkImportInventory(transformedItems);
-      console.log(`Successfully imported ${importedItems.length} items`);
+        // Import the chunk
+        const chunkResult = await bulkImportInventory(transformedChunk);
+        importedItems = importedItems.concat(chunkResult);
+        console.log(`Imported chunk ${i + 1}: ${chunkResult.length} items`);
+      }
+
+      console.log(`Successfully imported total of ${importedItems.length} items`);
 
       res.status(201).json({
         message: "Successfully imported inventory items",
         count: importedItems.length,
-        items: importedItems
+        totalProcessed: records.length,
+        items: importedItems.slice(0, 5) // Only return first 5 items to keep response size manageable
       });
     } catch (error) {
       console.error("Error processing inventory items:", error);
