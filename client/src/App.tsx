@@ -25,6 +25,8 @@ const Home = lazy(() => import("./pages/Home"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ManufacturingControlPage = lazy(() => import("./pages/ManufacturingControlPage"));
+const ManufacturingQualityTemplatesPage = lazy(() => import("./pages/ManufacturingQualityTemplatesPage"));
+const ManufacturingQualityInspectionPage = lazy(() => import("./pages/ManufacturingQualityInspectionPage"));
 const MarketingControl = lazy(() => import("./pages/MarketingControl"));
 const MaterialHandling = lazy(() => import("./components/material/MaterialDashboard"));
 const SalesControl = lazy(() => import("./pages/SalesControl"));
@@ -112,12 +114,14 @@ function App() {
                   <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                   <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
                   <Route path="/manufacturing-control" component={() => <ProtectedRoute component={ManufacturingControlPage} />} />
+                  <Route path="/manufacturing/quality-templates" component={() => <ProtectedRoute component={ManufacturingQualityTemplatesPage} />} />
                   <Route path="/sales-control" component={() => <ProtectedRoute component={SalesControl} />} />
                   <Route path="/marketing-control" component={() => <ProtectedRoute component={MarketingControl} />} />
                   <Route path="/material-handling" component={() => <ProtectedRoute component={MaterialHandling} />} />
                   <Route path="/facility-control" component={() => <ProtectedRoute component={FacilityControlPage} />} />
                   <Route path="/field-service" component={() => <ProtectedRoute component={FieldServiceDashboard} />} />
                   <Route path="/docmanage" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
+                  <Route path="/manufacturing/quality-inspection/:templateId" component={() => <ProtectedRoute component={ManufacturingQualityInspectionPage} />} />
                   <Route component={NotFound} />
                 </Switch>
               </Suspense>

@@ -22,8 +22,9 @@ import {
   integrationConfigs
 } from "@db/schema";
 import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { v4 as uuidv4 } from 'uuid';
+import { authMiddleware, type AuthenticatedRequest } from "./auth-middleware";
 import {
   getEquipmentType,
   createEquipmentType,
@@ -34,6 +35,7 @@ import {
 } from './services/azure/equipment_service';
 import projectsRouter from "./routes/manufacturing/projects";
 import trainingRouter from "./routes/training"; // Add this import
+import { registerTemplateRoutes } from "./routes/manufacturing/quality/templates";
 // Initialize Cosmos DB client
 const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
 const cosmosDatabase = cosmosClient.database("NomadAIEngineDB");
@@ -2045,6 +2047,10 @@ export function registerRoutes(app: express.Application): Server {
     }
   });
   app.use("/api/training", trainingRouter); // Add this line
+  
+  // Register manufacturing quality template routes
+  registerTemplateRoutes(app);
+  
   const httpServer = createServer(app);
   return httpServer;
 }
@@ -2166,5 +2172,8 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
   });
   // Add manufacturing projects routes
   app.use("/api/manufacturing/projects", projectsRouter);
+  
+  // Quality inspection template routes are already registered
+  
   return wss;
 }

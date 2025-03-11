@@ -8,6 +8,7 @@ import { eq, desc } from "drizzle-orm";
 import { parse as csvParse } from 'csv-parse';
 import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
+import { registerTemplateRoutes } from './quality/templates';
 
 const router = Router();
 
@@ -1346,5 +1347,13 @@ router.post('/scars/import', fileUpload.single('file'), async (req, res) => {
     });
   }
 });
+
+// Register template API routes
+export function registerQualityRoutes(app: express.Application) {
+  app.use('/api/manufacturing/quality', router);
+  
+  // Register inspection template routes
+  registerTemplateRoutes(app);
+}
 
 export default router;

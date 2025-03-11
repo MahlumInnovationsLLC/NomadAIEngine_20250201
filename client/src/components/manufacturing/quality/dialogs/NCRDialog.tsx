@@ -1,307 +1,246 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye, faTrashCan, faSpinner, faPlus, faFile } from '@fortawesome/pro-light-svg-icons';
-import { QualityInspection } from "@/types/manufacturing";
-import { useQueryClient } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-
-interface NonConformanceReport {
-  id?: string;
-  title: string;
-  description: string;
-  type: "product" | "process" | "material" | "documentation";
-  severity: "minor" | "major" | "critical";
-  area: string;
-  productLine?: string;
-  lotNumber?: string;
-  quantityAffected?: number;
-  disposition:
-    | "use_as_is"
-    | "rework"
-    | "repair"
-    | "scrap"
-    | "return_to_supplier"
-    | "pending";
-  containmentActions: {
-    action: string;
-    assignedTo: string;
-    dueDate: string;
-  }[];
-  status: "open" | "closed" | "under_review" | "pending_disposition";
-  inspectionId?: string;
-  number: string;
-  createdAt: string;
-  updatedAt: string;
-  reportedBy: string;
-  attachments?: {
-    id: string;
-    fileName: string;
-    fileSize: number;
-    blobUrl: string;
-  }[];
-  projectNumber?: string;
-}
-
-const ncrFormSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
-  type: z.enum(["product", "process", "material", "documentation"]),
-  severity: z.enum(["minor", "major", "critical"]),
-  area: z.string().min(1, "Area is required"),
-  productLine: z.string().optional(),
-  lotNumber: z.string().optional(),
-  quantityAffected: z.number().optional(),
-  disposition: z.enum([
-    "use_as_is",
-    "rework",
-    "repair",
-    "scrap",
-    "return_to_supplier",
-    "pending",
-  ]),
-  status: z.enum(["open", "closed", "under_review", "pending_disposition"]),
-  containmentActions: z.array(
-    z.object({
-      action: z.string(),
-      assignedTo: z.string(),
-      dueDate: z.string(),
-    })
-  ),
-  projectNumber: z.string().optional(),
-});
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { NonConformanceReport, NCRSchema } from "@/types/manufacturing/ncr";
+import * as z from "zod";
 
 interface NCRDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  inspection?: QualityInspection;
   defaultValues?: Partial<NonConformanceReport>;
   onSuccess?: () => void;
+  isEditing?: boolean;
 }
 
-export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuccess }: NCRDialogProps) {
-  const queryClient = useQueryClient();
+export function NCRDialog({
+  open,
+  onOpenChange,
+  defaultValues,
+  onSuccess,
+  isEditing = false,
+}: NCRDialogProps) {
   const { toast } = useToast();
-  const isEditing = !!defaultValues?.id;
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("general");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<z.infer<typeof ncrFormSchema>>({
-    resolver: zodResolver(ncrFormSchema),
-    defaultValues: {
-      title: inspection ? `NCR: ${inspection.templateType} - ${inspection.productionLineId}` : defaultValues?.title || "",
-      description: inspection?.results.defectsFound.map(d => 
-        `${d.severity.toUpperCase()}: ${d.description}`
-      ).join('\n') || defaultValues?.description || "",
-      type: defaultValues?.type || "product",
-      severity: defaultValues?.severity || 
-               (inspection?.results.defectsFound.some(d => d.severity === 'critical') ? 'critical' :
-               inspection?.results.defectsFound.some(d => d.severity === 'major') ? 'major' : 'minor'),
-      area: defaultValues?.area || inspection?.productionLineId || "",
-      productLine: defaultValues?.productLine || inspection?.productionLineId || "",
-      disposition: defaultValues?.disposition || "pending",
-      status: defaultValues?.status || "open",
-      containmentActions: defaultValues?.containmentActions || [
-        {
-          action: "",
-          assignedTo: "",
-          dueDate: new Date().toISOString().split("T")[0],
-        },
-      ],
-      projectNumber: defaultValues?.projectNumber || inspection?.projectNumber || "",
+  const form = useForm<NonConformanceReport>({
+    resolver: zodResolver(NCRSchema),
+    defaultValues: defaultValues || {
+      title: "",
+      description: "",
+      type: "product",
+      severity: "minor",
+      status: "draft",
+      area: "",
+      reportedBy: "",
+      disposition: {
+        decision: "use_as_is",
+        justification: "",
+        conditions: "",
+        approvedBy: [],
+      },
+      attachments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
   });
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files?.length) return;
-
-    const file = event.target.files[0];
-    const formData = new FormData();
-    formData.append('file', file);
-    // Add userKey for Cosmos DB partitioning
-    formData.append('userKey', 'default');
-    formData.append('uploadedBy', 'system');
-
-    try {
-      setUploadingFile(true);
-      const response = await fetch(`/api/manufacturing/quality/ncrs/${defaultValues?.id}/attachments`, {
-        method: 'POST',
-        body: formData,
-        // Important: Don't set Content-Type header, let the browser set it with the boundary
+  const createNCRMutation = useMutation({
+    mutationFn: async (data: NonConformanceReport) => {
+      const response = await fetch("/api/manufacturing/quality/ncrs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to upload file');
+        throw new Error(errorData.message || "Failed to create NCR");
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/ncrs"] });
       toast({
         title: "Success",
-        description: "File uploaded successfully",
+        description: `NCR ${isEditing ? "updated" : "created"} successfully`,
       });
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload file",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingFile(false);
-    }
-  };
-
-  const onSubmit = async (values: z.infer<typeof ncrFormSchema>) => {
-    try {
-      const ncrData = {
-        ...values,
-        inspectionId: inspection?.id,
-        id: defaultValues?.id, // Preserve ID when editing
-        updatedAt: new Date().toISOString(),
-        ...(isEditing ? {} : {
-          number: `NCR-${Date.now().toString().slice(-6)}`,
-          createdAt: new Date().toISOString(),
-          reportedBy: "Current User",
-        })
-      };
-
-      console.log('Submitting NCR data:', ncrData);
-
-      const response = await fetch(`/api/manufacturing/quality/ncrs${isEditing ? `/${defaultValues.id}` : ''}`, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ncrData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to ${isEditing ? 'update' : 'create'} NCR`);
-      }
-
-      const updatedData = await response.json();
-      console.log('Server response:', updatedData);
-
-
-      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-
-      toast({
-        title: "Success",
-        description: `NCR ${isEditing ? 'updated' : 'created'} successfully`,
-      });
-
       onOpenChange(false);
-    } catch (error) {
-      console.error(`Error ${isEditing ? 'updating' : 'creating'} NCR:`, error);
+      if (onSuccess) onSuccess();
+    },
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : `Failed to ${isEditing ? 'update' : 'create'} NCR`,
+        description: error.message,
         variant: "destructive",
       });
-    }
-  };
+    },
+  });
 
-  const addContainmentAction = () => {
-    const currentActions = form.getValues("containmentActions");
-    form.setValue("containmentActions", [
-      ...currentActions,
-      {
-        action: "",
-        assignedTo: "",
-        dueDate: new Date().toISOString().split("T")[0],
-      },
-    ]);
-  };
+  const updateNCRMutation = useMutation({
+    mutationFn: async (data: { id: string; updates: Partial<NonConformanceReport> }) => {
+      const response = await fetch(`/api/manufacturing/quality/ncrs/${data.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data.updates),
+      });
 
-  const removeContainmentAction = (index: number) => {
-    const currentActions = form.getValues("containmentActions");
-    form.setValue(
-      "containmentActions",
-      currentActions.filter((_, i) => i !== index)
-    );
-  };
-
-  const handleDeleteAttachment = async (attachmentId: string) => {
-    try {
-      console.log('Attempting to delete attachment:', attachmentId);
-      const response = await fetch(
-        `/api/manufacturing/quality/ncrs/${defaultValues?.id}/attachments/${attachmentId}`,
-        { 
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-  
-      const data = await response.json();
-  
       if (!response.ok) {
-        throw new Error(data.message || data.details || 'Failed to delete attachment');
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update NCR");
       }
-  
-      await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/ncrs'] });
-  
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/ncrs"] });
       toast({
         title: "Success",
-        description: "Attachment deleted successfully",
+        description: "NCR updated successfully",
       });
-  
-      // Force a refresh of the form data
+      onOpenChange(false);
       if (onSuccess) onSuccess();
-    } catch (error) {
-      console.error('Error deleting attachment:', error);
+    },
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete attachment",
+        description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const onSubmit = async (data: NonConformanceReport) => {
+    try {
+      setIsSubmitting(true);
+      if (isEditing && defaultValues?.id) {
+        await updateNCRMutation.mutateAsync({
+          id: defaultValues.id,
+          updates: {
+            ...data,
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      } else {
+        await createNCRMutation.mutateAsync({
+          ...data,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error("Error submitting NCR:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden p-0">
-        <DialogHeader className="p-6 pb-4">
-          <DialogTitle>{isEditing ? 'Edit' : 'Create'} Non-Conformance Report</DialogTitle>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? "Edit" : "Create"} Non-Conformance Report</DialogTitle>
           <DialogDescription>
-            {isEditing ? 'Modify the NCR details' : 'Create a new NCR based on the inspection findings'}
+            {isEditing
+              ? "Update the details of this non-conformance report"
+              : "Enter details about the non-conformance that was found"}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-[calc(85vh-130px)]">
-            <div className="flex-1 overflow-y-auto">
-              <div className="px-6 space-y-6 pb-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid grid-cols-3 mb-4">
+                <TabsTrigger value="general">General Information</TabsTrigger>
+                <TabsTrigger value="details">Details & Classification</TabsTrigger>
+                <TabsTrigger value="disposition">Disposition</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="general" className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Brief description of the non-conformance" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Provide a clear and concise title for this non-conformance
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Detailed description of the non-conformance"
+                          rows={5}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Describe the non-conformance in detail, including when and how it was discovered
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="title"
+                    name="reportedBy"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Title</FormLabel>
+                        <FormLabel>Reported By</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter NCR title" {...field} />
+                          <Input placeholder="Name of person reporting" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -310,17 +249,59 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
 
                   <FormField
                     control={form.control}
+                    name="area"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Area/Department</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Area where non-conformance occurred" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="projectNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Associated project number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="lotNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lot Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Lot number if applicable" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="details" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
                     name="type"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Type</FormLabel>
-                        <Select 
-                          onValueChange={(value) => {
-                            console.log('Type changed to:', value);
-                            field.onChange(value);
-                          }} 
-                          value={field.value}
-                        >
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select type" />
@@ -333,27 +314,14 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                             <SelectItem value="documentation">Documentation</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormDescription>
+                          Categorize the type of non-conformance
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Describe the non-conformance" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="severity"
@@ -372,17 +340,41 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                             <SelectItem value="critical">Critical</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormDescription>
+                          Rate the severity of the non-conformance
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                </div>
 
+                <FormField
+                  control={form.control}
+                  name="quantityAffected"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantity Affected</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Number of items affected"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {!isEditing && (
                   <FormField
                     control={form.control}
                     name="status"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Status</FormLabel>
+                        <FormLabel>Initial Status</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -390,252 +382,163 @@ export function NCRDialog({ open, onOpenChange, inspection, defaultValues, onSuc
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value="draft">Draft</SelectItem>
                             <SelectItem value="open">Open</SelectItem>
-                            <SelectItem value="under_review">Under Review</SelectItem>
-                            <SelectItem value="pending_disposition">Pending Disposition</SelectItem>
-                            <SelectItem value="closed">Closed</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormDescription>
+                          Set the initial status of this NCR
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="disposition"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Disposition</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select disposition" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="use_as_is">Use As Is</SelectItem>
-                            <SelectItem value="rework">Rework</SelectItem>
-                            <SelectItem value="repair">Repair</SelectItem>
-                            <SelectItem value="scrap">Scrap</SelectItem>
-                            <SelectItem value="return_to_supplier">Return to Supplier</SelectItem>
-                            <SelectItem value="pending">Pending Decision</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="area"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Area</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter affected area" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="productLine"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product Line</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter product line" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                    <FormField
-                      control={form.control}
-                      name="projectNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter project number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                  <FormField
-                    control={form.control}
-                    name="lotNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Lot Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter lot number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="quantityAffected"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Quantity Affected</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="Enter quantity"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-medium">Containment Actions</h4>
-                    <Button type="button" variant="outline" onClick={addContainmentAction}>
-                      <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
-                      Add Action
-                    </Button>
-                  </div>
-
-                  {form.watch("containmentActions").map((_, index) => (
-                    <div key={index} className="grid grid-cols-3 gap-2">
-                      <FormField
-                        control={form.control}
-                        name={`containmentActions.${index}.action`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input placeholder="Action description" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name={`containmentActions.${index}.assignedTo`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input placeholder="Assigned to" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="flex gap-2">
-                        <FormField
-                          control={form.control}
-                          name={`containmentActions.${index}.dueDate`}
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeContainmentAction(index)}
-                        >
-                          <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {isEditing && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Attachments</h4>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="file"
-                          onChange={handleFileUpload}
-                          disabled={uploadingFile}
-                          className="w-[200px]"
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        />
-                        {uploadingFile && (
-                          <div className="animate-spin">
-                            <FontAwesomeIcon icon={faSpinner} className="h-4 w-4" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {defaultValues?.attachments && defaultValues.attachments.length > 0 && (
-                      <div className="space-y-2">
-                        {defaultValues.attachments.map((attachment) => (
-                          <div
-                            key={attachment.id}
-                            className="flex items-center justify-between p-2 border rounded"
-                          >
-                            <div className="flex items-center gap-2">
-                              <FontAwesomeIcon icon={faFile} className="h-4 w-4" />
-                              <span>{attachment.fileName}</span>
-                              <span className="text-sm text-muted-foreground">
-                                ({Math.round(attachment.fileSize / 1024)} KB)
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(attachment.blobUrl, '_blank')}
-                              >
-                                <FontAwesomeIcon icon={faEye} className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteAttachment(attachment.id)}
-                              >
-                                <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 )}
-              </div>
-            </div>
+              </TabsContent>
 
-            <div className="flex-none p-6 bg-background border-t mt-auto">
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">{isEditing ? 'Update' : 'Create'} NCR</Button>
+              <TabsContent value="disposition" className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="disposition.decision"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Disposition Decision</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select disposition" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="use_as_is">Use As Is</SelectItem>
+                          <SelectItem value="rework">Rework</SelectItem>
+                          <SelectItem value="scrap">Scrap</SelectItem>
+                          <SelectItem value="return_to_supplier">Return to Supplier</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Specify how this non-conformance should be handled
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="disposition.justification"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Justification</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Justification for the selected disposition"
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Provide reasoning for the selected disposition decision
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="disposition.conditions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Conditions</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Any conditions that apply to this disposition"
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Specify any conditions that must be met for this disposition
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="dispositionNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Additional Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Additional notes about this disposition"
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter>
+              <div className="flex gap-2 justify-between w-full">
+                <div>
+                  {activeTab !== "general" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (activeTab === "details") setActiveTab("general");
+                        if (activeTab === "disposition") setActiveTab("details");
+                      }}
+                    >
+                      <FontAwesomeIcon icon="arrow-left" className="mr-2 h-4 w-4" />
+                      Previous
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Cancel
+                  </Button>
+                  {activeTab !== "disposition" ? (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        if (activeTab === "general") setActiveTab("details");
+                        if (activeTab === "details") setActiveTab("disposition");
+                      }}
+                    >
+                      Next
+                      <FontAwesomeIcon icon="arrow-right" className="ml-2 h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-background mr-2"></div>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          {isEditing ? "Update" : "Create"} NCR
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>
