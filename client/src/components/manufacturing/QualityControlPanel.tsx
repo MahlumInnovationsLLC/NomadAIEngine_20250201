@@ -14,6 +14,7 @@ import SupplierQualityDashboard from "./quality/SupplierQualityDashboard";
 import DefectAnalytics from "./quality/DefectAnalytics";
 import { CreateInspectionDialog } from "./quality/dialogs/CreateInspectionDialog";
 import TemplateManagement from "./quality/TemplateManagement";
+import QualityTemplatesDialog from "./quality/dialogs/QualityTemplatesDialog";
 import type { QualityInspection, QualityMetrics, QualityAudit } from "@/types/manufacturing";
 import NCRList from "./quality/NCRList";
 import CAPAList from "./quality/CAPAList";
@@ -346,10 +347,9 @@ export const QualityControlPanel = () => {
         />
       )}
 
-      <TemplateManagement 
+      <QualityTemplatesDialog 
         open={showTemplateDialog} 
         onOpenChange={setShowTemplateDialog}
-        templateType={selectedTemplateType}
       />
     </div>
   );

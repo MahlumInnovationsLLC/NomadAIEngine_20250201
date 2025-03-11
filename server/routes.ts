@@ -35,7 +35,8 @@ import {
 } from './services/azure/equipment_service';
 import projectsRouter from "./routes/manufacturing/projects";
 import trainingRouter from "./routes/training"; // Add this import
-import { registerTemplateRoutes } from "./routes/manufacturing/quality/templates";
+import qualityRouter, { registerQualityRoutes } from "./routes/manufacturing/quality"; // Import quality router and registration function
+// Import removed to avoid duplicate route registration
 // Initialize Cosmos DB client
 const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
 const cosmosDatabase = cosmosClient.database("NomadAIEngineDB");
@@ -2048,8 +2049,11 @@ export function registerRoutes(app: express.Application): Server {
   });
   app.use("/api/training", trainingRouter); // Add this line
   
-  // Register manufacturing quality template routes
-  registerTemplateRoutes(app);
+  // Add manufacturing quality routes
+  app.use("/api/manufacturing/quality", qualityRouter);
+  
+  // Register quality templates routes
+  registerQualityRoutes(app);
   
   const httpServer = createServer(app);
   return httpServer;

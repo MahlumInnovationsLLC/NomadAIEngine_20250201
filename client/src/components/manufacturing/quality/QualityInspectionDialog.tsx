@@ -10,11 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Check, ClipboardList, FileText, PlusCircle } from "lucide-react";
+import { Check, ClipboardList, FileText, PlusCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InspectionTemplate } from "@/types/manufacturing/templates";
-import TemplateManager from './templates/TemplateManager';
+import { TemplateManager } from './templates/TemplateManager';
 
 interface QualityInspectionDialogProps {
   open: boolean;
@@ -32,6 +32,7 @@ export default function QualityInspectionDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("available-templates");
   const [selectedTemplate, setSelectedTemplate] = useState<InspectionTemplate | null>(null);
+  const queryClient = useQueryClient();
 
   // Fetch templates for selection
   const { data: templates = [], isLoading } = useQuery({
@@ -43,7 +44,54 @@ export default function QualityInspectionDialog({
       }
       return response.json();
     },
-    enabled: open && activeTab === 'available-templates'
+    enabled: open
+  });
+
+  // Save template mutation
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (template: InspectionTemplate) => {
+      const method = template.id ? 'PUT' : 'POST';
+      const url = template.id 
+        ? `/api/manufacturing/quality/templates/${template.id}` 
+        : '/api/manufacturing/quality/templates';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(template),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save template');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate templates query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/templates'] });
+    },
+  });
+
+  // Delete template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const response = await fetch(`/api/manufacturing/quality/templates/${templateId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete template');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate templates query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/templates'] });
+    },
   });
 
   // Handler for starting a new inspection
@@ -59,6 +107,27 @@ export default function QualityInspectionDialog({
     
     // Close dialog after starting inspection
     onOpenChange(false);
+  };
+
+  // Handler for saving a template
+  const handleSaveTemplate = async (template: InspectionTemplate) => {
+    try {
+      await saveTemplateMutation.mutateAsync(template);
+      return template;
+    } catch (error) {
+      console.error('Error saving template:', error);
+      throw error;
+    }
+  };
+
+  // Handler for deleting a template
+  const handleDeleteTemplate = async (templateId: string) => {
+    try {
+      await deleteTemplateMutation.mutateAsync(templateId);
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      throw error;
+    }
   };
 
   // Function to filter active templates
@@ -173,7 +242,13 @@ export default function QualityInspectionDialog({
           {/* Manage Templates Tab */}
           <TabsContent value="manage-templates">
             <ScrollArea className="h-[60vh]">
-              <TemplateManager onStartInspection={handleStartInspection} />
+              <TemplateManager 
+                initialTemplates={templates} 
+                onSaveTemplate={handleSaveTemplate}
+                onDeleteTemplate={handleDeleteTemplate}
+                onStartInspection={handleStartInspection}
+                loading={isLoading || saveTemplateMutation.isPending || deleteTemplateMutation.isPending}
+              />
             </ScrollArea>
           </TabsContent>
         </Tabs>

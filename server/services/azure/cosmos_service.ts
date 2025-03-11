@@ -24,6 +24,8 @@ export async function initializeCosmosDB() {
       id: "NomadAIEngineDB"
     });
     database = db;
+    
+    console.log("Database verified/created: NomadAIEngineDB");
 
     // Create containers if they don't exist
     const containerConfigs = [
@@ -33,16 +35,24 @@ export async function initializeCosmosDB() {
       { id: "production-lines", partitionKey: "/id" },
       { id: "manufacturing-systems", partitionKey: "/id" },
       { id: "maintenance-records", partitionKey: "/id" },
-      { id: "quality-inspections", partitionKey: "/id" }
+      { id: "quality-inspections", partitionKey: "/id" },
+      { id: "inspection-templates", partitionKey: "/id" }
     ];
 
     await Promise.all(
       containerConfigs.map(async (config) => {
-        const { container } = await database!.containers.createIfNotExists({
-          id: config.id,
-          partitionKey: { paths: [config.partitionKey] }
-        });
-        containers[config.id] = container;
+        try {
+          console.log(`Creating/verifying container: ${config.id}`);
+          const { container } = await database!.containers.createIfNotExists({
+            id: config.id,
+            partitionKey: { paths: [config.partitionKey] }
+          });
+          containers[config.id] = container;
+          console.log(`Container ${config.id} successfully initialized`);
+        } catch (error) {
+          console.error(`Error initializing container ${config.id}:`, error);
+          throw error;
+        }
       })
     );
 
@@ -55,7 +65,11 @@ export async function initializeCosmosDB() {
 
 // Get container helper function
 export function getContainer(containerId: string): Container | null {
-  return containers[containerId] || null;
+  if (!containers[containerId]) {
+    console.warn(`Container "${containerId}" not found in initialized containers`);
+    return null;
+  }
+  return containers[containerId];
 }
 
 // Export container access object
@@ -67,6 +81,15 @@ export const cosmosContainer = {
     return getContainer('production-lines')?.item(id, partitionKey);
   }
 };
+
+// Helper to access inspection templates container
+export function getInspectionTemplatesContainer(): Container | null {
+  const container = getContainer('inspection-templates');
+  if (!container) {
+    console.error('Inspection templates container not initialized');
+  }
+  return container;
+}
 
 // Initialize on module load
 initializeCosmosDB().catch(console.error);
