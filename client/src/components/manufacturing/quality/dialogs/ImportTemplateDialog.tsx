@@ -128,6 +128,54 @@ export function ImportTemplateDialog({ onImportSuccess }: ImportTemplateDialogPr
     }
   };
 
+  const handleDownloadBlankTemplate = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch the blank template from the server
+      const response = await fetch('/api/manufacturing/quality/templates/blank', {
+        method: 'GET',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download blank template');
+      }
+      
+      // Get the blob from the response
+      const blob = await response.blob();
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a link element
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'qms-inspection-template.xlsx';
+      
+      // Append the link to the document, click it, and remove it
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Revoke the URL to free up memory
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Blank template downloaded',
+        description: 'You can now fill it out and import it back into the system.',
+      });
+    } catch (error) {
+      console.error('Error downloading blank template:', error);
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Failed to download blank template',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   const resetImport = () => {
     setFile(null);
     setImportStatus('idle');
@@ -309,6 +357,20 @@ export function ImportTemplateDialog({ onImportSuccess }: ImportTemplateDialogPr
               <p className="mt-1">
                 For best results, ensure your Excel file is formatted properly with clear headers and consistent data types.
               </p>
+              <div className="mt-3 flex items-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadBlankTemplate}
+                  className="text-xs flex items-center gap-1.5"
+                >
+                  <FileIcon className="h-3.5 w-3.5" />
+                  Download Blank Template
+                </Button>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  Not sure where to start? Download our blank template.
+                </span>
+              </div>
             </div>
           </div>
         </div>

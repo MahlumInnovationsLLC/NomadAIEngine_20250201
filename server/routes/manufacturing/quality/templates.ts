@@ -399,6 +399,181 @@ export function registerTemplateRoutes(app: express.Application) {
       res.status(500).json({ message: 'Failed to fetch templates', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
+  
+  // Download blank template for users to fill out and import
+  // This route must come before the /:id route to avoid being treated as a parameter
+  app.get('/api/manufacturing/quality/templates/blank', async (req: Request, res: Response) => {
+    try {
+      console.log('Generating blank template...');
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Create template structure for different inspection types
+      const inspectionTypes = [
+        {
+          name: "Sample FAB Inspection",
+          headers: [
+            "Project Number:",
+            "Project Name:",
+            "",
+            "FAB Inspection Items",
+            "FAIL\n(Initial/Date)",
+            "Rework\n(Initial/Date)",
+            "Comments\n(required if FAIL)",
+            "PASS\n(Initial/Date)",
+            "Final Comments\n(as needed)"
+          ],
+          sampleItems: [
+            "Subframe welds acceptable",
+            "Floor welds acceptable",
+            "Wall attachment points secure",
+            "Ceiling structure complete",
+            "Door frames installed correctly"
+          ]
+        },
+        {
+          name: "Sample Paint Inspection",
+          headers: [
+            "Project Number:",
+            "Project Name:",
+            "", 
+            "Paint Inspection Items",
+            "FAIL\n(Initial/Date)",
+            "Fixed\n(Initial/Date)",
+            "PASS\n(Initial/Date)",
+            "THICKNESS (mils)",
+            "Comments"
+          ],
+          sampleItems: [
+            "Surface preparation complete",
+            "Primer application uniform",
+            "Paint color matches specification",
+            "No visible runs or sags",
+            "Edge coverage complete"
+          ]
+        },
+        {
+          name: "Sample Final Inspection",
+          headers: [
+            "Project Number:",
+            "Project Name:",
+            "",
+            "Final Quality Check",
+            "FAIL\n(Initial/Date)",
+            "Fixed\n(Initial/Date)",
+            "Comments\n(required if FAIL)",
+            "PASS\n(Initial/Date)",
+            "Final Comments\n(as needed)"
+          ],
+          sampleItems: [
+            "All systems operational",
+            "Exterior finish meets standards",
+            "Interior components secured",
+            "Documentation complete",
+            "Client specifications met"
+          ]
+        }
+      ];
+      
+      // Create worksheets for each inspection type
+      inspectionTypes.forEach(template => {
+        // Create worksheet data starting with instructions
+        const wsData = [
+          ["NOMAD QUALITY MANAGEMENT SYSTEM - TEMPLATE EXAMPLE"],
+          ["Instructions: Fill out this template with your inspection items then import it into the QMS system"],
+          ["1. Keep the header structure intact (first 3-4 rows)"],
+          ["2. Replace sample inspection items with your own"],
+          ["3. You can create multiple sections by leaving a blank row and adding a section title"],
+          ["4. Save as Excel (.xlsx) file and import using the QMS Import function"],
+          [""],
+          [template.headers[0], "[Your Project #]"],
+          [template.headers[1], "[Your Project Name]"],
+          [""],
+          template.headers,
+          [""]
+        ];
+        
+        // Add sample inspection items
+        template.sampleItems.forEach(item => {
+          const row = [item, "", "", "", "", ""];
+          // Ensure row matches header length
+          while (row.length < template.headers.length) {
+            row.push("");
+          }
+          wsData.push(row);
+        });
+        
+        // Add a sample section break
+        wsData.push([""]);
+        wsData.push(["SAMPLE SECTION HEADER"]);
+        wsData.push([""]);
+        
+        // Add a few more sample items
+        for (let i = 1; i <= 3; i++) {
+          const row = [`Example item ${i} - replace with your content`, "", "", "", "", ""];
+          while (row.length < template.headers.length) {
+            row.push("");
+          }
+          wsData.push(row);
+        }
+        
+        // Create worksheet and add to workbook
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        
+        // Set column widths
+        const colWidths = template.headers.map(h => ({ width: Math.max(15, h.length * 1.5) }));
+        ws['!cols'] = colWidths;
+        
+        XLSX.utils.book_append_sheet(wb, ws, template.name);
+      });
+      
+      // Create a worksheet with instructions
+      const instructionsData = [
+        ["NOMAD QUALITY MANAGEMENT SYSTEM - TEMPLATE INSTRUCTIONS"],
+        [""],
+        ["This Excel file contains sample inspection templates that you can modify and import into the QMS system."],
+        [""],
+        ["How to use this template:"],
+        ["1. Navigate to the different sheets to see examples for different inspection types (FAB, Paint, Final)"],
+        ["2. Customize the sheets with your own inspection items and requirements"],
+        ["3. Keep the header structure intact (Project Number, Project Name, column headers)"],
+        ["4. Organization:"],
+        ["   - Group related inspection items into sections"],
+        ["   - Create a new section by adding a row with just the section name"],
+        ["   - Each inspection item should be in its own row"],
+        ["5. Save the file when complete"],
+        ["6. Import the file using the QMS Template Import function"],
+        [""],
+        ["Template Structure:"],
+        ["- First rows: Project information (number, name)"],
+        ["- Headers row: Defines the columns (Pass/Fail, Comments, etc.)"],
+        ["- Inspection items: Each row represents one item to inspect"],
+        ["- Sections: Group related items together"],
+        [""],
+        ["For further assistance, contact the QMS Administrator."],
+      ];
+      
+      const instructionsWs = XLSX.utils.aoa_to_sheet(instructionsData);
+      XLSX.utils.book_append_sheet(wb, instructionsWs, "Instructions");
+      
+      // Generate Excel file
+      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      
+      // Set response headers for file download
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="qms-inspection-template.xlsx"');
+      res.setHeader('Content-Length', excelBuffer.length);
+      
+      // Send the file
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('Error generating blank template:', error);
+      res.status(500).json({ 
+        message: 'Failed to generate blank template', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
 
   // Get a specific template by ID
   app.get('/api/manufacturing/quality/templates/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
@@ -673,6 +848,180 @@ export function registerTemplateRoutes(app: express.Application) {
     }
   );
   
+  // Download blank template for users to fill out and import
+  app.get('/api/manufacturing/quality/templates/blank', async (req: Request, res: Response) => {
+    try {
+      console.log('Generating blank template...');
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Create template structure for different inspection types
+      const inspectionTypes = [
+        {
+          name: "Sample FAB Inspection",
+          headers: [
+            "Project Number:",
+            "Project Name:",
+            "",
+            "FAB Inspection Items",
+            "FAIL\n(Initial/Date)",
+            "Rework\n(Initial/Date)",
+            "Comments\n(required if FAIL)",
+            "PASS\n(Initial/Date)",
+            "Final Comments\n(as needed)"
+          ],
+          sampleItems: [
+            "Subframe welds acceptable",
+            "Floor welds acceptable",
+            "Wall attachment points secure",
+            "Ceiling structure complete",
+            "Door frames installed correctly"
+          ]
+        },
+        {
+          name: "Sample Paint Inspection",
+          headers: [
+            "Project Number:",
+            "Project Name:",
+            "", 
+            "Paint Inspection Items",
+            "FAIL\n(Initial/Date)",
+            "Fixed\n(Initial/Date)",
+            "PASS\n(Initial/Date)",
+            "THICKNESS (mils)",
+            "Comments"
+          ],
+          sampleItems: [
+            "Surface preparation complete",
+            "Primer application uniform",
+            "Paint color matches specification",
+            "No visible runs or sags",
+            "Edge coverage complete"
+          ]
+        },
+        {
+          name: "Sample Final Inspection",
+          headers: [
+            "Project Number:",
+            "Project Name:",
+            "",
+            "Final Quality Check",
+            "FAIL\n(Initial/Date)",
+            "Fixed\n(Initial/Date)",
+            "Comments\n(required if FAIL)",
+            "PASS\n(Initial/Date)",
+            "Final Comments\n(as needed)"
+          ],
+          sampleItems: [
+            "All systems operational",
+            "Exterior finish meets standards",
+            "Interior components secured",
+            "Documentation complete",
+            "Client specifications met"
+          ]
+        }
+      ];
+      
+      // Create worksheets for each inspection type
+      inspectionTypes.forEach(template => {
+        // Create worksheet data starting with instructions
+        const wsData = [
+          ["NOMAD QUALITY MANAGEMENT SYSTEM - TEMPLATE EXAMPLE"],
+          ["Instructions: Fill out this template with your inspection items then import it into the QMS system"],
+          ["1. Keep the header structure intact (first 3-4 rows)"],
+          ["2. Replace sample inspection items with your own"],
+          ["3. You can create multiple sections by leaving a blank row and adding a section title"],
+          ["4. Save as Excel (.xlsx) file and import using the QMS Import function"],
+          [""],
+          [template.headers[0], "[Your Project #]"],
+          [template.headers[1], "[Your Project Name]"],
+          [""],
+          template.headers,
+          [""]
+        ];
+        
+        // Add sample inspection items
+        template.sampleItems.forEach(item => {
+          const row = [item, "", "", "", "", ""];
+          // Ensure row matches header length
+          while (row.length < template.headers.length) {
+            row.push("");
+          }
+          wsData.push(row);
+        });
+        
+        // Add a sample section break
+        wsData.push([""]);
+        wsData.push(["SAMPLE SECTION HEADER"]);
+        wsData.push([""]);
+        
+        // Add a few more sample items
+        for (let i = 1; i <= 3; i++) {
+          const row = [`Example item ${i} - replace with your content`, "", "", "", "", ""];
+          while (row.length < template.headers.length) {
+            row.push("");
+          }
+          wsData.push(row);
+        }
+        
+        // Create worksheet and add to workbook
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        
+        // Set column widths
+        const colWidths = template.headers.map(h => ({ width: Math.max(15, h.length * 1.5) }));
+        ws['!cols'] = colWidths;
+        
+        XLSX.utils.book_append_sheet(wb, ws, template.name);
+      });
+      
+      // Create a worksheet with instructions
+      const instructionsData = [
+        ["NOMAD QUALITY MANAGEMENT SYSTEM - TEMPLATE INSTRUCTIONS"],
+        [""],
+        ["This Excel file contains sample inspection templates that you can modify and import into the QMS system."],
+        [""],
+        ["How to use this template:"],
+        ["1. Navigate to the different sheets to see examples for different inspection types (FAB, Paint, Final)"],
+        ["2. Customize the sheets with your own inspection items and requirements"],
+        ["3. Keep the header structure intact (Project Number, Project Name, column headers)"],
+        ["4. Organization:"],
+        ["   - Group related inspection items into sections"],
+        ["   - Create a new section by adding a row with just the section name"],
+        ["   - Each inspection item should be in its own row"],
+        ["5. Save the file when complete"],
+        ["6. Import the file using the QMS Template Import function"],
+        [""],
+        ["Template Structure:"],
+        ["- First rows: Project information (number, name)"],
+        ["- Headers row: Defines the columns (Pass/Fail, Comments, etc.)"],
+        ["- Inspection items: Each row represents one item to inspect"],
+        ["- Sections: Group related items together"],
+        [""],
+        ["For further assistance, contact the QMS Administrator."],
+      ];
+      
+      const instructionsWs = XLSX.utils.aoa_to_sheet(instructionsData);
+      XLSX.utils.book_append_sheet(wb, instructionsWs, "Instructions");
+      
+      // Generate Excel file
+      const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      
+      // Set response headers for file download
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="qms-inspection-template.xlsx"');
+      res.setHeader('Content-Length', excelBuffer.length);
+      
+      // Send the file
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('Error generating blank template:', error);
+      res.status(500).json({ 
+        message: 'Failed to generate blank template', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
   // Download template as Excel
   app.get('/api/manufacturing/quality/templates/:id/download', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

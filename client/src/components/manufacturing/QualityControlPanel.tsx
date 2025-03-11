@@ -184,6 +184,7 @@ export const QualityControlPanel = () => {
                   <TabsTrigger value="capa">CAPA</TabsTrigger>
                   <TabsTrigger value="scar">SCAR</TabsTrigger>
                   <TabsTrigger value="mrb">MRB</TabsTrigger>
+                  <TabsTrigger value="gages">Gages</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="inspections">
@@ -244,6 +245,9 @@ export const QualityControlPanel = () => {
                 </TabsContent>
                 <TabsContent value="mrb">
                   <MRBList />
+                </TabsContent>
+                <TabsContent value="gages">
+                  <GageList />
                 </TabsContent>
               </Tabs>
             </CardContent>
