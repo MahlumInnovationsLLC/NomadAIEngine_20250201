@@ -2,7 +2,7 @@ import { z } from "zod";
 import { generateUUID } from "@/lib/utils";
 
 // Define schema for calibration records
-const CalibrationRecordSchema = z.object({
+export const CalibrationRecordSchema = z.object({
   id: z.string(),
   date: z.string(),
   performedBy: z.string(),

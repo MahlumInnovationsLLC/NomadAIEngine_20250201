@@ -20,6 +20,7 @@ import NCRList from "./quality/NCRList";
 import CAPAList from "./quality/CAPAList";
 import SCARList from "./quality/SCARList";
 import MRBList from "./quality/MRBList";
+import GageList from "./quality/GageList";
 import AuditList from "./quality/AuditList";
 import { CreateAuditDialog } from "./quality/dialogs/CreateAuditDialog";
 import AuditAnalytics from "./quality/AuditAnalytics";

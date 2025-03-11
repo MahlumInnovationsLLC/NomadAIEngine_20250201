@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Gage } from "@/types/manufacturing/gage";
 import { GageDialog } from "./dialogs/GageDialog";
 import { GageDetailsDialog } from "./dialogs/GageDetailsDialog";
+import { GageCalibrationDialog } from "./dialogs/GageCalibrationDialog";
 
 const fetchGages = async (): Promise<Gage[]> => {
   try {
@@ -90,6 +91,7 @@ export default function GageList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedGage, setSelectedGage] = useState<Gage | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showCalibrationDialog, setShowCalibrationDialog] = useState(false);
   const [currentTab, setCurrentTab] = useState<"active" | "inactive" | "due_calibration">("active");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [gageToDelete, setGageToDelete] = useState<Gage | null>(null);
@@ -255,7 +257,8 @@ export default function GageList() {
                               {gage.status === 'active' && (
                                 <DropdownMenuItem onClick={(e) => {
                                   e.stopPropagation();
-                                  // Route to add calibration record
+                                  setSelectedGage(gage);
+                                  setShowCalibrationDialog(true);
                                 }}>
                                   <FontAwesomeIcon icon={faCalendarAlt} className="mr-2 h-4 w-4" />
                                   Add Calibration
@@ -316,6 +319,26 @@ export default function GageList() {
             await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/gages'] });
             setShowDetailsDialog(false);
             setSelectedGage(null);
+          }}
+        />
+      )}
+      
+      {selectedGage && showCalibrationDialog && (
+        <GageCalibrationDialog
+          open={showCalibrationDialog}
+          onOpenChange={(open) => {
+            setShowCalibrationDialog(open);
+            if (!open) setSelectedGage(null);
+          }}
+          gage={selectedGage}
+          onSuccess={async () => {
+            await queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/gages'] });
+            setShowCalibrationDialog(false);
+            setSelectedGage(null);
+            toast({
+              title: "Success",
+              description: "Calibration record added successfully",
+            });
           }}
         />
       )}

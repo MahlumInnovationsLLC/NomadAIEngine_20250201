@@ -12,9 +12,19 @@ let gagesContainer: Container | null = null;
 async function initializeGagesContainer(): Promise<Container> {
   if (!gagesContainer) {
     console.log('Initializing gages container');
-    gagesContainer = getContainer('gages');
     
-    if (!gagesContainer) {
+    try {
+      // Get the container from the service
+      const container = getContainer('quality-management');
+      
+      if (!container) {
+        throw new Error('Failed to get quality-management container');
+      }
+      
+      gagesContainer = container;
+      console.log('Successfully initialized gages container');
+    } catch (error) {
+      console.error('Error initializing gages container:', error);
       throw new Error('Failed to initialize gages container');
     }
   }
@@ -48,7 +58,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     const container = await initializeGagesContainer();
     const { id } = req.params;
     
-    const { resource } = await container.item(id, 'gage').read();
+    const { resource } = await container.item(id, id).read();
     
     if (!resource) {
       return res.status(404).json({ message: 'Gage not found' });
@@ -109,7 +119,7 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     gageData.updatedAt = new Date().toISOString();
     gageData.updatedBy = req.user?.id || 'system';
     
-    const { resource: updatedGage } = await container.item(id, 'gage').replace(gageData);
+    const { resource: updatedGage } = await container.item(id, id).replace(gageData);
     
     res.json(updatedGage);
   } catch (error) {
@@ -127,7 +137,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
     const container = await initializeGagesContainer();
     const { id } = req.params;
     
-    await container.item(id, 'gage').delete();
+    await container.item(id, id).delete();
     
     res.status(204).send();
   } catch (error) {
@@ -147,7 +157,7 @@ router.post('/:id/calibration', authMiddleware, async (req: AuthenticatedRequest
     const calibrationData = req.body;
     
     // Get the gage
-    const { resource: gage } = await container.item(id, 'gage').read();
+    const { resource: gage } = await container.item(id, id).read();
     
     if (!gage) {
       return res.status(404).json({ message: 'Gage not found' });
@@ -169,7 +179,7 @@ router.post('/:id/calibration', authMiddleware, async (req: AuthenticatedRequest
       updatedBy: req.user?.id || 'system'
     };
     
-    const { resource: updatedGage } = await container.item(id, 'gage').replace(updates);
+    const { resource: updatedGage } = await container.item(id, id).replace(updates);
     
     res.json(updatedGage);
   } catch (error) {
@@ -192,7 +202,7 @@ router.post('/:id/maintenance', authMiddleware, async (req: AuthenticatedRequest
     maintenanceData.id = maintenanceData.id || uuidv4();
     
     // Get the gage
-    const { resource: gage } = await container.item(id, 'gage').read();
+    const { resource: gage } = await container.item(id, id).read();
     
     if (!gage) {
       return res.status(404).json({ message: 'Gage not found' });
@@ -210,7 +220,7 @@ router.post('/:id/maintenance', authMiddleware, async (req: AuthenticatedRequest
       updatedBy: req.user?.id || 'system'
     };
     
-    const { resource: updatedGage } = await container.item(id, 'gage').replace(updates);
+    const { resource: updatedGage } = await container.item(id, id).replace(updates);
     
     res.json(updatedGage);
   } catch (error) {
@@ -230,7 +240,7 @@ router.post('/:id/checkout', authMiddleware, async (req: AuthenticatedRequest, r
     const { userId } = req.body;
     
     // Get the gage
-    const { resource: gage } = await container.item(id, 'gage').read();
+    const { resource: gage } = await container.item(id, id).read();
     
     if (!gage) {
       return res.status(404).json({ message: 'Gage not found' });
@@ -263,7 +273,7 @@ router.post('/:id/checkout', authMiddleware, async (req: AuthenticatedRequest, r
       updatedBy: req.user?.id || 'system'
     };
     
-    const { resource: updatedGage } = await container.item(id, 'gage').replace(updates);
+    const { resource: updatedGage } = await container.item(id, id).replace(updates);
     
     res.json(updatedGage);
   } catch (error) {
@@ -283,7 +293,7 @@ router.post('/:id/checkin', authMiddleware, async (req: AuthenticatedRequest, re
     const { condition, notes } = req.body;
     
     // Get the gage
-    const { resource: gage } = await container.item(id, 'gage').read();
+    const { resource: gage } = await container.item(id, id).read();
     
     if (!gage) {
       return res.status(404).json({ message: 'Gage not found' });
@@ -318,7 +328,7 @@ router.post('/:id/checkin', authMiddleware, async (req: AuthenticatedRequest, re
       updatedBy: req.user?.id || 'system'
     };
     
-    const { resource: updatedGage } = await container.item(id, 'gage').replace(updates);
+    const { resource: updatedGage } = await container.item(id, id).replace(updates);
     
     res.json(updatedGage);
   } catch (error) {

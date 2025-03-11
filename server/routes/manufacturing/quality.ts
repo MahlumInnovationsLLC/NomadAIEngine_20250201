@@ -9,6 +9,7 @@ import { parse as csvParse } from 'csv-parse';
 import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
 import { registerTemplateRoutes } from './quality/templates';
+import { gagesRouter } from './quality/gages';
 
 const router = Router();
 
@@ -1354,6 +1355,9 @@ export function registerQualityRoutes(app: express.Application) {
   
   // Register inspection template routes
   registerTemplateRoutes(app);
+  
+  // Register gages routes
+  app.use('/api/manufacturing/quality/gages', gagesRouter);
 }
 
 export default router;
