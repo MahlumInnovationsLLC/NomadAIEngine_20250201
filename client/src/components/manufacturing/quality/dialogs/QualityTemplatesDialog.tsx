@@ -36,15 +36,14 @@ import {
   Copy, 
   ArrowDownToLine, 
   CheckCircle,
-  Loader2,
-  FileUp
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateForm } from '../templates/TemplateForm';
 import { TemplatePreview } from '../templates/TemplatePreview';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
-import { ImportTemplateDialog } from './ImportTemplateDialog';
+
 
 interface QualityTemplatesDialogProps {
   open: boolean;
@@ -67,7 +66,7 @@ export default function QualityTemplatesDialog({
   const [currentView, setCurrentView] = useState<DialogView>(DialogView.List);
   const [selectedTemplate, setSelectedTemplate] = useState<InspectionTemplate | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
+
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showValidationAlert, setShowValidationAlert] = useState(false);
 
@@ -244,9 +243,7 @@ export default function QualityTemplatesDialog({
     saveTemplateMutation.mutate(template);
   };
 
-  const handleImportTemplate = () => {
-    setImportDialogOpen(true);
-  };
+
 
   const handleDownloadTemplate = (template: InspectionTemplate) => {
     const jsonString = JSON.stringify(template, null, 2);
@@ -286,14 +283,8 @@ export default function QualityTemplatesDialog({
           <div className="flex justify-between items-center mb-4">
             <DialogTitle>Quality Inspections Templates</DialogTitle>
             <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                onClick={handleImportTemplate}
-              >
-                <FileUp className="mr-2 h-4 w-4" />
-                Import Template
-              </Button>
-              <Button onClick={handleCreateTemplate}>
+
+              <Button onClick={handleCreateTemplate} className="ml-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Template
               </Button>
@@ -476,11 +467,7 @@ export default function QualityTemplatesDialog({
         </AlertDialogContent>
       </AlertDialog>
 
-      <ImportTemplateDialog 
-        onImportSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/templates'] });
-        }}
-      />
+
     </>
   );
 }

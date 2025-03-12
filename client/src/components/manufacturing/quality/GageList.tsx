@@ -12,7 +12,8 @@ import {
   faSpinner,
   faCalendarAlt,
   faRuler,
-  faClipboardCheck
+  faClipboardCheck,
+  faClock
 } from '@fortawesome/pro-light-svg-icons';
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,6 +84,27 @@ function formatDate(dateString?: string): string {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
   return date.toLocaleDateString();
+}
+
+function getDaysUntilCalibration(dateString?: string): number {
+  if (!dateString) return 0;
+  const calibrationDate = new Date(dateString);
+  const today = new Date();
+  
+  // Reset both dates to midnight to get accurate day calculation
+  calibrationDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  
+  // Calculate the difference in milliseconds and convert to days
+  const diffInMs = calibrationDate.getTime() - today.getTime();
+  return Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
+}
+
+function getCalibrationStatusColor(daysLeft: number): string {
+  if (daysLeft < 0) return 'text-destructive font-semibold'; // Already past due
+  if (daysLeft <= 14) return 'text-destructive font-semibold'; // Red: Less than 14 days
+  if (daysLeft <= 30) return 'text-yellow-500 font-semibold'; // Yellow: Between 14 and 30 days
+  return 'text-green-500 font-semibold'; // Green: More than 30 days
 }
 
 export default function GageList() {
@@ -204,6 +226,7 @@ export default function GageList() {
                       <TableHead>Status</TableHead>
                       <TableHead>Last Calibration</TableHead>
                       <TableHead>Next Calibration</TableHead>
+                      <TableHead>Days Left</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -228,6 +251,16 @@ export default function GageList() {
                           <span className={gage.isCalibrationDue ? "text-destructive font-semibold" : ""}>
                             {formatDate(gage.nextCalibrationDate)}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          {gage.nextCalibrationDate && (
+                            <div className="flex items-center gap-1">
+                              <FontAwesomeIcon icon={faClock} className="h-4 w-4" />
+                              <span className={getCalibrationStatusColor(getDaysUntilCalibration(gage.nextCalibrationDate))}>
+                                {getDaysUntilCalibration(gage.nextCalibrationDate)} days
+                              </span>
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>

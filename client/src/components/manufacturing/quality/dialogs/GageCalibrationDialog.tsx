@@ -1,188 +1,187 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { z } from "zod";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn, generateUUID } from "@/lib/utils";
-import { format, addDays } from "date-fns";
-import { CalendarIcon, Plus, Trash } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSpinner } from '@fortawesome/pro-light-svg-icons';
-import { z } from "zod";
-import { CalibrationRecord, CalibrationRecordSchema } from "@/types/manufacturing/gage";
+import { faCalendarAlt, faSpinner, faCertificate, faTimes, faCheck } from '@fortawesome/pro-light-svg-icons';
+import { Gage, CalibrationRecord, defaultCalibrationRecord } from "@/types/manufacturing/gage";
+import { format } from "date-fns";
 
 interface GageCalibrationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  gageId: string;
+  gage?: Gage;
+  gageId?: string;
   onSuccess: () => void;
 }
 
-const measurementSchema = z.object({
-  parameter: z.string().min(1, "Parameter is required"),
-  nominal: z.number(),
-  tolerance: z.number(),
-  actual: z.number(),
-  unit: z.string().min(1, "Unit is required"),
-  result: z.enum(["pass", "fail"]),
+// Validation schema for calibration record
+const calibrationFormSchema = z.object({
+  date: z.date({
+    required_error: "Calibration date is required",
+  }),
+  result: z.enum(["pass", "conditional", "fail"], {
+    required_error: "Result is required",
+  }),
+  performedBy: z.string().min(1, "Performed by is required"),
+  certificationNumber: z.string().optional(),
+  notes: z.string().optional(),
+  nextDueDate: z.date({
+    required_error: "Next due date is required",
+  }),
 });
 
-type Measurement = z.infer<typeof measurementSchema>;
+type CalibrationFormValues = z.infer<typeof calibrationFormSchema>;
 
-export function GageCalibrationDialog({ open, onOpenChange, gageId, onSuccess }: GageCalibrationDialogProps) {
+export function GageCalibrationDialog({ open, onOpenChange, gage, gageId, onSuccess }: GageCalibrationDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [measurements, setMeasurements] = useState<Measurement[]>([
-    {
-      parameter: "",
-      nominal: 0,
-      tolerance: 0,
-      actual: 0,
-      unit: "mm",
-      result: "pass"
-    }
-  ]);
+  const id = gage?.id || gageId || "";
 
-  const form = useForm<CalibrationRecord>({
-    resolver: zodResolver(CalibrationRecordSchema),
+  // Initialize form with default values
+  const form = useForm<CalibrationFormValues>({
+    resolver: zodResolver(calibrationFormSchema),
     defaultValues: {
-      id: generateUUID(),
-      date: new Date().toISOString(),
-      performedBy: "",
+      date: new Date(),
       result: "pass",
-      nextCalibrationDate: addDays(new Date(), 365).toISOString(),
-      measurements: [],
-      notes: ""
+      performedBy: "",
+      certificationNumber: "",
+      notes: "",
+      nextDueDate: gage?.nextCalibrationDate 
+        ? new Date(gage.nextCalibrationDate) 
+        : new Date(Date.now() + (gage?.calibrationFrequency || 365) * 24 * 60 * 60 * 1000),
     },
   });
 
-  const addMeasurement = () => {
-    setMeasurements([
-      ...measurements,
-      {
-        parameter: "",
-        nominal: 0,
-        tolerance: 0,
-        actual: 0,
-        unit: "mm",
-        result: "pass"
-      }
-    ]);
-  };
-
-  const removeMeasurement = (index: number) => {
-    setMeasurements(measurements.filter((_, i) => i !== index));
-  };
-
-  const updateMeasurement = (index: number, field: keyof Measurement, value: any) => {
-    const updatedMeasurements = [...measurements];
-    updatedMeasurements[index] = {
-      ...updatedMeasurements[index],
-      [field]: field === 'nominal' || field === 'tolerance' || field === 'actual' 
-        ? parseFloat(value) 
-        : value
-    };
+  // Handle form submission
+  const onSubmit = async (data: CalibrationFormValues) => {
+    if (!id) return;
     
-    // Auto-calculate result based on actual value, nominal, and tolerance
-    if (field === 'actual' || field === 'nominal' || field === 'tolerance') {
-      const { nominal, tolerance, actual } = updatedMeasurements[index];
-      updatedMeasurements[index].result = 
-        (actual <= (nominal + tolerance) && actual >= (nominal - tolerance)) 
-          ? 'pass' 
-          : 'fail';
-    }
-    
-    setMeasurements(updatedMeasurements);
-  };
-
-  const onSubmit = async (data: CalibrationRecord) => {
     setIsSubmitting(true);
     try {
-      // Add measurements to the form data
-      const completeData = {
-        ...data,
-        measurements
+      const calibrationRecord: Omit<CalibrationRecord, "id"> = {
+        date: format(data.date, "yyyy-MM-dd"),
+        result: data.result,
+        performedBy: data.performedBy,
+        certificationNumber: data.certificationNumber || "",
+        notes: data.notes || "",
+        nextCalibrationDate: format(data.nextDueDate, "yyyy-MM-dd"),
       };
 
-      const response = await fetch(
-        `/api/manufacturing/quality/gages/${gageId}/calibration`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(completeData),
-        }
-      );
+      const response = await fetch(`/api/manufacturing/quality/gages/${id}/calibration`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(calibrationRecord),
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to add calibration record');
+        throw new Error("Failed to add calibration record");
       }
 
       onSuccess();
     } catch (error) {
-      console.error('Error adding calibration record:', error);
+      console.error("Error adding calibration record:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Calculate next due date based on current date and calibration frequency
+  const calculateNextDueDate = (date: Date) => {
+    const nextDueDate = new Date(date);
+    nextDueDate.setDate(nextDueDate.getDate() + (gage?.calibrationFrequency || 365));
+    form.setValue("nextDueDate", nextDueDate);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-y-auto">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Calibration Record</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">Add Calibration Record</DialogTitle>
         </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+        
+        <ScrollArea className="max-h-[70vh]">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-1">
               <FormField
                 control={form.control}
                 name="date"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Calibration Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString() ?? '')}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <DatePicker
+                      date={field.value}
+                      onDateChange={(date) => {
+                        field.onChange(date);
+                        if (date) {
+                          calculateNextDueDate(date);
+                        }
+                      }}
+                    />
+                    <FormDescription>
+                      Date when the calibration was performed
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="result"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Result</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select result" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="pass">
+                          <div className="flex items-center">
+                            <FontAwesomeIcon icon={faCheck} className="mr-2 h-4 w-4 text-success" />
+                            <span>Pass</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="conditional">
+                          <div className="flex items-center">
+                            <FontAwesomeIcon icon={faCalendarAlt} className="mr-2 h-4 w-4 text-warning" />
+                            <span>Conditional</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="fail">
+                          <div className="flex items-center">
+                            <FontAwesomeIcon icon={faTimes} className="mr-2 h-4 w-4 text-destructive" />
+                            <span>Fail</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Calibration outcome
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -195,79 +194,16 @@ export function GageCalibrationDialog({ open, onOpenChange, gageId, onSuccess }:
                   <FormItem>
                     <FormLabel>Performed By</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Enter name or ID" />
+                      <Input placeholder="Enter name" {...field} />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="result"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Result</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select result" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="pass">Pass</SelectItem>
-                        <SelectItem value="conditional">Conditional Pass</SelectItem>
-                        <SelectItem value="fail">Fail</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormDescription>
+                      Person or organization who performed the calibration
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="nextCalibrationDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Next Calibration Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString() ?? '')}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="space-y-2">
               <FormField
                 control={form.control}
                 name="certificationNumber"
@@ -275,165 +211,83 @@ export function GageCalibrationDialog({ open, onOpenChange, gageId, onSuccess }:
                   <FormItem>
                     <FormLabel>Certification Number</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value || ''} />
+                      <Input placeholder="Enter certification number (optional)" {...field} />
                     </FormControl>
+                    <FormDescription>
+                      Reference number for calibration certificate
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-md font-medium">Measurements</h3>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={addMeasurement}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Measurement
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                {measurements.map((measurement, index) => (
-                  <div key={index} className="border rounded-md p-3 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-sm font-medium">Measurement {index + 1}</h4>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeMeasurement(index)}
-                        disabled={measurements.length <= 1}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <FormLabel htmlFor={`param-${index}`}>Parameter</FormLabel>
-                        <Input
-                          id={`param-${index}`}
-                          value={measurement.parameter}
-                          onChange={(e) => updateMeasurement(index, 'parameter', e.target.value)}
-                          placeholder="e.g., Diameter, Length"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <FormLabel htmlFor={`unit-${index}`}>Unit</FormLabel>
-                        <Select
-                          value={measurement.unit}
-                          onValueChange={(value) => updateMeasurement(index, 'unit', value)}
-                        >
-                          <SelectTrigger id={`unit-${index}`}>
-                            <SelectValue placeholder="Select unit" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="mm">mm</SelectItem>
-                            <SelectItem value="cm">cm</SelectItem>
-                            <SelectItem value="in">in</SelectItem>
-                            <SelectItem value="ft">ft</SelectItem>
-                            <SelectItem value="deg">deg</SelectItem>
-                            <SelectItem value="rad">rad</SelectItem>
-                            <SelectItem value="kg">kg</SelectItem>
-                            <SelectItem value="lb">lb</SelectItem>
-                            <SelectItem value="N">N</SelectItem>
-                            <SelectItem value="lbf">lbf</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="space-y-2">
-                        <FormLabel htmlFor={`nominal-${index}`}>Nominal</FormLabel>
-                        <Input
-                          id={`nominal-${index}`}
-                          type="number"
-                          step="0.001"
-                          value={measurement.nominal}
-                          onChange={(e) => updateMeasurement(index, 'nominal', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <FormLabel htmlFor={`tolerance-${index}`}>Tolerance</FormLabel>
-                        <Input
-                          id={`tolerance-${index}`}
-                          type="number"
-                          step="0.001"
-                          value={measurement.tolerance}
-                          onChange={(e) => updateMeasurement(index, 'tolerance', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <FormLabel htmlFor={`actual-${index}`}>Actual</FormLabel>
-                        <Input
-                          id={`actual-${index}`}
-                          type="number"
-                          step="0.001"
-                          value={measurement.actual}
-                          onChange={(e) => updateMeasurement(index, 'actual', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <FormLabel htmlFor={`result-${index}`}>Result</FormLabel>
-                      <Select
-                        value={measurement.result}
-                        onValueChange={(value) => updateMeasurement(index, 'result', value)}
-                      >
-                        <SelectTrigger id={`result-${index}`}>
-                          <SelectValue placeholder="Select result" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pass">Pass</SelectItem>
-                          <SelectItem value="fail">Fail</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={3} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <FontAwesomeIcon icon={faSpinner} className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Calibration Record"
+              <FormField
+                control={form.control}
+                name="nextDueDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Next Due Date</FormLabel>
+                    <DatePicker
+                      date={field.value}
+                      onDateChange={(date) => {
+                        field.onChange(date);
+                      }}
+                    />
+                    <FormDescription>
+                      When the next calibration is required
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </Button>
-            </div>
-          </form>
-        </Form>
+              />
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter any additional notes (optional)"
+                        {...field}
+                        rows={4}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Additional information about the calibration
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <FontAwesomeIcon icon={faCertificate} className="mr-2 h-4 w-4" />
+                      Save Calibration
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

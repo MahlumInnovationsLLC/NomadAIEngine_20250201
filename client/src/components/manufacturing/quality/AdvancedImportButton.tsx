@@ -1,25 +1,15 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { AdvancedImportDialog } from './dialogs/AdvancedImportDialog';
-import { FileUp } from 'lucide-react';
 
+// Component modified to only maintain dialog functionality without visible button
 export function AdvancedImportButton() {
+  // Create a hidden/disabled version that doesn't show in the UI
+  // but preserves all backend functionality for future use
   const [open, setOpen] = React.useState(false);
-
-  const handleClick = () => {
-    setOpen(true);
-  };
 
   return (
     <>
-      <Button 
-        variant="outline"
-        onClick={handleClick}
-        className="mr-2 gap-2 bg-blue-50 hover:bg-blue-100 border-blue-200"
-      >
-        <FileUp className="w-4 h-4" />
-        Advanced Import
-      </Button>
+      {/* Dialog component is preserved for backend functionality */}
       <AdvancedImportDialog
         open={open}
         onOpenChange={setOpen}

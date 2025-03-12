@@ -115,14 +115,6 @@ export default function QualityInspectionList({ inspections = [], type, projects
           </p>
         </div>
         <div className="flex gap-2">
-          <AdvancedImportButton />
-          <Button
-            variant="outline"
-            onClick={() => setShowImportDialog(true)}
-          >
-            <FontAwesomeIcon icon="file-import" className="mr-2 h-4 w-4" />
-            Import
-          </Button>
           <Button onClick={() => {
             setSelectedTemplate(null);
             setShowCreateDialog(true);

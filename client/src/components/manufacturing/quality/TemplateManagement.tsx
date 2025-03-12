@@ -16,7 +16,6 @@ import { QualityFormTemplate } from "@/types/manufacturing";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { CreateTemplateDialog } from "./dialogs/CreateTemplateDialog";
 import { EditTemplateDialog } from "./dialogs/EditTemplateDialog";
-import { ImportTemplateDialog } from "./dialogs/ImportTemplateDialog";
 import { Badge } from "@/components/ui/badge";
 import {
   fabInspectionTemplates,
@@ -43,7 +42,6 @@ export default function TemplateManagement({ open, onOpenChange, templateType }:
   const socket = useWebSocket({ namespace: 'manufacturing' });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
   const [templates, setTemplates] = useState<QualityFormTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -148,14 +146,6 @@ export default function TemplateManagement({ open, onOpenChange, templateType }:
           </DialogTitle>
           <div className="flex items-center gap-3">
             <Button
-              variant="outline"
-              onClick={() => setShowImportDialog(true)}
-              className="flex items-center gap-2 hover:bg-accent py-2 px-4"
-            >
-              <FontAwesomeIcon icon="file-import" className="h-4 w-4" />
-              <span>Import Template</span>
-            </Button>
-            <Button
               onClick={() => setShowCreateDialog(true)}
               className="flex items-center gap-2 py-2 px-4"
             >
@@ -191,7 +181,7 @@ export default function TemplateManagement({ open, onOpenChange, templateType }:
                         {error || `No ${templateType} templates found`}
                       </p>
                       <p className="text-sm text-muted-foreground mt-2">
-                        Create a new template or import an existing one to get started
+                        Create a new template to get started
                       </p>
                     </TableCell>
                   </TableRow>
@@ -262,17 +252,7 @@ export default function TemplateManagement({ open, onOpenChange, templateType }:
           />
         )}
 
-        {showImportDialog && (
-          <ImportTemplateDialog
-            open={showImportDialog}
-            onOpenChange={setShowImportDialog}
-            templateType={templateType}
-            onSuccess={(importedTemplate: QualityFormTemplate) => {
-              setShowImportDialog(false);
-              setTemplates(prev => [...prev, importedTemplate]);
-            }}
-          />
-        )}
+
       </DialogContent>
     </Dialog>
   );
