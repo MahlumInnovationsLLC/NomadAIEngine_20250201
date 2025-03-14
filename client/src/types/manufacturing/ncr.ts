@@ -27,6 +27,22 @@ export const AttachmentSchema = z.object({
   uploadedBy: z.string().optional()
 });
 
+export const TaskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  assignedTo: z.string(),
+  assignedBy: z.string(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  status: z.enum(["pending", "in_progress", "completed", "cancelled"]).default("pending"),
+  dueDate: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  completedAt: z.string().optional(),
+  completedBy: z.string().optional(),
+  notes: z.string().optional()
+});
+
 export const NCRSchema = z.object({
   id: z.string(),
   number: z.string(),
@@ -93,6 +109,9 @@ export const NCRSchema = z.object({
   // Attachments
   attachments: z.array(AttachmentSchema).optional().default([]),
   
+  // Tasks
+  tasks: z.array(TaskSchema).optional().default([]),
+  
   // Timestamps
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -114,3 +133,4 @@ export const NCRSchema = z.object({
 export type NCR = z.infer<typeof NCRSchema>;
 export type Disposition = z.infer<typeof DispositionSchema>;
 export type Attachment = z.infer<typeof AttachmentSchema>;
+export type Task = z.infer<typeof TaskSchema>;

@@ -134,6 +134,9 @@ export default function NCRList() {
     return new Date(date).toLocaleDateString();
   };
 
+  // Ensure all status tabs have an array, even if empty
+  const defaultStatuses = ['open', 'under_review', 'pending_disposition', 'closed', 'draft'];
+  
   const groupedNCRs = ncrs.reduce((acc, ncr) => {
     const status = ncr.status;
     if (!acc[status]) {
@@ -141,7 +144,7 @@ export default function NCRList() {
     }
     acc[status].push(ncr);
     return acc;
-  }, {} as Record<string, NCR[]>);
+  }, Object.fromEntries(defaultStatuses.map(status => [status, []])) as Record<string, NCR[]>);
 
   const NCRTable = ({ ncrs }: { ncrs: NCR[] }) => {
     // Toggle row expansion without opening the details dialog

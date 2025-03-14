@@ -66,6 +66,32 @@ const sampleNCR: NCR = {
     ]
   },
   attachments: sampleAttachments,
+  tasks: [
+    {
+      id: 'task-001',
+      title: 'Investigate material supplier QC process',
+      description: 'Contact supplier to understand their quality control process for thickness measurements and request recent calibration records.',
+      assignedTo: 'Jane Doe',
+      assignedBy: 'Mark Johnson',
+      priority: 'high',
+      status: 'in_progress',
+      dueDate: new Date(Date.now() + 86400000 * 2).toISOString(), // 2 days from now
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'task-002',
+      title: 'Update engineering drawings',
+      description: 'Update drawings to include note about acceptable thickness variation for this specific lot.',
+      assignedTo: 'Robert Chen',
+      assignedBy: 'Mark Johnson',
+      priority: 'medium',
+      status: 'pending',
+      dueDate: new Date(Date.now() + 86400000 * 5).toISOString(), // 5 days from now
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 };

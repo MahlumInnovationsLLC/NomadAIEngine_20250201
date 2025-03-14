@@ -32,8 +32,10 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { NCR, NCRSchema } from "@/types/manufacturing/ncr";
+import { NCR, NCRSchema, Task } from "@/types/manufacturing/ncr";
 import * as z from "zod";
+import { AttachmentUploader } from "../common/AttachmentUploader";
+import { TasksPanel } from "../common/TasksPanel";
 
 interface NCRDialogProps {
   open: boolean;
@@ -41,6 +43,9 @@ interface NCRDialogProps {
   defaultValues?: Partial<NCR>;
   onSuccess?: () => void;
   isEditing?: boolean;
+  ncr?: NCR;
+  onDeleteAttachment?: (ncrId: string, attachmentId: string) => Promise<void>;
+  onRefreshData?: () => void;
 }
 
 export function NCRDialog({
@@ -49,6 +54,9 @@ export function NCRDialog({
   defaultValues,
   onSuccess,
   isEditing = false,
+  ncr,
+  onDeleteAttachment,
+  onRefreshData,
 }: NCRDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -234,10 +242,12 @@ export function NCRDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-3 mb-4">
+              <TabsList className="grid grid-cols-5 mb-4">
                 <TabsTrigger value="general">General Information</TabsTrigger>
                 <TabsTrigger value="details">Details & Classification</TabsTrigger>
                 <TabsTrigger value="disposition">Disposition</TabsTrigger>
+                <TabsTrigger value="tasks">Tasks</TabsTrigger>
+                <TabsTrigger value="attachments">Attachments</TabsTrigger>
               </TabsList>
 
               <TabsContent value="general" className="space-y-4">
@@ -350,7 +360,7 @@ export function NCRDialog({
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="" disabled>No projects available</SelectItem>
+                              <SelectItem value="no-projects" disabled>No projects available</SelectItem>
                             )}
                           </SelectContent>
                         </Select>
@@ -569,59 +579,136 @@ export function NCRDialog({
                   )}
                 />
               </TabsContent>
+              
+              <TabsContent value="tasks" className="space-y-4">
+                {isEditing ? (
+                  <TasksPanel
+                    tasks={form.getValues('tasks') || []}
+                    onAddTask={(task: Task) => {
+                      const currentTasks = form.getValues('tasks') || [];
+                      form.setValue('tasks', [...currentTasks, task], { shouldValidate: true });
+                    }}
+                    onUpdateTask={(taskId: string, updates: Partial<Task>) => {
+                      const currentTasks = form.getValues('tasks') || [];
+                      const updatedTasks = currentTasks.map((task: Task) => 
+                        task.id === taskId ? { ...task, ...updates } : task
+                      );
+                      form.setValue('tasks', updatedTasks, { shouldValidate: true });
+                    }}
+                    onDeleteTask={(taskId: string) => {
+                      const currentTasks = form.getValues('tasks') || [];
+                      const updatedTasks = currentTasks.filter((task: Task) => task.id !== taskId);
+                      form.setValue('tasks', updatedTasks, { shouldValidate: true });
+                    }}
+                    readonly={!isEditing}
+                  />
+                ) : (
+                  <div className="border rounded-md p-6 text-center text-muted-foreground">
+                    <p>You can add tasks after creating the NCR</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="attachments" className="space-y-4">
+                {isEditing && ncr ? (
+                  <div className="space-y-6">
+                    <div className="border rounded-md p-4 bg-muted/20">
+                      <h3 className="text-lg font-medium mb-2">Current Attachments</h3>
+                      {ncr.attachments && ncr.attachments.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {ncr.attachments.map((attachment) => (
+                            <div 
+                              key={attachment.id} 
+                              className="flex items-center justify-between p-3 border rounded-md bg-card"
+                            >
+                              <div className="flex items-center">
+                                <FontAwesomeIcon 
+                                  icon="file" 
+                                  className="h-5 w-5 mr-2 text-primary" 
+                                />
+                                <div>
+                                  <p className="font-medium truncate max-w-xs">{attachment.fileName}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {Math.round(attachment.fileSize / 1024)} KB
+                                  </p>
+                                </div>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  // Handle delete action
+                                  if (onDeleteAttachment) {
+                                    onDeleteAttachment(ncr.id, attachment.id);
+                                  }
+                                }}
+                              >
+                                <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">No attachments added yet.</p>
+                      )}
+                    </div>
+
+                    <div className="border rounded-md p-4">
+                      <h3 className="text-lg font-medium mb-2">Upload New Attachment</h3>
+                      <AttachmentUploader 
+                        parentId={ncr.id} 
+                        parentType="ncr"
+                        onSuccess={() => {
+                          // Refresh the NCR data after upload
+                          if (onRefreshData) {
+                            onRefreshData();
+                          }
+                        }} 
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 border rounded-md">
+                    <h3 className="text-lg font-medium mb-2">Upload Attachments</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Add supporting documentation for this NCR.
+                    </p>
+                    <AttachmentUploader 
+                      parentId={isEditing && ncr ? ncr.id : `temp-${Date.now()}`} 
+                      parentType="ncr"
+                      onSuccess={() => {
+                        if (onRefreshData) {
+                          onRefreshData();
+                        }
+                      }} 
+                    />
+                  </div>
+                )}
+              </TabsContent>
             </Tabs>
 
             <DialogFooter>
-              <div className="flex gap-2 justify-between w-full">
-                <div>
-                  {activeTab !== "general" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        if (activeTab === "details") setActiveTab("general");
-                        if (activeTab === "disposition") setActiveTab("details");
-                      }}
-                    >
-                      <FontAwesomeIcon icon="arrow-left" className="mr-2 h-4 w-4" />
-                      Previous
-                    </Button>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onOpenChange(false)}
-                  >
-                    Cancel
-                  </Button>
-                  {activeTab !== "disposition" ? (
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        if (activeTab === "general") setActiveTab("details");
-                        if (activeTab === "details") setActiveTab("disposition");
-                      }}
-                    >
-                      Next
-                      <FontAwesomeIcon icon="arrow-right" className="ml-2 h-4 w-4" />
-                    </Button>
+              <div className="flex gap-2 justify-end w-full">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-background mr-2"></div>
+                      Saving...
+                    </>
                   ) : (
-                    <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-background mr-2"></div>
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          {isEditing ? "Update" : "Create"} NCR
-                        </>
-                      )}
-                    </Button>
+                    <>
+                      {isEditing ? "Update" : "Create"} NCR
+                    </>
                   )}
-                </div>
+                </Button>
               </div>
             </DialogFooter>
           </form>

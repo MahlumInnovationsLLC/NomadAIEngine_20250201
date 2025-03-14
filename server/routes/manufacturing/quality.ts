@@ -205,7 +205,7 @@ router.post('/ncrs', async (req, res) => {
 
     console.log('Creating new NCR:', req.body);
     
-    // Generate NCR number based on date, time, and area
+    // Generate NCR number based on date, time, and area/department
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -213,15 +213,30 @@ router.post('/ncrs', async (req, res) => {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     
-    // Get area prefix (first 2 letters of area/department)
-    let areaPrefix = 'GN'; // Default to "General"
-    if (req.body.area) {
-      // Take first 2 letters and convert to uppercase
-      areaPrefix = req.body.area.substring(0, 2).toUpperCase();
-    }
+    // Map of area/department codes
+    const departmentMap: Record<string, string> = {
+      'Receiving': 'RCV',
+      'FAB': 'FAB',
+      'Paint': 'PNT',
+      'Production': 'PRD',
+      'In-Process QC': 'IQC',
+      'Final QC': 'FQC',
+      'Exec Review': 'EXC',
+      'PDI': 'PDI',
+      // Default to QC if department is not in the list
+      'default': 'QC'
+    };
     
-    // Create NCR number format: NCR-YYYYMMDD-HHMM-XX (XX is the area prefix)
-    const ncrNumber = `NCR-${year}${month}${day}-${hours}${minutes}-${areaPrefix}`;
+    // Get department code
+    const area = req.body.area || '';
+    const departmentCode = departmentMap[area] || departmentMap.default;
+    
+    // Generate a 3-digit sequential number (in a production system, this would be from a counter)
+    // For now, use last 3 digits of timestamp
+    const sequenceStr = String(now.getMilliseconds()).padStart(3, '0').substring(0, 3);
+    
+    // Create NCR number in the format DEPT-YYYYMMDD-HHMM-XXX
+    const ncrNumber = `${departmentCode}-${year}${month}${day}-${hours}${minutes}-${sequenceStr}`;
     
     const ncrData: NCRData = {
       ...req.body,
@@ -304,9 +319,40 @@ router.post('/ncrs/import', fileUpload.single('file'), async (req, res) => {
 
     // Transform and validate records
     const ncrPromises = records.map(async (record) => {
+      // Generate NCR number with standardized format
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      
+      // Map of area/department codes
+      const departmentMap: Record<string, string> = {
+        'Receiving': 'RCV',
+        'FAB': 'FAB',
+        'Paint': 'PNT',
+        'Production': 'PRD',
+        'In-Process QC': 'IQC',
+        'Final QC': 'FQC',
+        'Exec Review': 'EXC',
+        'PDI': 'PDI',
+        'default': 'QC'
+      };
+      
+      // Get area/department code
+      const area = record.area || '';
+      const departmentCode = departmentMap[area] || departmentMap.default;
+      
+      // Use milliseconds for sequence number in import (ensuring uniqueness)
+      const seq = String(Date.now() % 1000).padStart(3, '0');
+      
+      // Create NCR number in standardized format
+      const ncrNumber = `${departmentCode}-${year}${month}${day}-${hours}${minutes}-${seq}`;
+      
       const ncrData: NCRData = {
         id: `NCR-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        number: `NCR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
+        number: ncrNumber,
         title: record.title || 'Untitled NCR',
         description: record.description || '',
         type: record.type || 'material',
