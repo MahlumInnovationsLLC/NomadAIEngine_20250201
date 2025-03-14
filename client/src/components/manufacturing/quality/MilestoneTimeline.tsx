@@ -278,29 +278,24 @@ export function MiniMilestoneTimeline({ item, type, showLabels = true, className
       const ncr = item as NCR;
       items = formatTimeline([
         {
-          label: "Draft",
+          label: "Created",
           status: "completed",
           date: ncr.createdAt
         },
         {
-          label: "Open",
-          status: ncr.status === "open" || ncr.status === "under_review" || ncr.status === "pending_disposition" || ncr.status === "closed" ? "completed" : 
-                ncr.status === "draft" ? "current" : "pending", 
-          date: ncr.status === "open" ? ncr.updatedAt : undefined
-        },
-        {
-          label: "Under Review",
+          label: "In Review",
           status: ncr.status === "under_review" || ncr.status === "pending_disposition" || ncr.status === "closed" ? "completed" : 
-                 ncr.status === "open" ? "current" : "pending"
+                 ncr.status === "open" || ncr.status === "draft" ? "current" : "pending"
         },
         {
-          label: "Disposition",
+          label: "Pending Disposition",
           status: ncr.status === "pending_disposition" || ncr.status === "closed" ? "completed" : 
                  ncr.status === "under_review" ? "current" : "pending"
         },
         {
-          label: "Closed",
-          status: ncr.status === "closed" ? "completed" : "pending",
+          label: "Disposition Complete",
+          status: ncr.status === "closed" ? "completed" : 
+                 ncr.status === "pending_disposition" ? "current" : "pending",
           date: ncr.closedDate
         }
       ]);

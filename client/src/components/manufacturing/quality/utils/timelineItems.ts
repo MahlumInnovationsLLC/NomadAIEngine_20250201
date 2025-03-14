@@ -14,11 +14,12 @@ interface InternalTimelineItem extends TimelineItem {
  * Creates timeline items for an NCR
  */
 export function createNCRTimelineItems(ncr: NCR): TimelineItem[] {
-  // Create internal items with sortOrder for sorting
+  // Create internal items with sortOrder for sorting based on standardized flow:
+  // Created → In Review → Pending Disposition → Disposition Complete
   const internalItems: InternalTimelineItem[] = [
     {
       id: "1",
-      label: "Draft",
+      label: "Created",
       status: "completed",
       date: ncr.createdAt,
       tooltip: `Created on ${format(new Date(ncr.createdAt), "MMM d, yyyy")}`,
@@ -26,28 +27,19 @@ export function createNCRTimelineItems(ncr: NCR): TimelineItem[] {
     },
     {
       id: "2",
-      label: "Open",
-      status: ncr.status === "open" || ncr.status === "under_review" || ncr.status === "pending_disposition" || ncr.status === "closed" 
+      label: "In Review",
+      status: ncr.status === "under_review" || ncr.status === "pending_disposition" || ncr.status === "closed" 
         ? "completed" 
-        : "pending",
-      date: ncr.status === "open" ? ncr.updatedAt : undefined,
-      tooltip: ncr.status === "open" ? `Investigation started on ${format(new Date(ncr.updatedAt), "MMM d, yyyy")}` : "Pending investigation",
+        : ncr.status === "open" || ncr.status === "draft"
+          ? "current" 
+          : "pending",
+      date: ncr.status === "under_review" ? ncr.updatedAt : undefined,
+      tooltip: ncr.status === "under_review" ? "Under review" : ncr.status === "pending_disposition" || ncr.status === "closed" ? "Review completed" : "Pending review",
       sortOrder: 1
     },
     {
       id: "3",
-      label: "Under Review",
-      status: ncr.status === "under_review" || ncr.status === "pending_disposition" || ncr.status === "closed" 
-        ? "completed" 
-        : ncr.status === "open" 
-          ? "current" 
-          : "pending",
-      tooltip: ncr.status === "under_review" ? "Under review" : ncr.status === "pending_disposition" || ncr.status === "closed" ? "Review completed" : "Pending review",
-      sortOrder: 2
-    },
-    {
-      id: "4",
-      label: "Disposition",
+      label: "Pending Disposition",
       status: ncr.status === "pending_disposition" || ncr.status === "closed" 
         ? "completed" 
         : ncr.status === "under_review" 
@@ -55,15 +47,16 @@ export function createNCRTimelineItems(ncr: NCR): TimelineItem[] {
           : "pending",
       date: ncr.disposition?.approvalDate,
       tooltip: ncr.status === "pending_disposition" ? "Disposition in progress" : ncr.status === "closed" ? "Disposition completed" : "Pending disposition",
-      sortOrder: 3
+      sortOrder: 2
     },
     {
-      id: "5",
-      label: "Closed",
-      status: ncr.status === "closed" ? "completed" : "pending",
+      id: "4",
+      label: "Disposition Complete",
+      status: ncr.status === "closed" ? "completed" : 
+             ncr.status === "pending_disposition" ? "current" : "pending",
       date: ncr.closedDate,
-      tooltip: ncr.status === "closed" ? `Closed on ${ncr.closedDate ? format(new Date(ncr.closedDate), "MMM d, yyyy") : "unknown date"}` : "Not closed",
-      sortOrder: 4
+      tooltip: ncr.status === "closed" ? `Disposition completed on ${ncr.closedDate ? format(new Date(ncr.closedDate), "MMM d, yyyy") : "unknown date"}` : "Disposition not complete",
+      sortOrder: 3
     }
   ];
 

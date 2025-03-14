@@ -9,7 +9,9 @@ import {
   faEdit,
   faPlus,
   faFileImport,
-  faClipboardList
+  faClipboardList,
+  faChevronDown,
+  faChevronRight
 } from '@fortawesome/pro-light-svg-icons';
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,14 +32,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { NCRDetailsDialog } from "./dialogs/NCRDetailsDialog";
-import { NonConformanceReport } from "@/types/manufacturing/ncr";
+import { NCR } from "@/types/manufacturing/ncr";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MilestoneTimeline, MiniMilestoneTimeline } from "./MilestoneTimeline";
+import { EnhancedMilestoneTracker } from "./common/EnhancedMilestoneTracker";
+import { NCRAttachmentGallery } from "./common/NCRAttachmentGallery";
 import { getNcrMilestones } from "./utils/milestoneUtils";
 import { createNCRTimelineItems } from "./utils/timelineItems";
 
-const fetchNCRs = async (): Promise<NonConformanceReport[]> => {
+const fetchNCRs = async (): Promise<NCR[]> => {
   const response = await fetch('/api/manufacturing/quality/ncrs');
   if (!response.ok) {
     const contentType = response.headers.get("content-type");
@@ -54,10 +58,13 @@ export default function NCRList() {
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
-  const [selectedNCR, setSelectedNCR] = useState<NonConformanceReport | null>(null);
+  const [selectedNCR, setSelectedNCR] = useState<NCR | null>(null);
+  const [editModeNCR, setEditModeNCR] = useState<NCR | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [expandedNCRId, setExpandedNCRId] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
-  const { data: ncrs = [], isLoading, error, refetch } = useQuery<NonConformanceReport[]>({
+  const { data: ncrs = [], isLoading, error, refetch } = useQuery<NCR[]>({
     queryKey: ['/api/manufacturing/quality/ncrs'],
     queryFn: fetchNCRs,
     staleTime: 5000,
@@ -106,7 +113,7 @@ export default function NCRList() {
     }
   };
 
-  const getStatusBadgeVariant = (status: NonConformanceReport['status']) => {
+  const getStatusBadgeVariant = (status: NCR['status']) => {
     switch (status) {
       case 'open':
         return 'default';
@@ -134,101 +141,226 @@ export default function NCRList() {
     }
     acc[status].push(ncr);
     return acc;
-  }, {} as Record<string, NonConformanceReport[]>);
+  }, {} as Record<string, NCR[]>);
 
-  const NCRTable = ({ ncrs }: { ncrs: NonConformanceReport[] }) => (
-    <div className="overflow-x-auto">
-      <Table className="relative">
-        <TableHeader className="sticky top-0 z-10 bg-background">
-          <TableRow>
-            <TableHead>NCR #</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Project #</TableHead>
-            <TableHead>Date Created</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Severity</TableHead>
-            <TableHead>Reported By</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {ncrs.map((ncr) => {
-            // Create timeline items using our new function that has document-specific milestone types
-            const timelineItems = createNCRTimelineItems(ncr);
-            
-            return (
-              <React.Fragment key={ncr.id}>
-                <TableRow 
-                  className="cursor-pointer hover:bg-muted/50 border-b-0"
-                  onClick={() => setSelectedNCR(ncr)}
-                >
-                  <TableCell className="font-medium">{ncr.number}</TableCell>
-                  <TableCell>{ncr.title}</TableCell>
-                  <TableCell>{ncr.projectNumber || 'N/A'}</TableCell>
-                  <TableCell>{formatDate(ncr.createdAt)}</TableCell>
-                  <TableCell className="capitalize">{ncr.type?.replace('_', ' ') || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(ncr.status)}>
-                      {ncr.status.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={ncr.severity === 'critical' ? 'destructive' : 'default'}>
-                      {ncr.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{ncr.reportedBy}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon">
-                          <FontAwesomeIcon icon={faEllipsisVertical} className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
-                          <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedNCR(ncr);
-                        }}>
-                          <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                          <FontAwesomeIcon icon={faClipboardList} className="mr-2 h-4 w-4" />
-                          Create CAPA
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-                
-                {/* Timeline Row - Note the added border and contained height */}
-                <TableRow className="hover:bg-transparent border-b cursor-pointer" onClick={() => setSelectedNCR(ncr)}>
-                  <TableCell colSpan={9} className="py-2">
-                    <div className="px-4 flex justify-center">
-                      <div className="w-full max-w-4xl mx-auto border border-border rounded-md p-3 relative overflow-hidden">
-                        <MilestoneTimeline 
-                          items={timelineItems}
-                          showLabels={true}
-                          size="sm"
-                          compact={true}
+  const NCRTable = ({ ncrs }: { ncrs: NCR[] }) => {
+    // Toggle row expansion without opening the details dialog
+    const toggleExpand = (ncrId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      // Update both states to keep them in sync
+      setExpandedNCRId(expandedNCRId === ncrId ? null : ncrId);
+      setExpandedRows(prev => ({
+        ...prev,
+        [ncrId]: !prev[ncrId]
+      }));
+    };
+    
+    // Handle row click to either expand or view details
+    const handleRowClick = (ncr: NCR, e: React.MouseEvent) => {
+      // Only open details if not clicking on the expand button or actions
+      // This prevents the dual popup issue
+      const target = e.target as HTMLElement;
+      const isExpandButton = target.closest('button[data-expand-button="true"]');
+      const isActionButton = target.closest('button[data-action-button="true"]');
+      
+      if (!isExpandButton && !isActionButton) {
+        setSelectedNCR(ncr);
+      }
+    };
+
+    return (
+      <div className="overflow-x-auto">
+        <Table className="relative">
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            <TableRow>
+              <TableHead className="w-10"></TableHead>
+              <TableHead>NCR #</TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead>Project #</TableHead>
+              <TableHead>Date Created</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Severity</TableHead>
+              <TableHead>Reported By</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {ncrs.map((ncr) => {
+              const isExpanded = expandedRows[ncr.id] || false;
+              
+              return (
+                <React.Fragment key={ncr.id}>
+                  <TableRow 
+                    className="cursor-pointer hover:bg-muted/50 border-b-0"
+                    onClick={(e) => handleRowClick(ncr, e)}
+                  >
+                    <TableCell className="p-2 text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6"
+                        data-expand-button="true"
+                        onClick={(e) => toggleExpand(ncr.id, e)}
+                      >
+                        <FontAwesomeIcon 
+                          icon={isExpanded ? faChevronDown : faChevronRight} 
+                          className="h-3 w-3" 
                         />
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              </React.Fragment>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
+                      </Button>
+                    </TableCell>
+                    <TableCell className="font-medium">{ncr.number}</TableCell>
+                    <TableCell>{ncr.title}</TableCell>
+                    <TableCell>{ncr.projectNumber || 'N/A'}</TableCell>
+                    <TableCell>{formatDate(ncr.createdAt)}</TableCell>
+                    <TableCell className="capitalize">{ncr.type?.replace('_', ' ') || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(ncr.status)}>
+                        {ncr.status.replace('_', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={ncr.severity === 'critical' ? 'destructive' : 'default'}>
+                        {ncr.severity}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{ncr.reportedBy}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" data-action-button="true">
+                            <FontAwesomeIcon icon={faEllipsisVertical} className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedNCR(ncr);
+                          }}>
+                            <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            setEditModeNCR(ncr);
+                          }}>
+                            <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                            <FontAwesomeIcon icon={faClipboardList} className="mr-2 h-4 w-4" />
+                            Create CAPA
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Expandable Content */}
+                  {isExpanded && (
+                    <TableRow className="hover:bg-transparent border-b">
+                      <TableCell colSpan={10} className="p-4">
+                        <div className="rounded-lg border border-border p-4 bg-muted/20">
+                          {/* Milestone Tracker - Restored as requested */}
+                          <EnhancedMilestoneTracker 
+                            item={ncr}
+                            type="ncr"
+                            showLabels={true}
+                            showBlinker
+                            className="mb-4"
+                          />
+                          
+                          {/* Additional NCR Details */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Left Column */}
+                            <div className="space-y-4">
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Description</h4>
+                                <p className="text-sm text-muted-foreground">{ncr.description || 'No description provided'}</p>
+                              </div>
+                              
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Disposition</h4>
+                                <div className="flex gap-2">
+                                  <Badge variant={ncr.disposition?.decision ? 'outline' : 'secondary'}>
+                                    {ncr.disposition?.decision?.replace('_', ' ') || 'Pending'}
+                                  </Badge>
+                                </div>
+                                {ncr.disposition?.justification && (
+                                  <p className="text-sm text-muted-foreground mt-1">{ncr.disposition.justification}</p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Right Column */}
+                            <div className="space-y-4">
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Containment Actions</h4>
+                                {Array.isArray(ncr.containmentActions) && ncr.containmentActions.length > 0 ? (
+                                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                    {ncr.containmentActions.map((action: any, index: number) => (
+                                      <li key={index}>{action.description || action.action}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">No containment actions recorded</p>
+                                )}
+                              </div>
+                              
+                              {ncr.mrbNumber && (
+                                <div>
+                                  <h4 className="text-sm font-medium mb-1">MRB Reference</h4>
+                                  <p className="text-sm text-muted-foreground">MRB #{ncr.mrbNumber}</p>
+                                </div>
+                              )}
+                              
+                              {(ncr as any).linkedCapaId && (
+                                <div>
+                                  <h4 className="text-sm font-medium mb-1">Linked CAPA</h4>
+                                  <p className="text-sm text-muted-foreground">CAPA #{(ncr as any).linkedCapaId}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Attachments */}
+                          {ncr.attachments && ncr.attachments.length > 0 && (
+                            <div className="mt-6">
+                              <NCRAttachmentGallery 
+                                attachments={ncr.attachments}
+                                readonly={true}
+                                title="Attachments"
+                              />
+                            </div>
+                          )}
+                          
+                          <div className="flex justify-end mt-4">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedNCR(ncr);
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faEye} className="mr-2 h-3 w-3" />
+                              View Full Details
+                            </Button>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -340,36 +472,50 @@ export default function NCRList() {
         </DialogContent>
       </Dialog>
 
-      {(showCreateDialog || selectedNCR) && (
+      {/* Create new NCR dialog */}
+      {showCreateDialog && (
         <NCRDialog
-          open={showCreateDialog || !!selectedNCR}
+          open={showCreateDialog}
           onOpenChange={(open) => {
-            if (!open) {
-              setShowCreateDialog(false);
-              setSelectedNCR(null);
-            }
+            if (!open) setShowCreateDialog(false);
           }}
-          defaultValues={selectedNCR}
           onSuccess={() => {
             setShowCreateDialog(false);
-            setSelectedNCR(null);
             refetch();
           }}
-          isEditing={!!selectedNCR}
+          isEditing={false}
         />
       )}
 
-      {selectedNCR && !showCreateDialog && (
+      {/* Edit existing NCR dialog */}
+      {editModeNCR && (
+        <NCRDialog
+          open={!!editModeNCR}
+          onOpenChange={(open) => {
+            if (!open) setEditModeNCR(null);
+          }}
+          defaultValues={editModeNCR}
+          onSuccess={() => {
+            setEditModeNCR(null);
+            refetch();
+          }}
+          isEditing={true}
+        />
+      )}
+
+      {/* View NCR details dialog */}
+      {selectedNCR && !editModeNCR && (
         <NCRDetailsDialog
           open={!!selectedNCR}
           onOpenChange={(open) => {
-            if (!open) {
-              setSelectedNCR(null);
-            }
+            if (!open) setSelectedNCR(null);
           }}
           ncr={selectedNCR}
           onSuccess={() => {
+            // Set edit mode for the same NCR after closing details view
+            const ncrToEdit = selectedNCR;
             setSelectedNCR(null);
+            setEditModeNCR(ncrToEdit);
             refetch();
           }}
         />

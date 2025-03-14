@@ -40,6 +40,7 @@ const SupportTickets = lazy(() => import("./pages/admin/SupportTickets"));
 const TicketDetailsPage = lazy(() => import("./pages/TicketDetailsPage"));
 const FieldServiceDashboard = lazy(() => import("./components/field-service/FieldServiceDashboard"));
 
+
 function LoadingFallback() {
   return (
     <div className="flex items-center justify-center min-h-screen">

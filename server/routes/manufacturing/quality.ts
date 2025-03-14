@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { CosmosClient } from "@azure/cosmos";
+import { BlobServiceClient } from "@azure/storage-blob";
 import multer from 'multer';
 import { uploadNCRAttachment, uploadInspectionAttachment, deleteNCRAttachment, deleteInspectionAttachment } from '../../services/azure/ncr_attachment_service';
 import { db } from "@db";
@@ -10,8 +11,27 @@ import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
 import { registerTemplateRoutes } from './quality/templates';
 import { gagesRouter } from './quality/gages';
+import projectsRouter from './projects';
 
 const router = Router();
+
+// Helper function to convert stream to string
+async function streamToString(readableStream: NodeJS.ReadableStream | undefined): Promise<string> {
+  if (!readableStream) {
+    return "";
+  }
+  
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    readableStream.on("data", (data) => {
+      chunks.push(Buffer.from(data));
+    });
+    readableStream.on("end", () => {
+      resolve(Buffer.concat(chunks).toString("utf-8"));
+    });
+    readableStream.on("error", reject);
+  });
+}
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -147,6 +167,36 @@ async function createCAPAFromNCR(ncr: NCRData) {
 }
 
 // Create NCR
+// Get projects for NCR dropdown
+router.get('/projects', async (req, res) => {
+  try {
+    // Get projects from production-projects container
+    const blobServiceClient = BlobServiceClient.fromConnectionString(
+      process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING || ""
+    );
+    const containerClient = blobServiceClient.getContainerClient("production-projects");
+    
+    const projects = [];
+    for await (const blob of containerClient.listBlobsFlat()) {
+      const blobClient = containerClient.getBlockBlobClient(blob.name);
+      const downloadResponse = await blobClient.download();
+      const projectData = await streamToString(downloadResponse.readableStreamBody);
+      projects.push(JSON.parse(projectData));
+    }
+    
+    // Return simplified list with id and project number for dropdown
+    const projectsList = projects.map(project => ({
+      id: project.id,
+      projectNumber: project.projectNumber
+    }));
+    
+    res.json(projectsList);
+  } catch (error) {
+    console.error("Error fetching projects for dropdown:", error);
+    res.status(500).json({ error: "Failed to fetch projects" });
+  }
+});
+
 router.post('/ncrs', async (req, res) => {
   try {
     if (!container) {
@@ -154,9 +204,29 @@ router.post('/ncrs', async (req, res) => {
     }
 
     console.log('Creating new NCR:', req.body);
+    
+    // Generate NCR number based on date, time, and area
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    // Get area prefix (first 2 letters of area/department)
+    let areaPrefix = 'GN'; // Default to "General"
+    if (req.body.area) {
+      // Take first 2 letters and convert to uppercase
+      areaPrefix = req.body.area.substring(0, 2).toUpperCase();
+    }
+    
+    // Create NCR number format: NCR-YYYYMMDD-HHMM-XX (XX is the area prefix)
+    const ncrNumber = `NCR-${year}${month}${day}-${hours}${minutes}-${areaPrefix}`;
+    
     const ncrData: NCRData = {
       ...req.body,
       id: `NCR-${Date.now()}`,
+      number: ncrNumber,
       userKey: 'default',
       attachments: [],
       disposition: {

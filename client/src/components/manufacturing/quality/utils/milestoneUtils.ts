@@ -19,33 +19,21 @@ export const getCapaMilestones = getCAPAMilestones;
 export const getScarMilestones = getSCARMilestones;
 export const getMrbMilestones = getMRBMilestones;
 
-// NCR Status Flow: draft → open → under_review → pending_disposition → closed
+// NCR Status Flow: Created → In Review → Pending Disposition → Disposition Complete
 export function getNCRMilestones(ncr: NCR): { milestones: Milestone[]; currentMilestoneId: string } {
   const milestones: Milestone[] = [
     {
-      id: "draft",
-      title: "Draft",
-      description: "Initial documentation of the non-conformance",
-      status: ncr.status === "draft" ? "current" : "complete",
+      id: "created",
+      title: "Created",
+      description: "NCR has been created and documented",
+      status: ["draft", "open"].includes(ncr.status) ? "current" : "complete",
       date: ncr.createdAt,
       icon: "file-pen",
-      color: "bg-gray-500",
-    },
-    {
-      id: "open",
-      title: "Open",
-      description: "NCR has been officially opened and is being investigated",
-      status: 
-        ncr.status === "draft" ? "pending" : 
-        ncr.status === "open" ? "current" : 
-        "complete",
-      date: ncr.status !== "draft" ? ncr.reportedDate : undefined,
-      icon: "folder-open",
       color: "bg-blue-500",
     },
     {
-      id: "under_review",
-      title: "Under Review",
+      id: "in_review",
+      title: "In Review",
       description: "Technical review of the non-conformance",
       status: 
         ["draft", "open"].includes(ncr.status) ? "pending" : 
@@ -70,9 +58,9 @@ export function getNCRMilestones(ncr: NCR): { milestones: Milestone[]; currentMi
       color: "bg-orange-500",
     },
     {
-      id: "closed",
-      title: "Closed",
-      description: "NCR has been resolved and closed",
+      id: "disposition_complete",
+      title: "Disposition Complete",
+      description: "NCR has been dispositioned and closed",
       status: ncr.status !== "closed" ? "pending" : "current",
       date: ncr.closedDate,
       icon: "check-circle",

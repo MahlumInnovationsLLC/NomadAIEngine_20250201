@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -31,14 +31,14 @@ import {
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { NonConformanceReport, NCRSchema } from "@/types/manufacturing/ncr";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { NCR, NCRSchema } from "@/types/manufacturing/ncr";
 import * as z from "zod";
 
 interface NCRDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultValues?: Partial<NonConformanceReport>;
+  defaultValues?: Partial<NCR>;
   onSuccess?: () => void;
   isEditing?: boolean;
 }
@@ -54,10 +54,56 @@ export function NCRDialog({
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("general");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [projects, setProjects] = useState<Array<{id: string, projectNumber: string}>>([]);
 
-  const form = useForm<NonConformanceReport>({
+  // Area/Department options based on requirements
+  const areaOptions = [
+    { value: "Receiving", label: "Receiving" },
+    { value: "FAB", label: "FAB" },
+    { value: "Paint", label: "Paint" },
+    { value: "Production", label: "Production" },
+    { value: "In-Process QC", label: "In-Process QC" },
+    { value: "Final QC", label: "Final QC" },
+    { value: "Exec Review", label: "Exec Review" },
+    { value: "PDI", label: "PDI" }
+  ];
+  
+  // Fetch projects for the dropdown
+  useEffect(() => {
+    if (open) {
+      const fetchProjects = async () => {
+        try {
+          const response = await fetch('/api/manufacturing/quality/projects');
+          if (response.ok) {
+            const data = await response.json();
+            setProjects(data);
+          } else {
+            console.error('Failed to fetch projects');
+            toast({
+              title: "Error",
+              description: "Failed to load project numbers",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching projects:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load project numbers",
+            variant: "destructive",
+          });
+        }
+      };
+      
+      fetchProjects();
+    }
+  }, [open, toast]);
+
+  const form = useForm<NCR>({
     resolver: zodResolver(NCRSchema),
     defaultValues: defaultValues || {
+      id: "", // Will be assigned by backend
+      number: "", // Will be auto-generated
       title: "",
       description: "",
       type: "product",
@@ -65,6 +111,7 @@ export function NCRDialog({
       status: "draft",
       area: "",
       reportedBy: "",
+      reportedDate: new Date().toISOString(),
       disposition: {
         decision: "use_as_is",
         justification: "",
@@ -78,7 +125,7 @@ export function NCRDialog({
   });
 
   const createNCRMutation = useMutation({
-    mutationFn: async (data: NonConformanceReport) => {
+    mutationFn: async (data: NCR) => {
       const response = await fetch("/api/manufacturing/quality/ncrs", {
         method: "POST",
         headers: {
@@ -113,7 +160,7 @@ export function NCRDialog({
   });
 
   const updateNCRMutation = useMutation({
-    mutationFn: async (data: { id: string; updates: Partial<NonConformanceReport> }) => {
+    mutationFn: async (data: { id: string; updates: Partial<NCR> }) => {
       const response = await fetch(`/api/manufacturing/quality/ncrs/${data.id}`, {
         method: "PUT",
         headers: {
@@ -147,7 +194,7 @@ export function NCRDialog({
     },
   });
 
-  const onSubmit = async (data: NonConformanceReport) => {
+  const onSubmit = async (data: NCR) => {
     try {
       setIsSubmitting(true);
       if (isEditing && defaultValues?.id) {
@@ -253,9 +300,26 @@ export function NCRDialog({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Area/Department</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Area where non-conformance occurred" {...field} />
-                        </FormControl>
+                        <Select 
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select department" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {areaOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Select the department where the non-conformance occurred
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -269,9 +333,30 @@ export function NCRDialog({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Project Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Associated project number" {...field} />
-                        </FormControl>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select project number" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {projects.length > 0 ? (
+                              projects.map(project => (
+                                <SelectItem key={project.id} value={project.projectNumber}>
+                                  {project.projectNumber}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>No projects available</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Link this NCR to a specific project
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
