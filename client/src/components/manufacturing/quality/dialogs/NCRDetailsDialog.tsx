@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { NCR, NCRAttachment } from "@/types/manufacturing/ncr";
+import { NCR, Attachment as NCRAttachment } from "@/types/manufacturing/ncr";
 import { NCRDialog } from "./NCRDialog";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -100,7 +100,7 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDeta
                   <span>•</span>
                   <span>Created: {formatDate(ncr.createdAt)}</span>
                   <span>•</span>
-                  <Badge>{ncr.status.replace('_', ' ')}</Badge>
+                  <Badge>{ncr.status?.replace('_', ' ') || ncr.status}</Badge>
                 </div>
               </div>
               <Button 
@@ -133,7 +133,7 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDeta
                     </div>
                     <div>
                       <h4 className="font-medium mb-1">Product Line</h4>
-                      <p className="text-muted-foreground">{ncr.productLine || 'N/A'}</p>
+                      <p className="text-muted-foreground">{'N/A'}</p>
                     </div>
                     <div>
                       <h4 className="font-medium mb-1">Lot Number</h4>
@@ -154,22 +154,28 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDeta
 
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Disposition</h3>
-                <Badge variant="outline" className="capitalize">
-                  {ncr.disposition.decision.replace('_', ' ')}
-                </Badge>
-                {ncr.disposition.justification && (
+                {ncr.disposition?.decision ? (
+                  <Badge variant="outline" className="capitalize">
+                    {ncr.disposition.decision.replace('_', ' ')}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="capitalize">
+                    Pending
+                  </Badge>
+                )}
+                {ncr.disposition?.justification && (
                   <div>
                     <h4 className="font-medium mb-1">Justification</h4>
                     <p className="text-muted-foreground">{ncr.disposition.justification}</p>
                   </div>
                 )}
-                {ncr.disposition.conditions && (
+                {ncr.disposition?.conditions && (
                   <div>
                     <h4 className="font-medium mb-1">Conditions</h4>
                     <p className="text-muted-foreground">{ncr.disposition.conditions}</p>
                   </div>
                 )}
-                {ncr.disposition.approvedBy && ncr.disposition.approvedBy.length > 0 && (
+                {ncr.disposition?.approvedBy && ncr.disposition.approvedBy.length > 0 && (
                   <div>
                     <h4 className="font-medium mb-1">Approvals</h4>
                     <div className="space-y-2">
@@ -187,31 +193,33 @@ export function NCRDetailsDialog({ open, onOpenChange, ncr, onSuccess }: NCRDeta
                 )}
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Containment Actions</h3>
+              {ncr.containmentActions && Array.isArray(ncr.containmentActions) && ncr.containmentActions.length > 0 && (
                 <div className="space-y-4">
-                  {ncr.containmentActions.map((action, index) => (
-                    <Card key={index}>
-                      <CardContent className="pt-6">
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="col-span-3">
-                            <h4 className="font-medium mb-1">Action</h4>
-                            <p className="text-muted-foreground">{action.action}</p>
+                  <h3 className="text-lg font-semibold">Containment Actions</h3>
+                  <div className="space-y-4">
+                    {ncr.containmentActions.map((action, index) => (
+                      <Card key={index}>
+                        <CardContent className="pt-6">
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="col-span-3">
+                              <h4 className="font-medium mb-1">Action</h4>
+                              <p className="text-muted-foreground">{action.action}</p>
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-1">Assigned To</h4>
+                              <p className="text-muted-foreground">{action.assignedTo}</p>
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-1">Due Date</h4>
+                              <p className="text-muted-foreground">{action.dueDate}</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium mb-1">Assigned To</h4>
-                            <p className="text-muted-foreground">{action.assignedTo}</p>
-                          </div>
-                          <div>
-                            <h4 className="font-medium mb-1">Due Date</h4>
-                            <p className="text-muted-foreground">{action.dueDate}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {ncr.attachments && ncr.attachments.length > 0 && (
                 <div className="space-y-4">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,9 @@ import { NCRDetailsDialog } from "./dialogs/NCRDetailsDialog";
 import { NonConformanceReport } from "@/types/manufacturing/ncr";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { MilestoneTimeline, MiniMilestoneTimeline } from "./MilestoneTimeline";
+import { getNcrMilestones } from "./utils/milestoneUtils";
+import { createNCRTimelineItems } from "./utils/timelineItems";
 
 const fetchNCRs = async (): Promise<NonConformanceReport[]> => {
   const response = await fetch('/api/manufacturing/quality/ncrs');
@@ -134,73 +137,97 @@ export default function NCRList() {
   }, {} as Record<string, NonConformanceReport[]>);
 
   const NCRTable = ({ ncrs }: { ncrs: NonConformanceReport[] }) => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>NCR #</TableHead>
-          <TableHead>Title</TableHead>
-          <TableHead>Project #</TableHead>
-          <TableHead>Date Created</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Severity</TableHead>
-          <TableHead>Reported By</TableHead>
-          <TableHead>Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {ncrs.map((ncr) => (
-          <TableRow 
-            key={ncr.id}
-            className="cursor-pointer hover:bg-muted/50"
-            onClick={() => setSelectedNCR(ncr)}
-          >
-            <TableCell className="font-medium">{ncr.number}</TableCell>
-            <TableCell>{ncr.title}</TableCell>
-            <TableCell>{ncr.projectNumber || 'N/A'}</TableCell>
-            <TableCell>{formatDate(ncr.createdAt)}</TableCell>
-            <TableCell className="capitalize">{ncr.type?.replace('_', ' ') || 'N/A'}</TableCell>
-            <TableCell>
-              <Badge variant={getStatusBadgeVariant(ncr.status)}>
-                {ncr.status.replace('_', ' ')}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <Badge variant={ncr.severity === 'critical' ? 'destructive' : 'default'}>
-                {ncr.severity}
-              </Badge>
-            </TableCell>
-            <TableCell>{ncr.reportedBy}</TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon">
-                    <FontAwesomeIcon icon={faEllipsisVertical} className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
-                    <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
-                    View Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedNCR(ncr);
-                  }}>
-                    <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                    <FontAwesomeIcon icon={faClipboardList} className="mr-2 h-4 w-4" />
-                    Create CAPA
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
+    <div className="overflow-x-auto">
+      <Table className="relative">
+        <TableHeader className="sticky top-0 z-10 bg-background">
+          <TableRow>
+            <TableHead>NCR #</TableHead>
+            <TableHead>Title</TableHead>
+            <TableHead>Project #</TableHead>
+            <TableHead>Date Created</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Severity</TableHead>
+            <TableHead>Reported By</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {ncrs.map((ncr) => {
+            // Create timeline items using our new function that has document-specific milestone types
+            const timelineItems = createNCRTimelineItems(ncr);
+            
+            return (
+              <React.Fragment key={ncr.id}>
+                <TableRow 
+                  className="cursor-pointer hover:bg-muted/50 border-b-0"
+                  onClick={() => setSelectedNCR(ncr)}
+                >
+                  <TableCell className="font-medium">{ncr.number}</TableCell>
+                  <TableCell>{ncr.title}</TableCell>
+                  <TableCell>{ncr.projectNumber || 'N/A'}</TableCell>
+                  <TableCell>{formatDate(ncr.createdAt)}</TableCell>
+                  <TableCell className="capitalize">{ncr.type?.replace('_', ' ') || 'N/A'}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusBadgeVariant(ncr.status)}>
+                      {ncr.status.replace('_', ' ')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={ncr.severity === 'critical' ? 'destructive' : 'default'}>
+                      {ncr.severity}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{ncr.reportedBy}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon">
+                          <FontAwesomeIcon icon={faEllipsisVertical} className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSelectedNCR(ncr)}>
+                          <FontAwesomeIcon icon={faEye} className="mr-2 h-4 w-4" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedNCR(ncr);
+                        }}>
+                          <FontAwesomeIcon icon={faEdit} className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                          <FontAwesomeIcon icon={faClipboardList} className="mr-2 h-4 w-4" />
+                          Create CAPA
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+                
+                {/* Timeline Row - Note the added border and contained height */}
+                <TableRow className="hover:bg-transparent border-b cursor-pointer" onClick={() => setSelectedNCR(ncr)}>
+                  <TableCell colSpan={9} className="py-2">
+                    <div className="px-4 flex justify-center">
+                      <div className="w-full max-w-4xl mx-auto border border-border rounded-md p-3 relative overflow-hidden">
+                        <MilestoneTimeline 
+                          items={timelineItems}
+                          showLabels={true}
+                          size="sm"
+                          compact={true}
+                        />
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </React.Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
   );
 
   if (isLoading) {
