@@ -231,12 +231,12 @@ router.post('/ncrs', async (req, res) => {
     const area = req.body.area || '';
     const departmentCode = departmentMap[area] || departmentMap.default;
     
-    // Generate a 3-digit sequential number (in a production system, this would be from a counter)
-    // For now, use last 3 digits of timestamp
-    const sequenceStr = String(now.getMilliseconds()).padStart(3, '0').substring(0, 3);
+    // Use hours and minutes for 4-digit time in 24-hour format
+    const timeStr = `${hours}${minutes}`;
     
-    // Create NCR number in the format DEPT-YYYYMMDD-HHMM-XXX
-    const ncrNumber = `${departmentCode}-${year}${month}${day}-${hours}${minutes}-${sequenceStr}`;
+    // Create NCR number in the format DEPT-YYYYMMDD-HHMM
+    // Department + date + 4-digit time (24-hour format)
+    const ncrNumber = `${departmentCode}-${year}${month}${day}-${timeStr}`;
     
     const ncrData: NCRData = {
       ...req.body,
@@ -347,8 +347,12 @@ router.post('/ncrs/import', fileUpload.single('file'), async (req, res) => {
       // Use milliseconds for sequence number in import (ensuring uniqueness)
       const seq = String(Date.now() % 1000).padStart(3, '0');
       
-      // Create NCR number in standardized format
-      const ncrNumber = `${departmentCode}-${year}${month}${day}-${hours}${minutes}-${seq}`;
+      // Use hours and minutes for 4-digit time in 24-hour format
+      const timeStr = `${hours}${minutes}`;
+      
+      // Create NCR number in the format DEPT-YYYYMMDD-HHMM
+      // Department + date + 4-digit time (24-hour format)
+      const ncrNumber = `${departmentCode}-${year}${month}${day}-${timeStr}`;
       
       const ncrData: NCRData = {
         id: `NCR-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

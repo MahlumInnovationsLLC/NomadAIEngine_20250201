@@ -4,8 +4,10 @@ export const DispositionSchema = z.object({
   decision: z.enum([
     "use_as_is",
     "rework",
+    "repair",
     "scrap",
-    "return_to_supplier"
+    "return_to_supplier",
+    "pending_disposition"
   ]),
   justification: z.string(),
   conditions: z.string().optional(),

@@ -498,11 +498,23 @@ export default function NCRList() {
             if (!open) setEditModeNCR(null);
           }}
           defaultValues={editModeNCR}
+          ncr={editModeNCR}
           onSuccess={() => {
             setEditModeNCR(null);
             refetch();
           }}
           isEditing={true}
+          onDeleteAttachment={async (ncrId, attachmentId) => {
+            try {
+              await fetch(`/api/manufacturing/quality/ncrs/${ncrId}/attachments/${attachmentId}`, {
+                method: 'DELETE'
+              });
+              refetch(); // Refresh data after deletion
+            } catch (error) {
+              console.error('Error deleting attachment:', error);
+            }
+          }}
+          onRefreshData={() => refetch()}
         />
       )}
 

@@ -12,6 +12,7 @@ import salesRoutes from "./routes/sales";
 import facilityRoutes from "./routes/facility";
 import logisticsRoutes from "./routes/logistics";
 import warehouseRoutes from "./routes/warehouse";
+import azureADRouter from "./routes/azure-ad";
 
 const app = express();
 // Increase JSON and URL-encoded limits
@@ -93,8 +94,7 @@ const startServer = async (retryCount = 0) => {
     app.use('/api/facility', facilityRoutes);
     app.use('/api/logistics', logisticsRoutes);
     app.use('/api/warehouse', warehouseRoutes);
-
-    await registerRoutes(app);
+    app.use('/api/azure-ad', azureADRouter);
 
     // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

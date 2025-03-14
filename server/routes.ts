@@ -34,8 +34,9 @@ import {
   uploadEquipmentImage
 } from './services/azure/equipment_service';
 import projectsRouter from "./routes/manufacturing/projects";
-import trainingRouter from "./routes/training"; // Add this import
-import qualityRouter, { registerQualityRoutes } from "./routes/manufacturing/quality"; // Import quality router and registration function
+import trainingRouter from "./routes/training"; 
+import qualityRouter, { registerQualityRoutes } from "./routes/manufacturing/quality";
+import azureADRouter from "./routes/azure-ad"; // Import Azure AD router
 // Import removed to avoid duplicate route registration
 // Initialize Cosmos DB client
 const cosmosClient = new CosmosClient(process.env.NOMAD_AZURE_COSMOS_CONNECTION_STRING || '');
@@ -2047,7 +2048,10 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to fetch materials" });
     }
   });
-  app.use("/api/training", trainingRouter); // Add this line
+  app.use("/api/training", trainingRouter);
+  
+  // Add Azure AD integration routes
+  app.use("/api/azure-ad", azureADRouter);
   
   // Add manufacturing quality routes
   app.use("/api/manufacturing/quality", qualityRouter);

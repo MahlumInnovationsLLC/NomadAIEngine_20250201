@@ -169,6 +169,9 @@ export function NCRDialog({
 
   const updateNCRMutation = useMutation({
     mutationFn: async (data: { id: string; updates: Partial<NCR> }) => {
+      console.log("Sending update request for NCR ID:", data.id);
+      console.log("Update payload being sent:", data.updates);
+      
       const response = await fetch(`/api/manufacturing/quality/ncrs/${data.id}`, {
         method: "PUT",
         headers: {
@@ -179,12 +182,16 @@ export function NCRDialog({
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("Server returned error:", errorData);
         throw new Error(errorData.message || "Failed to update NCR");
       }
 
-      return response.json();
+      const result = await response.json();
+      console.log("Update response received:", result);
+      return result;
     },
     onSuccess: () => {
+      console.log("Update mutation completed successfully");
       queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/ncrs"] });
       toast({
         title: "Success",
@@ -194,6 +201,7 @@ export function NCRDialog({
       if (onSuccess) onSuccess();
     },
     onError: (error: Error) => {
+      console.error("Update mutation failed:", error);
       toast({
         title: "Error",
         description: error.message,
@@ -205,23 +213,73 @@ export function NCRDialog({
   const onSubmit = async (data: NCR) => {
     try {
       setIsSubmitting(true);
-      if (isEditing && defaultValues?.id) {
+      
+      // Add debugging
+      console.log("Submitting NCR data:", data);
+      
+      if (isEditing) {
+        // Use ncr.id if available, otherwise fall back to defaultValues.id
+        const ncrId = ncr?.id || defaultValues?.id;
+        
+        if (!ncrId) {
+          throw new Error("NCR ID is missing for update operation");
+        }
+        
+        // Debug logs
+        console.log("Updating NCR with ID:", ncrId);
+        console.log("Update payload:", data);
+        
+        // Preserve only fields we want to update
+        const updatePayload = {
+          title: data.title,
+          description: data.description,
+          type: data.type,
+          severity: data.severity,
+          status: data.status,
+          area: data.area,
+          reportedBy: data.reportedBy,
+          lotNumber: data.lotNumber,
+          partNumber: data.partNumber,
+          projectNumber: data.projectNumber,
+          disposition: data.disposition,
+          quantityAffected: data.quantityAffected,
+          updatedAt: new Date().toISOString()
+        };
+        
         await updateNCRMutation.mutateAsync({
-          id: defaultValues.id,
-          updates: {
-            ...data,
-            updatedAt: new Date().toISOString(),
-          },
+          id: ncrId,
+          updates: updatePayload,
         });
       } else {
-        await createNCRMutation.mutateAsync({
+        // Ensure we have the minimum required fields for NCR creation
+        const ncrPayload = {
           ...data,
+          type: data.type || "product", // Default type if not provided
+          severity: data.severity || "minor", // Default severity if not provided
+          status: data.status || "draft", // Default status if not provided
+          area: data.area || "General", // Default area if not provided
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        });
+        };
+        
+        console.log("Creating new NCR with payload:", ncrPayload);
+        
+        // Use try-catch to get detailed error information
+        try {
+          const result = await createNCRMutation.mutateAsync(ncrPayload);
+          console.log("NCR creation successful:", result);
+        } catch (mutationError) {
+          console.error("Detailed mutation error:", mutationError);
+          throw mutationError;
+        }
       }
     } catch (error) {
       console.error("Error submitting NCR:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -385,6 +443,20 @@ export function NCRDialog({
                       </FormItem>
                     )}
                   />
+                  
+                  <FormField
+                    control={form.control}
+                    name="partNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Part Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Part number if applicable" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </TabsContent>
 
@@ -463,32 +535,34 @@ export function NCRDialog({
                   )}
                 />
 
-                {!isEditing && (
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Initial Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="open">Open</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          Set the initial status of this NCR
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{isEditing ? "Status" : "Initial Status"}</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="open">Open</SelectItem>
+                          <SelectItem value="under_review">Under Review</SelectItem>
+                          <SelectItem value="pending_disposition">Pending Disposition</SelectItem>
+                          <SelectItem value="in_review">In Review</SelectItem>
+                          <SelectItem value="closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {isEditing ? "Update the current status of this NCR" : "Set the initial status of this NCR"}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               <TabsContent value="disposition" className="space-y-4">
@@ -505,8 +579,10 @@ export function NCRDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="pending_disposition">Pending Disposition</SelectItem>
                           <SelectItem value="use_as_is">Use As Is</SelectItem>
                           <SelectItem value="rework">Rework</SelectItem>
+                          <SelectItem value="repair">Repair</SelectItem>
                           <SelectItem value="scrap">Scrap</SelectItem>
                           <SelectItem value="return_to_supplier">Return to Supplier</SelectItem>
                         </SelectContent>
@@ -615,39 +691,82 @@ export function NCRDialog({
                     <div className="border rounded-md p-4 bg-muted/20">
                       <h3 className="text-lg font-medium mb-2">Current Attachments</h3>
                       {ncr.attachments && ncr.attachments.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {ncr.attachments.map((attachment) => (
-                            <div 
-                              key={attachment.id} 
-                              className="flex items-center justify-between p-3 border rounded-md bg-card"
-                            >
-                              <div className="flex items-center">
-                                <FontAwesomeIcon 
-                                  icon="file" 
-                                  className="h-5 w-5 mr-2 text-primary" 
-                                />
-                                <div>
-                                  <p className="font-medium truncate max-w-xs">{attachment.fileName}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {Math.round(attachment.fileSize / 1024)} KB
-                                  </p>
+                        <div className="border rounded-md divide-y">
+                          {ncr.attachments.map((attachment) => {
+                            // Determine file type icon based on file extension
+                            const extension = attachment.fileName.split('.').pop()?.toLowerCase() || '';
+                            let fileIcon = "file";
+                            
+                            switch (extension) {
+                              case 'pdf':
+                                fileIcon = "file-pdf";
+                                break;
+                              case 'jpg':
+                              case 'jpeg':
+                              case 'png':
+                              case 'gif':
+                              case 'svg':
+                                fileIcon = "file-image";
+                                break;
+                              case 'doc':
+                              case 'docx':
+                                fileIcon = "file-word";
+                                break;
+                              case 'xls':
+                              case 'xlsx':
+                                fileIcon = "file-excel";
+                                break;
+                              case 'zip':
+                              case 'rar':
+                              case '7z':
+                                fileIcon = "file-zipper";
+                                break;
+                            }
+                            
+                            return (
+                              <div 
+                                key={attachment.id} 
+                                className="flex items-center justify-between p-3"
+                              >
+                                <div className="flex items-center flex-1">
+                                  <FontAwesomeIcon 
+                                    icon={fileIcon as any} 
+                                    className="h-5 w-5 mr-3 text-primary" 
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium truncate">{attachment.fileName}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {Math.round(attachment.fileSize / 1024)} KB • 
+                                      {attachment.uploadedBy ? ` Uploaded by ${attachment.uploadedBy} • ` : ' '}
+                                      {new Date(attachment.uploadedAt).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <a 
+                                    href={attachment.blobUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 text-muted-foreground"
+                                  >
+                                    <FontAwesomeIcon icon="eye" className="h-4 w-4" />
+                                  </a>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                                    onClick={() => {
+                                      if (onDeleteAttachment) {
+                                        onDeleteAttachment(ncr.id, attachment.id);
+                                      }
+                                    }}
+                                  >
+                                    <FontAwesomeIcon icon="trash" className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </div>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => {
-                                  // Handle delete action
-                                  if (onDeleteAttachment) {
-                                    onDeleteAttachment(ncr.id, attachment.id);
-                                  }
-                                }}
-                              >
-                                <FontAwesomeIcon icon="trash" className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-muted-foreground">No attachments added yet.</p>
@@ -655,10 +774,11 @@ export function NCRDialog({
                     </div>
 
                     <div className="border rounded-md p-4">
-                      <h3 className="text-lg font-medium mb-2">Upload New Attachment</h3>
+                      <h3 className="text-lg font-medium mb-2">Upload New Attachments</h3>
                       <AttachmentUploader 
                         parentId={ncr.id} 
                         parentType="ncr"
+                        multiple={true}
                         onSuccess={() => {
                           // Refresh the NCR data after upload
                           if (onRefreshData) {
@@ -672,17 +792,32 @@ export function NCRDialog({
                   <div className="p-4 border rounded-md">
                     <h3 className="text-lg font-medium mb-2">Upload Attachments</h3>
                     <p className="text-muted-foreground mb-4">
-                      Add supporting documentation for this NCR.
+                      {isEditing && ncr 
+                        ? "Add supporting documentation for this NCR."
+                        : "Please save the NCR first before uploading attachments."}
                     </p>
-                    <AttachmentUploader 
-                      parentId={isEditing && ncr ? ncr.id : `temp-${Date.now()}`} 
-                      parentType="ncr"
-                      onSuccess={() => {
-                        if (onRefreshData) {
-                          onRefreshData();
-                        }
-                      }} 
-                    />
+                    {isEditing && ncr ? (
+                      <AttachmentUploader 
+                        parentId={ncr.id}
+                        parentType="ncr"
+                        multiple={true}
+                        onSuccess={() => {
+                          if (onRefreshData) {
+                            onRefreshData();
+                          }
+                        }} 
+                      />
+                    ) : (
+                      <div className="bg-muted/30 p-4 rounded-md text-center">
+                        <FontAwesomeIcon 
+                          icon="info-circle" 
+                          className="text-muted-foreground mb-2 h-5 w-5" 
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          You'll be able to upload attachments after saving the NCR.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </TabsContent>
