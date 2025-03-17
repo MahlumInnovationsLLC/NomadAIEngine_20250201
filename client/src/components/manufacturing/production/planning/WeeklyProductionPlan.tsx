@@ -566,3 +566,5 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
     </div>
   );
 }
+
+export default WeeklyProductionPlan;

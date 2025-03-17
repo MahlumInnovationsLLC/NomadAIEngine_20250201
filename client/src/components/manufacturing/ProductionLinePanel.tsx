@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BOMManagement } from "./production/BOMManagement";
 import { MaterialRequirementsPlanning } from "./production/MaterialRequirementsPlanning";
 import { InventoryAllocation } from "./production/InventoryAllocation";
@@ -9,8 +11,9 @@ import { ProductionHotProjectsGrid } from "./production/ProductionHotProjectsGri
 import { ProductionScheduler } from "./production/ProductionScheduler";
 import { BayScheduler } from "./production/BayScheduler";
 import { ProductionAnalyticsDashboard } from "./production/ProductionAnalyticsDashboard";
-import { useQuery } from "@tanstack/react-query";
-import type { ProductionLine, ProductionBay, ProductionOrder } from "@/types/manufacturing";
+import { ProductionPlanningDashboard } from "./production/ProductionPlanningDashboard";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ProductionLine, ProductionBay, ProductionOrder, ProductionProject } from "@/types/manufacturing";
 
 export const ProductionLinePanel = () => {
   const [activeTab, setActiveTab] = useState("overview");
