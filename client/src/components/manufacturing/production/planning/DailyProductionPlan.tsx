@@ -14,6 +14,7 @@ interface DailyProductionPlanProps {
   analyticsData?: DailyAnalytics;
   isLoading?: boolean;
   onDateChange?: (date: Date) => void;
+  productionLineId?: string;
 }
 
 export function DailyProductionPlan({ date, analyticsData, isLoading, onDateChange }: DailyProductionPlanProps) {

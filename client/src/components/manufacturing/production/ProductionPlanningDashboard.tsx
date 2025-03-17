@@ -132,7 +132,11 @@ export function ProductionPlanningDashboard({ productionLineId }: ProductionPlan
             </TabsList>
             
             <TabsContent value="daily" className="mt-0">
-              <DailyProductionPlan productionLineId={productionLineId} />
+              <DailyProductionPlan 
+                productionLineId={productionLineId} 
+                date={new Date()} 
+                onDateChange={(date) => console.log('Date changed:', date)}
+              />
             </TabsContent>
             
             <TabsContent value="weekly" className="mt-0">

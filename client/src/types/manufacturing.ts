@@ -454,7 +454,7 @@ export interface ProductionProject {
   projectNumber: string;
   name: string;
   description: string;
-  status: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
+  status: 'planning' | 'in_progress' | 'active' | 'on_hold' | 'completed' | 'cancelled';
   startDate: string;
   targetCompletionDate: string;
   actualCompletionDate?: string;
@@ -463,6 +463,8 @@ export interface ProductionProject {
   projectManager: string;
   totalBudgetedHours: number;
   totalActualHours: number;
+  planningStage?: 'concept' | 'resource_allocation' | 'scheduling' | 'material_planning' | 'ready';
+  isDelayed?: boolean;
   sections: Record<ProductionSectionId, {
     status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
     progress: number;
