@@ -23,7 +23,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // CORS middleware - Allow all origins in Replit environment
 app.use((req, res, next) => {
   const origin = req.headers.origin || req.headers.host || '*';
-  
+
   // In Replit, allow any origin for better dev experience
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -99,7 +99,7 @@ const startServer = async (retryCount = 0) => {
     app.get('/test', (req, res) => {
       res.sendFile(path.join(process.cwd(), 'server', 'test.html'));
     });
-    
+
     // Serve static test files
     app.use('/connection-test', express.static(path.join(process.cwd(), 'public-test')));
 
