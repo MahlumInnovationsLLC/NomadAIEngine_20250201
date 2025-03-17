@@ -16,7 +16,62 @@ import { ProductionAnalyticsDashboard } from "./production/ProductionAnalyticsDa
 import { ProductionPlanningDashboard } from "./production/ProductionPlanningDashboard";
 import { ResourceManagement } from "./scheduling/ResourceManagement";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import type { ProductionLine, ProductionBay, ProductionOrder, ProductionProject } from "@/types/manufacturing";
+import type { ProductionLine, ProductionBay, ProductionOrder, ProductionProject, Project } from "@/types/manufacturing";
+
+// Define a comprehensive status type that handles all possible values
+type ProjectStatus = 
+  | 'active' 
+  | 'in_progress' 
+  | 'planning' 
+  | 'on_hold' 
+  | 'completed'
+  | 'cancelled'
+  | 'NOT STARTED'
+  | 'IN FAB'
+  | 'IN ASSEMBLY'
+  | 'IN WRAP'
+  | 'IN NTC TESTING'
+  | 'IN QC'
+  | 'PLANNING'
+  | 'COMPLETED';
+
+// Combined project type to handle both Project and ProductionProject types
+type CombinedProject = (Project | ProductionProject) & {
+  // Additional fields we might need to ensure exist on all projects
+  metrics?: {
+    completionPercentage?: number;
+  };
+  startDate?: string;
+  targetCompletionDate?: string;
+  contractDate?: string;
+  delivery?: string;
+  completionDate?: string;
+  duration?: number;
+  progress?: number;
+  isDelayed?: boolean;
+  planningStage?: string;
+  // Override status with our comprehensive type
+  status: ProjectStatus;
+};
+
+// Helper function to safely format dates with fallbacks
+const formatDate = (date: string | undefined | null, fallbackDate?: string | null): string => {
+  if (date) {
+    const parsedDate = new Date(date);
+    if (!isNaN(parsedDate.getTime())) {
+      return parsedDate.toLocaleDateString();
+    }
+  }
+  
+  if (fallbackDate) {
+    const parsedFallbackDate = new Date(fallbackDate);
+    if (!isNaN(parsedFallbackDate.getTime())) {
+      return parsedFallbackDate.toLocaleDateString();
+    }
+  }
+  
+  return 'TBD';
+};
 
 export const ProductionLinePanel = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -32,9 +87,45 @@ export const ProductionLinePanel = () => {
     refetchInterval: 5000,
   });
 
-  const { data: projects = [] } = useQuery<ProductionProject[]>({
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<CombinedProject[]>({
     queryKey: ['/api/manufacturing/projects'],
-    refetchInterval: 10000,
+    queryFn: async () => {
+      console.log('Fetching projects data...');
+      try {
+        const response = await fetch('/api/manufacturing/projects');
+        if (!response.ok) throw new Error('Failed to fetch projects');
+        
+        const data = await response.json();
+        console.log(`Fetched ${data.length} projects`);
+        
+        // Transform the projects to match our CombinedProject type
+        return data.map((project: any) => ({
+          ...project,
+          // Create a metrics object if it doesn't exist
+          metrics: project.metrics || { 
+            completionPercentage: project.progress || 0
+          },
+          // Make sure all common properties are available
+          startDate: project.startDate || project.contractDate,
+          targetCompletionDate: project.targetCompletionDate || project.delivery,
+          contractDate: project.contractDate || project.startDate,
+          delivery: project.delivery || project.targetCompletionDate,
+          completionDate: project.completionDate || project.actualCompletionDate,
+          progress: project.progress || (project.metrics?.completionPercentage || 0),
+          isDelayed: project.isDelayed || false,
+          duration: project.duration || 0,
+          planningStage: project.planningStage || 'initial'
+        }));
+      } catch (error) {
+        console.error("Error fetching projects:", error);
+        return [];
+      }
+    },
+    // Improved data fetching configuration
+    refetchInterval: 5000,      // More frequent updates
+    refetchOnMount: true,       // Refresh when component mounts
+    refetchOnWindowFocus: true, // Refresh when window regains focus
+    staleTime: 0,               // Consider data immediately stale
   });
 
   const { data: bays = [] } = useQuery<ProductionBay[]>({
@@ -95,8 +186,8 @@ export const ProductionLinePanel = () => {
     queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/orders', lineId] });
   };
   
-  const handleAssignProject = (project: ProductionProject) => {
-    setSelectedProject(project);
+  const handleAssignProject = (project: CombinedProject) => {
+    setSelectedProject(project as ProductionProject);
     setAssignProjectDialogOpen(true);
   };
   
@@ -184,9 +275,27 @@ export const ProductionLinePanel = () => {
                       <TabsTrigger value="all">All Projects</TabsTrigger>
                     </TabsList>
                     <TabsContent value="active" className="space-y-4 pt-4">
-                      {projects.filter(p => p.status === 'in_progress' || p.status === 'active').length > 0 ? (
+                      {projects.filter(p => 
+                        p.status === 'in_progress' || 
+                        p.status === 'active' || 
+                        p.status === 'NOT STARTED' || 
+                        p.status === 'IN FAB' || 
+                        p.status === 'IN ASSEMBLY' || 
+                        p.status === 'IN WRAP' || 
+                        p.status === 'IN NTC TESTING' || 
+                        p.status === 'IN QC'
+                      ).length > 0 ? (
                         projects
-                          .filter(p => p.status === 'in_progress' || p.status === 'active')
+                          .filter(p => 
+                            p.status === 'in_progress' || 
+                            p.status === 'active' || 
+                            p.status === 'NOT STARTED' || 
+                            p.status === 'IN FAB' || 
+                            p.status === 'IN ASSEMBLY' || 
+                            p.status === 'IN WRAP' || 
+                            p.status === 'IN NTC TESTING' || 
+                            p.status === 'IN QC'
+                          )
                           .map(project => (
                             <Card key={project.id} className="cursor-pointer hover:bg-accent/5">
                               <CardContent className="p-4">
@@ -200,15 +309,18 @@ export const ProductionLinePanel = () => {
                                 <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                                   <div>
                                     <p className="text-muted-foreground">Start Date</p>
-                                    <p>{new Date(project.startDate).toLocaleDateString()}</p>
+                                    <p>{formatDate(project.startDate, project.contractDate)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Target Date</p>
-                                    <p>{new Date(project.targetCompletionDate).toLocaleDateString()}</p>
+                                    <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Progress</p>
-                                    <Progress value={project.metrics.completionPercentage} className="h-2 mt-1" />
+                                    <Progress 
+                                      value={project.metrics?.completionPercentage ?? project.progress ?? 0} 
+                                      className="h-2 mt-1" 
+                                    />
                                   </div>
                                 </div>
                                 <div className="mt-3 flex justify-end gap-2">
@@ -238,9 +350,17 @@ export const ProductionLinePanel = () => {
                       )}
                     </TabsContent>
                     <TabsContent value="planning" className="space-y-4 pt-4">
-                      {projects.filter(p => p.status === 'planning').length > 0 ? (
+                      {projects.filter(p => 
+                        p.status === 'planning' || 
+                        p.status === 'NOT STARTED' ||
+                        p.status === 'PLANNING'
+                      ).length > 0 ? (
                         projects
-                          .filter(p => p.status === 'planning')
+                          .filter(p => 
+                            p.status === 'planning' || 
+                            p.status === 'NOT STARTED' ||
+                            p.status === 'PLANNING'
+                          )
                           .map(project => (
                             <Card key={project.id} className="cursor-pointer hover:bg-accent/5">
                               <CardContent className="p-4">
@@ -254,11 +374,11 @@ export const ProductionLinePanel = () => {
                                 <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                                   <div>
                                     <p className="text-muted-foreground">Start Date</p>
-                                    <p>{project.startDate ? new Date(project.startDate).toLocaleDateString() : 'TBD'}</p>
+                                    <p>{formatDate(project.startDate, project.contractDate)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Target Date</p>
-                                    <p>{project.targetCompletionDate ? new Date(project.targetCompletionDate).toLocaleDateString() : 'TBD'}</p>
+                                    <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Planning Status</p>
@@ -291,6 +411,54 @@ export const ProductionLinePanel = () => {
                         </div>
                       )}
                     </TabsContent>
+                    
+                    <TabsContent value="completed" className="space-y-4 pt-4">
+                      {projects.filter(p => 
+                        p.status === 'completed' || 
+                        p.status === 'COMPLETED'
+                      ).length > 0 ? (
+                        projects
+                          .filter(p => 
+                            p.status === 'completed' || 
+                            p.status === 'COMPLETED'
+                          )
+                          .map(project => (
+                            <Card key={project.id} className="cursor-pointer hover:bg-accent/5">
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h3 className="font-medium">{project.name}</h3>
+                                    <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
+                                  </div>
+                                  <Badge variant="outline">{project.status}</Badge>
+                                </div>
+                                <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                  <div>
+                                    <p className="text-muted-foreground">Start Date</p>
+                                    <p>{formatDate(project.startDate, project.contractDate)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground">Completion Date</p>
+                                    <p>{formatDate(project.completionDate, project.targetCompletionDate)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground">Duration</p>
+                                    <p>{project.duration || 'N/A'}</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
+                          <h3 className="text-lg font-semibold mb-2">No Completed Projects</h3>
+                          <p className="text-muted-foreground">
+                            There are no completed projects at the moment
+                          </p>
+                        </div>
+                      )}
+                    </TabsContent>
                   </Tabs>
                 </div>
               </CardContent>
@@ -306,19 +474,45 @@ export const ProductionLinePanel = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">Active Projects</div>
-                      <div className="font-medium">{projects.filter(p => p.status === 'in_progress' || p.status === 'active').length}</div>
+                      <div className="font-medium">{projects.filter(p => 
+                        p.status === 'in_progress' || 
+                        p.status === 'active' || 
+                        p.status === 'NOT STARTED' || 
+                        p.status === 'IN FAB' || 
+                        p.status === 'IN ASSEMBLY' || 
+                        p.status === 'IN WRAP' || 
+                        p.status === 'IN NTC TESTING' || 
+                        p.status === 'IN QC'
+                      ).length}</div>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">Planning Stage</div>
-                      <div className="font-medium">{projects.filter(p => p.status === 'planning').length}</div>
+                      <div className="font-medium">{projects.filter(p => 
+                        p.status === 'planning' || 
+                        p.status === 'NOT STARTED' ||
+                        p.status === 'PLANNING'
+                      ).length}</div>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">Completed</div>
-                      <div className="font-medium">{projects.filter(p => p.status === 'completed').length}</div>
+                      <div className="font-medium">{projects.filter(p => 
+                        p.status === 'completed' || 
+                        p.status === 'COMPLETED'
+                      ).length}</div>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">Delayed</div>
-                      <div className="font-medium">{projects.filter(p => (p.status === 'in_progress' || p.status === 'active') && p.isDelayed).length}</div>
+                      <div className="font-medium">{projects.filter(p => 
+                        (p.status === 'in_progress' || 
+                         p.status === 'active' || 
+                         p.status === 'NOT STARTED' || 
+                         p.status === 'IN FAB' || 
+                         p.status === 'IN ASSEMBLY' || 
+                         p.status === 'IN WRAP' || 
+                         p.status === 'IN NTC TESTING' || 
+                         p.status === 'IN QC') && 
+                        p.isDelayed === true
+                      ).length}</div>
                     </div>
                     
                     <Separator className="my-2" />
@@ -326,10 +520,29 @@ export const ProductionLinePanel = () => {
                     <div className="mt-4">
                       <div className="text-sm text-muted-foreground mb-2">Project Status Distribution</div>
                       <div className="flex items-center gap-2 mt-2">
-                        <div className="h-2 bg-green-500 rounded" style={{ width: `${(projects.filter(p => p.status === 'completed').length / projects.length) * 100}%` }} />
-                        <div className="h-2 bg-blue-500 rounded" style={{ width: `${(projects.filter(p => p.status === 'in_progress' || p.status === 'active').length / projects.length) * 100}%` }} />
-                        <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(projects.filter(p => p.status === 'planning').length / projects.length) * 100}%` }} />
-                        <div className="h-2 bg-red-500 rounded" style={{ width: `${(projects.filter(p => p.status === 'on_hold').length / projects.length) * 100}%` }} />
+                        <div className="h-2 bg-green-500 rounded" style={{ width: `${(projects.filter(p => 
+                          p.status === 'completed' || 
+                          p.status === 'COMPLETED'
+                        ).length / projects.length) * 100}%` }} />
+                        <div className="h-2 bg-blue-500 rounded" style={{ width: `${(projects.filter(p => 
+                          p.status === 'in_progress' || 
+                          p.status === 'active' || 
+                          p.status === 'NOT STARTED' || 
+                          p.status === 'IN FAB' || 
+                          p.status === 'IN ASSEMBLY' || 
+                          p.status === 'IN WRAP' || 
+                          p.status === 'IN NTC TESTING' || 
+                          p.status === 'IN QC'
+                        ).length / projects.length) * 100}%` }} />
+                        <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(projects.filter(p => 
+                          p.status === 'planning' || 
+                          p.status === 'NOT STARTED' ||
+                          p.status === 'PLANNING'
+                        ).length / projects.length) * 100}%` }} />
+                        <div className="h-2 bg-red-500 rounded" style={{ width: `${(projects.filter(p => 
+                          p.status === 'on_hold' || 
+                          p.status === 'cancelled'
+                        ).length / projects.length) * 100}%` }} />
                       </div>
                       <div className="grid grid-cols-4 gap-1 text-xs mt-1">
                         <div className="text-green-500">Completed</div>
@@ -463,7 +676,7 @@ export const ProductionLinePanel = () => {
                   <p>Name: <span className="font-medium">{selectedProject.name}</span></p>
                   <p>ID: <span className="font-medium">{selectedProject.projectNumber}</span></p>
                   <p>Status: <span className="font-medium">{selectedProject.status}</span></p>
-                  <p>Target Date: <span className="font-medium">{new Date(selectedProject.targetCompletionDate).toLocaleDateString()}</span></p>
+                  <p>Target Date: <span className="font-medium">{formatDate(selectedProject.targetCompletionDate)}</span></p>
                 </div>
               )}
             </div>

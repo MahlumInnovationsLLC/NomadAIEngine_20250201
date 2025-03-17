@@ -213,6 +213,40 @@ export interface TeamMember {
   skills: string[];
   availability: 'available' | 'assigned' | 'unavailable';
   currentAssignment?: string;
+  type?: string;
+  currentProjects: string[];
+  workload: number;
+  hoursAllocated: number;
+  hoursEarned: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  description: string;
+  lead: string;
+  members: string[];
+  type: string;
+  projectIds: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ResourceAllocation {
+  id: string;
+  type: string;
+  projectId: string;
+  memberId?: string;
+  teamId?: string;
+  allocation: number;
+  hoursAllocated: number;
+  hoursEarned: number;
+  startDate: string;
+  endDate: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ProductionTeam {
@@ -454,7 +488,7 @@ export interface ProductionProject {
   projectNumber: string;
   name: string;
   description: string;
-  status: 'planning' | 'in_progress' | 'active' | 'on_hold' | 'completed' | 'cancelled';
+  status: ProjectStatus;
   startDate: string;
   targetCompletionDate: string;
   actualCompletionDate?: string;
@@ -502,13 +536,20 @@ export interface ProductionProject {
 }
 
 export type ProjectStatus =
-  | "NOT STARTED"
-  | "IN FAB"
-  | "IN ASSEMBLY"
-  | "IN WRAP"
-  | "IN NTC TESTING"
-  | "IN QC"
-  | "COMPLETED";
+  | 'active' 
+  | 'in_progress' 
+  | 'planning' 
+  | 'on_hold' 
+  | 'completed'
+  | 'cancelled'
+  | 'NOT STARTED'
+  | 'IN FAB'
+  | 'IN ASSEMBLY'
+  | 'IN WRAP'
+  | 'IN NTC TESTING'
+  | 'IN QC'
+  | 'PLANNING'
+  | 'COMPLETED';
 
 export interface Project {
   id: string;

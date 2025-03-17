@@ -195,7 +195,7 @@ router.post("/import", upload.single('file'), async (req, res) => {
         projectNumber: getValueFromRow(row, headers, 'projectNumber'),
         location: getValueFromRow(row, headers, 'location'),
         team: getValueFromRow(row, headers, 'team'),
-        status: 'NOT_STARTED',
+        status: 'NOT STARTED', // Match the expected format in the UI (with space)
         manualStatus: false,
         contractDate: parseExcelDate(getValueFromRow(row, headers, 'contractDate')),
         chassisEta: parseExcelDate(getValueFromRow(row, headers, 'chassisEta')),
@@ -217,6 +217,7 @@ router.post("/import", upload.single('file'), async (req, res) => {
         executiveReview: parseExcelDate(getValueFromRow(row, headers, 'executiveReview')),
         ship: parseExcelDate(getValueFromRow(row, headers, 'ship')),
         delivery: parseExcelDate(getValueFromRow(row, headers, 'delivery')),
+        progress: 0, // Add initial progress value
         createdAt: now,
         updatedAt: now
       };

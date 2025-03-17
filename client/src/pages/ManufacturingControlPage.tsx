@@ -4,18 +4,18 @@ import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimateTransition } from "@/components/ui/AnimateTransition";
-import { ProductionLinePanel } from "../components/manufacturing/ProductionLinePanel";
-import { QualityControlPanel } from "../components/manufacturing/QualityControlPanel";
-import { ProjectManagementPanel } from "../components/manufacturing/ProjectManagementPanel";
-import { ProductionAnalyticsDashboard } from "../components/manufacturing/production/ProductionAnalyticsDashboard";
+import { ProductionLinePanel } from "@/components/manufacturing/ProductionLinePanel";
+import { QualityControlPanel } from "@/components/manufacturing/QualityControlPanel";
+import { ProjectManagementPanel } from "@/components/manufacturing/ProjectManagementPanel";
+import { ProductionAnalyticsDashboard } from "@/components/manufacturing/production/ProductionAnalyticsDashboard";
 import { useQuery } from "@tanstack/react-query";
-import FabricationDashboard from "../components/facility/manufacturing/FabricationDashboard";
-import CncManagement from "../components/facility/manufacturing/CncManagement";
-import WeldingManagement from "../components/facility/manufacturing/WeldingManagement";
-import LaserCuttingManagement from "../components/facility/manufacturing/LaserCuttingManagement";
-import BendingManagement from "../components/facility/manufacturing/BendingManagement";
-import MaterialOptimizationPanel from "../components/facility/manufacturing/MaterialOptimizationPanel";
-import MaterialManagement from "../components/facility/manufacturing/MaterialManagement";
+import FabricationDashboard from "@/components/facility/manufacturing/FabricationDashboard";
+import CncManagement from "@/components/facility/manufacturing/CncManagement";
+import WeldingManagement from "@/components/facility/manufacturing/WeldingManagement";
+import LaserCuttingManagement from "@/components/facility/manufacturing/LaserCuttingManagement";
+import BendingManagement from "@/components/facility/manufacturing/BendingManagement";
+import MaterialOptimizationPanel from "@/components/facility/manufacturing/MaterialOptimizationPanel";
+import MaterialManagement from "@/components/facility/manufacturing/MaterialManagement";
 
 interface ManufacturingStats {
   activeLines: number;
@@ -95,7 +95,7 @@ export default function ManufacturingControlPage() {
               Production Line
             </TabsTrigger>
             <TabsTrigger value="quality">
-              <FontAwesomeIcon icon={['fal', 'circle-check']} className="mr-2 h-4 w-4 text-green-500" />
+              <FontAwesomeIcon icon="check-circle" className="mr-2 h-4 w-4 text-green-500" />
               Quality Assurance
             </TabsTrigger>
             <TabsTrigger value="projects">

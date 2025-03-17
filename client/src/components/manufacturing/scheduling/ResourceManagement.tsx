@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,16 +32,6 @@ import resourcesApi, {
   Team, 
   ResourceAllocation 
 } from "@/lib/api/manufacturing-resources";
-  id: string;
-  projectId: string;
-  memberId: string;
-  teamId?: string;
-  allocation: number;
-  hoursAllocated: number;
-  hoursEarned: number;
-  startDate: string;
-  endDate: string;
-}
 
 export function ResourceManagement() {
   const { toast } = useToast();
@@ -67,6 +57,9 @@ export function ResourceManagement() {
   const [allocationEndDate, setAllocationEndDate] = useState("");
   const [selectedMemberForAllocation, setSelectedMemberForAllocation] = useState("");
   const [selectedTeamForAllocation, setSelectedTeamForAllocation] = useState("");
+  const [showLogHoursDialog, setShowLogHoursDialog] = useState(false);
+  const [selectedAllocation, setSelectedAllocation] = useState<string | null>(null);
+  const [loggedHours, setLoggedHours] = useState(0);
 
   const { data: teamMembers = [] } = useQuery<TeamMember[]>({
     queryKey: ['/api/manufacturing/resources/team'],
@@ -106,7 +99,7 @@ export function ResourceManagement() {
 
   // Mutations for adding a new team
   const addTeamMutation = useMutation({
-    mutationFn: async (newTeam: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>) => {
+    mutationFn: async (newTeam: Omit<Team, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
       const response = await fetch('/api/manufacturing/resources/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,7 +130,7 @@ export function ResourceManagement() {
 
   // Mutation for adding a new team member
   const addMemberMutation = useMutation({
-    mutationFn: async (newMember: Omit<TeamMember, 'id' | 'currentProjects' | 'workload' | 'availability' | 'hoursAllocated' | 'hoursEarned'>) => {
+    mutationFn: async (newMember: Omit<TeamMember, 'id' | 'type' | 'currentProjects' | 'workload' | 'availability' | 'hoursAllocated' | 'hoursEarned' | 'createdAt' | 'updatedAt'>) => {
       const response = await fetch('/api/manufacturing/resources/team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -201,6 +194,37 @@ export function ResourceManagement() {
       });
     }
   });
+  
+  // Mutation for logging hours
+  const logHoursMutation = useMutation({
+    mutationFn: async ({ allocationId, hours }: { allocationId: string, hours: number }) => {
+      const response = await fetch(`/api/manufacturing/resources/allocations/${allocationId}/hours`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hoursEarned: hours })
+      });
+      if (!response.ok) throw new Error('Failed to log hours');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/resources/allocations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/resources/team'] });
+      setShowLogHoursDialog(false);
+      setSelectedAllocation(null);
+      setLoggedHours(0);
+      toast({
+        title: "Hours logged",
+        description: "The hours have been successfully logged for the resource.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to log hours: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
 
   const handleAddTeam = () => {
     if (!newTeamName) {
@@ -215,9 +239,10 @@ export function ResourceManagement() {
     addTeamMutation.mutate({
       name: newTeamName,
       description: newTeamDescription,
-      leader: newTeamLeader,
+      lead: newTeamLeader, // Changed from leader to lead
       members: [],
-      projectIds: []
+      type: "production_team", // Changed to match with backend
+      projectIds: [] // Added required projectIds array
     });
   };
 
@@ -234,7 +259,13 @@ export function ResourceManagement() {
     addMemberMutation.mutate({
       name: newMemberName,
       role: newMemberRole,
-      skills: newMemberSkills.split(',').map(skill => skill.trim())
+      skills: newMemberSkills.split(',').map(skill => skill.trim()),
+      type: "team_member", // Added type property
+      availability: 'available',
+      currentProjects: [],
+      workload: 0,
+      hoursAllocated: 0,
+      hoursEarned: 0
     });
   };
 
@@ -249,6 +280,7 @@ export function ResourceManagement() {
     }
 
     allocateResourceMutation.mutate({
+      type: "resource_allocation", // Added required type
       projectId: selectedProject,
       memberId: selectedMemberForAllocation,
       teamId: selectedTeamForAllocation || undefined,
@@ -256,7 +288,9 @@ export function ResourceManagement() {
       hoursAllocated: allocatedHours,
       hoursEarned: 0, // Initial earned hours is 0
       startDate: allocationStartDate,
-      endDate: allocationEndDate
+      endDate: allocationEndDate,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
   };
 
@@ -376,7 +410,7 @@ export function ResourceManagement() {
                         <p className="text-sm text-muted-foreground mb-2">{team.description}</p>
                         <div className="flex justify-between items-center">
                           <span className="text-xs">
-                            Led by: {getMemberById(team.leader)?.name || 'Unassigned'}
+                            Led by: {getMemberById(team.lead)?.name || 'Unassigned'}
                           </span>
                           <span className="text-xs">
                             {getProjectsForTeam(team.id).length} projects
@@ -485,9 +519,9 @@ export function ResourceManagement() {
                             <CardTitle className="text-lg">{project.name}</CardTitle>
                             <div className="flex items-center space-x-2">
                               <Badge variant={
-                                project.status === "ACTIVE" ? "default" :
-                                project.status === "COMPLETED" ? "success" :
-                                project.status === "ON HOLD" ? "warning" : "secondary"
+                                project.status === "active" ? "default" :
+                                project.status === "completed" ? "success" :
+                                project.status === "on_hold" ? "warning" : "secondary"
                               }>
                                 {project.status}
                               </Badge>
@@ -607,7 +641,14 @@ export function ResourceManagement() {
                         </div>
                         <Progress value={hoursPercentage} className="h-2" />
                         <div className="flex justify-end">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedProject(project.id);
+                              setShowLogHoursDialog(true);
+                            }}
+                          >
                             <FontAwesomeIcon icon="clock" className="mr-2 h-4 w-4" />
                             Log Hours
                           </Button>
@@ -847,6 +888,82 @@ export function ResourceManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Log Hours Dialog */}
+      <Dialog open={showLogHoursDialog} onOpenChange={setShowLogHoursDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log Hours for Project</DialogTitle>
+            <DialogDescription>
+              {getProjectById(selectedProject || '')?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="resource">Resource</Label>
+              <Select 
+                value={selectedAllocation || ""} 
+                onValueChange={setSelectedAllocation}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select resource" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allocations
+                    .filter(allocation => allocation.projectId === selectedProject)
+                    .map((allocation) => {
+                      const resourceName = allocation.teamId 
+                        ? getTeamById(allocation.teamId)?.name
+                        : getMemberById(allocation.memberId)?.name;
+                      
+                      return (
+                        <SelectItem key={allocation.id} value={allocation.id}>
+                          {resourceName} ({allocation.hoursEarned}/{allocation.hoursAllocated} hrs)
+                        </SelectItem>
+                      );
+                    })
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="hours">Hours Earned</Label>
+              <Input 
+                id="hours" 
+                type="number" 
+                min="0"
+                placeholder="Enter hours" 
+                value={loggedHours || ""}
+                onChange={(e) => setLoggedHours(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLogHoursDialog(false)}>Cancel</Button>
+            <Button onClick={handleLogHours} disabled={!selectedAllocation || logHoursMutation.isPending}>
+              {logHoursMutation.isPending ? "Saving..." : "Save Hours"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
+  // Log Hours function
+  function handleLogHours() {
+    if (!selectedAllocation || loggedHours <= 0) {
+      toast({
+        title: "Error",
+        description: "Please select a valid allocation and enter hours greater than zero",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    logHoursMutation.mutate({
+      allocationId: selectedAllocation,
+      hours: loggedHours
+    });
+  }
 }

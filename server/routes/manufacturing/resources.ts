@@ -380,8 +380,94 @@ router.post("/allocations", async (req, res) => {
   }
 });
 
-// Update earned hours for an allocation
+// Update earned hours for an allocation (PUT version)
 router.put("/allocations/:id/hours", async (req, res) => {
+  try {
+    const container = getContainer('resources');
+    if (!container) {
+      throw new Error('Resources container not initialized');
+    }
+
+    const { id } = req.params;
+    const { hoursEarned } = req.body;
+
+    if (typeof hoursEarned !== 'number' || hoursEarned < 0) {
+      return res.status(400).json({ error: "Invalid hours value" });
+    }
+
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.type = 'resource_allocation' AND c.id = @id",
+      parameters: [
+        {
+          name: "@id",
+          value: id
+        }
+      ]
+    };
+
+    const { resources } = await container.items.query(querySpec).fetchAll();
+    if (resources.length === 0) {
+      return res.status(404).json({ error: "Allocation not found" });
+    }
+
+    const allocation = resources[0];
+    const updatedAllocation = {
+      ...allocation,
+      hoursEarned,
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource } = await container.items.upsert(updatedAllocation);
+
+    // Update member earned hours
+    if (allocation.memberId) {
+      const memberQuerySpec = {
+        query: "SELECT * FROM c WHERE c.type = 'team_member' AND c.id = @id",
+        parameters: [
+          {
+            name: "@id",
+            value: allocation.memberId
+          }
+        ]
+      };
+
+      const { resources: members } = await container.items.query(memberQuerySpec).fetchAll();
+      if (members.length > 0) {
+        const member = members[0];
+        
+        // Calculate total earned hours from all allocations
+        const allocationsQuerySpec = {
+          query: "SELECT * FROM c WHERE c.type = 'resource_allocation' AND c.memberId = @memberId",
+          parameters: [
+            {
+              name: "@memberId",
+              value: allocation.memberId
+            }
+          ]
+        };
+
+        const { resources: memberAllocations } = await container.items.query(allocationsQuerySpec).fetchAll();
+        const totalHoursEarned = memberAllocations.reduce((sum, alloc) => sum + alloc.hoursEarned, 0);
+
+        const updatedMember = {
+          ...member,
+          hoursEarned: totalHoursEarned,
+          updatedAt: new Date().toISOString()
+        };
+
+        await container.items.upsert(updatedMember);
+      }
+    }
+
+    res.json(resource);
+  } catch (error) {
+    console.error("Error updating allocation hours:", error);
+    res.status(500).json({ error: "Failed to update allocation hours" });
+  }
+});
+
+// Log hours earned (POST version - for frontend use)
+router.post("/allocations/:id/hours", async (req, res) => {
   try {
     const container = getContainer('resources');
     if (!container) {
