@@ -163,7 +163,7 @@ const startServer = async (retryCount = 0) => {
 
       server!.listen(PORT, '0.0.0.0', () => {
         server!.removeListener('error', handleError);
-        log(`Server running on port ${PORT} with Socket.IO support`);
+        log(`Server running on port ${PORT} (0.0.0.0) with Socket.IO support`);
         resolve();
       });
     });
