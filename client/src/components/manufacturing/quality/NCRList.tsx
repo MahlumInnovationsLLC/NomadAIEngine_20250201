@@ -495,13 +495,22 @@ export default function NCRList() {
         <NCRDialog
           open={!!editModeNCR}
           onOpenChange={(open) => {
-            if (!open) setEditModeNCR(null);
+            console.log("Dialog onOpenChange triggered with value:", open);
+            if (!open) {
+              console.log("Closing edit dialog, setting editModeNCR to null");
+              setEditModeNCR(null);
+            }
           }}
           defaultValues={editModeNCR}
           ncr={editModeNCR}
           onSuccess={() => {
+            console.log("NCR update success callback triggered");
             setEditModeNCR(null);
             refetch();
+            toast({
+              title: "NCR Updated",
+              description: "The NCR was updated successfully",
+            });
           }}
           isEditing={true}
           onDeleteAttachment={async (ncrId, attachmentId) => {

@@ -190,24 +190,6 @@ export function NCRDialog({
       console.log("Update response received:", result);
       return result;
     },
-    onSuccess: () => {
-      console.log("Update mutation completed successfully");
-      queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/ncrs"] });
-      toast({
-        title: "Success",
-        description: "NCR updated successfully",
-      });
-      onOpenChange(false);
-      if (onSuccess) onSuccess();
-    },
-    onError: (error: Error) => {
-      console.error("Update mutation failed:", error);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
   });
 
   const onSubmit = async (data: NCR) => {
@@ -246,10 +228,26 @@ export function NCRDialog({
           updatedAt: new Date().toISOString()
         };
         
-        await updateNCRMutation.mutateAsync({
+        const result = await updateNCRMutation.mutateAsync({
           id: ncrId,
           updates: updatePayload,
         });
+        
+        console.log("NCR update successful:", result);
+        
+        // Manually trigger success handling
+        toast({
+          title: "Success",
+          description: "NCR updated successfully",
+        });
+        
+        // Close the dialog
+        onOpenChange(false);
+        
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
         // Ensure we have the minimum required fields for NCR creation
         const ncrPayload = {
@@ -264,15 +262,28 @@ export function NCRDialog({
         
         console.log("Creating new NCR with payload:", ncrPayload);
         
-        // Use try-catch to get detailed error information
-        try {
-          const result = await createNCRMutation.mutateAsync(ncrPayload);
-          console.log("NCR creation successful:", result);
-        } catch (mutationError) {
-          console.error("Detailed mutation error:", mutationError);
-          throw mutationError;
+        // Create NCR and get the result
+        const result = await createNCRMutation.mutateAsync(ncrPayload);
+        console.log("NCR creation successful:", result);
+        
+        // Manually trigger success handling
+        toast({
+          title: "Success",
+          description: "NCR created successfully",
+        });
+        
+        // Close the dialog
+        onOpenChange(false);
+        
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess();
         }
       }
+      
+      // Invalidate queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["/api/manufacturing/quality/ncrs"] });
+      
     } catch (error) {
       console.error("Error submitting NCR:", error);
       toast({

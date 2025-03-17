@@ -855,6 +855,7 @@ router.put('/ncrs/:id', async (req, res) => {
 
     const { id } = req.params;
     console.log(`Updating NCR with ID: ${id}`);
+    console.log('Update payload received:', req.body);
 
     // Query for NCR using id
     const { resources: [existingNcr] } = await container.items
@@ -871,23 +872,44 @@ router.put('/ncrs/:id', async (req, res) => {
     }
 
     console.log('Found existing NCR:', existingNcr);
-
+    
+    // Make sure we don't override important fields that aren't in the update payload
     const ncrData: NCRData = {
       ...existingNcr,
       ...req.body,
-      id,
-      userKey: 'default',
-      updatedAt: new Date().toISOString(),
-      attachments: existingNcr.attachments || []
+      id,                                       // Ensure ID stays the same
+      userKey: existingNcr.userKey || 'default', // Preserve userKey
+      number: existingNcr.number,               // Preserve NCR number
+      createdAt: existingNcr.createdAt,         // Preserve creation date
+      updatedAt: new Date().toISOString(),      // Update the updatedAt timestamp
+      attachments: existingNcr.attachments || [] // Preserve attachments
     };
+    
+    // Log the final update payload
+    console.log('Final update payload being sent to Cosmos DB:', ncrData);
 
-    const { resource: updatedNcr } = await container.items.upsert(ncrData);
-    console.log('NCR updated successfully');
-    res.json(updatedNcr);
+    try {
+      const { resource: updatedNcr } = await container.items.upsert(ncrData);
+      console.log('NCR updated successfully:', updatedNcr);
+      
+      // Send success response with updated NCR data
+      res.json({
+        success: true,
+        data: updatedNcr,
+        message: 'NCR updated successfully'
+      });
+    } catch (upsertError) {
+      console.error('Error during upsert operation:', upsertError);
+      res.status(500).json({ 
+        message: upsertError instanceof Error ? upsertError.message : 'Failed to update NCR during database operation',
+        error: 'database_error'
+      });
+    }
   } catch (error) {
     console.error('Error updating NCR:', error);
     res.status(500).json({ 
-      message: error instanceof Error ? error.message : 'Failed to update NCR' 
+      message: error instanceof Error ? error.message : 'Failed to update NCR',
+      error: 'server_error'
     });
   }
 });
