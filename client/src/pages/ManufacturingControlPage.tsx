@@ -7,6 +7,7 @@ import { AnimateTransition } from "@/components/ui/AnimateTransition";
 import { ProductionLinePanel } from "../components/manufacturing/ProductionLinePanel";
 import { QualityControlPanel } from "../components/manufacturing/QualityControlPanel";
 import { ProjectManagementPanel } from "../components/manufacturing/ProjectManagementPanel";
+import { ProductionAnalyticsDashboard } from "../components/manufacturing/production/ProductionAnalyticsDashboard";
 import { useQuery } from "@tanstack/react-query";
 import FabricationDashboard from "../components/facility/manufacturing/FabricationDashboard";
 import CncManagement from "../components/facility/manufacturing/CncManagement";
@@ -165,7 +166,7 @@ export default function ManufacturingControlPage() {
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
-            {/* Manufacturing Analytics Panel will go here */}
+            <ProductionAnalyticsDashboard />
           </TabsContent>
         </Tabs>
       </div>

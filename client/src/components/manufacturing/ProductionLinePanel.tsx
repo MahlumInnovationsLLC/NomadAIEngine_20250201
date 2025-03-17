@@ -8,6 +8,7 @@ import { InventoryAllocation } from "./production/InventoryAllocation";
 import { ProductionHotProjectsGrid } from "./production/ProductionHotProjectsGrid";
 import { ProductionScheduler } from "./production/ProductionScheduler";
 import { BayScheduler } from "./production/BayScheduler";
+import { ProductionAnalyticsDashboard } from "./production/ProductionAnalyticsDashboard";
 import { useQuery } from "@tanstack/react-query";
 import type { ProductionLine, ProductionBay, ProductionOrder } from "@/types/manufacturing";
 
@@ -124,16 +125,7 @@ export const ProductionLinePanel = () => {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Production Analytics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Production analytics features coming soon...
-              </p>
-            </CardContent>
-          </Card>
+          <ProductionAnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>
