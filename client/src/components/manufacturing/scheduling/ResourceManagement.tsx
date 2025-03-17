@@ -26,32 +26,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Project } from "@/types/manufacturing";
-
-interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  skills: string[];
-  availability: number;
-  currentProjects: string[];
-  workload: number;
-  hoursAllocated: number;
-  hoursEarned: number;
-}
-
-interface Team {
-  id: string;
-  name: string;
-  description: string;
-  members: string[];
-  leader: string;
-  projectIds: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ResourceAllocation {
+import { ProductionProject as Project } from "@/types/manufacturing";
+import resourcesApi, { 
+  TeamMember, 
+  Team, 
+  ResourceAllocation 
+} from "@/lib/api/manufacturing-resources";
   id: string;
   projectId: string;
   memberId: string;
