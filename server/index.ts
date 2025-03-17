@@ -21,6 +21,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // CORS middleware - Allow all origins in Replit environment
+// Trust proxy
+app.set('trust proxy', true);
+
 app.use((req, res, next) => {
   const origin = req.headers.origin || req.headers.host || '*';
 
