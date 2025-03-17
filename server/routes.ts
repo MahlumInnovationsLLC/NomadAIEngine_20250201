@@ -35,6 +35,7 @@ import {
 } from './services/azure/equipment_service';
 import projectsRouter from "./routes/manufacturing/projects";
 import analyticsRouter from "./routes/manufacturing/analytics";
+import resourcesRouter from "./routes/manufacturing/resources";
 import trainingRouter from "./routes/training"; 
 import qualityRouter, { registerQualityRoutes } from "./routes/manufacturing/quality";
 import azureADRouter from "./routes/azure-ad"; // Import Azure AD router
@@ -1972,6 +1973,9 @@ export function registerRoutes(app: express.Application): Server {
   });
   // Add manufacturing projects routes
   app.use("/api/manufacturing/projects", projectsRouter);
+  
+  // Add manufacturing resources routes
+  app.use("/api/manufacturing/resources", resourcesRouter);
   
   // Add manufacturing analytics routes
   app.use("/api/manufacturing/analytics", analyticsRouter);

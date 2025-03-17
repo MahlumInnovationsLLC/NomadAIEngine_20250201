@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -7,21 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { BOMManagement } from "./production/BOMManagement";
-import { MaterialRequirementsPlanning } from "./production/MaterialRequirementsPlanning";
-import { InventoryAllocation } from "./production/InventoryAllocation";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { toast } from "@/hooks/use-toast";
 import { ProductionHotProjectsGrid } from "./production/ProductionHotProjectsGrid";
 import { ProductionScheduler } from "./production/ProductionScheduler";
 import { BayScheduler } from "./production/BayScheduler";
 import { ProductionAnalyticsDashboard } from "./production/ProductionAnalyticsDashboard";
 import { ProductionPlanningDashboard } from "./production/ProductionPlanningDashboard";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ResourceManagement } from "./scheduling/ResourceManagement";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import type { ProductionLine, ProductionBay, ProductionOrder, ProductionProject } from "@/types/manufacturing";
 
 export const ProductionLinePanel = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [assignProjectDialogOpen, setAssignProjectDialogOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<ProductionProject | null>(null);
+  const [selectedLineForAssignment, setSelectedLineForAssignment] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: productionLines = [] } = useQuery<ProductionLine[]>({
@@ -44,10 +47,66 @@ export const ProductionLinePanel = () => {
     enabled: !!selectedLineId,
   });
   
+  // Mutation for assigning a project to a production line
+  const assignProjectMutation = useMutation({
+    mutationFn: async ({ projectId, lineId }: { projectId: string, lineId: string }) => {
+      // This would be a real API call in production:
+      // return await fetch(`/api/manufacturing/projects/${projectId}/assign-line`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ lineId })
+      // }).then(res => res.json());
+      
+      // For demo, we're just logging and returning a success response
+      console.log(`Assigned project ${projectId} to line ${lineId}`);
+      return { success: true };
+    },
+    onSuccess: () => {
+      // Invalidate relevant queries to refetch data
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+      if (selectedLineId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/orders', selectedLineId] });
+      }
+      
+      // Show success toast
+      toast({
+        title: "Project assigned successfully",
+        description: "The project has been assigned to the production line.",
+      });
+      
+      // Close the dialog
+      setAssignProjectDialogOpen(false);
+    },
+    onError: (error) => {
+      // Show error toast
+      toast({
+        title: "Failed to assign project",
+        description: "There was an error assigning the project. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to assign project:", error);
+    }
+  });
+  
   const handleLineChange = (lineId: string) => {
     setSelectedLineId(lineId);
     queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/bays', lineId] });
     queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/orders', lineId] });
+  };
+  
+  const handleAssignProject = (project: ProductionProject) => {
+    setSelectedProject(project);
+    setAssignProjectDialogOpen(true);
+  };
+  
+  const confirmAssignProject = () => {
+    if (selectedProject && selectedLineForAssignment) {
+      assignProjectMutation.mutate({
+        projectId: selectedProject.id,
+        lineId: selectedLineForAssignment
+      });
+    }
   };
 
   return (
@@ -97,18 +156,6 @@ export const ProductionLinePanel = () => {
           <TabsTrigger value="scheduling">
             <FontAwesomeIcon icon="calendar" className="mr-2" />
             Scheduling
-          </TabsTrigger>
-          <TabsTrigger value="bom">
-            <FontAwesomeIcon icon="sitemap" className="mr-2" />
-            BOM Management
-          </TabsTrigger>
-          <TabsTrigger value="mrp">
-            <FontAwesomeIcon icon="chart-line" className="mr-2" />
-            MRP
-          </TabsTrigger>
-          <TabsTrigger value="inventory">
-            <FontAwesomeIcon icon="boxes-stacked" className="mr-2" />
-            Inventory Allocation
           </TabsTrigger>
           <TabsTrigger value="analytics">
             <FontAwesomeIcon icon="chart-pie" className="mr-2" />
@@ -164,6 +211,19 @@ export const ProductionLinePanel = () => {
                                     <Progress value={project.metrics.completionPercentage} className="h-2 mt-1" />
                                   </div>
                                 </div>
+                                <div className="mt-3 flex justify-end gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAssignProject(project);
+                                    }}
+                                  >
+                                    <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
+                                    Assign to Line
+                                  </Button>
+                                </div>
                               </CardContent>
                             </Card>
                           ))
@@ -204,6 +264,19 @@ export const ProductionLinePanel = () => {
                                     <p className="text-muted-foreground">Planning Status</p>
                                     <p>{project.planningStage || 'Initial'}</p>
                                   </div>
+                                </div>
+                                <div className="mt-3 flex justify-end gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAssignProject(project);
+                                    }}
+                                  >
+                                    <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
+                                    Assign to Line
+                                  </Button>
                                 </div>
                               </CardContent>
                             </Card>
@@ -318,14 +391,40 @@ export const ProductionLinePanel = () => {
         <TabsContent value="scheduling" className="space-y-6">
           {selectedLineId ? (
             <div className="space-y-6">
-              <ProductionScheduler productionLineId={selectedLineId} />
-              <BayScheduler 
-                bays={bays}
-                orders={orders}
-                onAssign={(orderId, bayId) => {
-                  console.log(`Assigned order ${orderId} to bay ${bayId}`);
-                }}
-              />
+              <Tabs defaultValue="scheduler" className="space-y-6">
+                <TabsList>
+                  <TabsTrigger value="scheduler">
+                    <FontAwesomeIcon icon="calendar" className="mr-2 h-4 w-4" />
+                    Production Scheduler
+                  </TabsTrigger>
+                  <TabsTrigger value="bays">
+                    <FontAwesomeIcon icon="industry" className="mr-2 h-4 w-4" />
+                    Bay Assignment
+                  </TabsTrigger>
+                  <TabsTrigger value="resources">
+                    <FontAwesomeIcon icon="users" className="mr-2 h-4 w-4" />
+                    Resource Management
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="scheduler">
+                  <ProductionScheduler productionLineId={selectedLineId} />
+                </TabsContent>
+                
+                <TabsContent value="bays">
+                  <BayScheduler 
+                    bays={bays}
+                    orders={orders}
+                    onAssign={(orderId, bayId) => {
+                      console.log(`Assigned order ${orderId} to bay ${bayId}`);
+                    }}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="resources">
+                  <ResourceManagement />
+                </TabsContent>
+              </Tabs>
             </div>
           ) : (
             <Card>
@@ -340,44 +439,69 @@ export const ProductionLinePanel = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="bom" className="space-y-6">
-          <BOMManagement />
-        </TabsContent>
 
-        <TabsContent value="mrp" className="space-y-6">
-          <MaterialRequirementsPlanning />
-        </TabsContent>
-
-        <TabsContent value="inventory" className="space-y-6">
-          <div className="grid gap-6">
-            {productionLines.map((line) => (
-              <Card key={line.id}>
-                <CardHeader>
-                  <CardTitle>{line.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <InventoryAllocation productionLine={line} />
-                </CardContent>
-              </Card>
-            ))}
-            {productionLines.length === 0 && (
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <FontAwesomeIcon icon="boxes-stacked" className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Production Lines</h3>
-                  <p className="text-muted-foreground">
-                    Add production lines to manage inventory allocation
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
 
         <TabsContent value="analytics">
           <ProductionAnalyticsDashboard />
         </TabsContent>
       </Tabs>
+
+      {/* Project Assignment Dialog */}
+      <Dialog open={assignProjectDialogOpen} onOpenChange={setAssignProjectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Project to Production Line</DialogTitle>
+            <DialogDescription>
+              Select a production line to assign this project for manufacturing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="mb-4">
+              <h3 className="font-medium">Project Details</h3>
+              {selectedProject && (
+                <div className="mt-2 space-y-1 text-sm">
+                  <p>Name: <span className="font-medium">{selectedProject.name}</span></p>
+                  <p>ID: <span className="font-medium">{selectedProject.projectNumber}</span></p>
+                  <p>Status: <span className="font-medium">{selectedProject.status}</span></p>
+                  <p>Target Date: <span className="font-medium">{new Date(selectedProject.targetCompletionDate).toLocaleDateString()}</span></p>
+                </div>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <h3 className="font-medium mb-1">Production Line</h3>
+              <Select value={selectedLineForAssignment || ""} onValueChange={setSelectedLineForAssignment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Production Line" />
+                </SelectTrigger>
+                <SelectContent>
+                  {productionLines.map(line => (
+                    <SelectItem key={line.id} value={line.id}>
+                      {line.name} - {line.status === 'operational' ? 
+                        <span className="text-green-500">Available</span> : 
+                        <span className="text-amber-500">Limited Capacity</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="flex space-x-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setAssignProjectDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmAssignProject}
+              disabled={!selectedLineForAssignment || assignProjectMutation.isPending}
+            >
+              {assignProjectMutation.isPending ? "Assigning..." : "Assign Project"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

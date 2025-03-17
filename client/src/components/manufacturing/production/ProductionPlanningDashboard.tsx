@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { DailyProductionPlan } from "./planning/DailyProductionPlan";
-import { WeeklyProductionPlan } from "./planning/WeeklyProductionPlan";
+import WeeklyProductionPlan from "./planning/WeeklyProductionPlan";
 import { MonthlyProductionPlan } from "./planning/MonthlyProductionPlan";
 
 type PlanningPeriod = "daily" | "weekly" | "monthly";

@@ -37,7 +37,8 @@ export async function initializeCosmosDB() {
       { id: "maintenance-records", partitionKey: "/id" },
       { id: "quality-inspections", partitionKey: "/id" },
       { id: "inspection-templates", partitionKey: "/id" },
-      { id: "quality-management", partitionKey: "/id" }  // Added quality-management container
+      { id: "quality-management", partitionKey: "/id" },  // Added quality-management container
+      { id: "resources", partitionKey: "/id" }  // Added resources container for team management
     ];
 
     await Promise.all(

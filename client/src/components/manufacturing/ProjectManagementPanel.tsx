@@ -17,7 +17,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction
 } from "@/components/ui/alert-dialog";
-import { ResourceManagementPanel } from "./ResourceManagementPanel";
+
 import {
   faFolder,
   faCircleDot,
@@ -269,6 +269,7 @@ export function ProjectManagementPanel() {
   const [showPreview, setShowPreview] = useState(false);
   const [activeView, setActiveView] = useState<"list" | "map" | "table">("list");
   const [locationFilter, setLocationFilter] = useState<"ALL" | "LIBBY" | "CFALLS">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed">("all");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
@@ -520,8 +521,14 @@ export function ProjectManagementPanel() {
 
       const matchesLocation = locationFilter === "ALL" ? true :
         (project.location || '').toUpperCase() === locationFilter;
+      
+      // Status filter logic
+      const matchesStatus = 
+        statusFilter === "all" ? true :
+        statusFilter === "active" ? project.status !== "COMPLETED" :
+        statusFilter === "completed" ? project.status === "COMPLETED" : true;
 
-      return matchesSearch && matchesLocation;
+      return matchesSearch && matchesLocation && matchesStatus;
     })
     .sort((a, b) => {
       const direction = sortConfig.direction === "asc" ? 1 : -1;
@@ -889,10 +896,7 @@ export function ProjectManagementPanel() {
             <FontAwesomeIcon icon={faFolder} className="mr-2" />
             Project Overview
           </TabsTrigger>
-          <TabsTrigger value="resources">
-            <FontAwesomeIcon icon={faUsers} className="mr-2" />
-            Resource Management
-          </TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="overview">
@@ -933,6 +937,35 @@ export function ProjectManagementPanel() {
                             <SelectItem value="CFALLS">CFalls</SelectItem>
                           </SelectContent>
                         </Select>
+
+                        {/* Status Filter Tabs */}
+                        <div className="flex bg-muted mt-1 rounded-md p-1">
+                          <button
+                            className={`flex-1 py-1 px-2 text-sm rounded-sm ${
+                              statusFilter === "all" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                            }`}
+                            onClick={() => setStatusFilter("all")}
+                          >
+                            All
+                          </button>
+                          <button
+                            className={`flex-1 py-1 px-2 text-sm rounded-sm ${
+                              statusFilter === "active" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                            }`}
+                            onClick={() => setStatusFilter("active")}
+                          >
+                            Active
+                          </button>
+                          <button
+                            className={`flex-1 py-1 px-2 text-sm rounded-sm ${
+                              statusFilter === "completed" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                            }`}
+                            onClick={() => setStatusFilter("completed")}
+                          >
+                            Completed
+                          </button>
+                        </div>
+
                         <div className="flex gap-2 mb-2">
                           <Button
                             variant="outline"
@@ -1304,9 +1337,7 @@ export function ProjectManagementPanel() {
           </Tabs>
         </TabsContent>
 
-        <TabsContent value="resources">
-          <ResourceManagementPanel />
-        </TabsContent>
+
       </Tabs>
 
       <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>

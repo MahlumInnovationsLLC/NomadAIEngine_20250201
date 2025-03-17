@@ -25,9 +25,19 @@ import { format, startOfWeek, endOfWeek, addDays, getWeek, getYear } from "date-
 
 interface WeeklyProductionPlanProps {
   productionLineId?: string;
+  weekString?: string;
+  analyticsData?: any;
+  onWeekChange?: (weekString: string) => void;
+  isLoading?: boolean;
 }
 
-export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanProps) {
+function WeeklyProductionPlan({ 
+  productionLineId,
+  weekString,
+  analyticsData,
+  onWeekChange,
+  isLoading: externalIsLoading
+}: WeeklyProductionPlanProps) {
   const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
   const [activeTab, setActiveTab] = useState<string>("overview");
   
@@ -66,9 +76,22 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
 
   const navigateWeek = (offset: number) => {
     setSelectedWeekOffset(prev => prev + offset);
+    
+    // If external week change handler is provided, call it with the new week
+    if (onWeekChange) {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() + (offset * 7));
+      const newWeekStart = startOfWeek(newDate, { weekStartsOn: 1 });
+      const newFormattedWeek = `${getYear(newDate)}-${getWeek(newDate, { weekStartsOn: 1 }).toString().padStart(2, '0')}`;
+      onWeekChange(newFormattedWeek);
+    }
   };
   
-  if (isLoading) {
+  // Use external data if provided
+  const displayData = analyticsData || weeklyData;
+  
+  // Use external loading state if provided, otherwise use internal loading state
+  if (externalIsLoading || isLoading) {
     return (
       <Card>
         <CardHeader>
@@ -119,20 +142,20 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Weekly Output</p>
-                <h3 className="text-2xl font-bold">{weeklyData?.summary.totalOutput || 0}</h3>
+                <h3 className="text-2xl font-bold">{displayData?.summary.totalOutput || 0}</h3>
               </div>
               <FontAwesomeIcon icon="boxes-stacked" className="h-8 w-8 text-blue-500" />
             </div>
             <div className="text-xs text-muted-foreground mt-1 flex items-center">
-              {weeklyData?.summary.outputVsLastWeek > 0 ? (
+              {displayData?.summary.outputVsLastWeek > 0 ? (
                 <>
                   <FontAwesomeIcon icon="arrow-up" className="mr-1 text-green-500" />
-                  <span className="text-green-500">{Math.abs(weeklyData.summary.outputVsLastWeek)}%</span>
+                  <span className="text-green-500">{Math.abs(displayData.summary.outputVsLastWeek)}%</span>
                 </>
-              ) : weeklyData?.summary.outputVsLastWeek < 0 ? (
+              ) : displayData?.summary.outputVsLastWeek < 0 ? (
                 <>
                   <FontAwesomeIcon icon="arrow-down" className="mr-1 text-red-500" />
-                  <span className="text-red-500">{Math.abs(weeklyData.summary.outputVsLastWeek)}%</span>
+                  <span className="text-red-500">{Math.abs(displayData.summary.outputVsLastWeek)}%</span>
                 </>
               ) : (
                 <span>No change</span>
@@ -147,16 +170,16 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">OEE</p>
-                <h3 className="text-2xl font-bold">{(weeklyData?.summary.weeklyOEE || 0).toFixed(1)}%</h3>
+                <h3 className="text-2xl font-bold">{(displayData?.summary.weeklyOEE || 0).toFixed(1)}%</h3>
               </div>
               <FontAwesomeIcon icon="gauge-high" className="h-8 w-8 text-green-500" />
             </div>
             <Progress 
-              value={weeklyData?.summary.weeklyOEE || 0} 
+              value={displayData?.summary.weeklyOEE || 0} 
               className="mt-2"
               indicatorColor={
-                (weeklyData?.summary.weeklyOEE || 0) >= 85 ? 'bg-green-500' : 
-                (weeklyData?.summary.weeklyOEE || 0) >= 70 ? 'bg-yellow-500' : 
+                (displayData?.summary.weeklyOEE || 0) >= 85 ? 'bg-green-500' : 
+                (displayData?.summary.weeklyOEE || 0) >= 70 ? 'bg-yellow-500' : 
                 'bg-red-500'
               }
             />
@@ -168,16 +191,16 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">First Pass Yield</p>
-                <h3 className="text-2xl font-bold">{(weeklyData?.summary.firstPassYield || 0).toFixed(1)}%</h3>
+                <h3 className="text-2xl font-bold">{(displayData?.summary.firstPassYield || 0).toFixed(1)}%</h3>
               </div>
               <FontAwesomeIcon icon="check-circle" className="h-8 w-8 text-purple-500" />
             </div>
             <Progress 
-              value={weeklyData?.summary.firstPassYield || 0} 
+              value={displayData?.summary.firstPassYield || 0} 
               className="mt-2"
               indicatorColor={
-                (weeklyData?.summary.firstPassYield || 0) >= 95 ? 'bg-green-500' : 
-                (weeklyData?.summary.firstPassYield || 0) >= 85 ? 'bg-yellow-500' : 
+                (displayData?.summary.firstPassYield || 0) >= 95 ? 'bg-green-500' : 
+                (displayData?.summary.firstPassYield || 0) >= 85 ? 'bg-yellow-500' : 
                 'bg-red-500'
               }
             />
@@ -189,12 +212,12 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Downtime</p>
-                <h3 className="text-2xl font-bold">{weeklyData?.summary.totalDowntime || 0} hrs</h3>
+                <h3 className="text-2xl font-bold">{displayData?.summary.totalDowntime || 0} hrs</h3>
               </div>
               <FontAwesomeIcon icon="exclamation-triangle" className="h-8 w-8 text-yellow-500" />
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              {weeklyData?.summary.plannedDowntime || 0} hrs planned / {weeklyData?.summary.unplannedDowntime || 0} hrs unplanned
+              {displayData?.summary.plannedDowntime || 0} hrs planned / {displayData?.summary.unplannedDowntime || 0} hrs unplanned
             </div>
           </CardContent>
         </Card>
@@ -204,16 +227,16 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Schedule Adherence</p>
-                <h3 className="text-2xl font-bold">{(weeklyData?.summary.scheduleAdherence || 0).toFixed(1)}%</h3>
+                <h3 className="text-2xl font-bold">{(displayData?.summary.scheduleAdherence || 0).toFixed(1)}%</h3>
               </div>
               <FontAwesomeIcon icon="calendar-check" className="h-8 w-8 text-teal-500" />
             </div>
             <Progress 
-              value={weeklyData?.summary.scheduleAdherence || 0} 
+              value={displayData?.summary.scheduleAdherence || 0} 
               className="mt-2"
               indicatorColor={
-                (weeklyData?.summary.scheduleAdherence || 0) >= 90 ? 'bg-green-500' : 
-                (weeklyData?.summary.scheduleAdherence || 0) >= 75 ? 'bg-yellow-500' : 
+                (displayData?.summary.scheduleAdherence || 0) >= 90 ? 'bg-green-500' : 
+                (displayData?.summary.scheduleAdherence || 0) >= 75 ? 'bg-yellow-500' : 
                 'bg-red-500'
               }
             />
@@ -257,9 +280,9 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
                     </CardHeader>
                     <CardContent>
                       <div className="h-[300px]">
-                        {weeklyData?.dailyOutput ? (
+                        {displayData?.dailyOutput ? (
                           <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={weeklyData.dailyOutput}>
+                            <BarChart data={displayData.dailyOutput}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="day" />
                               <YAxis />
@@ -294,7 +317,7 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {weeklyData?.projectStatus?.map((project: any) => (
+                        {displayData?.projectStatus?.map((project: any) => (
                           <div key={project.id} className="space-y-1">
                             <div className="flex justify-between items-center">
                               <span className="font-medium">{project.name}</span>
@@ -422,9 +445,9 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
                   </CardHeader>
                   <CardContent>
                     <div className="h-[300px]">
-                      {weeklyData?.qualityTrend ? (
+                      {displayData?.qualityTrend ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={weeklyData.qualityTrend}>
+                          <LineChart data={displayData.qualityTrend}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="day" />
                             <YAxis />
@@ -460,8 +483,8 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {weeklyData?.topDefects?.length > 0 ? (
-                        weeklyData.topDefects.map((defect: any, index: number) => (
+                      {displayData?.topDefects?.length > 0 ? (
+                        displayData.topDefects.map((defect: any, index: number) => (
                           <div key={index} className="space-y-1">
                             <div className="flex justify-between">
                               <span className="font-medium">{defect.type}</span>
@@ -495,9 +518,9 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
                   </CardHeader>
                   <CardContent>
                     <div className="h-[300px]">
-                      {weeklyData?.oeeComponents ? (
+                      {displayData?.oeeComponents ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={weeklyData.oeeComponents}>
+                          <BarChart data={displayData.oeeComponents}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="day" />
                             <YAxis />
@@ -535,8 +558,8 @@ export function WeeklyProductionPlan({ productionLineId }: WeeklyProductionPlanP
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {weeklyData?.equipmentEfficiency?.length > 0 ? (
-                        weeklyData.equipmentEfficiency.map((equipment: any) => (
+                      {displayData?.equipmentEfficiency?.length > 0 ? (
+                        displayData.equipmentEfficiency.map((equipment: any) => (
                           <div key={equipment.id} className="space-y-1">
                             <div className="flex justify-between">
                               <span className="font-medium">{equipment.name}</span>
