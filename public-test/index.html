@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Connection Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+    .container {
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 10px 0;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Replit Connection Test</h1>
+  
+  <div class="container">
+    <h2>Server Status Check</h2>
+    <p>Testing connection to the server's status endpoint...</p>
+    <div id="serverStatus">Checking...</div>
+    <button onclick="checkServerStatus()">Test Again</button>
+  </div>
+
+  <div class="container">
+    <h2>API Test</h2>
+    <p>Testing connection to the manufacturing analytics API...</p>
+    <div id="apiResult">Checking...</div>
+    <button onclick="testAPI()">Test Again</button>
+  </div>
+
+  <div class="container">
+    <h2>Connection Info</h2>
+    <pre id="connectionInfo"></pre>
+  </div>
+
+  <script>
+    // Display connection info
+    document.getElementById('connectionInfo').textContent = 
+      `Origin: ${window.location.origin}
+Host: ${window.location.host}
+Protocol: ${window.location.protocol}
+Current URL: ${window.location.href}`;
+
+    // Check server status
+    async function checkServerStatus() {
+      const resultElement = document.getElementById('serverStatus');
+      resultElement.innerHTML = "Checking server status...";
+      
+      try {
+        const response = await fetch('/api/status');
+        
+        if (response.ok) {
+          const data = await response.json();
+          resultElement.innerHTML = `<p class="success">Server is running!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+        } else {
+          resultElement.innerHTML = `<p class="error">Server status check failed with status: ${response.status}</p>`;
+        }
+      } catch (error) {
+        resultElement.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+      }
+    }
+
+    // Test API function
+    async function testAPI() {
+      const resultElement = document.getElementById('apiResult');
+      resultElement.innerHTML = "Testing API connection...";
+      
+      try {
+        const response = await fetch('/api/manufacturing/analytics/daily');
+        
+        if (response.ok) {
+          const data = await response.json();
+          resultElement.innerHTML = `<p class="success">API test successful!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+        } else {
+          resultElement.innerHTML = `<p class="error">API test failed with status: ${response.status}</p>`;
+          try {
+            const errorText = await response.text();
+            resultElement.innerHTML += `<p>Response: ${errorText}</p>`;
+          } catch (e) {
+            // Ignore error parsing the error
+          }
+        }
+      } catch (error) {
+        resultElement.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+      }
+    }
+
+    // Run tests when page loads
+    window.onload = function() {
+      checkServerStatus();
+      testAPI();
+    };
+  </script>
+</body>
+</html>

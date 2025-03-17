@@ -39,6 +39,7 @@ const TicketDetails = lazy(() => import("./pages/admin/TicketDetails"));
 const SupportTickets = lazy(() => import("./pages/admin/SupportTickets"));
 const TicketDetailsPage = lazy(() => import("./pages/TicketDetailsPage"));
 const FieldServiceDashboard = lazy(() => import("./components/field-service/FieldServiceDashboard"));
+const ConnectionTest = lazy(() => import("./components/debug/ConnectionTest"));
 
 
 function LoadingFallback() {
@@ -123,6 +124,7 @@ function App() {
                   <Route path="/field-service" component={() => <ProtectedRoute component={FieldServiceDashboard} />} />
                   <Route path="/docmanage" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
                   <Route path="/manufacturing/quality-inspection/:templateId" component={() => <ProtectedRoute component={ManufacturingQualityInspectionPage} />} />
+                  <Route path="/debug/connection-test" component={ConnectionTest} />
                   <Route component={NotFound} />
                 </Switch>
               </Suspense>

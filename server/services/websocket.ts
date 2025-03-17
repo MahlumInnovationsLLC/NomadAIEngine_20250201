@@ -41,13 +41,22 @@ export class WebSocketManager {
   constructor(server: HttpServer) {
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-        credentials: true
+        origin: (origin, callback) => {
+          // Allow any Replit domain or local development
+          if (!origin || origin.includes('.replit.dev') || origin.includes('.replit.app') || origin.includes('localhost')) {
+            callback(null, true);
+          } else {
+            callback(null, true); // Allow all origins for broader compatibility
+          }
+        },
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        credentials: true,
+        allowedHeaders: ["Authorization", "Content-Type", "Accept"]
       },
-      pingInterval: 10000,
-      pingTimeout: 5000,
-      transports: ['websocket', 'polling']
+      allowEIO3: true, // Compatibility mode for older Socket.IO clients
+      pingInterval: 25000, // Increased for Replit environment
+      pingTimeout: 10000, // Increased for Replit environment
+      transports: ['polling', 'websocket'], // Prioritize polling for better Replit compatibility
     });
 
     this.setupSocketIO();

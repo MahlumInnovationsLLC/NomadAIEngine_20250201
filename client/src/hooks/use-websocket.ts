@@ -10,15 +10,22 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   useEffect(() => {
     const namespace = options.namespace ? `/${options.namespace}` : '';
-    const newSocket = io(window.location.origin + namespace, {
+    
+    // For Replit environment, use the current URL as the base
+    // This ensures we're connecting to the correct endpoint regardless of domain changes
+    let socketUrl = window.location.origin;
+    
+    // Create socket with more permissive CORS settings for Replit
+    const newSocket = io(socketUrl + namespace, {
       withCredentials: true,
       query: {
         userId: '1', // This should be replaced with actual user ID from auth context
       },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // Polling first as a fallback strategy for Replit
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5
+      reconnectionAttempts: 10, // Increased for Replit environment
+      timeout: 20000 // Increased timeout for Replit environment
     });
 
     newSocket.on('connect', () => {

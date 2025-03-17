@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeManufacturingDatabase } from "./services/azure/facility_service";
@@ -19,18 +20,12 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// CORS middleware
+// CORS middleware - Allow all origins in Replit environment
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '',
-    'https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev'
-  ].filter(Boolean);
-
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-
+  const origin = req.headers.origin || req.headers.host || '*';
+  
+  // In Replit, allow any origin for better dev experience
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -87,6 +82,27 @@ const startServer = async (retryCount = 0) => {
     app.set('wsServer', wsServer);
 
     // Register API routes
+    // Add a simple status endpoint to test API connectivity
+    app.get('/api/status', (req, res) => {
+      res.json({
+        status: 'ok',
+        message: 'Server is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        host: req.headers.host,
+        origin: req.headers.origin,
+        url: req.url
+      });
+    });
+
+    // Serve test pages
+    app.get('/test', (req, res) => {
+      res.sendFile(path.join(process.cwd(), 'server', 'test.html'));
+    });
+    
+    // Serve static test files
+    app.use('/connection-test', express.static(path.join(process.cwd(), 'public-test')));
+
     app.use('/api/manufacturing', manufacturingRoutes);
     app.use('/api/inventory', inventoryRoutes);
     app.use('/api/ai', aiRoutes);

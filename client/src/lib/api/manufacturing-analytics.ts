@@ -1,199 +1,259 @@
-// API client functions for manufacturing analytics
-import {
-  DailyAnalyticsData,
-  WeeklyAnalyticsData,
-  MonthlyAnalyticsData,
-  ManufacturingAnalyticsSummary
-} from '../../types/manufacturing/analytics';
+import api from './apiProxy';
 
-/**
- * Fetches daily performance analytics data
- * @param date Optional date in YYYY-MM-DD format
- * @param lineId Optional production line ID
- * @returns Promise with daily analytics data
- */
-export async function fetchDailyAnalytics(date?: string, lineId?: string): Promise<DailyAnalyticsData> {
-  let url = '/api/manufacturing/analytics/daily';
-  const params = new URLSearchParams();
-  
-  if (date) params.append('date', date);
-  if (lineId) params.append('lineId', lineId);
-  
-  if (params.toString()) {
-    url += `?${params.toString()}`;
-  }
-  
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to fetch daily analytics data');
-  }
-  
-  return response.json();
+export interface AnalyticsSummary {
+  totalProductionLines: number;
+  activeProductionLines: number;
+  equipmentHealth: number;
+  activeProjects: number;
+  overallOEE: number;
+  productionEfficiency: number;
+  qualityRate: number;
+  downtime: number;
 }
 
-/**
- * Fetches weekly trend analytics data
- * @param week Optional week in YYYY-WW format
- * @param lineId Optional production line ID
- * @returns Promise with weekly analytics data
- */
-export async function fetchWeeklyAnalytics(week?: string, lineId?: string): Promise<WeeklyAnalyticsData> {
-  let url = '/api/manufacturing/analytics/weekly';
-  const params = new URLSearchParams();
-  
-  if (week) params.append('week', week);
-  if (lineId) params.append('lineId', lineId);
-  
-  if (params.toString()) {
-    url += `?${params.toString()}`;
-  }
-  
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to fetch weekly analytics data');
-  }
-  
-  return response.json();
+export interface HourlyProduction {
+  hour: string;
+  target: number;
+  actual: number;
+  efficiency: number;
 }
 
-/**
- * Fetches monthly OEE analytics data
- * @param month Optional month in YYYY-MM format
- * @param lineId Optional production line ID
- * @returns Promise with monthly analytics data
- */
-export async function fetchMonthlyAnalytics(month?: string, lineId?: string): Promise<MonthlyAnalyticsData> {
-  let url = '/api/manufacturing/analytics/monthly/oee';
-  const params = new URLSearchParams();
-  
-  if (month) params.append('month', month);
-  if (lineId) params.append('lineId', lineId);
-  
-  if (params.toString()) {
-    url += `?${params.toString()}`;
-  }
-  
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to fetch monthly analytics data');
-  }
-  
-  return response.json();
+export interface DowntimeEvent {
+  id: string;
+  time: string;
+  duration: number;
+  reason: string;
+  line: string;
+  status: 'resolved' | 'ongoing';
 }
 
-/**
- * Fetches manufacturing analytics summary
- * @returns Promise with analytics summary data
- */
-export async function fetchManufacturingAnalyticsSummary(): Promise<ManufacturingAnalyticsSummary> {
-  const response = await fetch('/api/manufacturing/analytics');
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to fetch manufacturing analytics summary');
-  }
-  
-  return response.json();
+export interface DailyAnalytics {
+  id: string;
+  type: 'daily-analytics';
+  date: string;
+  lineId?: string;
+  kpis: {
+    oee: number;
+    availability: number;
+    performance: number;
+    quality: number;
+    downtime: number;
+    taktTime: number;
+    cycleTime: number;
+  };
+  hourlyProduction: HourlyProduction[];
+  downtimeEvents: DowntimeEvent[];
+  qualityIssues: {
+    category: string;
+    count: number;
+  }[];
+  topBottlenecks: {
+    station: string;
+    impact: number;
+  }[];
 }
 
-/**
- * Records a manufacturing standup meeting
- * @param standupData Standup meeting data
- * @returns Promise with created standup record
- */
-export async function recordManufacturingStandup(standupData: {
+export interface WeeklyAnalytics {
+  id: string;
+  type: 'weekly-analytics';
+  year: string;
+  weekNum: string;
+  lineId?: string;
+  dailyOEE: {
+    day: string;
+    value: number;
+  }[];
+  downtimeSummary: {
+    reason: string;
+    duration: number;
+    percentage: number;
+  }[];
+  qualityTrend: {
+    day: string;
+    defects: number;
+    firstPassYield: number;
+  }[];
+  productionVolume: {
+    day: string;
+    planned: number;
+    actual: number;
+  }[];
+  kpis: {
+    weeklyOEE: number;
+    avgEfficiency: number;
+    totalDowntime: number;
+    avgQuality: number;
+    plannedVolume: number;
+    actualVolume: number;
+  };
+}
+
+export interface MonthlyAnalytics {
+  id: string;
+  type: 'monthly-analytics';
+  year: string;
+  monthNum: string;
+  lineId?: string;
+  weeklyOEE: {
+    week: string;
+    availability: number;
+    performance: number;
+    quality: number;
+    oee: number;
+  }[];
+  monthlyKPIs: {
+    totalProduction: number;
+    avgOEE: number;
+    avgDowntime: number;
+    defectRate: number;
+    cycleTimeVariance: number;
+  };
+  equipmentReliability: {
+    equipmentId: string;
+    name: string;
+    failureRate: number;
+    mtbf: number;
+    mttr: number;
+  }[];
+  maintenanceCompliance: number;
+  energyConsumption: {
+    week: string;
+    consumption: number;
+    baseline: number;
+  }[];
+  qualityByCategory: {
+    category: string;
+    count: number;
+    percentage: number;
+  }[];
+}
+
+export type StandupMeeting = {
+  id: string;
+  type: 'standup';
   date: string;
   teamMembers: string[];
   blockers: string[];
   achievements: string[];
   goals: string[];
-  notes?: string;
-}): Promise<any> {
-  const response = await fetch('/api/manufacturing/analytics/standup', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(standupData)
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to record manufacturing standup');
+  notes: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Get manufacturing analytics summary
+export async function getManufacturingAnalyticsSummary(): Promise<AnalyticsSummary> {
+  try {
+    const response = await api.get('/api/manufacturing/analytics');
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch manufacturing analytics summary:', error);
+    throw error;
   }
-  
-  return response.json();
 }
 
-// Production metric interface
-export interface ProductionMetric {
+// Get daily analytics
+export async function getDailyAnalytics(date?: string, lineId?: string): Promise<DailyAnalytics> {
+  try {
+    const queryParams = new URLSearchParams();
+    if (date) queryParams.append('date', date);
+    if (lineId) queryParams.append('lineId', lineId);
+    
+    const url = `/api/manufacturing/analytics/daily?${queryParams.toString()}`;
+    const response = await api.get(url);
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch daily analytics:', error);
+    throw error;
+  }
+}
+
+// Get weekly analytics
+export async function getWeeklyAnalytics(week?: string, lineId?: string): Promise<WeeklyAnalytics> {
+  try {
+    const queryParams = new URLSearchParams();
+    if (week) queryParams.append('week', week);
+    if (lineId) queryParams.append('lineId', lineId);
+    
+    const url = `/api/manufacturing/analytics/weekly?${queryParams.toString()}`;
+    const response = await api.get(url);
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch weekly analytics:', error);
+    throw error;
+  }
+}
+
+// Get monthly OEE analytics
+export async function getMonthlyAnalytics(month?: string, lineId?: string): Promise<MonthlyAnalytics> {
+  try {
+    const queryParams = new URLSearchParams();
+    if (month) queryParams.append('month', month);
+    if (lineId) queryParams.append('lineId', lineId);
+    
+    const url = `/api/manufacturing/analytics/monthly/oee?${queryParams.toString()}`;
+    const response = await api.get(url);
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch monthly analytics:', error);
+    throw error;
+  }
+}
+
+// Record a manufacturing standup meeting
+export async function recordStandupMeeting(standup: Omit<StandupMeeting, 'id' | 'type' | 'createdBy' | 'createdAt' | 'updatedAt'>): Promise<StandupMeeting> {
+  try {
+    const response = await api.post('/api/manufacturing/analytics/standup', standup);
+    return response;
+  } catch (error) {
+    console.error('Failed to record standup meeting:', error);
+    throw error;
+  }
+}
+
+// Record production metrics
+export async function recordProductionMetrics(lineId: string, metrics: Array<{
   type: string;
   value: number;
   unit: string;
-  timestamp: string;
-  note?: string;
-}
-
-/**
- * Records production metrics for a production line
- * @param lineId Production line ID
- * @param metrics Array of production metrics
- * @returns Promise with created metrics record
- */
-export async function recordProductionMetrics(
-  lineId: string,
-  metrics: ProductionMetric[]
-): Promise<any> {
-  const response = await fetch('/api/manufacturing/analytics/metrics', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ lineId, metrics })
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to record production metrics');
+}>): Promise<any> {
+  try {
+    const response = await api.post('/api/manufacturing/analytics/metrics', {
+      lineId,
+      metrics
+    });
+    return response;
+  } catch (error) {
+    console.error('Failed to record production metrics:', error);
+    throw error;
   }
-  
-  return response.json();
 }
 
-// Downtime data interface
-export interface DowntimeData {
+// Record production downtime
+export async function recordDowntime(downtime: {
   lineId: string;
   reason: string;
   startTime: string;
   endTime?: string;
   description?: string;
   impactedEquipment?: string[];
+}): Promise<any> {
+  try {
+    const response = await api.post('/api/manufacturing/analytics/downtime', downtime);
+    return response;
+  } catch (error) {
+    console.error('Failed to record downtime:', error);
+    throw error;
+  }
 }
 
-/**
- * Records downtime for a production line
- * @param downtimeData Downtime data
- * @returns Promise with created downtime record
- */
-export async function recordProductionDowntime(downtimeData: DowntimeData): Promise<any> {
-  const response = await fetch('/api/manufacturing/analytics/downtime', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(downtimeData)
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to record production downtime');
-  }
-  
-  return response.json();
-}
+export default {
+  getManufacturingAnalyticsSummary,
+  getDailyAnalytics,
+  getWeeklyAnalytics,
+  getMonthlyAnalytics,
+  recordStandupMeeting,
+  recordProductionMetrics,
+  recordDowntime
+};

@@ -105,6 +105,19 @@ async function initializeContainers() {
 // Initialize containers
 initializeContainers().catch(console.error);
 export function registerRoutes(app: express.Application): Server {
+  // Status endpoint for connection testing
+  app.get("/api/status", (_req, res) => {
+    res.json({
+      status: "ok",
+      time: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+      server: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+      }
+    });
+  });
+
   // Building Systems endpoints
   app.get("/api/facility/building-systems", async (_req, res) => {
     try {
