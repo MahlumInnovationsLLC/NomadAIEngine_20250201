@@ -345,9 +345,36 @@ export const ProductionLinePanel = () => {
     }
   };
 
-  // Helper function to safely filter projects
+  // Helper function to safely filter projects with enhanced debugging
   const safeFilterProjects = (projects: CombinedProject[], condition: (project: CombinedProject) => boolean): CombinedProject[] => {
-    if (!Array.isArray(projects)) return [];
+    if (!Array.isArray(projects)) {
+      console.warn("Projects is not an array:", projects);
+      return [];
+    }
+    
+    if (projects.length === 0) {
+      console.warn("Projects array is empty");
+      return [];
+    }
+    
+    // Log the first few projects and their statuses for debugging
+    console.log("First 3 projects with statuses:", 
+      projects.slice(0, 3).map(p => ({ 
+        id: p.id, 
+        name: p.name, 
+        status: p.status,
+        projectNumber: p.projectNumber
+      }))
+    );
+    
+    // Count projects by status (for debugging)
+    const statusCounts: Record<string, number> = {};
+    projects.forEach(project => {
+      const status = String(project.status || 'unknown').toLowerCase();
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+    console.log("Project status distribution:", statusCounts);
+    
     return projects.filter(condition);
   };
 
@@ -436,26 +463,34 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : safeFilterProjects(projects, p => 
-                        p.status === 'in_progress' || 
-                        p.status === 'active' || 
-                        p.status === 'NOT STARTED' || 
-                        p.status === 'IN FAB' || 
-                        p.status === 'IN ASSEMBLY' || 
-                        p.status === 'IN WRAP' || 
-                        p.status === 'IN NTC TESTING' || 
-                        p.status === 'IN QC'
-                      ).length > 0 ? (
-                        safeFilterProjects(projects, p => 
-                            p.status === 'in_progress' || 
-                            p.status === 'active' || 
-                            p.status === 'NOT STARTED' || 
-                            p.status === 'IN FAB' || 
-                            p.status === 'IN ASSEMBLY' || 
-                            p.status === 'IN WRAP' || 
-                            p.status === 'IN NTC TESTING' || 
-                            p.status === 'IN QC'
-                        )
+                      ) : safeFilterProjects(projects, p => {
+                        // Case-insensitive status check for active projects
+                        const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                        return (
+                            status === 'in_progress' || 
+                            status === 'active' || 
+                            status === 'not started' || 
+                            status === 'in fab' || 
+                            status === 'in assembly' || 
+                            status === 'in wrap' || 
+                            status === 'in ntc testing' || 
+                            status === 'in qc'
+                        );
+                      }).length > 0 ? (
+                        safeFilterProjects(projects, p => {
+                            // Case-insensitive status check for active projects
+                            const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                            return (
+                                status === 'in_progress' || 
+                                status === 'active' || 
+                                status === 'not started' || 
+                                status === 'in fab' || 
+                                status === 'in assembly' || 
+                                status === 'in wrap' || 
+                                status === 'in ntc testing' || 
+                                status === 'in qc'
+                            );
+                        })
                         .map(project => (
                             <Card 
                               key={project.id} 
@@ -519,16 +554,26 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : safeFilterProjects(projects, p => 
-                        p.status === 'planning' || 
-                        p.status === 'NOT STARTED' ||
-                        p.status === 'PLANNING'
-                      ).length > 0 ? (
-                        safeFilterProjects(projects, p => 
-                            p.status === 'planning' || 
-                            p.status === 'NOT STARTED' ||
-                            p.status === 'PLANNING'
-                        )
+                      ) : safeFilterProjects(projects, p => {
+                        // Case-insensitive status check for planning projects
+                        const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                        return (
+                            status === 'planning' || 
+                            status === 'not started' ||
+                            status === 'not_started' ||
+                            status === 'planning'
+                        );
+                      }).length > 0 ? (
+                        safeFilterProjects(projects, p => {
+                            // Case-insensitive status check for planning projects
+                            const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                            return (
+                                status === 'planning' || 
+                                status === 'not started' ||
+                                status === 'not_started' ||
+                                status === 'planning'
+                            );
+                        })
                           .map(project => (
                             <Card 
                               key={project.id} 
@@ -590,14 +635,16 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : safeFilterProjects(projects, p => 
-                        p.status === 'completed' || 
-                        p.status === 'COMPLETED'
-                      ).length > 0 ? (
-                        safeFilterProjects(projects, p => 
-                            p.status === 'completed' || 
-                            p.status === 'COMPLETED'
-                        )
+                      ) : safeFilterProjects(projects, p => {
+                        // Case-insensitive status check for completed projects
+                        const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                        return status === 'completed';
+                      }).length > 0 ? (
+                        safeFilterProjects(projects, p => {
+                            // Case-insensitive status check for completed projects
+                            const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                            return status === 'completed';
+                        })
                           .map(project => (
                             <Card 
                               key={project.id} 
@@ -660,31 +707,37 @@ export const ProductionLinePanel = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Active Projects</div>
-                        <div className="font-medium">{safeFilterProjects(projects, p => 
-                          p.status === 'in_progress' || 
-                          p.status === 'active' || 
-                          p.status === 'NOT STARTED' || 
-                          p.status === 'IN FAB' || 
-                          p.status === 'IN ASSEMBLY' || 
-                          p.status === 'IN WRAP' || 
-                          p.status === 'IN NTC TESTING' || 
-                          p.status === 'IN QC'
-                        ).length}</div>
+                        <div className="font-medium">{safeFilterProjects(projects, p => {
+                          const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                          return (
+                            status === 'in_progress' || 
+                            status === 'active' || 
+                            status === 'not started' || 
+                            status === 'in fab' || 
+                            status === 'in assembly' || 
+                            status === 'in wrap' || 
+                            status === 'in ntc testing' || 
+                            status === 'in qc'
+                          );
+                        }).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Planning Stage</div>
-                        <div className="font-medium">{safeFilterProjects(projects, p => 
-                          p.status === 'planning' || 
-                          p.status === 'NOT STARTED' ||
-                          p.status === 'PLANNING'
-                        ).length}</div>
+                        <div className="font-medium">{safeFilterProjects(projects, p => {
+                          const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                          return (
+                            status === 'planning' || 
+                            status === 'not started' ||
+                            status === 'not_started'
+                          );
+                        }).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Completed</div>
-                        <div className="font-medium">{safeFilterProjects(projects, p => 
-                          p.status === 'completed' || 
-                          p.status === 'COMPLETED'
-                        ).length}</div>
+                        <div className="font-medium">{safeFilterProjects(projects, p => {
+                          const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                          return status === 'completed';
+                        }).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Delayed</div>
