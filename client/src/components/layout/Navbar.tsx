@@ -39,26 +39,21 @@ export default function Navbar() {
         description: "Please wait...",
       });
 
-      const accounts = instance.getAllAccounts();
-
-      if (accounts.length === 0) {
-        window.location.href = "/login";
-        return;
-      }
-
+      // Clear browser storage
       sessionStorage.clear();
       localStorage.clear();
 
-      await Promise.all(
-        accounts.map(account =>
-          instance.logoutPopup({
-            account,
-            postLogoutRedirectUri: window.location.origin + "/login",
-            mainWindowRedirectUri: window.location.origin + "/login"
-          })
-        )
-      );
+      // Use simple logout to avoid any issues with the popup
+      await instance.logoutRedirect({
+        postLogoutRedirectUri: window.location.origin,
+        onRedirectNavigate: () => {
+          // Return false to prevent automatic navigation
+          return false;
+        }
+      });
 
+      // Manually navigate to login page
+      window.location.href = "/login";
     } catch (error) {
       console.error('Logout error:', error);
       toast({
@@ -66,6 +61,8 @@ export default function Navbar() {
         title: "Error",
         description: "Failed to sign out. Please try again.",
       });
+      
+      // If logout fails, still try to redirect to login
       window.location.href = "/login";
     }
   };

@@ -121,21 +121,26 @@ export const ProductionLinePanel = () => {
         return [];
       }
     },
-    // Improved data fetching configuration
-    refetchInterval: 5000,      // More frequent updates
-    refetchOnMount: true,       // Refresh when component mounts
+    // Enhanced data fetching configuration
+    refetchInterval: 15000,     // Fetch every 15 seconds
+    refetchOnMount: true,       // Always refresh when component mounts
     refetchOnWindowFocus: true, // Refresh when window regains focus
-    staleTime: 0,               // Consider data immediately stale
+    staleTime: 3600000,         // Consider data stale after an hour
+    gcTime: 3600000,            // Keep in cache for an hour
   });
 
   const { data: bays = [] } = useQuery<ProductionBay[]>({
     queryKey: ['/api/manufacturing/bays', selectedLineId],
     enabled: !!selectedLineId,
+    staleTime: 3600000,
+    gcTime: 3600000,
   });
 
   const { data: orders = [] } = useQuery<ProductionOrder[]>({
     queryKey: ['/api/manufacturing/orders', selectedLineId],
     enabled: !!selectedLineId,
+    staleTime: 3600000,
+    gcTime: 3600000,
   });
   
   // Mutation for assigning a project to a production line
@@ -275,7 +280,12 @@ export const ProductionLinePanel = () => {
                       <TabsTrigger value="all">All Projects</TabsTrigger>
                     </TabsList>
                     <TabsContent value="active" className="space-y-4 pt-4">
-                      {projects.filter(p => 
+                      {isLoadingProjects ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
+                          <span>Loading projects...</span>
+                        </div>
+                      ) : projects.filter(p => 
                         p.status === 'in_progress' || 
                         p.status === 'active' || 
                         p.status === 'NOT STARTED' || 
@@ -350,7 +360,12 @@ export const ProductionLinePanel = () => {
                       )}
                     </TabsContent>
                     <TabsContent value="planning" className="space-y-4 pt-4">
-                      {projects.filter(p => 
+                      {isLoadingProjects ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
+                          <span>Loading projects...</span>
+                        </div>
+                      ) : projects.filter(p => 
                         p.status === 'planning' || 
                         p.status === 'NOT STARTED' ||
                         p.status === 'PLANNING'
@@ -413,7 +428,12 @@ export const ProductionLinePanel = () => {
                     </TabsContent>
                     
                     <TabsContent value="completed" className="space-y-4 pt-4">
-                      {projects.filter(p => 
+                      {isLoadingProjects ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
+                          <span>Loading projects...</span>
+                        </div>
+                      ) : projects.filter(p => 
                         p.status === 'completed' || 
                         p.status === 'COMPLETED'
                       ).length > 0 ? (
@@ -471,60 +491,16 @@ export const ProductionLinePanel = () => {
                   <CardDescription>Project status overview</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">Active Projects</div>
-                      <div className="font-medium">{projects.filter(p => 
-                        p.status === 'in_progress' || 
-                        p.status === 'active' || 
-                        p.status === 'NOT STARTED' || 
-                        p.status === 'IN FAB' || 
-                        p.status === 'IN ASSEMBLY' || 
-                        p.status === 'IN WRAP' || 
-                        p.status === 'IN NTC TESTING' || 
-                        p.status === 'IN QC'
-                      ).length}</div>
+                  {isLoadingProjects ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
+                      <span>Loading data...</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">Planning Stage</div>
-                      <div className="font-medium">{projects.filter(p => 
-                        p.status === 'planning' || 
-                        p.status === 'NOT STARTED' ||
-                        p.status === 'PLANNING'
-                      ).length}</div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">Completed</div>
-                      <div className="font-medium">{projects.filter(p => 
-                        p.status === 'completed' || 
-                        p.status === 'COMPLETED'
-                      ).length}</div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">Delayed</div>
-                      <div className="font-medium">{projects.filter(p => 
-                        (p.status === 'in_progress' || 
-                         p.status === 'active' || 
-                         p.status === 'NOT STARTED' || 
-                         p.status === 'IN FAB' || 
-                         p.status === 'IN ASSEMBLY' || 
-                         p.status === 'IN WRAP' || 
-                         p.status === 'IN NTC TESTING' || 
-                         p.status === 'IN QC') && 
-                        p.isDelayed === true
-                      ).length}</div>
-                    </div>
-                    
-                    <Separator className="my-2" />
-                    
-                    <div className="mt-4">
-                      <div className="text-sm text-muted-foreground mb-2">Project Status Distribution</div>
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="h-2 bg-green-500 rounded" style={{ width: `${(projects.filter(p => 
-                          p.status === 'completed' || 
-                          p.status === 'COMPLETED'
-                        ).length / projects.length) * 100}%` }} />
-                        <div className="h-2 bg-blue-500 rounded" style={{ width: `${(projects.filter(p => 
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">Active Projects</div>
+                        <div className="font-medium">{projects.filter(p => 
                           p.status === 'in_progress' || 
                           p.status === 'active' || 
                           p.status === 'NOT STARTED' || 
@@ -533,25 +509,76 @@ export const ProductionLinePanel = () => {
                           p.status === 'IN WRAP' || 
                           p.status === 'IN NTC TESTING' || 
                           p.status === 'IN QC'
-                        ).length / projects.length) * 100}%` }} />
-                        <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(projects.filter(p => 
+                        ).length}</div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">Planning Stage</div>
+                        <div className="font-medium">{projects.filter(p => 
                           p.status === 'planning' || 
                           p.status === 'NOT STARTED' ||
                           p.status === 'PLANNING'
-                        ).length / projects.length) * 100}%` }} />
-                        <div className="h-2 bg-red-500 rounded" style={{ width: `${(projects.filter(p => 
-                          p.status === 'on_hold' || 
-                          p.status === 'cancelled'
-                        ).length / projects.length) * 100}%` }} />
+                        ).length}</div>
                       </div>
-                      <div className="grid grid-cols-4 gap-1 text-xs mt-1">
-                        <div className="text-green-500">Completed</div>
-                        <div className="text-blue-500">In Progress</div>
-                        <div className="text-yellow-500">Planning</div>
-                        <div className="text-red-500">On Hold</div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">Completed</div>
+                        <div className="font-medium">{projects.filter(p => 
+                          p.status === 'completed' || 
+                          p.status === 'COMPLETED'
+                        ).length}</div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">Delayed</div>
+                        <div className="font-medium">{projects.filter(p => 
+                          (p.status === 'in_progress' || 
+                           p.status === 'active' || 
+                           p.status === 'NOT STARTED' || 
+                           p.status === 'IN FAB' || 
+                           p.status === 'IN ASSEMBLY' || 
+                           p.status === 'IN WRAP' || 
+                           p.status === 'IN NTC TESTING' || 
+                           p.status === 'IN QC') && 
+                          p.isDelayed === true
+                        ).length}</div>
+                      </div>
+                      
+                      <Separator className="my-2" />
+                      
+                      <div className="mt-4">
+                        <div className="text-sm text-muted-foreground mb-2">Project Status Distribution</div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="h-2 bg-green-500 rounded" style={{ width: `${(projects.filter(p => 
+                            p.status === 'completed' || 
+                            p.status === 'COMPLETED'
+                          ).length / projects.length) * 100}%` }} />
+                          <div className="h-2 bg-blue-500 rounded" style={{ width: `${(projects.filter(p => 
+                            p.status === 'in_progress' || 
+                            p.status === 'active' || 
+                            p.status === 'NOT STARTED' || 
+                            p.status === 'IN FAB' || 
+                            p.status === 'IN ASSEMBLY' || 
+                            p.status === 'IN WRAP' || 
+                            p.status === 'IN NTC TESTING' || 
+                            p.status === 'IN QC'
+                          ).length / projects.length) * 100}%` }} />
+                          <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(projects.filter(p => 
+                            p.status === 'planning' || 
+                            p.status === 'NOT STARTED' ||
+                            p.status === 'PLANNING'
+                          ).length / projects.length) * 100}%` }} />
+                          <div className="h-2 bg-red-500 rounded" style={{ width: `${(projects.filter(p => 
+                            p.status === 'on_hold' || 
+                            p.status === 'cancelled'
+                          ).length / projects.length) * 100}%` }} />
+                        </div>
+                        <div className="grid grid-cols-4 gap-1 text-xs mt-1">
+                          <div className="text-green-500">Completed</div>
+                          <div className="text-blue-500">In Progress</div>
+                          <div className="text-yellow-500">Planning</div>
+                          <div className="text-red-500">On Hold</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
               

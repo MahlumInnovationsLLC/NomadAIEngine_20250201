@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -13,7 +13,7 @@ import { NotificationCenter } from "@/components/ui/NotificationCenter";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ParticleBackground } from "@/components/ui/ParticleBackground";
 import Navbar from "@/components/layout/Navbar";
-import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated } from "@azure/msal-react";
+import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
 
@@ -25,6 +25,7 @@ const Home = lazy(() => import("./pages/Home"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ManufacturingControlPage = lazy(() => import("./pages/ManufacturingControlPage"));
+const ManufacturingPage = lazy(() => import("./pages/manufacturing"));
 const ManufacturingQualityTemplatesPage = lazy(() => import("./pages/ManufacturingQualityTemplatesPage"));
 const ManufacturingQualityInspectionPage = lazy(() => import("./pages/ManufacturingQualityInspectionPage"));
 const MarketingControl = lazy(() => import("./pages/MarketingControl"));
@@ -52,13 +53,17 @@ function LoadingFallback() {
 
 function RedirectToLogin() {
   const [, setLocation] = useLocation();
-  setLocation("/login");
+  useEffect(() => {
+    setLocation("/login");
+  }, [setLocation]);
   return <LoadingFallback />;
 }
 
 function RedirectToDashboard() {
   const [, setLocation] = useLocation();
-  setLocation("/dashboard");
+  useEffect(() => {
+    setLocation("/dashboard");
+  }, [setLocation]);
   return <LoadingFallback />;
 }
 
@@ -85,6 +90,10 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 }
 
 function App() {
+  // We don't need to handle login logic here anymore
+  // It's handled in AppWrapper and LoginPage
+  const isAuthenticated = useIsAuthenticated();
+
   return (
     <div className="fixed inset-0 w-screen h-screen flex flex-col overflow-auto">
       <div className="fixed inset-0 -z-20 w-full h-full">
@@ -116,6 +125,7 @@ function App() {
                   <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
                   <Route path="/chat/:id?" component={() => <ProtectedRoute component={ChatPage} />} />
                   <Route path="/manufacturing-control" component={() => <ProtectedRoute component={ManufacturingControlPage} />} />
+                  <Route path="/manufacturing" component={() => <ProtectedRoute component={ManufacturingControlPage} />} />
                   <Route path="/manufacturing/quality-templates" component={() => <ProtectedRoute component={ManufacturingQualityTemplatesPage} />} />
                   <Route path="/sales-control" component={() => <ProtectedRoute component={SalesControl} />} />
                   <Route path="/marketing-control" component={() => <ProtectedRoute component={MarketingControl} />} />
@@ -156,6 +166,28 @@ function NotFound() {
 }
 
 export default function AppWrapper() {
+  // Initialize the application once 
+  useEffect(() => {
+    // Initialize the MSAL instance first
+    msalInstance.initialize().then(() => {
+      // Then handle any redirect
+      msalInstance.handleRedirectPromise()
+        .then(response => {
+          if (response) {
+            console.log("Redirect success, response:", response);
+            // Set account as active if it exists
+            const account = response.account;
+            if (account) {
+              msalInstance.setActiveAccount(account);
+            }
+          }
+        })
+        .catch(error => {
+          console.error("Redirect error:", error);
+        });
+    });
+  }, []);
+
   return (
     <ErrorBoundary fallback={<div>Something went wrong</div>}>
       <MsalProvider instance={msalInstance}>

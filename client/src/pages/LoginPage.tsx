@@ -23,17 +23,75 @@ export default function LoginPage() {
       return;
     }
 
-    // Clear any existing sessions on mount
-    sessionStorage.clear();
-    localStorage.clear();
-  }, [isAuthenticated, setLocation]);
+    // Check for redirect response on initial load
+    const checkForRedirectResponse = async () => {
+      try {
+        console.log("Checking for redirect response on LoginPage load");
+        
+        // Make sure MSAL is initialized first
+        await instance.initialize();
+        
+        // Now it's safe to handle redirect and other MSAL operations
+        const response = await instance.handleRedirectPromise();
+        
+        if (response) {
+          console.log("Found redirect response on page load:", response);
+          // We have a successful login response from a redirect
+          const account = response.account;
+          if (account) {
+            instance.setActiveAccount(account);
+            
+            console.log("Setting active account and redirecting to dashboard");
+            setTimeout(() => setLocation("/dashboard"), 500);
+          }
+        } else {
+          console.log("No redirect response found, checking for cached accounts");
+          // Check if we already have accounts in cache
+          const accounts = instance.getAllAccounts();
+          if (accounts.length > 0) {
+            // User is already signed in
+            console.log("Found cached account:", accounts[0].username);
+            instance.setActiveAccount(accounts[0]);
+            setLocation("/dashboard");
+          } else {
+            console.log("No accounts found, user needs to login");
+          }
+        }
+      } catch (error) {
+        console.error("Error handling redirect:", error);
+      }
+    };
+    
+    checkForRedirectResponse();
+  }, [isAuthenticated, setLocation, instance]);
 
   const handleLogin = async () => {
     try {
+      // Make sure MSAL is initialized first
+      await instance.initialize();
+      
+      // Check for and handle any redirect response first
+      // This is critical for SPA authentication flow
+      const redirectResponse = await instance.handleRedirectPromise();
+      if (redirectResponse) {
+        console.debug("Redirect response received:", redirectResponse);
+        setLocation("/dashboard");
+        return;
+      }
+
+      // Attempt to get users directly
+      const accounts = instance.getAllAccounts();
+      if (accounts.length > 0) {
+        // User is already logged in - set active account and redirect
+        instance.setActiveAccount(accounts[0]);
+        setLocation("/dashboard");
+        return;
+      }
+
       // Show loading toast
       toast({
         title: "Signing in",
-        description: "Please wait...",
+        description: "Redirecting to Microsoft login...",
       });
 
       // Log attempt configuration
@@ -43,28 +101,19 @@ export default function LoginPage() {
         pathname: window.location.pathname
       });
 
-      // Attempt login with popup
-      const result = await instance.loginPopup({
+      // Instead of popup, use redirect (more reliable for SPA authentication)
+      await instance.loginRedirect({
         ...loginRequest,
         redirectUri: window.location.origin
       });
-
-      if (result) {
-        console.debug("Login successful:", { 
-          account: result.account?.username,
-          tenantId: result.account?.tenantId,
-          scopes: result.scopes
-        });
-
-        // Add a small delay to ensure state updates are processed
-        setTimeout(() => {
-          setLocation("/dashboard");
-        }, 100);
-      }
+      
+      // The page will redirect to Microsoft login and then back to this page
+      console.log("Login redirect initiated");
+      
     } catch (error: any) {
       console.error("Login error:", error);
 
-      // Extract detailed error information
+      // Extract detailed error information for debugging
       const errorDetails = {
         errorCode: error.errorCode,
         errorMessage: error.errorMessage,
@@ -79,7 +128,8 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Authentication Error",
-        description: error.errorMessage || "Failed to sign in. Please try again.",
+        description: "Please try refreshing the page and signing in again. " + 
+                    (error.errorMessage || "Failed to sign in."),
       });
     }
   };
@@ -107,7 +157,7 @@ export default function LoginPage() {
               size="lg"
               onClick={handleLogin}
             >
-              <FontAwesomeIcon icon="windows" className="mr-2 h-5 w-5" />
+              <FontAwesomeIcon icon="user-tie" className="mr-2 h-5 w-5" />
               Sign in with Microsoft
             </Button>
           </CardContent>

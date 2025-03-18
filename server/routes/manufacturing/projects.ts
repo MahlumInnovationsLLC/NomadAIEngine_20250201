@@ -1,17 +1,79 @@
 import { Router } from "express";
-import { BlobServiceClient } from "@azure/storage-blob";
+import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 import { v4 as uuidv4 } from "uuid";
 import multer from 'multer';
 import * as XLSX from 'xlsx';
 
+// Define types for use in routes and exports
+export type ProjectStatus =
+  | 'active' 
+  | 'in_progress' 
+  | 'planning' 
+  | 'on_hold' 
+  | 'completed'
+  | 'cancelled'
+  | 'NOT STARTED'
+  | 'IN FAB'
+  | 'IN ASSEMBLY'
+  | 'IN WRAP'
+  | 'IN NTC TESTING'
+  | 'IN QC'
+  | 'PLANNING'
+  | 'COMPLETED';
+
+// Project interface definition
+export interface Project {
+  id: string;
+  projectNumber?: string;
+  name?: string;
+  location?: string;
+  team?: string;
+  status: string;
+  manualStatus?: boolean;
+  contractDate?: string;
+  chassisEta?: string;
+  paymentMilestones?: string;
+  lltsOrdered?: string;
+  meAssigned?: string;
+  meCadProgress?: string | number;
+  eeAssigned?: string;
+  eeDesignProgress?: string | number;
+  itDesignProgress?: string | number;
+  ntcDesignProgress?: string | number;
+  ntcAssigned?: string;
+  notes?: string;
+  fabricationStart?: string;
+  assemblyStart?: string;
+  wrapGraphics?: string;
+  ntcTesting?: string;
+  qcStart?: string;
+  executiveReview?: string;
+  ship?: string;
+  delivery?: string;
+  progress: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const router = Router();
 const containerName = "production-projects";
 
-// Initialize Azure Blob Storage client
-const blobServiceClient = BlobServiceClient.fromConnectionString(
-  process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING || ""
-);
-const containerClient = blobServiceClient.getContainerClient(containerName);
+// Initialize Azure Blob Storage client with better error handling
+let containerClient: ContainerClient | null = null;
+try {
+  if (!process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING) {
+    console.warn("Azure Storage connection string is not provided!");
+  }
+  
+  const blobServiceClient = BlobServiceClient.fromConnectionString(
+    process.env.NOMAD_AZURE_STORAGE_CONNECTION_STRING || ""
+  );
+  containerClient = blobServiceClient.getContainerClient(containerName);
+  console.log("Azure Storage client initialized successfully");
+} catch (error) {
+  console.error("Failed to initialize Azure Blob Storage client:", error);
+  containerClient = null;
+}
 
 // Configure multer for file uploads
 const upload = multer({
@@ -24,13 +86,23 @@ const upload = multer({
 // Ensure container exists
 async function ensureContainer() {
   try {
-    await containerClient.createIfNotExists();
+    if (containerClient) {
+      await containerClient.createIfNotExists();
+      console.log(`Container '${containerName}' created or verified successfully`);
+    } else {
+      console.warn("Cannot create container: containerClient is null");
+    }
   } catch (error) {
     console.error("Error creating container:", error);
   }
 }
 
-ensureContainer();
+// Only try to ensure container if we have a client
+if (containerClient) {
+  ensureContainer();
+} else {
+  console.warn("Skipping container creation because containerClient is null");
+}
 
 // Column mapping configuration
 const columnMappings: { [key: string]: string[] } = {
@@ -118,12 +190,15 @@ router.post("/preview", upload.single('file'), async (req, res) => {
     console.log('Found headers:', headers);
 
     // Process preview data
-    const processedData = rawData.map(row => {
-      const project: any = {
+    const processedData: Partial<Project>[] = rawData.map(row => {
+      const now = new Date().toISOString();
+      
+      const project: Partial<Project> = {
+        id: uuidv4(), // Generate id for preview purpose
         projectNumber: getValueFromRow(row, headers, 'projectNumber'),
         location: getValueFromRow(row, headers, 'location'),
         team: getValueFromRow(row, headers, 'team'),
-        status: getValueFromRow(row, headers, 'status'),
+        status: getValueFromRow(row, headers, 'status') || 'NOT STARTED',
         contractDate: parseExcelDate(getValueFromRow(row, headers, 'contractDate')),
         chassisEta: parseExcelDate(getValueFromRow(row, headers, 'chassisEta')),
         paymentMilestones: getValueFromRow(row, headers, 'paymentMilestones'),
@@ -143,9 +218,11 @@ router.post("/preview", upload.single('file'), async (req, res) => {
         qcStart: parseExcelDate(getValueFromRow(row, headers, 'qcStart')),
         executiveReview: parseExcelDate(getValueFromRow(row, headers, 'executiveReview')),
         ship: parseExcelDate(getValueFromRow(row, headers, 'ship')),
-        delivery: parseExcelDate(getValueFromRow(row, headers, 'delivery'))
+        delivery: parseExcelDate(getValueFromRow(row, headers, 'delivery')),
+        progress: 0,
+        createdAt: now,
+        updatedAt: now
       };
-
 
       return project;
     });
@@ -172,6 +249,14 @@ router.post("/import", upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    // Check if the client is initialized
+    if (!containerClient) {
+      return res.status(503).json({ 
+        error: "Azure Storage is not available", 
+        message: "Storage connection not initialized. Please check connection string configuration."
+      });
+    }
+
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
@@ -183,14 +268,14 @@ router.post("/import", upload.single('file'), async (req, res) => {
     const headers = Object.keys(rawData[0] || {});
     console.log('Found headers:', headers);
 
-    const importedProjects = [];
+    const importedProjects: Project[] = [];
     const now = new Date().toISOString();
 
     for (const row of rawData) {
       const projectId = uuidv4();
 
       // Map fields using column mappings
-      const project = {
+      const project: Project = {
         id: projectId,
         projectNumber: getValueFromRow(row, headers, 'projectNumber'),
         location: getValueFromRow(row, headers, 'location'),
@@ -222,17 +307,29 @@ router.post("/import", upload.single('file'), async (req, res) => {
         updatedAt: now
       };
 
-      // Save to Azure Blob Storage
-      const blockBlobClient = containerClient.getBlockBlobClient(`${projectId}.json`);
-      const content = JSON.stringify(project);
+      try {
+        // Save to Azure Blob Storage
+        const blockBlobClient = containerClient.getBlockBlobClient(`${projectId}.json`);
+        const content = JSON.stringify(project);
 
-      await blockBlobClient.upload(content, content.length, {
-        blobHTTPHeaders: {
-          blobContentType: "application/json"
-        }
+        await blockBlobClient.upload(content, content.length, {
+          blobHTTPHeaders: {
+            blobContentType: "application/json"
+          }
+        });
+        
+        importedProjects.push(project);
+      } catch (uploadError) {
+        console.error(`Error uploading project ${projectId}:`, uploadError);
+        // Continue with next project
+      }
+    }
+
+    if (importedProjects.length === 0) {
+      return res.status(500).json({
+        error: "Failed to import any projects",
+        message: "No projects were successfully imported"
       });
-
-      importedProjects.push(project);
     }
 
     res.status(200).json({
@@ -250,16 +347,68 @@ router.post("/import", upload.single('file'), async (req, res) => {
   }
 });
 
+// Helper function to get project data from external sources or generate empty array
+async function getProjects(generateFallbackData: boolean = false): Promise<Project[]> {
+  try {
+    // First check if we can get data from primary storage
+    if (containerClient) {
+      try {
+        const containerExists = await containerClient.exists();
+        
+        if (containerExists) {
+          console.log("Fetching projects from Azure storage...");
+          const projects: Project[] = [];
+          
+          try {
+            for await (const blob of containerClient.listBlobsFlat()) {
+              try {
+                const blobClient = containerClient.getBlockBlobClient(blob.name);
+                const downloadResponse = await blobClient.download();
+                const projectData = await streamToString(downloadResponse.readableStreamBody);
+                const project = JSON.parse(projectData) as Project;
+                projects.push(project);
+              } catch (blobError) {
+                console.error(`Error processing blob ${blob.name}:`, blobError);
+                // Continue to next blob
+              }
+            }
+            
+            if (projects.length > 0) {
+              console.log(`Successfully fetched ${projects.length} projects from Azure storage`);
+              return projects;
+            }
+          } catch (listError) {
+            console.error("Error listing blobs:", listError);
+          }
+        } else {
+          console.error("Container does not exist");
+        }
+      } catch (containerError) {
+        console.error("Error checking if container exists:", containerError);
+      }
+    } else {
+      console.warn("Azure Storage connection is not available");
+    }
+    
+    // If data couldn't be retrieved from primary storage
+    return [];
+  } catch (error) {
+    console.error("Unexpected error in getProjects:", error);
+    return [];
+  }
+}
+
 // Get all projects
 router.get("/", async (req, res) => {
   try {
-    const projects = [];
-    for await (const blob of containerClient.listBlobsFlat()) {
-      const blobClient = containerClient.getBlockBlobClient(blob.name);
-      const downloadResponse = await blobClient.download();
-      const projectData = await streamToString(downloadResponse.readableStreamBody);
-      projects.push(JSON.parse(projectData));
+    const projects = await getProjects();
+    
+    // If no projects were found and query param fallback=true, return empty array
+    if (projects.length === 0) {
+      console.warn("No projects found in storage");
     }
+    
+    // Always return an array (empty if needed)
     res.json(projects);
   } catch (error) {
     console.error("Error fetching projects:", error);
@@ -267,58 +416,139 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Helper function to get a single project by ID
+async function getProjectById(id: string): Promise<Project | null> {
+  try {
+    if (!containerClient) {
+      console.warn("Azure Storage connection is not available");
+      return null;
+    }
+
+    try {
+      const blobClient = containerClient.getBlockBlobClient(`${id}.json`);
+      const downloadResponse = await blobClient.download();
+      const projectData = await streamToString(downloadResponse.readableStreamBody);
+      
+      try {
+        return JSON.parse(projectData.trim()) as Project;
+      } catch (parseError) {
+        console.error("Error parsing project data:", parseError);
+        return null;
+      }
+    } catch (error: any) {
+      if (error.statusCode === 404) {
+        console.warn(`Project with ID ${id} not found`);
+      } else {
+        console.error("Error fetching project:", error);
+      }
+      return null;
+    }
+  } catch (error) {
+    console.error("Unexpected error in getProjectById:", error);
+    return null;
+  }
+}
+
 // Get single project
 router.get("/:id", async (req, res) => {
   try {
-    const blobClient = containerClient.getBlockBlobClient(`${req.params.id}.json`);
-    const downloadResponse = await blobClient.download();
-    const projectData = await streamToString(downloadResponse.readableStreamBody);
-    try {
-      const parsedData = JSON.parse(projectData.trim());
-      res.json(parsedData);
-    } catch (error) {
-      console.error("Error parsing project data:", error);
-      res.status(500).json({ error: "Invalid project data format" });
+    const projectId = req.params.id;
+    const project = await getProjectById(projectId);
+    
+    if (project) {
+      return res.json(project);
     }
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      res.status(404).json({ error: "Project not found" });
-    } else {
-      console.error("Error fetching project:", error);
-      res.status(500).json({ error: "Failed to fetch project" });
+    
+    // If project is not found and container client is available, return 404
+    if (containerClient) {
+      return res.status(404).json({ error: "Project not found" });
     }
+    
+    // If container client is not available, return service unavailable
+    return res.status(503).json({ 
+      error: "Azure Storage is not available", 
+      message: "Storage connection not initialized. Please check connection string configuration."
+    });
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    res.status(500).json({ error: "An unexpected error occurred" });
   }
 });
+
+// Helper function to update a project
+async function updateProject(id: string, updates: Partial<Project>): Promise<Project | null> {
+  try {
+    if (!containerClient) {
+      console.warn("Azure Storage connection is not available");
+      return null;
+    }
+
+    // First get the current project
+    const currentProject = await getProjectById(id);
+    if (!currentProject) {
+      return null;
+    }
+
+    // Merge updates with current project
+    const updatedProject: Project = {
+      ...currentProject,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      // Upload updated project
+      const blobClient = containerClient.getBlockBlobClient(`${id}.json`);
+      const content = JSON.stringify(updatedProject);
+      
+      await blobClient.upload(content, content.length, {
+        blobHTTPHeaders: { blobContentType: "application/json" }
+      });
+      
+      return updatedProject;
+    } catch (error) {
+      console.error("Error uploading updated project:", error);
+      return null;
+    }
+  } catch (error) {
+    console.error("Unexpected error in updateProject:", error);
+    return null;
+  }
+}
 
 // Update project
 router.patch("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+    
     console.log('Updating project:', id, 'with:', updates);
 
-    // Get current project
-    const blobClient = containerClient.getBlockBlobClient(`${id}.json`);
-    const downloadResponse = await blobClient.download();
-    const currentProjectData = await streamToString(downloadResponse.readableStreamBody);
-    const currentProject = JSON.parse(currentProjectData);
+    if (!containerClient) {
+      return res.status(503).json({ 
+        error: "Azure Storage is not available", 
+        message: "Storage connection not initialized. Please check connection string configuration."
+      });
+    }
 
-    // Merge updates with current project
-    const updatedProject = {
-      ...currentProject,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-
-    // Upload updated project
-    await blobClient.upload(JSON.stringify(updatedProject), JSON.stringify(updatedProject).length, {
-      blobHTTPHeaders: { blobContentType: "application/json" }
-    });
-
-    res.json(updatedProject);
+    const updatedProject = await updateProject(id, updates);
+    
+    if (updatedProject) {
+      return res.json(updatedProject);
+    } else {
+      const currentProject = await getProjectById(id);
+      if (!currentProject) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      return res.status(500).json({ 
+        error: "Failed to update project",
+        message: "Failed to save project updates. Please try again later."
+      });
+    }
   } catch (error) {
-    console.error("Error updating project:", error);
-    res.status(500).json({ error: "Failed to update project" });
+    console.error("Unexpected error during project update:", error);
+    res.status(500).json({ error: "An unexpected error occurred" });
   }
 });
 
@@ -340,17 +570,73 @@ async function streamToString(readableStream: NodeJS.ReadableStream | undefined)
   });
 }
 
+// Helper function to delete a project
+async function deleteProject(id: string): Promise<boolean> {
+  try {
+    if (!containerClient) {
+      console.warn("Azure Storage connection is not available");
+      return false;
+    }
+
+    try {
+      const blobClient = containerClient.getBlockBlobClient(`${id}.json`);
+      
+      // Check if blob exists before trying to delete
+      const exists = await blobClient.exists();
+      if (!exists) {
+        console.warn(`Project with ID ${id} not found for deletion`);
+        return false;
+      }
+      
+      await blobClient.delete();
+      console.log(`Successfully deleted project ${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Error deleting project ${id}:`, error);
+      return false;
+    }
+  } catch (error) {
+    console.error("Unexpected error in deleteProject:", error);
+    return false;
+  }
+}
+
 // Delete single project
 router.delete("/:id", async (req, res) => {
   try {
-    const blobClient = containerClient.getBlockBlobClient(`${req.params.id}.json`);
-    await blobClient.delete();
-    res.setHeader('Content-Type', 'application/json');
-    res.json({ message: "Project deleted successfully" });
+    const { id } = req.params;
+    
+    // Check if container client is available
+    if (!containerClient) {
+      return res.status(503).json({ 
+        error: "Azure Storage is not available", 
+        message: "Storage connection not initialized. Please check connection string configuration."
+      });
+    }
+
+    // Check if project exists first
+    const project = await getProjectById(id);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    // Try to delete the project
+    const deleted = await deleteProject(id);
+    
+    if (deleted) {
+      res.setHeader('Content-Type', 'application/json');
+      return res.json({ message: "Project deleted successfully" });
+    } else {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(500).json({ 
+        error: "Failed to delete project",
+        message: "Project exists but could not be deleted. Please try again later."
+      });
+    }
   } catch (error) {
-    console.error("Error deleting project:", error);
+    console.error("Unexpected error during project deletion:", error);
     res.setHeader('Content-Type', 'application/json');
-    res.status(500).json({ error: "Failed to delete project" });
+    res.status(500).json({ error: "An unexpected error occurred" });
   }
 });
 
