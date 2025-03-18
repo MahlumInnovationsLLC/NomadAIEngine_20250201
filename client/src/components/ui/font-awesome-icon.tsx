@@ -65,6 +65,7 @@ import {
   faRocket,
   faGears
 } from '@fortawesome/pro-light-svg-icons';
+import { faWindows } from '@fortawesome/free-brands-svg-icons';
 
 // Add icons to library
 library.add(
@@ -125,7 +126,8 @@ library.add(
   faProjectDiagram,
   faFileContract,
   faRocket,
-  faGears
+  faGears,
+  faWindows
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -195,6 +197,7 @@ const iconMap: Record<string, IconDefinition> = {
   'file-contract': faFileContract,
   'rocket': faRocket,
   'gears': faGears,
+  'windows': faWindows,
 };
 
 export function FontAwesomeIcon({

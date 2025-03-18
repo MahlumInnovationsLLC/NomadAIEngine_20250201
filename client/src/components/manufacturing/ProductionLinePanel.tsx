@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { toast } from "@/hooks/use-toast";
+import { toast, useToast } from "@/hooks/use-toast";
 import { ProductionHotProjectsGrid } from "./production/ProductionHotProjectsGrid";
 import { ProductionScheduler } from "./production/ProductionScheduler";
 import { BayScheduler } from "./production/BayScheduler";
@@ -16,6 +16,9 @@ import { ProductionAnalyticsDashboard } from "./production/ProductionAnalyticsDa
 import { ProductionPlanningDashboard } from "./production/ProductionPlanningDashboard";
 import { ResourceManagement } from "./scheduling/ResourceManagement";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { ProductionTimeline } from "./ProductionTimeline";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import type { ProductionLine, ProductionBay, ProductionOrder, ProductionProject, Project } from "@/types/manufacturing";
 
 // Define a comprehensive status type that handles all possible values
@@ -45,6 +48,13 @@ type CombinedProject = (Project | ProductionProject) & {
   targetCompletionDate?: string;
   contractDate?: string;
   delivery?: string;
+  notes?: string | {
+    id: string;
+    content: string;
+    author: string;
+    timestamp: string;
+    type: 'general' | 'issue' | 'milestone';
+  }[];
   completionDate?: string;
   duration?: number;
   progress?: number;
@@ -80,6 +90,10 @@ export const ProductionLinePanel = () => {
   const [assignProjectDialogOpen, setAssignProjectDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<ProductionProject | null>(null);
   const [selectedLineForAssignment, setSelectedLineForAssignment] = useState<string | null>(null);
+  const [projectDetailsDialogOpen, setProjectDetailsDialogOpen] = useState(false);
+  const [projectNotes, setProjectNotes] = useState<string>("");
+  const [isUpdatingNotes, setIsUpdatingNotes] = useState(false);
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: productionLines = [] } = useQuery<ProductionLine[]>({
@@ -87,25 +101,64 @@ export const ProductionLinePanel = () => {
     refetchInterval: 5000,
   });
 
+  // Client-side data persistence cache to prevent data loss during errors
+  const localProjectsCache = useRef<CombinedProject[]>([]);
+
+  // CRITICAL DATA FETCH: Projects data with enhanced error handling and persistence
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery<CombinedProject[]>({
     queryKey: ['/api/manufacturing/projects'],
     queryFn: async () => {
       console.log('Fetching projects data...');
       try {
-        const response = await fetch('/api/manufacturing/projects');
-        if (!response.ok) throw new Error('Failed to fetch projects');
+        // Intentionally using fetch without AbortController to prevent timeout errors
+        const response = await fetch('/api/manufacturing/projects', {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'X-Cache-Bust': Date.now().toString()
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch projects: ${response.status} ${response.statusText}`);
+        }
         
         const data = await response.json();
-        console.log(`Fetched ${data.length} projects`);
+        console.log(`Fetched ${data.length} projects from server`);
         
-        // Transform the projects to match our CombinedProject type
-        return data.map((project: any) => ({
+        if (!Array.isArray(data)) {
+          console.warn('Projects data is not an array');
+          // If server returns non-array but we have cached data, use the cache
+          if (localProjectsCache.current.length > 0) {
+            console.log(`Using client-side cache with ${localProjectsCache.current.length} projects`);
+            return localProjectsCache.current;
+          }
+          return [];
+        }
+        
+        if (data.length === 0) {
+          console.warn('Projects data array is empty');
+          // If server returns empty but we have cached data, use the cache
+          if (localProjectsCache.current.length > 0) {
+            console.log(`Using client-side cache with ${localProjectsCache.current.length} projects`);
+            return localProjectsCache.current;
+          }
+          return [];
+        }
+        
+        // DEBUG: Log the actual project data for diagnosis
+        console.log('First project from API:', JSON.stringify(data[0]));
+        
+        // Transform the projects to match our CombinedProject type with defensive coding
+        const processedProjects = data.map((project: any) => ({
           ...project,
+          id: project.id || `temp-${Date.now()}`, // Ensure ID always exists
           // Create a metrics object if it doesn't exist
           metrics: project.metrics || { 
             completionPercentage: project.progress || 0
           },
-          // Make sure all common properties are available
+          // Make sure all common properties are available with fallbacks
+          name: project.name || `Project #${project.projectNumber || 'Unknown'}`,
           startDate: project.startDate || project.contractDate,
           targetCompletionDate: project.targetCompletionDate || project.delivery,
           contractDate: project.contractDate || project.startDate,
@@ -114,19 +167,43 @@ export const ProductionLinePanel = () => {
           progress: project.progress || (project.metrics?.completionPercentage || 0),
           isDelayed: project.isDelayed || false,
           duration: project.duration || 0,
-          planningStage: project.planningStage || 'initial'
+          planningStage: project.planningStage || 'initial',
+          // Ensure status is always defined
+          status: project.status || 'active',
         }));
+        
+        // Debug: Verify processed data 
+        console.log(`Processed ${processedProjects.length} projects`);
+        console.log('First processed project:', JSON.stringify(processedProjects[0]));
+        
+        // Update our client-side cache with the fresh data
+        if (processedProjects.length > 0) {
+          localProjectsCache.current = processedProjects;
+        }
+        
+        return processedProjects;
       } catch (error) {
-        console.error("Error fetching projects:", error);
+        console.error("Critical error fetching projects:", error);
+        
+        // Return local cache if available, empty array as last resort
+        if (localProjectsCache.current.length > 0) {
+          console.log(`Error recovery: Using client-side cache with ${localProjectsCache.current.length} projects`);
+          return localProjectsCache.current;
+        }
+        
         return [];
       }
     },
-    // Enhanced data fetching configuration
-    refetchInterval: 15000,     // Fetch every 15 seconds
-    refetchOnMount: true,       // Always refresh when component mounts
+    // CRITICAL: Match settings with ProjectManagementPanel for data consistency
+    refetchInterval: 1000,      // Match 1 second refresh rate with ProjectManagementPanel
+    refetchOnMount: "always",   // Always refresh when component mounts
     refetchOnWindowFocus: true, // Refresh when window regains focus
-    staleTime: 3600000,         // Consider data stale after an hour
-    gcTime: 3600000,            // Keep in cache for an hour
+    staleTime: 0,               // Match ProjectManagementPanel setting - always refetch
+    gcTime: Infinity,           // Never garbage collect the data
+    retry: 10,                  // Increased retries for better reliability
+    retryDelay: 1000,           // Increased retry delay to give server more time
+    refetchOnReconnect: true,   // Refetch when reconnecting network
+    retryOnMount: true
   });
 
   const { data: bays = [] } = useQuery<ProductionBay[]>({
@@ -204,6 +281,75 @@ export const ProductionLinePanel = () => {
       });
     }
   };
+  
+  // Mutation for updating project notes
+  const updateProjectNotesMutation = useMutation({
+    mutationFn: async ({ projectId, notes }: { projectId: string, notes: string }) => {
+      const response = await fetch(`/api/manufacturing/projects/${projectId}/notes`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update project notes');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      // Show success toast
+      toast({
+        title: "Notes updated successfully",
+        description: "Project notes have been saved.",
+      });
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+      setIsUpdatingNotes(false);
+    },
+    onError: (error) => {
+      console.error("Failed to update notes:", error);
+      toast({
+        title: "Failed to update notes",
+        description: "There was an error saving the project notes. Please try again.",
+        variant: "destructive",
+      });
+      setIsUpdatingNotes(false);
+    }
+  });
+  
+  const handleOpenProjectDetails = (project: CombinedProject) => {
+    setSelectedProject(project as ProductionProject);
+    setSelectedProjectId(project.id);
+    
+    // Convert notes to string format for editing if they're in array format
+    let notesString = "";
+    if (typeof project.notes === 'string') {
+      notesString = project.notes;
+    } else if (Array.isArray(project.notes)) {
+      notesString = project.notes.map(note => note.content).join('\n');
+    }
+    
+    setProjectNotes(notesString);
+    setProjectDetailsDialogOpen(true);
+  };
+  
+  const handleUpdateProjectNotes = () => {
+    if (selectedProject) {
+      setIsUpdatingNotes(true);
+      updateProjectNotesMutation.mutate({
+        projectId: selectedProject.id,
+        notes: projectNotes
+      });
+    }
+  };
+
+  // Helper function to safely filter projects
+  const safeFilterProjects = (projects: CombinedProject[], condition: (project: CombinedProject) => boolean): CombinedProject[] => {
+    if (!Array.isArray(projects)) return [];
+    return projects.filter(condition);
+  };
 
   return (
     <div className="space-y-6">
@@ -216,9 +362,14 @@ export const ProductionLinePanel = () => {
         </div>
         <div className="flex space-x-2">
           {activeTab === "projects" && (
-            <Button>
-              <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-              New Project
+            <Button
+              onClick={() => {
+                console.log("Invalidating projects query cache...");
+                queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/projects'] });
+              }}
+            >
+              <FontAwesomeIcon icon="sync-alt" className="mr-2 h-4 w-4" />
+              Refresh Projects
             </Button>
           )}
           {activeTab === "scheduling" && (
@@ -285,7 +436,7 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : projects.filter(p => 
+                      ) : safeFilterProjects(projects, p => 
                         p.status === 'in_progress' || 
                         p.status === 'active' || 
                         p.status === 'NOT STARTED' || 
@@ -295,8 +446,7 @@ export const ProductionLinePanel = () => {
                         p.status === 'IN NTC TESTING' || 
                         p.status === 'IN QC'
                       ).length > 0 ? (
-                        projects
-                          .filter(p => 
+                        safeFilterProjects(projects, p => 
                             p.status === 'in_progress' || 
                             p.status === 'active' || 
                             p.status === 'NOT STARTED' || 
@@ -305,9 +455,13 @@ export const ProductionLinePanel = () => {
                             p.status === 'IN WRAP' || 
                             p.status === 'IN NTC TESTING' || 
                             p.status === 'IN QC'
-                          )
-                          .map(project => (
-                            <Card key={project.id} className="cursor-pointer hover:bg-accent/5">
+                        )
+                        .map(project => (
+                            <Card 
+                              key={project.id} 
+                              className="cursor-pointer hover:bg-accent/5"
+                              onClick={() => handleOpenProjectDetails(project)}
+                            >
                               <CardContent className="p-4">
                                 <div className="flex items-center justify-between">
                                   <div>
@@ -365,19 +519,22 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : projects.filter(p => 
+                      ) : safeFilterProjects(projects, p => 
                         p.status === 'planning' || 
                         p.status === 'NOT STARTED' ||
                         p.status === 'PLANNING'
                       ).length > 0 ? (
-                        projects
-                          .filter(p => 
+                        safeFilterProjects(projects, p => 
                             p.status === 'planning' || 
                             p.status === 'NOT STARTED' ||
                             p.status === 'PLANNING'
-                          )
+                        )
                           .map(project => (
-                            <Card key={project.id} className="cursor-pointer hover:bg-accent/5">
+                            <Card 
+                              key={project.id} 
+                              className="cursor-pointer hover:bg-accent/5"
+                              onClick={() => handleOpenProjectDetails(project)}
+                            >
                               <CardContent className="p-4">
                                 <div className="flex items-center justify-between">
                                   <div>
@@ -433,17 +590,20 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : projects.filter(p => 
+                      ) : safeFilterProjects(projects, p => 
                         p.status === 'completed' || 
                         p.status === 'COMPLETED'
                       ).length > 0 ? (
-                        projects
-                          .filter(p => 
+                        safeFilterProjects(projects, p => 
                             p.status === 'completed' || 
                             p.status === 'COMPLETED'
-                          )
+                        )
                           .map(project => (
-                            <Card key={project.id} className="cursor-pointer hover:bg-accent/5">
+                            <Card 
+                              key={project.id} 
+                              className="cursor-pointer hover:bg-accent/5"
+                              onClick={() => handleOpenProjectDetails(project)}
+                            >
                               <CardContent className="p-4">
                                 <div className="flex items-center justify-between">
                                   <div>
@@ -500,7 +660,7 @@ export const ProductionLinePanel = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Active Projects</div>
-                        <div className="font-medium">{projects.filter(p => 
+                        <div className="font-medium">{safeFilterProjects(projects, p => 
                           p.status === 'in_progress' || 
                           p.status === 'active' || 
                           p.status === 'NOT STARTED' || 
@@ -513,7 +673,7 @@ export const ProductionLinePanel = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Planning Stage</div>
-                        <div className="font-medium">{projects.filter(p => 
+                        <div className="font-medium">{safeFilterProjects(projects, p => 
                           p.status === 'planning' || 
                           p.status === 'NOT STARTED' ||
                           p.status === 'PLANNING'
@@ -521,14 +681,14 @@ export const ProductionLinePanel = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Completed</div>
-                        <div className="font-medium">{projects.filter(p => 
+                        <div className="font-medium">{safeFilterProjects(projects, p => 
                           p.status === 'completed' || 
                           p.status === 'COMPLETED'
                         ).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Delayed</div>
-                        <div className="font-medium">{projects.filter(p => 
+                        <div className="font-medium">{safeFilterProjects(projects, p => 
                           (p.status === 'in_progress' || 
                            p.status === 'active' || 
                            p.status === 'NOT STARTED' || 
@@ -546,11 +706,11 @@ export const ProductionLinePanel = () => {
                       <div className="mt-4">
                         <div className="text-sm text-muted-foreground mb-2">Project Status Distribution</div>
                         <div className="flex items-center gap-2 mt-2">
-                          <div className="h-2 bg-green-500 rounded" style={{ width: `${(projects.filter(p => 
+                          <div className="h-2 bg-green-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => 
                             p.status === 'completed' || 
                             p.status === 'COMPLETED'
-                          ).length / projects.length) * 100}%` }} />
-                          <div className="h-2 bg-blue-500 rounded" style={{ width: `${(projects.filter(p => 
+                          ).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-blue-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => 
                             p.status === 'in_progress' || 
                             p.status === 'active' || 
                             p.status === 'NOT STARTED' || 
@@ -559,16 +719,16 @@ export const ProductionLinePanel = () => {
                             p.status === 'IN WRAP' || 
                             p.status === 'IN NTC TESTING' || 
                             p.status === 'IN QC'
-                          ).length / projects.length) * 100}%` }} />
-                          <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(projects.filter(p => 
+                          ).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => 
                             p.status === 'planning' || 
                             p.status === 'NOT STARTED' ||
                             p.status === 'PLANNING'
-                          ).length / projects.length) * 100}%` }} />
-                          <div className="h-2 bg-red-500 rounded" style={{ width: `${(projects.filter(p => 
+                          ).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-red-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => 
                             p.status === 'on_hold' || 
                             p.status === 'cancelled'
-                          ).length / projects.length) * 100}%` }} />
+                          ).length / (projects?.length || 1)) * 100}%` }} />
                         </div>
                         <div className="grid grid-cols-4 gap-1 text-xs mt-1">
                           <div className="text-green-500">Completed</div>
@@ -738,6 +898,251 @@ export const ProductionLinePanel = () => {
               disabled={!selectedLineForAssignment || assignProjectMutation.isPending}
             >
               {assignProjectMutation.isPending ? "Assigning..." : "Assign Project"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Project Details Dialog */}
+      <Dialog open={projectDetailsDialogOpen} onOpenChange={setProjectDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Project Details</DialogTitle>
+            {selectedProject && (
+              <DialogDescription>
+                {selectedProject.projectNumber} - {selectedProject.name}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          {selectedProject && (
+            <div className="py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Project Information</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Project Number</p>
+                        <p className="font-medium">{selectedProject.projectNumber}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Status</p>
+                        <Badge variant={
+                          selectedProject.status === 'completed' || selectedProject.status === 'COMPLETED' 
+                            ? 'success' 
+                            : selectedProject.isDelayed 
+                              ? 'destructive' 
+                              : 'outline'
+                        }>
+                          {selectedProject.status}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Start Date</p>
+                        <p>{formatDate(selectedProject.startDate, selectedProject.contractDate)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Target Completion</p>
+                        <p>{formatDate(selectedProject.targetCompletionDate, selectedProject.delivery)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Location</p>
+                        <p>{selectedProject.location || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Team</p>
+                        <p>{selectedProject.team || 'Not assigned'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Progress</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Completion: {selectedProject.progress || 0}%</span>
+                        <span>Target: 100%</span>
+                      </div>
+                      <Progress 
+                        value={selectedProject.progress} 
+                        className="h-2" 
+                      />
+                      
+                      <div className="grid grid-cols-4 gap-2 mt-4 text-sm">
+                        <div className="col-span-2">
+                          <p className="text-muted-foreground">ME CAD Progress</p>
+                          <Progress 
+                            value={typeof selectedProject.meCadProgress === 'string' 
+                              ? parseFloat(selectedProject.meCadProgress) 
+                              : selectedProject.meCadProgress || 0
+                            } 
+                            className="h-2 mt-1" 
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-muted-foreground">EE Design Progress</p>
+                          <Progress 
+                            value={typeof selectedProject.eeDesignProgress === 'string' 
+                              ? parseFloat(selectedProject.eeDesignProgress) 
+                              : selectedProject.eeDesignProgress || 0
+                            } 
+                            className="h-2 mt-1" 
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-muted-foreground">IT Design Progress</p>
+                          <Progress 
+                            value={typeof selectedProject.itDesignProgress === 'string' 
+                              ? parseFloat(selectedProject.itDesignProgress) 
+                              : selectedProject.itDesignProgress || 0
+                            } 
+                            className="h-2 mt-1" 
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-muted-foreground">NTC Design Progress</p>
+                          <Progress 
+                            value={typeof selectedProject.ntcDesignProgress === 'string' 
+                              ? parseFloat(selectedProject.ntcDesignProgress) 
+                              : selectedProject.ntcDesignProgress || 0
+                            } 
+                            className="h-2 mt-1" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Timeline</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-muted-foreground">Contract Date</p>
+                          <p>{formatDate(selectedProject.contractDate)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Chassis ETA</p>
+                          <p>{formatDate(selectedProject.chassisEta)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Fabrication Start</p>
+                          <p>{formatDate(selectedProject.fabricationStart)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Assembly Start</p>
+                          <p>{formatDate(selectedProject.assemblyStart)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Wrap Graphics</p>
+                          <p>{formatDate(selectedProject.wrapGraphics)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">NTC Testing</p>
+                          <p>{formatDate(selectedProject.ntcTesting)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">QC Start</p>
+                          <p>{formatDate(selectedProject.qcStart)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Executive Review</p>
+                          <p>{formatDate(selectedProject.executiveReview)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Ship</p>
+                          <p>{formatDate(selectedProject.ship)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Delivery</p>
+                          <p>{formatDate(selectedProject.delivery)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Personnel</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">ME Assigned</p>
+                        <p>{selectedProject.meAssigned || 'Not assigned'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">EE Assigned</p>
+                        <p>{selectedProject.eeAssigned || 'Not assigned'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">NTC Assigned</p>
+                        <p>{selectedProject.ntcAssigned || 'Not assigned'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Notes</h3>
+                    <div className="mb-4">
+                      <Textarea
+                        value={projectNotes}
+                        onChange={(e) => setProjectNotes(e.target.value)}
+                        placeholder="Add project notes here..."
+                        rows={8}
+                        className="resize-none"
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleUpdateProjectNotes}
+                      disabled={isUpdatingNotes}
+                      size="sm"
+                    >
+                      {isUpdatingNotes ? "Saving..." : "Save Notes"}
+                    </Button>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Additional Information</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Payment Milestones</p>
+                        <p>{selectedProject.paymentMilestones || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">LLTs Ordered</p>
+                        <p>{selectedProject.lltsOrdered || 'Not specified'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-muted-foreground">General Notes</p>
+                        <p className="whitespace-pre-line">
+                          {typeof selectedProject.notes === 'string' 
+                            ? selectedProject.notes 
+                            : Array.isArray(selectedProject.notes) && selectedProject.notes.length > 0
+                              ? selectedProject.notes.map(note => note.content).join('\n')
+                              : 'No additional notes'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex space-x-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setProjectDetailsDialogOpen(false)}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                handleAssignProject(selectedProject as ProductionProject);
+                setProjectDetailsDialogOpen(false);
+              }}
+            >
+              Assign to Line
             </Button>
           </DialogFooter>
         </DialogContent>

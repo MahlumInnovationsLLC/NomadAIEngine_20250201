@@ -30,3 +30,17 @@ export interface InventoryStats {
     timestamp: string;
   }[];
 }
+
+export interface InventoryAllocationEvent {
+  id: string;
+  materialId: string;
+  materialName: string;
+  quantity: number;
+  allocatedQuantity: number;
+  allocatedBy: string;
+  allocatedAt: string;
+  projectId?: string;
+  productionLineId?: string;
+  status: 'pending' | 'allocated' | 'fulfilled' | 'cancelled';
+  notes?: string;
+}

@@ -499,6 +499,33 @@ export interface ProductionProject {
   totalActualHours: number;
   planningStage?: 'concept' | 'resource_allocation' | 'scheduling' | 'material_planning' | 'ready';
   isDelayed?: boolean;
+  
+  // Add fields from Project interface to make them compatible
+  contractDate?: string;
+  delivery?: string;
+  location?: string;
+  team?: string;
+  progress?: number;
+  completionDate?: string;
+  duration?: number;
+  chassisEta?: string;
+  paymentMilestones?: string;
+  lltsOrdered?: string;
+  meAssigned?: string;
+  meCadProgress?: string | number;
+  eeAssigned?: string;
+  eeDesignProgress?: string | number;
+  itDesignProgress?: string | number;
+  ntcDesignProgress?: string | number;
+  ntcAssigned?: string;
+  fabricationStart?: string;
+  assemblyStart?: string;
+  wrapGraphics?: string;
+  ntcTesting?: string;
+  qcStart?: string;
+  executiveReview?: string;
+  ship?: string;
+  
   sections: Record<ProductionSectionId, {
     status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
     progress: number;
@@ -524,7 +551,7 @@ export interface ProductionProject {
     uploadedBy: string;
     uploadedAt: string;
   }[];
-  notes: {
+  notes: string | {
     id: string;
     content: string;
     author: string;
