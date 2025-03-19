@@ -1,167 +1,195 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Search, CheckCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Project } from "@/types/manufacturing";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { ProductionLine, Project } from "@/types/manufacturing";
 
-export interface ProjectAssignmentDialogProps {
-  lineId: string;
-  lineName: string;
-  onClose: () => void;
+interface ProjectAssignmentDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  productionLine: ProductionLine;
 }
 
-export function ProjectAssignmentDialog({ lineId, lineName, onClose }: ProjectAssignmentDialogProps) {
+export function ProjectAssignmentDialog({
+  open,
+  onOpenChange,
+  productionLine
+}: ProjectAssignmentDialogProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(
+    productionLine.assignedProjects || []
+  );
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  
-  // Fetch all projects
-  const { data: projects = [], isLoading: projectsLoading, error: projectsError } = useQuery<Project[]>({
-    queryKey: ['/api/manufacturing/projects'],
-    queryFn: async () => {
-      const response = await fetch('/api/manufacturing/projects');
-      if (!response.ok) throw new Error('Failed to fetch projects');
-      return response.json();
-    }
-  });
 
-  // Fetch current production line assignments
-  const { data: assignments = [], isLoading: assignmentsLoading } = useQuery<string[]>({
-    queryKey: [`/api/manufacturing/production-lines/${lineId}/assignments`],
-    queryFn: async () => {
-      const response = await fetch(`/api/manufacturing/production-lines/${lineId}/assignments`);
-      if (!response.ok) throw new Error('Failed to fetch production line assignments');
-      return response.json();
-    }
-  });
-
-  // Initialize selected projects with current assignments
+  // Reset selected projects when the dialog opens with a new production line
   useEffect(() => {
-    if (assignments.length > 0) {
-      setSelectedProjects(assignments);
+    if (open) {
+      setSelectedProjects(productionLine.assignedProjects || []);
     }
-  }, [assignments]);
+  }, [open, productionLine]);
 
-  // Mutation for updating project assignments
-  const updateAssignmentsMutation = useMutation({
-    mutationFn: async (projectIds: string[]) => {
-      const response = await fetch(`/api/manufacturing/production-lines/${lineId}/assignments`, {
+  // Fetch projects
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<Project[]>({
+    queryKey: ['/api/manufacturing/projects'],
+    enabled: open,
+  });
+
+  // Update production line with assigned projects
+  const updateAssignmentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/manufacturing/production-lines/${productionLine.id}/assignments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ projectIds }),
+        body: JSON.stringify({ projectIds: selectedProjects }),
       });
       
-      if (!response.ok) throw new Error('Failed to update project assignments');
+      if (!response.ok) {
+        throw new Error('Failed to update project assignments');
+      }
+      
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/manufacturing/production-lines/${lineId}/assignments`] });
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
       toast({
-        title: "Projects Assigned Successfully",
-        description: `Assigned projects to ${lineName}`,
+        title: 'Success',
+        description: 'Project assignments updated successfully',
       });
-      onClose();
+      onOpenChange(false);
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to assign projects",
-        variant: "destructive",
+        title: 'Error',
+        description: error.message || 'Failed to update project assignments',
+        variant: 'destructive',
       });
-    }
+    },
   });
 
+  // Filter projects based on search term
+  const filteredProjects = projects.filter(project => 
+    project.projectNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (project.name && project.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   // Handle checkbox change
-  const handleCheckboxChange = (projectId: string) => {
-    setSelectedProjects(prev => {
-      if (prev.includes(projectId)) {
-        return prev.filter(id => id !== projectId);
-      } else {
-        return [...prev, projectId];
-      }
-    });
+  const handleProjectSelection = (projectId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProjects(prev => [...prev, projectId]);
+    } else {
+      setSelectedProjects(prev => prev.filter(id => id !== projectId));
+    }
   };
 
-  // Handle save button
+  // Handle save
   const handleSave = () => {
-    updateAssignmentsMutation.mutate(selectedProjects);
+    updateAssignmentMutation.mutate();
   };
-
-  // Filter projects that are not completed
-  const activeProjects = projects.filter(project => project.status !== 'COMPLETED');
-
-  // Loading state
-  if (projectsLoading || assignmentsLoading) {
-    return (
-      <div className="py-6 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-        <p>Loading projects...</p>
-      </div>
-    );
-  }
-
-  // Error state
-  if (projectsError) {
-    return (
-      <div className="py-6 text-center">
-        <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-        <p className="text-red-500">Failed to load projects</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground mb-4">
-        Select projects to assign to the <span className="font-semibold">{lineName}</span> production line.
-      </p>
-      
-      {activeProjects.length === 0 ? (
-        <div className="py-6 text-center">
-          <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-4" />
-          <p>No active projects available for assignment</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Assign Projects to {productionLine.name}</DialogTitle>
+          <DialogDescription>
+            Select projects to assign to this production line
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="relative mb-4">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search projects..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-      ) : (
-        <div className="max-h-[400px] overflow-y-auto pr-2">
-          <div className="space-y-2">
-            {activeProjects.map((project) => (
-              <div key={project.id} className="flex items-center space-x-2 p-2 rounded hover:bg-accent">
-                <Checkbox 
-                  id={`project-${project.id}`} 
-                  checked={selectedProjects.includes(project.id)}
-                  onCheckedChange={() => handleCheckboxChange(project.id)}
-                />
-                <label 
-                  htmlFor={`project-${project.id}`}
-                  className="flex-1 cursor-pointer text-sm"
+        
+        <ScrollArea className="flex-1 pr-4 -mr-4">
+          {isLoadingProjects ? (
+            <div className="py-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-sm text-muted-foreground mt-2">Loading projects...</p>
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="py-8 text-center">
+              <AlertTriangle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No projects found matching your search</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredProjects.map(project => (
+                <div 
+                  key={project.id} 
+                  className="flex items-start space-x-3 p-3 border rounded-md hover:bg-muted/50 transition-colors"
                 >
-                  <div className="font-medium">{project.projectNumber}</div>
-                  <div className="text-muted-foreground text-xs">
-                    Status: {project.status} | Ship: {new Date(project.ship || '').toLocaleDateString()}
+                  <Checkbox 
+                    id={`project-${project.id}`}
+                    checked={selectedProjects.includes(project.id)}
+                    onCheckedChange={(checked) => 
+                      handleProjectSelection(project.id, checked === true)
+                    }
+                  />
+                  <div className="flex-1">
+                    <Label 
+                      htmlFor={`project-${project.id}`}
+                      className="font-medium cursor-pointer"
+                    >
+                      {project.projectNumber}
+                      {project.name && ` - ${project.name}`}
+                    </Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <Badge variant="outline">{project.status}</Badge>
+                      {project.location && (
+                        <Badge variant="outline" className="bg-blue-500/10">
+                          {project.location}
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="bg-green-500/10">
+                        Progress: {project.progress}%
+                      </Badge>
+                    </div>
                   </div>
-                </label>
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+        
+        <DialogFooter className="mt-4 pt-4 border-t">
+          <div className="mr-auto flex items-center text-sm text-muted-foreground">
+            <CheckCircle className="h-4 w-4 mr-1" />
+            {selectedProjects.length} project(s) selected
           </div>
-        </div>
-      )}
-      
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleSave}
-          disabled={updateAssignmentsMutation.isPending}
-        >
-          {updateAssignmentsMutation.isPending ? 'Saving...' : 'Save Assignments'}
-        </Button>
-      </div>
-    </div>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave}
+            disabled={updateAssignmentMutation.isPending}
+          >
+            {updateAssignmentMutation.isPending ? 'Saving...' : 'Save Assignments'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

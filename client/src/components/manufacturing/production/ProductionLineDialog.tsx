@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -42,6 +42,18 @@ const productionLineSchema = z.object({
     planned: z.number().min(0, "Capacity must be a positive number"),
     unit: z.string().min(1, "Unit is required"),
   }),
+  electricalLead: z.object({
+    name: z.string().min(1, "Electrical Lead name is required"),
+    email: z.string().email("Invalid email").optional(),
+    phone: z.string().optional(),
+  }).optional(),
+  assemblyLead: z.object({
+    name: z.string().min(1, "Assembly Lead name is required"),
+    email: z.string().email("Invalid email").optional(),
+    phone: z.string().optional(),
+  }).optional(),
+  manpowerCapacity: z.number().min(1, "Manpower capacity must be at least 1").optional(),
+  teamName: z.string().optional(),
 });
 
 type ProductionLineFormValues = z.infer<typeof productionLineSchema>;
@@ -61,6 +73,26 @@ export function ProductionLineDialog({
   const queryClient = useQueryClient();
   const isEditing = !!productionLine;
 
+  // Function to generate team name from lead names
+  const generateTeamName = (electricalLeadName: string = '', assemblyLeadName: string = '') => {
+    const getLastName = (fullName: string) => {
+      const nameParts = fullName.trim().split(' ');
+      return nameParts.length > 1 ? nameParts[nameParts.length - 1] : fullName;
+    };
+    
+    const electricalLastName = electricalLeadName ? getLastName(electricalLeadName) : '';
+    const assemblyLastName = assemblyLeadName ? getLastName(assemblyLeadName) : '';
+    
+    if (electricalLastName && assemblyLastName) {
+      return `${electricalLastName}-${assemblyLastName} Team`;
+    } else if (electricalLastName) {
+      return `${electricalLastName} Team`;
+    } else if (assemblyLastName) {
+      return `${assemblyLastName} Team`;
+    }
+    return '';
+  };
+
   // Set up form with default values
   const form = useForm<ProductionLineFormValues>({
     resolver: zodResolver(productionLineSchema),
@@ -70,9 +102,21 @@ export function ProductionLineDialog({
           description: productionLine.description || "",
           type: productionLine.type,
           capacity: {
-            planned: productionLine.capacity.planned,
-            unit: productionLine.capacity.unit,
+            planned: productionLine.capacity?.planned || 0,
+            unit: productionLine.capacity?.unit || "units/day",
           },
+          electricalLead: productionLine.electricalLead || {
+            name: "",
+            email: "",
+            phone: "",
+          },
+          assemblyLead: productionLine.assemblyLead || {
+            name: "",
+            email: "",
+            phone: "",
+          },
+          manpowerCapacity: productionLine.manpowerCapacity || 10,
+          teamName: productionLine.teamName || "",
         }
       : {
           name: "",
@@ -82,8 +126,39 @@ export function ProductionLineDialog({
             planned: 0,
             unit: "units/day",
           },
+          electricalLead: {
+            name: "",
+            email: "",
+            phone: "",
+          },
+          assemblyLead: {
+            name: "",
+            email: "",
+            phone: "",
+          },
+          manpowerCapacity: 10,
+          teamName: "",
         },
   });
+
+  // Watch electrical and assembly lead names to auto-generate team name
+  const electricalLeadName = form.watch("electricalLead.name");
+  const assemblyLeadName = form.watch("assemblyLead.name");
+  
+  // Auto-generate team name when both leads are set and team name is empty
+  const currentTeamName = form.watch("teamName");
+  
+  // Effect to update team name when lead names change
+  useEffect(() => {
+    if (electricalLeadName || assemblyLeadName) {
+      if (!currentTeamName) {
+        const newTeamName = generateTeamName(electricalLeadName, assemblyLeadName);
+        if (newTeamName) {
+          form.setValue("teamName", newTeamName);
+        }
+      }
+    }
+  }, [electricalLeadName, assemblyLeadName, currentTeamName, form]);
 
   // Create mutation for adding a new production line
   const createMutation = useMutation({
@@ -282,6 +357,136 @@ export function ProductionLineDialog({
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="space-y-4 border rounded-md p-4 bg-slate-50">
+              <h3 className="font-medium text-sm">Team Management</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Electrical Lead */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Electrical Lead</h4>
+                  <FormField
+                    control={form.control}
+                    name="electricalLead.name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Smith" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="electricalLead.email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="john.smith@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="electricalLead.phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(555) 123-4567" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                {/* Assembly Lead */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Assembly Lead</h4>
+                  <FormField
+                    control={form.control}
+                    name="assemblyLead.name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Jane Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="assemblyLead.email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="jane.doe@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="assemblyLead.phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(555) 987-6543" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="teamName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Team Name (Auto-generated)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Team name will auto-generate" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="manpowerCapacity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Manpower Capacity</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="10"
+                          {...field}
+                          value={field.value || 10}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <DialogFooter>

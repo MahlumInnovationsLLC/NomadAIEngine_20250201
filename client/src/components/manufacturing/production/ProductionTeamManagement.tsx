@@ -1,393 +1,253 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Settings, Trash2, Users } from "lucide-react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ProductionLine } from "@/types/manufacturing";
-import { ProductionLineDialog } from "./ProductionLineDialog";
-import { ProjectAssignmentDialog } from "./ProjectAssignmentDialog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Users, UserPlus, UserCog, UserMinus, Clipboard, ArrowRight } from "lucide-react";
+import { ProductionLine, TeamMember } from "@/types/manufacturing";
+import { TeamMemberManagement } from "./TeamMemberManagement";
 
-export function ProductionTeamManagement() {
+interface ProductionTeamManagementProps {
+  productionLines: ProductionLine[];
+}
+
+export function ProductionTeamManagement({ productionLines = [] }: ProductionTeamManagementProps) {
+  const [activeTab, setActiveTab] = useState<string>("all");
+  const [selectedLine, setSelectedLine] = useState<ProductionLine | null>(null);
+  const [teamMemberDialogOpen, setTeamMemberDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [selectedLine, setSelectedLine] = useState<ProductionLine | undefined>(undefined);
 
-  // Query production lines with automatic refresh
-  const { data: productionLines = [], isLoading, error, refetch } = useQuery<ProductionLine[]>({
-    queryKey: ['/api/manufacturing/production-lines'],
-    queryFn: async () => {
-      const response = await fetch('/api/manufacturing/production-lines');
-      if (!response.ok) throw new Error('Failed to fetch production lines');
-      return response.json();
-    },
-    refetchInterval: 5000, // Auto-refresh every 5 seconds for real-time updates
-  });
-
-  // Handle delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/manufacturing/production-lines/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete production line');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
-      toast({
-        title: "Production Line Deleted",
-        description: "The production line has been successfully deleted",
-      });
-      setDeleteDialogOpen(false);
-      setSelectedLine(undefined);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete production line",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Handle status update mutation
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string, status: ProductionLine['status'] }) => {
-      const response = await fetch(`/api/manufacturing/production-lines/${id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to update production line status');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
-      toast({
-        title: "Status Updated",
-        description: "Production line status has been updated",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update status",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Add new production line
-  const handleAddLine = () => {
-    setSelectedLine(undefined);
-    setDialogOpen(true);
-  };
-
-  // Edit existing production line
-  const handleEditLine = (line: ProductionLine) => {
-    setSelectedLine(line);
-    setDialogOpen(true);
-  };
-
-  // Delete production line
-  const handleDeleteLine = (line: ProductionLine) => {
-    setSelectedLine(line);
-    setDeleteDialogOpen(true);
-  };
-
-  // Assign projects to a production line
-  const handleAssignProjects = (line: ProductionLine) => {
-    setSelectedLine(line);
-    setAssignDialogOpen(true);
-  };
-
-  // Toggle line status
-  const handleToggleStatus = (line: ProductionLine) => {
-    const newStatus = line.status === 'operational' ? 'maintenance' : 'operational';
-    updateStatusMutation.mutate({ id: line.id, status: newStatus });
-  };
-
-  // Organize lines by status for display
-  const operationalLines = productionLines.filter(line => line.status === 'operational');
-  const maintenanceLines = productionLines.filter(line => line.status === 'maintenance');
-  const errorLines = productionLines.filter(line => line.status === 'error' || line.status === 'offline');
-
-  // Get status color
-  const getStatusColor = (status: ProductionLine['status']) => {
-    switch (status) {
-      case 'operational':
-        return 'bg-green-500 hover:bg-green-600';
-      case 'maintenance':
-        return 'bg-yellow-500 hover:bg-yellow-600';
-      case 'error':
-        return 'bg-red-500 hover:bg-red-600';
-      case 'offline':
-        return 'bg-gray-500 hover:bg-gray-600';
-      default:
-        return 'bg-gray-500 hover:bg-gray-600';
-    }
-  };
-
-  // Get status badge variant
-  const getStatusVariant = (status: ProductionLine['status']) => {
-    switch (status) {
-      case 'operational':
-        return 'success' as const;
-      case 'maintenance':
-        return 'warning' as const;
-      case 'error':
-        return 'destructive' as const;
-      case 'offline':
-        return 'outline' as const;
-      default:
-        return 'secondary' as const;
-    }
-  };
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="p-4 text-center">
-        <div className="text-red-500 mb-2">Failed to load production lines</div>
-        <Button onClick={() => refetch()}>Retry</Button>
-      </div>
-    );
-  }
-
-  // Render production lines in cards
-  const renderProductionLineCard = (line: ProductionLine) => (
-    <Card key={line.id} className="overflow-hidden">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-xl">{line.name}</CardTitle>
-            <CardDescription>
-              {line.type ? `${line.type.charAt(0).toUpperCase() + line.type.slice(1)} Line` : 'Production Line'}
-            </CardDescription>
-          </div>
-          <Badge variant={getStatusVariant(line.status || 'operational')}>
-            {line.status ? `${line.status.charAt(0).toUpperCase() + line.status.slice(1)}` : 'Operational'}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pb-2">
-        <div className="text-sm space-y-2">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Capacity:</span>
-            <span>{line.capacity?.planned || 0} {line.capacity?.unit || 'units/day'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Efficiency:</span>
-            <span>{(line.performance?.efficiency || 0) * 100}%</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Assigned Projects:</span>
-            <span>{line.assignedProjects?.length || 0}</span>
-          </div>
-          {line.description && (
-            <div className="pt-2 text-xs text-muted-foreground">
-              {line.description}
-            </div>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-between pt-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleToggleStatus(line)}
-        >
-          {(line.status || '') === 'operational' ? 'Set Maintenance' : 'Set Operational'}
-        </Button>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleAssignProjects(line)}
-            title="Assign Projects"
-          >
-            <Users className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleEditLine(line)}
-            title="Edit Line"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDeleteLine(line)}
-            title="Delete Line"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardFooter>
-    </Card>
+  // Get only production lines with team information
+  const linesWithTeams = productionLines.filter(
+    line => line.electricalLead || line.assemblyLead || (line.teamMembers && line.teamMembers.length > 0)
   );
 
+  // Get lines by status for tab filtering
+  const operationalLines = productionLines.filter(line => line.status === 'operational');
+  const maintenanceLines = productionLines.filter(line => line.status === 'maintenance');
+  const offlineLines = productionLines.filter(line => line.status === 'offline');
+
+  // Function to filter production lines based on active tab
+  const getFilteredLines = () => {
+    switch (activeTab) {
+      case "operational":
+        return operationalLines;
+      case "maintenance":
+        return maintenanceLines;
+      case "offline":
+        return offlineLines;
+      case "withTeams":
+        return linesWithTeams;
+      default:
+        return productionLines;
+    }
+  };
+
+  // Function to get initials from a name
+  const getInitials = (name: string) => {
+    if (!name) return "??";
+    return name
+      .split(" ")
+      .map(n => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
+  // Function to get a color based on a string value (for consistent avatar colors)
+  const getColorFromString = (str: string) => {
+    const colors = [
+      "bg-red-500",
+      "bg-green-500",
+      "bg-blue-500",
+      "bg-yellow-500",
+      "bg-purple-500",
+      "bg-pink-500",
+      "bg-indigo-500",
+      "bg-teal-500"
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // Function to handle opening the team member management dialog
+  const handleManageTeamMembers = (line: ProductionLine) => {
+    setSelectedLine(line);
+    setTeamMemberDialogOpen(true);
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Production Team Management</h2>
-        <Button onClick={handleAddLine}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Production Line
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-5 mb-4">
+          <TabsTrigger value="all">All Lines</TabsTrigger>
+          <TabsTrigger value="operational">Operational</TabsTrigger>
+          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          <TabsTrigger value="offline">Offline</TabsTrigger>
+          <TabsTrigger value="withTeams">With Teams</TabsTrigger>
+        </TabsList>
 
-      {productionLines.length === 0 ? (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <FontAwesomeIcon icon="industry" className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Production Lines</h3>
-            <p className="text-muted-foreground mb-4">
-              Add a production line to start managing production capacity
-            </p>
-            <Button onClick={handleAddLine}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Production Line
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Tabs defaultValue="all" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="all">
-              All Lines ({productionLines.length})
-            </TabsTrigger>
-            <TabsTrigger value="operational">
-              Operational ({operationalLines.length})
-            </TabsTrigger>
-            <TabsTrigger value="maintenance">
-              Maintenance ({maintenanceLines.length})
-            </TabsTrigger>
-            <TabsTrigger value="issues">
-              Issues ({errorLines.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all">
-            <ScrollArea className="h-[500px] pr-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {productionLines.map((line) => renderProductionLineCard(line))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {getFilteredLines().length === 0 ? (
+            <div className="col-span-full flex items-center justify-center h-60">
+              <div className="text-center">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Production Lines Found</h3>
+                <p className="text-muted-foreground">
+                  No production lines match the selected filter
+                </p>
               </div>
-            </ScrollArea>
-          </TabsContent>
+            </div>
+          ) : (
+            getFilteredLines().map(line => (
+              <Card key={line.id} className="overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle>{line.name}</CardTitle>
+                      <CardDescription>
+                        {line.type} line - {line.status}
+                      </CardDescription>
+                    </div>
+                    <Badge 
+                      variant={line.status === 'operational' ? 'default' : 
+                              line.status === 'maintenance' ? 'warning' : 'destructive'}
+                    >
+                      {line.status}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Team name display */}
+                  {line.teamName && (
+                    <div className="bg-muted/40 p-3 rounded-md">
+                      <div className="text-sm text-muted-foreground">Team Name</div>
+                      <div className="text-lg font-medium">{line.teamName}</div>
+                    </div>
+                  )}
 
-          <TabsContent value="operational">
-            <ScrollArea className="h-[500px] pr-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {operationalLines.map((line) => renderProductionLineCard(line))}
-              </div>
-              {operationalLines.length === 0 && (
-                <div className="text-center p-8 text-muted-foreground">
-                  No operational production lines found
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
+                  {/* Team leads section */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium">Team Leads</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Electrical Lead */}
+                      <div className="bg-muted/30 p-3 rounded-md">
+                        <div className="flex items-center space-x-3">
+                          {line.electricalLead ? (
+                            <>
+                              <Avatar className={getColorFromString(line.electricalLead.name)}>
+                                <AvatarFallback>{getInitials(line.electricalLead.name)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium">{line.electricalLead.name}</div>
+                                <div className="text-xs text-muted-foreground">Electrical Lead</div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <Avatar className="bg-muted">
+                                <AvatarFallback>EL</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="text-muted-foreground">No Electrical Lead</div>
+                                <div className="text-xs">Not assigned</div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Assembly Lead */}
+                      <div className="bg-muted/30 p-3 rounded-md">
+                        <div className="flex items-center space-x-3">
+                          {line.assemblyLead ? (
+                            <>
+                              <Avatar className={getColorFromString(line.assemblyLead.name)}>
+                                <AvatarFallback>{getInitials(line.assemblyLead.name)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium">{line.assemblyLead.name}</div>
+                                <div className="text-xs text-muted-foreground">Assembly Lead</div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <Avatar className="bg-muted">
+                                <AvatarFallback>AL</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="text-muted-foreground">No Assembly Lead</div>
+                                <div className="text-xs">Not assigned</div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-          <TabsContent value="maintenance">
-            <ScrollArea className="h-[500px] pr-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {maintenanceLines.map((line) => renderProductionLineCard(line))}
-              </div>
-              {maintenanceLines.length === 0 && (
-                <div className="text-center p-8 text-muted-foreground">
-                  No production lines in maintenance
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="issues">
-            <ScrollArea className="h-[500px] pr-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {errorLines.map((line) => renderProductionLineCard(line))}
-              </div>
-              {errorLines.length === 0 && (
-                <div className="text-center p-8 text-muted-foreground">
-                  No production lines with issues
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-      )}
-
-      {/* Add/Edit Production Line Dialog */}
-      <ProductionLineDialog 
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        productionLine={selectedLine}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Production Line</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p>Are you sure you want to delete this production line? This action cannot be undone.</p>
-            {selectedLine && <p className="font-medium mt-2">{selectedLine.name}</p>}
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => selectedLine && deleteMutation.mutate(selectedLine.id)}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Project Assignment Dialog */}
-      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Assign Projects to Production Line</DialogTitle>
-          </DialogHeader>
-          {selectedLine && (
-            <ProjectAssignmentDialog 
-              lineId={selectedLine.id} 
-              lineName={selectedLine.name}
-              onClose={() => setAssignDialogOpen(false)} 
-            />
+                  {/* Team members section */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-sm font-medium">Team Members</h4>
+                      <div className="text-sm">
+                        {line.teamMembers?.length || 0}/{line.manpowerCapacity || 10}
+                      </div>
+                    </div>
+                    
+                    {line.teamMembers && line.teamMembers.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {line.teamMembers.slice(0, 5).map((member, index) => (
+                          <Avatar key={index} title={member.name} className={getColorFromString(member.name)}>
+                            <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {line.teamMembers.length > 5 && (
+                          <Avatar className="bg-muted">
+                            <AvatarFallback>+{line.teamMembers.length - 5}</AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground p-2">
+                        No team members have been assigned yet
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+                <CardFooter className="bg-muted/20 pt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => handleManageTeamMembers(line)}
+                  >
+                    <UserCog className="h-4 w-4 mr-2" />
+                    Manage Team Members
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
+      </Tabs>
+
+      {/* Team Member Management Dialog */}
+      {selectedLine && (
+        <TeamMemberManagement
+          open={teamMemberDialogOpen}
+          onOpenChange={setTeamMemberDialogOpen}
+          productionLine={selectedLine}
+        />
+      )}
     </div>
   );
 }

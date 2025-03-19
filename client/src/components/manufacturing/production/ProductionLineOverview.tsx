@@ -44,6 +44,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ProductionLineDialog } from "./ProductionLineDialog";
 import { ProjectAssignmentDialog } from "./ProjectAssignmentDialog";
+import { ProductionTeamManagement } from "./ProductionTeamManagement";
 import { ProductionLine } from "../../../types/manufacturing";
 
 export function ProductionLineOverview() {
@@ -259,10 +260,11 @@ export function ProductionLineOverview() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="schedules">Schedules</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
           <Card>
@@ -449,6 +451,19 @@ export function ProductionLineOverview() {
                   Production scheduling and planning features will be available soon.
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="teams">
+          <Card>
+            <CardHeader>
+              <CardTitle>Production Team Management</CardTitle>
+              <CardDescription>
+                Manage team leads and team members for each production line
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProductionTeamManagement productionLines={productionLines} />
             </CardContent>
           </Card>
         </TabsContent>

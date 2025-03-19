@@ -50,6 +50,18 @@ export interface Project {
   updatedAt: string;
 }
 
+// Define team member interface
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  skills?: string[];
+  yearsExperience?: number;
+  certifications?: string[];
+  availability?: number; // percentage of time available
+  assignedProjects?: string[];
+}
+
 // Define production line interface
 export interface ProductionLine {
   id: string;
@@ -68,6 +80,23 @@ export interface ProductionLine {
     availability: number;
     oee: number;
   };
+  // Team structure
+  electricalLead?: {
+    name: string;
+    id?: string;
+    email?: string;
+    phone?: string;
+  };
+  assemblyLead?: {
+    name: string;
+    id?: string;
+    email?: string;
+    phone?: string;
+  };
+  teamName?: string;
+  teamMembers?: TeamMember[];
+  manpowerCapacity?: number; // Number of people that can work on this line
+  currentManpower?: number; // Current number of team members assigned
   notes?: string;
   lastMaintenance?: string;
   nextMaintenance?: string;
