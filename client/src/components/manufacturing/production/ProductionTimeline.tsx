@@ -71,7 +71,19 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
   };
 
   const formatDateLabel = (date: string) => {
-    return format(new Date(date), 'MM/dd/yyyy');
+    // Parse the ISO string but ensure correct date by using only the date portion
+    const parts = date.split('T')[0].split('-'); // Get YYYY-MM-DD part only
+    if (parts.length !== 3) return 'Invalid Date';
+    
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-based
+    const day = parseInt(parts[2], 10);
+    
+    // Create a date object with the local timezone
+    const parsedDate = new Date(year, month, day);
+    
+    // Format the date
+    return format(parsedDate, 'MM/dd/yyyy');
   };
 
   const timelineEvents = [
@@ -92,12 +104,26 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Helper function to create date objects that preserve the exact date
+  const createDateFromISOString = (dateString: string): Date => {
+    // Parse the ISO string but ensure correct date by using only the date portion
+    const parts = dateString.split('T')[0].split('-'); // Get YYYY-MM-DD part only
+    if (parts.length !== 3) return new Date();
+    
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-based
+    const day = parseInt(parts[2], 10);
+    
+    // Create a date object with the local timezone
+    return new Date(year, month, day);
+  };
+
   const startDateTimeline = timelineEvents[0]?.date 
-    ? new Date(timelineEvents[0].date)
+    ? createDateFromISOString(timelineEvents[0].date)
     : new Date();
 
   const endDateTimeline = timelineEvents[timelineEvents.length - 1]?.date
-    ? new Date(timelineEvents[timelineEvents.length - 1].date)
+    ? createDateFromISOString(timelineEvents[timelineEvents.length - 1].date)
     : new Date(startDateTimeline.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   // Calculate today's position on the timeline
@@ -124,12 +150,12 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
       return { ...event, position: Math.max(5, todayPosition + 3), needsOffset: false };
     }
 
-    const eventDate = new Date(event.date);
+    const eventDate = createDateFromISOString(event.date);
     const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
       (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
 
     const prevPosition = index > 0 && timelineEvents[index - 1].date
-      ? ((new Date(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) / 
+      ? ((createDateFromISOString(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) / 
          (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
       : -20;
 
@@ -138,19 +164,19 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
     return { ...event, position, needsOffset };
   });
 
-  const hasShipped = project.ship && new Date(project.ship) <= today;
+  const hasShipped = project.ship && createDateFromISOString(project.ship) <= today;
 
   // Find next upcoming milestone
   const nextMilestone = timelineEvents.find(event => {
     if (!event.date) return false;
-    const eventDate = new Date(event.date);
+    const eventDate = createDateFromISOString(event.date);
     return eventDate >= today;
   });
 
   // Calculate days until next milestone
   let daysMessage = '';
   if (nextMilestone?.date) {
-    const eventDate = new Date(nextMilestone.date);
+    const eventDate = createDateFromISOString(nextMilestone.date);
     const diffTime = eventDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     daysMessage = diffDays === 0 
@@ -221,7 +247,7 @@ export function ProductionTimeline({ project, onStatusChange }: ProductionTimeli
                 }}
               >
                 <div className={`w-3 h-3 rounded-full ${
-                  event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
+                  event.date && createDateFromISOString(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
                 }`} />
                 <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs">
                   {`${event.label} (${event.formattedDate})`}

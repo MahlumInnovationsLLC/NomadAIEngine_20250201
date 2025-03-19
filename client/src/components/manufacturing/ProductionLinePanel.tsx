@@ -147,18 +147,33 @@ export type CombinedProject = (Project | ProductionProject) & {
 
 // We're using the ProjectFilter interface imported from ProjectFiltersRow.tsx
 
-// Helper function to safely format dates with fallbacks
+// Helper function to safely format dates with fallbacks that preserves the date regardless of timezone
 const formatDate = (date: string | undefined | null, fallbackDate?: string | null): string => {
   if (date) {
-    const parsedDate = new Date(date);
-    if (!isNaN(parsedDate.getTime())) {
+    // Parse the ISO string but ensure correct date by using only the date portion
+    const parts = date.split('T')[0].split('-'); // Get YYYY-MM-DD part only
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-based
+      const day = parseInt(parts[2], 10);
+      
+      // Create a date object with the local timezone
+      const parsedDate = new Date(year, month, day);
+      
+      // Format the date consistently
       return parsedDate.toLocaleDateString();
     }
   }
   
   if (fallbackDate) {
-    const parsedFallbackDate = new Date(fallbackDate);
-    if (!isNaN(parsedFallbackDate.getTime())) {
+    // Apply the same parsing to the fallback date
+    const parts = fallbackDate.split('T')[0].split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      
+      const parsedFallbackDate = new Date(year, month, day);
       return parsedFallbackDate.toLocaleDateString();
     }
   }
