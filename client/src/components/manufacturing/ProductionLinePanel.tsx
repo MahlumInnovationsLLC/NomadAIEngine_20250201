@@ -463,89 +463,106 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : safeFilterProjects(projects, p => {
-                        // Case-insensitive status check for active projects
-                        const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
-                        return (
-                            status === 'in_progress' || 
-                            status === 'active' || 
-                            status === 'not started' || 
-                            status === 'in fab' || 
-                            status === 'in assembly' || 
-                            status === 'in wrap' || 
-                            status === 'in ntc testing' || 
-                            status === 'in qc'
-                        );
-                      }).length > 0 ? (
-                        safeFilterProjects(projects, p => {
-                            // Case-insensitive status check for active projects
-                            const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
-                            return (
-                                status === 'in_progress' || 
-                                status === 'active' || 
-                                status === 'not started' || 
-                                status === 'in fab' || 
-                                status === 'in assembly' || 
-                                status === 'in wrap' || 
-                                status === 'in ntc testing' || 
-                                status === 'in qc'
-                            );
-                        })
-                        .map(project => (
-                            <Card 
-                              key={project.id} 
-                              className="cursor-pointer hover:bg-accent/5"
-                              onClick={() => handleOpenProjectDetails(project)}
-                            >
-                              <CardContent className="p-4">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h3 className="font-medium">{project.name}</h3>
-                                    <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
-                                  </div>
-                                  <Badge variant="outline">{project.status}</Badge>
-                                </div>
-                                <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                                  <div>
-                                    <p className="text-muted-foreground">Start Date</p>
-                                    <p>{formatDate(project.startDate, project.contractDate)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Target Date</p>
-                                    <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Progress</p>
-                                    <Progress 
-                                      value={project.metrics?.completionPercentage ?? project.progress ?? 0} 
-                                      className="h-2 mt-1" 
-                                    />
-                                  </div>
-                                </div>
-                                <div className="mt-3 flex justify-end gap-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAssignProject(project);
-                                    }}
-                                  >
-                                    <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
-                                    Assign to Line
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))
                       ) : (
-                        <div className="text-center py-8">
-                          <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
-                          <h3 className="text-lg font-semibold mb-2">No Active Projects</h3>
-                          <p className="text-muted-foreground">
-                            There are no active projects at the moment
-                          </p>
-                        </div>
+                        (() => {
+                          // Filter active projects only once to prevent duplication
+                          const activeProjects = safeFilterProjects(projects, p => {
+                            // Check for active projects - preserve exact status formatting
+                            if (!p.status) return false;
+                            
+                            const originalStatus = p.status;
+                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                            
+                            // Status value preservation approach:
+                            // 1. Check exact original status values first with direct comparison
+                            // 2. Fall back to lowercase matching only when needed for flexibility 
+                            return (
+                              // Exact original status values - preserves case integrity
+                              originalStatus === 'NOT_STARTED' ||
+                              originalStatus === 'IN FAB' ||
+                              originalStatus === 'IN ASSEMBLY' ||
+                              originalStatus === 'IN WRAP' ||
+                              originalStatus === 'IN NTC TESTING' ||
+                              originalStatus === 'IN QC' ||
+                              
+                              // Fallback lowercase pattern matching for flexibility
+                              statusLower === 'in_progress' || 
+                              statusLower === 'active' || 
+                              statusLower === 'not started' || 
+                              statusLower === 'not_started' ||
+                              statusLower === 'in fab' || 
+                              statusLower === 'in_fab' ||
+                              statusLower === 'in assembly' || 
+                              statusLower === 'in_assembly' ||
+                              statusLower === 'in wrap' || 
+                              statusLower === 'in_wrap' ||
+                              statusLower === 'in ntc testing' || 
+                              statusLower === 'in_ntc_testing' ||
+                              statusLower === 'in qc' ||
+                              statusLower === 'in_qc'
+                            );
+                          });
+                          
+                          if (activeProjects.length > 0) {
+                            return activeProjects.map(project => (
+                              <Card 
+                                key={project.id} 
+                                className="cursor-pointer hover:bg-accent/5"
+                                onClick={() => handleOpenProjectDetails(project)}
+                              >
+                                <CardContent className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h3 className="font-medium">{project.name}</h3>
+                                      <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
+                                    </div>
+                                    <Badge variant="outline">{project.status}</Badge>
+                                  </div>
+                                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                    <div>
+                                      <p className="text-muted-foreground">Start Date</p>
+                                      <p>{formatDate(project.startDate, project.contractDate)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Target Date</p>
+                                      <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Progress</p>
+                                      <Progress 
+                                        value={project.metrics?.completionPercentage ?? project.progress ?? 0} 
+                                        className="h-2 mt-1" 
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 flex justify-end gap-2">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAssignProject(project);
+                                      }}
+                                    >
+                                      <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
+                                      Assign to Line
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ));
+                          } else {
+                            return (
+                              <div className="text-center py-8">
+                                <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
+                                <h3 className="text-lg font-semibold mb-2">No Active Projects</h3>
+                                <p className="text-muted-foreground">
+                                  There are no active projects at the moment
+                                </p>
+                              </div>
+                            );
+                          }
+                        })()
                       )}
                     </TabsContent>
                     <TabsContent value="planning" className="space-y-4 pt-4">
@@ -554,78 +571,89 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : safeFilterProjects(projects, p => {
-                        // Case-insensitive status check for planning projects
-                        const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
-                        return (
-                            status === 'planning' || 
-                            status === 'not started' ||
-                            status === 'not_started' ||
-                            status === 'planning'
-                        );
-                      }).length > 0 ? (
-                        safeFilterProjects(projects, p => {
-                            // Case-insensitive status check for planning projects
-                            const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
-                            return (
-                                status === 'planning' || 
-                                status === 'not started' ||
-                                status === 'not_started' ||
-                                status === 'planning'
-                            );
-                        })
-                          .map(project => (
-                            <Card 
-                              key={project.id} 
-                              className="cursor-pointer hover:bg-accent/5"
-                              onClick={() => handleOpenProjectDetails(project)}
-                            >
-                              <CardContent className="p-4">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h3 className="font-medium">{project.name}</h3>
-                                    <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
-                                  </div>
-                                  <Badge variant="outline">{project.status}</Badge>
-                                </div>
-                                <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                                  <div>
-                                    <p className="text-muted-foreground">Start Date</p>
-                                    <p>{formatDate(project.startDate, project.contractDate)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Target Date</p>
-                                    <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Planning Status</p>
-                                    <p>{project.planningStage || 'Initial'}</p>
-                                  </div>
-                                </div>
-                                <div className="mt-3 flex justify-end gap-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAssignProject(project);
-                                    }}
-                                  >
-                                    <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
-                                    Assign to Line
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))
                       ) : (
-                        <div className="text-center py-8">
-                          <FontAwesomeIcon icon="clipboard-list" className="h-12 w-12 text-muted-foreground mb-4" />
-                          <h3 className="text-lg font-semibold mb-2">No Projects in Planning</h3>
-                          <p className="text-muted-foreground">
-                            There are no projects in the planning stage
-                          </p>
-                        </div>
+                        (() => {
+                          // Filter planning projects only once to prevent duplication
+                          const planningProjects = safeFilterProjects(projects, p => {
+                            // Check for planning projects - preserve exact status formatting
+                            if (!p.status) return false;
+                            
+                            const originalStatus = p.status;
+                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                            
+                            // Status value preservation approach:
+                            // 1. Check exact original status values first with direct comparison
+                            // 2. Fall back to lowercase matching only when needed for flexibility
+                            return (
+                              // Exact original status values - preserves case integrity
+                              originalStatus === 'NOT_STARTED' ||
+                              originalStatus === 'PLANNING' ||
+                              
+                              // Fallback lowercase pattern matching for flexibility
+                              statusLower === 'planning' || 
+                              statusLower === 'not started' ||
+                              statusLower === 'not_started' || 
+                              statusLower === 'pending'
+                            );
+                          });
+                          
+                          if (planningProjects.length > 0) {
+                            return planningProjects.map(project => (
+                              <Card 
+                                key={project.id} 
+                                className="cursor-pointer hover:bg-accent/5"
+                                onClick={() => handleOpenProjectDetails(project)}
+                              >
+                                <CardContent className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h3 className="font-medium">{project.name}</h3>
+                                      <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
+                                    </div>
+                                    <Badge variant="outline">{project.status}</Badge>
+                                  </div>
+                                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                    <div>
+                                      <p className="text-muted-foreground">Start Date</p>
+                                      <p>{formatDate(project.startDate, project.contractDate)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Target Date</p>
+                                      <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Planning Status</p>
+                                      <p>{project.planningStage || 'Initial'}</p>
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 flex justify-end gap-2">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAssignProject(project);
+                                      }}
+                                    >
+                                      <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
+                                      Assign to Line
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ));
+                          } else {
+                            return (
+                              <div className="text-center py-8">
+                                <FontAwesomeIcon icon="clipboard-list" className="h-12 w-12 text-muted-foreground mb-4" />
+                                <h3 className="text-lg font-semibold mb-2">No Projects in Planning</h3>
+                                <p className="text-muted-foreground">
+                                  There are no projects in the planning stage
+                                </p>
+                              </div>
+                            );
+                          }
+                        })()
                       )}
                     </TabsContent>
                     
@@ -635,55 +663,66 @@ export const ProductionLinePanel = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
                           <span>Loading projects...</span>
                         </div>
-                      ) : safeFilterProjects(projects, p => {
-                        // Case-insensitive status check for completed projects
-                        const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
-                        return status === 'completed';
-                      }).length > 0 ? (
-                        safeFilterProjects(projects, p => {
-                            // Case-insensitive status check for completed projects
-                            const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
-                            return status === 'completed';
-                        })
-                          .map(project => (
-                            <Card 
-                              key={project.id} 
-                              className="cursor-pointer hover:bg-accent/5"
-                              onClick={() => handleOpenProjectDetails(project)}
-                            >
-                              <CardContent className="p-4">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h3 className="font-medium">{project.name}</h3>
-                                    <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
-                                  </div>
-                                  <Badge variant="outline">{project.status}</Badge>
-                                </div>
-                                <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                                  <div>
-                                    <p className="text-muted-foreground">Start Date</p>
-                                    <p>{formatDate(project.startDate, project.contractDate)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Completion Date</p>
-                                    <p>{formatDate(project.completionDate, project.targetCompletionDate)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-muted-foreground">Duration</p>
-                                    <p>{project.duration || 'N/A'}</p>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))
                       ) : (
-                        <div className="text-center py-8">
-                          <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
-                          <h3 className="text-lg font-semibold mb-2">No Completed Projects</h3>
-                          <p className="text-muted-foreground">
-                            There are no completed projects at the moment
-                          </p>
-                        </div>
+                        (() => {
+                          // Filter completed projects only once to prevent duplication
+                          const completedProjects = safeFilterProjects(projects, p => {
+                            // Check for completed projects - preserve exact status formatting
+                            if (!p.status) return false;
+                            
+                            const originalStatus = p.status;
+                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                            
+                            // Status value preservation approach:
+                            // 1. Check exact original status match first
+                            // 2. Fall back to lowercase matching only when needed for flexibility
+                            return originalStatus === 'COMPLETED' || statusLower === 'completed';
+                          });
+                          
+                          if (completedProjects.length > 0) {
+                            return completedProjects.map(project => (
+                              <Card 
+                                key={project.id} 
+                                className="cursor-pointer hover:bg-accent/5"
+                                onClick={() => handleOpenProjectDetails(project)}
+                              >
+                                <CardContent className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h3 className="font-medium">{project.name}</h3>
+                                      <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
+                                    </div>
+                                    <Badge variant="outline">{project.status}</Badge>
+                                  </div>
+                                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                    <div>
+                                      <p className="text-muted-foreground">Start Date</p>
+                                      <p>{formatDate(project.startDate, project.contractDate)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Completion Date</p>
+                                      <p>{formatDate(project.completionDate, project.targetCompletionDate)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Duration</p>
+                                      <p>{project.duration || 'N/A'}</p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ));
+                          } else {
+                            return (
+                              <div className="text-center py-8">
+                                <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
+                                <h3 className="text-lg font-semibold mb-2">No Completed Projects</h3>
+                                <p className="text-muted-foreground">
+                                  There are no completed projects at the moment
+                                </p>
+                              </div>
+                            );
+                          }
+                        })()
                       )}
                     </TabsContent>
                   </Tabs>
@@ -708,50 +747,83 @@ export const ProductionLinePanel = () => {
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Active Projects</div>
                         <div className="font-medium">{safeFilterProjects(projects, p => {
-                          const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                          if (!p.status) return false;
+                        
+                          const originalStatus = p.status;
+                          const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                          
                           return (
-                            status === 'in_progress' || 
-                            status === 'active' || 
-                            status === 'not started' || 
-                            status === 'in fab' || 
-                            status === 'in assembly' || 
-                            status === 'in wrap' || 
-                            status === 'in ntc testing' || 
-                            status === 'in qc'
+                            // Exact original status values - preserves case integrity
+                            originalStatus === 'NOT_STARTED' ||
+                            originalStatus === 'IN FAB' ||
+                            originalStatus === 'IN ASSEMBLY' ||
+                            originalStatus === 'IN WRAP' ||
+                            originalStatus === 'IN NTC TESTING' ||
+                            originalStatus === 'IN QC' ||
+                            
+                            // Fallback lowercase pattern matching
+                            statusLower === 'in_progress' || 
+                            statusLower === 'active' || 
+                            statusLower === 'not started' || 
+                            statusLower === 'in fab' || 
+                            statusLower === 'in assembly' || 
+                            statusLower === 'in wrap' || 
+                            statusLower === 'in ntc testing' || 
+                            statusLower === 'in qc'
                           );
                         }).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Planning Stage</div>
                         <div className="font-medium">{safeFilterProjects(projects, p => {
-                          const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+                          if (!p.status) return false;
+                        
+                          const originalStatus = p.status;
+                          const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                          
                           return (
-                            status === 'planning' || 
-                            status === 'not started' ||
-                            status === 'not_started'
+                            // Exact original status values - preserves case integrity
+                            originalStatus === 'NOT_STARTED' ||
+                            originalStatus === 'PLANNING' ||
+                            
+                            // Fallback lowercase pattern matching
+                            statusLower === 'planning' || 
+                            statusLower === 'not started' ||
+                            statusLower === 'not_started'
                           );
                         }).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Completed</div>
                         <div className="font-medium">{safeFilterProjects(projects, p => {
-                          const status = typeof p.status === 'string' ? p.status.toLowerCase() : '';
-                          return status === 'completed';
+                          if (!p.status) return false;
+                        
+                          const originalStatus = p.status;
+                          const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                          
+                          return originalStatus === 'COMPLETED' || statusLower === 'completed';
                         }).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Delayed</div>
-                        <div className="font-medium">{safeFilterProjects(projects, p => 
-                          (p.status === 'in_progress' || 
-                           p.status === 'active' || 
-                           p.status === 'NOT STARTED' || 
-                           p.status === 'IN FAB' || 
-                           p.status === 'IN ASSEMBLY' || 
-                           p.status === 'IN WRAP' || 
-                           p.status === 'IN NTC TESTING' || 
-                           p.status === 'IN QC') && 
-                          p.isDelayed === true
-                        ).length}</div>
+                        <div className="font-medium">{safeFilterProjects(projects, p => {
+                          if (!p.status) return false;
+                          
+                          const originalStatus = p.status;
+                          const isActiveStatus = (
+                            // Exact original status values
+                            originalStatus === 'NOT_STARTED' ||
+                            originalStatus === 'IN FAB' ||
+                            originalStatus === 'IN ASSEMBLY' ||
+                            originalStatus === 'IN WRAP' ||
+                            originalStatus === 'IN NTC TESTING' ||
+                            originalStatus === 'IN QC' ||
+                            originalStatus === 'in_progress' ||
+                            originalStatus === 'active'
+                          );
+                          
+                          return isActiveStatus && p.isDelayed === true;
+                        }).length}</div>
                       </div>
                       
                       <Separator className="my-2" />
@@ -759,29 +831,65 @@ export const ProductionLinePanel = () => {
                       <div className="mt-4">
                         <div className="text-sm text-muted-foreground mb-2">Project Status Distribution</div>
                         <div className="flex items-center gap-2 mt-2">
-                          <div className="h-2 bg-green-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => 
-                            p.status === 'completed' || 
-                            p.status === 'COMPLETED'
-                          ).length / (projects?.length || 1)) * 100}%` }} />
-                          <div className="h-2 bg-blue-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => 
-                            p.status === 'in_progress' || 
-                            p.status === 'active' || 
-                            p.status === 'NOT STARTED' || 
-                            p.status === 'IN FAB' || 
-                            p.status === 'IN ASSEMBLY' || 
-                            p.status === 'IN WRAP' || 
-                            p.status === 'IN NTC TESTING' || 
-                            p.status === 'IN QC'
-                          ).length / (projects?.length || 1)) * 100}%` }} />
-                          <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => 
-                            p.status === 'planning' || 
-                            p.status === 'NOT STARTED' ||
-                            p.status === 'PLANNING'
-                          ).length / (projects?.length || 1)) * 100}%` }} />
-                          <div className="h-2 bg-red-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => 
-                            p.status === 'on_hold' || 
-                            p.status === 'cancelled'
-                          ).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-green-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
+                            if (!p.status) return false;
+                            
+                            const originalStatus = p.status;
+                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                            
+                            return originalStatus === 'COMPLETED' || statusLower === 'completed';
+                          }).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-blue-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
+                            if (!p.status) return false;
+                            
+                            const originalStatus = p.status;
+                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                            
+                            return (
+                              // Exact original status values
+                              originalStatus === 'NOT_STARTED' ||
+                              originalStatus === 'IN FAB' ||
+                              originalStatus === 'IN ASSEMBLY' ||
+                              originalStatus === 'IN WRAP' ||
+                              originalStatus === 'IN NTC TESTING' ||
+                              originalStatus === 'IN QC' ||
+                              
+                              // Lowercase pattern matching
+                              statusLower === 'in_progress' || 
+                              statusLower === 'active' || 
+                              statusLower === 'not started' || 
+                              statusLower === 'in fab' || 
+                              statusLower === 'in assembly' || 
+                              statusLower === 'in wrap' || 
+                              statusLower === 'in ntc testing' || 
+                              statusLower === 'in qc'
+                            );
+                          }).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
+                            if (!p.status) return false;
+                            
+                            const originalStatus = p.status;
+                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                            
+                            return (
+                              // Exact original status values
+                              originalStatus === 'NOT_STARTED' ||
+                              originalStatus === 'PLANNING' ||
+                              
+                              // Lowercase pattern matching
+                              statusLower === 'planning' || 
+                              statusLower === 'not started' ||
+                              statusLower === 'not_started'
+                            );
+                          }).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-red-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
+                            if (!p.status) return false;
+                            
+                            const originalStatus = p.status;
+                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                            
+                            return statusLower === 'on_hold' || statusLower === 'cancelled';
+                          }).length / (projects?.length || 1)) * 100}%` }} />
                         </div>
                         <div className="grid grid-cols-4 gap-1 text-xs mt-1">
                           <div className="text-green-500">Completed</div>
