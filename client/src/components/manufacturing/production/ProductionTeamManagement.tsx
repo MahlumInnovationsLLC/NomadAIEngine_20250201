@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -6,30 +6,66 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, UserPlus, UserCog, UserMinus, Clipboard, ArrowRight } from "lucide-react";
-import { ProductionLine, TeamMember } from "@/types/manufacturing";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Users, 
+  UserPlus, 
+  UserCog, 
+  UserMinus, 
+  Clipboard, 
+  ArrowRight,
+  PlusCircle,
+  Settings,
+  AlertCircle,
+  Edit,
+  ListPlus
+} from "lucide-react";
+import { ProductionLine, TeamMember, Project } from "@/types/manufacturing";
 import { TeamMemberManagement } from "./TeamMemberManagement";
+import { ProductionLineDialog } from "./ProductionLineDialog";
+import { ProjectAssignmentDialog } from "./ProjectAssignmentDialog";
 
 interface ProductionTeamManagementProps {
-  productionLines: ProductionLine[];
+  productionLines?: ProductionLine[];
+  standalonePage?: boolean;
 }
 
-export function ProductionTeamManagement({ productionLines = [] }: ProductionTeamManagementProps) {
+export function ProductionTeamManagement({ productionLines = [], standalonePage = false }: ProductionTeamManagementProps) {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedLine, setSelectedLine] = useState<ProductionLine | null>(null);
   const [teamMemberDialogOpen, setTeamMemberDialogOpen] = useState(false);
+  const [createTeamDialogOpen, setCreateTeamDialogOpen] = useState(false);
+  const [projectAssignDialogOpen, setProjectAssignDialogOpen] = useState(false);
+  const [teamDetailsDialogOpen, setTeamDetailsDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch production lines if not provided
+  const { data: fetchedProductionLines = [], isLoading, error } = useQuery<ProductionLine[]>({
+    queryKey: ['/api/manufacturing/production-lines'],
+    enabled: standalonePage || productionLines.length === 0,
+  });
+
+  // Use fetched lines if in standalone mode, otherwise use provided lines
+  const allProductionLines = standalonePage ? fetchedProductionLines : productionLines;
+
   // Get only production lines with team information
-  const linesWithTeams = productionLines.filter(
+  const linesWithTeams = allProductionLines.filter(
     line => line.electricalLead || line.assemblyLead || (line.teamMembers && line.teamMembers.length > 0)
   );
 
   // Get lines by status for tab filtering
-  const operationalLines = productionLines.filter(line => line.status === 'operational');
-  const maintenanceLines = productionLines.filter(line => line.status === 'maintenance');
-  const offlineLines = productionLines.filter(line => line.status === 'offline');
+  const operationalLines = allProductionLines.filter(line => line.status === 'operational');
+  const maintenanceLines = allProductionLines.filter(line => line.status === 'maintenance');
+  const offlineLines = allProductionLines.filter(line => line.status === 'offline');
+
+  // Fetch projects for assignment
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ['/api/manufacturing/projects'],
+    enabled: standalonePage,
+  });
 
   // Function to filter production lines based on active tab
   const getFilteredLines = () => {
@@ -43,7 +79,7 @@ export function ProductionTeamManagement({ productionLines = [] }: ProductionTea
       case "withTeams":
         return linesWithTeams;
       default:
-        return productionLines;
+        return allProductionLines;
     }
   };
 
@@ -85,15 +121,67 @@ export function ProductionTeamManagement({ productionLines = [] }: ProductionTea
     setTeamMemberDialogOpen(true);
   };
 
+  // Function to handle opening the project assignment dialog
+  const handleAssignProjects = (line: ProductionLine) => {
+    setSelectedLine(line);
+    setProjectAssignDialogOpen(true);
+  };
+
+  // Function to handle opening the team details dialog
+  const handleViewTeamDetails = (line: ProductionLine) => {
+    setSelectedLine(line);
+    setTeamDetailsDialogOpen(true);
+  };
+
+  // Function to handle creating a new team
+  const handleCreateTeam = () => {
+    setCreateTeamDialogOpen(true);
+  };
+
+  if (isLoading && standalonePage) {
+    return (
+      <div className="flex items-center justify-center h-60">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error && standalonePage) {
+    return (
+      <div className="text-center p-8">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Error Loading Teams</h3>
+        <p className="text-muted-foreground">
+          There was a problem loading the production teams. Please try again later.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {standalonePage && (
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Production Team Management</h1>
+            <p className="text-muted-foreground">
+              Manage production teams, assign projects, and track team performance
+            </p>
+          </div>
+          <Button onClick={handleCreateTeam}>
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Create New Team
+          </Button>
+        </div>
+      )}
+      
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-5 mb-4">
-          <TabsTrigger value="all">All Lines</TabsTrigger>
+          <TabsTrigger value="all">All Teams</TabsTrigger>
           <TabsTrigger value="operational">Operational</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="offline">Offline</TabsTrigger>
-          <TabsTrigger value="withTeams">With Teams</TabsTrigger>
+          <TabsTrigger value="withTeams">Active Teams</TabsTrigger>
         </TabsList>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -101,10 +189,18 @@ export function ProductionTeamManagement({ productionLines = [] }: ProductionTea
             <div className="col-span-full flex items-center justify-center h-60">
               <div className="text-center">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Production Lines Found</h3>
-                <p className="text-muted-foreground">
-                  No production lines match the selected filter
+                <h3 className="text-lg font-semibold mb-2">No Production Teams Found</h3>
+                <p className="text-muted-foreground mb-4">
+                  {activeTab === "all" 
+                    ? "Start by creating your first production team"
+                    : "No teams match the selected filter"}
                 </p>
+                {activeTab === "all" && (
+                  <Button onClick={handleCreateTeam}>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Create New Team
+                  </Button>
+                )}
               </div>
             </div>
           ) : (
@@ -113,7 +209,7 @@ export function ProductionTeamManagement({ productionLines = [] }: ProductionTea
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle>{line.name}</CardTitle>
+                      <CardTitle>{line.teamName || line.name}</CardTitle>
                       <CardDescription>
                         {line.type} line - {line.status}
                       </CardDescription>
@@ -127,14 +223,6 @@ export function ProductionTeamManagement({ productionLines = [] }: ProductionTea
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Team name display */}
-                  {line.teamName && (
-                    <div className="bg-muted/40 p-3 rounded-md">
-                      <div className="text-sm text-muted-foreground">Team Name</div>
-                      <div className="text-lg font-medium">{line.teamName}</div>
-                    </div>
-                  )}
-
                   {/* Team leads section */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium">Team Leads</h4>
@@ -223,15 +311,64 @@ export function ProductionTeamManagement({ productionLines = [] }: ProductionTea
                       </div>
                     )}
                   </div>
+
+                  {/* Team projects section */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-sm font-medium">Assigned Projects</h4>
+                      <Button variant="ghost" size="sm" onClick={() => handleAssignProjects(line)}>
+                        <ListPlus className="h-4 w-4 mr-1" />
+                        Assign
+                      </Button>
+                    </div>
+                    
+                    {line.assignedProjects && line.assignedProjects.length > 0 ? (
+                      <div className="space-y-2">
+                        {projects
+                          .filter(p => line.assignedProjects?.includes(p.id))
+                          .slice(0, 2)
+                          .map(project => (
+                            <div key={project.id} className="bg-muted/30 p-2 rounded text-sm flex justify-between">
+                              <div>{project.projectNumber || project.name}</div>
+                              <Badge variant="outline" className="text-xs">
+                                {project.status}
+                              </Badge>
+                            </div>
+                          ))}
+                        {line.assignedProjects.length > 2 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full text-xs" 
+                            onClick={() => handleViewTeamDetails(line)}
+                          >
+                            View all {line.assignedProjects.length} projects
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground p-2">
+                        No projects assigned to this team
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
-                <CardFooter className="bg-muted/20 pt-4">
+                <CardFooter className="bg-muted/20 pt-4 flex flex-col sm:flex-row gap-2">
                   <Button
                     variant="outline"
                     className="w-full"
                     onClick={() => handleManageTeamMembers(line)}
                   >
                     <UserCog className="h-4 w-4 mr-2" />
-                    Manage Team Members
+                    Manage Team
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => handleViewTeamDetails(line)}
+                  >
+                    <Clipboard className="h-4 w-4 mr-2" />
+                    Team Details
                   </Button>
                 </CardFooter>
               </Card>
@@ -247,6 +384,173 @@ export function ProductionTeamManagement({ productionLines = [] }: ProductionTea
           onOpenChange={setTeamMemberDialogOpen}
           productionLine={selectedLine}
         />
+      )}
+
+      {/* Production Line Dialog for creating new teams */}
+      <ProductionLineDialog
+        open={createTeamDialogOpen}
+        onOpenChange={setCreateTeamDialogOpen}
+      />
+
+      {/* Project Assignment Dialog */}
+      {selectedLine && (
+        <ProjectAssignmentDialog
+          open={projectAssignDialogOpen}
+          onOpenChange={setProjectAssignDialogOpen}
+          productionLine={selectedLine}
+        />
+      )}
+
+      {/* Team Details Dialog */}
+      {selectedLine && (
+        <Dialog open={teamDetailsDialogOpen} onOpenChange={setTeamDetailsDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedLine.teamName || selectedLine.name} Details
+              </DialogTitle>
+              <DialogDescription>
+                Detailed information about this production team
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Team info */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Team Information</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label className="text-muted-foreground">Line Name</Label>
+                    <div className="font-medium">{selectedLine.name}</div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Team Name</Label>
+                    <div className="font-medium">{selectedLine.teamName || "Not set"}</div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Status</Label>
+                    <div className="font-medium uppercase">{selectedLine.status}</div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Type</Label>
+                    <div className="font-medium capitalize">{selectedLine.type}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team leads */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Team Leadership</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-muted/30 p-3 rounded-md">
+                    <Label className="text-muted-foreground">Electrical Lead</Label>
+                    <div className="flex items-center mt-2">
+                      <Avatar className={selectedLine.electricalLead ? getColorFromString(selectedLine.electricalLead.name) : "bg-muted"}>
+                        <AvatarFallback>
+                          {selectedLine.electricalLead ? getInitials(selectedLine.electricalLead.name) : "EL"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="ml-3">
+                        <div className="font-medium">
+                          {selectedLine.electricalLead ? selectedLine.electricalLead.name : "Not assigned"}
+                        </div>
+                        {selectedLine.electricalLead?.email && (
+                          <div className="text-xs text-muted-foreground">{selectedLine.electricalLead.email}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-muted/30 p-3 rounded-md">
+                    <Label className="text-muted-foreground">Assembly Lead</Label>
+                    <div className="flex items-center mt-2">
+                      <Avatar className={selectedLine.assemblyLead ? getColorFromString(selectedLine.assemblyLead.name) : "bg-muted"}>
+                        <AvatarFallback>
+                          {selectedLine.assemblyLead ? getInitials(selectedLine.assemblyLead.name) : "AL"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="ml-3">
+                        <div className="font-medium">
+                          {selectedLine.assemblyLead ? selectedLine.assemblyLead.name : "Not assigned"}
+                        </div>
+                        {selectedLine.assemblyLead?.email && (
+                          <div className="text-xs text-muted-foreground">{selectedLine.assemblyLead.email}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team members */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-medium">Team Members</h3>
+                  <div className="text-sm">
+                    {selectedLine.teamMembers?.length || 0}/{selectedLine.manpowerCapacity || 10}
+                  </div>
+                </div>
+                {selectedLine.teamMembers && selectedLine.teamMembers.length > 0 ? (
+                  <div className="bg-muted/30 p-3 rounded-md space-y-2 max-h-[200px] overflow-y-auto">
+                    {selectedLine.teamMembers.map((member) => (
+                      <div key={member.id} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <Avatar className={getColorFromString(member.name)}>
+                            <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
+                          </Avatar>
+                          <div className="ml-3">
+                            <div className="font-medium">{member.name}</div>
+                            <div className="text-xs text-muted-foreground">{member.role}</div>
+                          </div>
+                        </div>
+                        <Badge variant="outline">{member.skills?.join(", ") || "No skills listed"}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-muted/30 p-4 rounded-md text-center">
+                    <p className="text-muted-foreground">No team members assigned yet</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Assigned projects */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Assigned Projects</h3>
+                {selectedLine.assignedProjects && selectedLine.assignedProjects.length > 0 ? (
+                  <div className="bg-muted/30 p-3 rounded-md space-y-2 max-h-[200px] overflow-y-auto">
+                    {projects
+                      .filter(p => selectedLine.assignedProjects?.includes(p.id))
+                      .map(project => (
+                        <div key={project.id} className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{project.projectNumber || project.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Start: {new Date(project.contractDate || Date.now()).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <Badge variant="outline">{project.status}</Badge>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="bg-muted/30 p-4 rounded-md text-center">
+                    <p className="text-muted-foreground">No projects assigned to this team</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setTeamDetailsDialogOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={() => handleManageTeamMembers(selectedLine)}>
+                <UserCog className="h-4 w-4 mr-2" />
+                Manage Team Members
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -17,10 +17,20 @@ export function ProductionHotProjectsGrid() {
     }
   });
 
-  const hotProjects = projects.filter(p => 
-    p.status !== 'COMPLETED' && 
-    new Date(p.ship) <= new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-  );
+  // Filter projects that are not completed and are due to ship within the next 14 days
+  const hotProjects = projects.filter(p => {
+    if (p.status === 'COMPLETED') return false;
+    if (!p.ship) return false;
+    
+    // Safely convert ship date to Date object
+    try {
+      const shipDate = new Date(p.ship as string);
+      const twoWeeksFromNow = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      return shipDate <= twoWeeksFromNow;
+    } catch (e) {
+      return false;
+    }
+  });
 
   return (
     <Tabs defaultValue="overview" className="space-y-4">
@@ -60,15 +70,24 @@ export function ProductionHotProjectsGrid() {
                   </div>
                   <div>
                     <p className="text-sm font-medium">Ship Date</p>
-                    <p>{new Date(project.ship).toLocaleDateString()}</p>
+                    <p>{project.ship ? 
+                        (() => {
+                          try {
+                            return new Date(project.ship as string).toLocaleDateString();
+                          } catch (e) {
+                            return String(project.ship);
+                          }
+                        })() 
+                        : 'Not set'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Location</p>
-                    <p>{project.location}</p>
+                    <p>{project.location || 'Not specified'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Team</p>
-                    <p>{project.team}</p>
+                    <p>{project.team || 'Not assigned'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -93,7 +112,10 @@ export function ProductionHotProjectsGrid() {
       </TabsContent>
       
       <TabsContent value="team-management">
-        <ProductionTeamManagement />
+        <ProductionTeamManagement 
+          productionLines={[]} 
+          standalonePage={true}
+        />
       </TabsContent>
 
       <TabsContent value="current">
