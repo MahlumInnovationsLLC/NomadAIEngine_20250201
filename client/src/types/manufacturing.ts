@@ -569,12 +569,12 @@ export type ProjectStatus =
   | 'on_hold' 
   | 'completed'
   | 'cancelled'
-  | 'NOT STARTED'
-  | 'IN FAB'
-  | 'IN ASSEMBLY'
-  | 'IN WRAP'
-  | 'IN NTC TESTING'
-  | 'IN QC'
+  | 'NOT_STARTED'
+  | 'IN_FAB'
+  | 'IN_ASSEMBLY'
+  | 'IN_WRAP'
+  | 'IN_NTC_TESTING'
+  | 'IN_QC'
   | 'PLANNING'
   | 'COMPLETED';
 

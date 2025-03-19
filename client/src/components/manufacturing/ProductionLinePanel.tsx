@@ -29,12 +29,12 @@ type ProjectStatus =
   | 'on_hold' 
   | 'completed'
   | 'cancelled'
-  | 'NOT STARTED'
-  | 'IN FAB'
-  | 'IN ASSEMBLY'
-  | 'IN WRAP'
-  | 'IN NTC TESTING'
-  | 'IN QC'
+  | 'NOT_STARTED'
+  | 'IN_FAB'
+  | 'IN_ASSEMBLY'
+  | 'IN_WRAP'
+  | 'IN_NTC_TESTING'
+  | 'IN_QC'
   | 'PLANNING'
   | 'COMPLETED';
 
@@ -474,12 +474,12 @@ export const ProductionLinePanel = () => {
                             // This matches the dropdown selection values in the UI
                             const exactStatus = p.status;
                             return (
-                              exactStatus === 'NOT STARTED' ||
-                              exactStatus === 'IN FAB' ||
-                              exactStatus === 'IN ASSEMBLY' ||
-                              exactStatus === 'IN WRAP' ||
-                              exactStatus === 'IN NTC TESTING' ||
-                              exactStatus === 'IN QC'
+                              exactStatus === 'NOT_STARTED' ||
+                              exactStatus === 'IN_FAB' ||
+                              exactStatus === 'IN_ASSEMBLY' ||
+                              exactStatus === 'IN_WRAP' ||
+                              exactStatus === 'IN_NTC_TESTING' ||
+                              exactStatus === 'IN_QC'
                               // PLANNING and COMPLETED are excluded to prevent duplication
                             );
                           });
@@ -715,12 +715,12 @@ export const ProductionLinePanel = () => {
                           
                           // Match the exact values used in the Active tab
                           return (
-                            p.status === 'NOT STARTED' ||
-                            p.status === 'IN FAB' ||
-                            p.status === 'IN ASSEMBLY' ||
-                            p.status === 'IN WRAP' ||
-                            p.status === 'IN NTC TESTING' ||
-                            p.status === 'IN QC'
+                            p.status === 'NOT_STARTED' ||
+                            p.status === 'IN_FAB' ||
+                            p.status === 'IN_ASSEMBLY' ||
+                            p.status === 'IN_WRAP' ||
+                            p.status === 'IN_NTC_TESTING' ||
+                            p.status === 'IN_QC'
                           );
                         }).length}</div>
                       </div>
@@ -737,11 +737,9 @@ export const ProductionLinePanel = () => {
                         <div className="text-sm text-muted-foreground">Completed</div>
                         <div className="font-medium">{safeFilterProjects(projects, p => {
                           if (!p.status) return false;
-                        
-                          const originalStatus = p.status;
-                          const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
                           
-                          return originalStatus === 'COMPLETED' || statusLower === 'completed';
+                          // Only count COMPLETED status projects - matches the Completed tab
+                          return p.status === 'COMPLETED';
                         }).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
@@ -749,17 +747,14 @@ export const ProductionLinePanel = () => {
                         <div className="font-medium">{safeFilterProjects(projects, p => {
                           if (!p.status) return false;
                           
-                          const originalStatus = p.status;
+                          // Only consider projects using the exact active statuses from the Active tab
                           const isActiveStatus = (
-                            // Exact original status values
-                            originalStatus === 'NOT_STARTED' ||
-                            originalStatus === 'IN FAB' ||
-                            originalStatus === 'IN ASSEMBLY' ||
-                            originalStatus === 'IN WRAP' ||
-                            originalStatus === 'IN NTC TESTING' ||
-                            originalStatus === 'IN QC' ||
-                            originalStatus === 'in_progress' ||
-                            originalStatus === 'active'
+                            p.status === 'NOT_STARTED' ||
+                            p.status === 'IN_FAB' ||
+                            p.status === 'IN_ASSEMBLY' ||
+                            p.status === 'IN_WRAP' ||
+                            p.status === 'IN_NTC_TESTING' ||
+                            p.status === 'IN_QC'
                           );
                           
                           return isActiveStatus && p.isDelayed === true;
@@ -774,53 +769,27 @@ export const ProductionLinePanel = () => {
                           <div className="h-2 bg-green-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
                             if (!p.status) return false;
                             
-                            const originalStatus = p.status;
-                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
-                            
-                            return originalStatus === 'COMPLETED' || statusLower === 'completed';
+                            // Only use COMPLETED status - exact match for consistency
+                            return p.status === 'COMPLETED';
                           }).length / (projects?.length || 1)) * 100}%` }} />
                           <div className="h-2 bg-blue-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
                             if (!p.status) return false;
                             
-                            const originalStatus = p.status;
-                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
-                            
+                            // Use exact statuses to match the Active tab
                             return (
-                              // Exact original status values
-                              originalStatus === 'NOT_STARTED' ||
-                              originalStatus === 'IN FAB' ||
-                              originalStatus === 'IN ASSEMBLY' ||
-                              originalStatus === 'IN WRAP' ||
-                              originalStatus === 'IN NTC TESTING' ||
-                              originalStatus === 'IN QC' ||
-                              
-                              // Lowercase pattern matching
-                              statusLower === 'in_progress' || 
-                              statusLower === 'active' || 
-                              statusLower === 'not started' || 
-                              statusLower === 'in fab' || 
-                              statusLower === 'in assembly' || 
-                              statusLower === 'in wrap' || 
-                              statusLower === 'in ntc testing' || 
-                              statusLower === 'in qc'
+                              p.status === 'NOT_STARTED' ||
+                              p.status === 'IN_FAB' ||
+                              p.status === 'IN_ASSEMBLY' ||
+                              p.status === 'IN_WRAP' ||
+                              p.status === 'IN_NTC_TESTING' ||
+                              p.status === 'IN_QC'
                             );
                           }).length / (projects?.length || 1)) * 100}%` }} />
                           <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
                             if (!p.status) return false;
                             
-                            const originalStatus = p.status;
-                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
-                            
-                            return (
-                              // Exact original status values
-                              originalStatus === 'NOT_STARTED' ||
-                              originalStatus === 'PLANNING' ||
-                              
-                              // Lowercase pattern matching
-                              statusLower === 'planning' || 
-                              statusLower === 'not started' ||
-                              statusLower === 'not_started'
-                            );
+                            // Only use PLANNING status - exact match for Planning tab
+                            return p.status === 'PLANNING';
                           }).length / (projects?.length || 1)) * 100}%` }} />
                           <div className="h-2 bg-red-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
                             if (!p.status) return false;
