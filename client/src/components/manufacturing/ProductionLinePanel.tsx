@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -20,6 +20,8 @@ import { ProductionTimeline } from "./ProductionTimeline";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import type { ProductionLine, ProductionBay, ProductionOrder, ProductionProject, Project } from "@/types/manufacturing";
+import { ProjectFiltersRow } from "./ProjectFiltersRow";
+import type { ProjectFilter } from "./ProjectFiltersRow";
 
 // Define a comprehensive status type that handles all possible values
 type ProjectStatus = 
@@ -39,7 +41,7 @@ type ProjectStatus =
   | 'COMPLETED';
 
 // Combined project type to handle both Project and ProductionProject types
-type CombinedProject = (Project | ProductionProject) & {
+export type CombinedProject = (Project | ProductionProject) & {
   // Additional fields we might need to ensure exist on all projects
   metrics?: {
     completionPercentage?: number;
@@ -48,6 +50,16 @@ type CombinedProject = (Project | ProductionProject) & {
   targetCompletionDate?: string;
   contractDate?: string;
   delivery?: string;
+  location?: string;
+  // Standardized location display name (e.g., "Columbia Falls" instead of "CFalls")
+  locationDisplay?: string;
+  // Key production milestone dates
+  fabricationStart?: string;
+  assemblyStart?: string;
+  ntcTesting?: string;
+  qcStart?: string;
+  executiveReview?: string;
+  ship?: string;
   notes?: string | {
     id: string;
     content: string;
@@ -60,9 +72,13 @@ type CombinedProject = (Project | ProductionProject) & {
   progress?: number;
   isDelayed?: boolean;
   planningStage?: string;
+  // Additional fields for production wrapping
+  wrapGraphics?: string;
   // Override status with our comprehensive type
   status: ProjectStatus;
 };
+
+// We're using the ProjectFilter interface imported from ProjectFiltersRow.tsx
 
 // Helper function to safely format dates with fallbacks
 const formatDate = (date: string | undefined | null, fallbackDate?: string | null): string => {
@@ -93,6 +109,39 @@ export const ProductionLinePanel = () => {
   const [projectDetailsDialogOpen, setProjectDetailsDialogOpen] = useState(false);
   const [projectNotes, setProjectNotes] = useState<string>("");
   const [isUpdatingNotes, setIsUpdatingNotes] = useState(false);
+  
+  // Filter states for each tab
+  const [activeFilters, setActiveFilters] = useState<ProjectFilter>({
+    productionLine: '',
+    location: '',
+    sortBy: 'none',
+    sortDirection: 'asc',
+    sortMode: 'standard'
+  });
+  const [planningFilters, setPlanningFilters] = useState<ProjectFilter>({
+    productionLine: '',
+    location: '',
+    sortBy: 'none',
+    sortDirection: 'asc',
+    sortMode: 'standard'
+  });
+  const [completedFilters, setCompletedFilters] = useState<ProjectFilter>({
+    productionLine: '',
+    location: '',
+    sortBy: 'none',
+    sortDirection: 'asc',
+    sortMode: 'standard'
+  });
+  
+  // All projects tab filters
+  const [allProjectsFilters, setAllProjectsFilters] = useState<ProjectFilter>({
+    productionLine: '',
+    location: '',
+    sortBy: 'none',
+    sortDirection: 'asc',
+    sortMode: 'standard'
+  });
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -150,27 +199,37 @@ export const ProductionLinePanel = () => {
         console.log('First project from API:', JSON.stringify(data[0]));
         
         // Transform the projects to match our CombinedProject type with defensive coding
-        const processedProjects = data.map((project: any) => ({
-          ...project,
-          id: project.id || `temp-${Date.now()}`, // Ensure ID always exists
-          // Create a metrics object if it doesn't exist
-          metrics: project.metrics || { 
-            completionPercentage: project.progress || 0
-          },
-          // Make sure all common properties are available with fallbacks
-          name: project.name || `Project #${project.projectNumber || 'Unknown'}`,
-          startDate: project.startDate || project.contractDate,
-          targetCompletionDate: project.targetCompletionDate || project.delivery,
-          contractDate: project.contractDate || project.startDate,
-          delivery: project.delivery || project.targetCompletionDate,
-          completionDate: project.completionDate || project.actualCompletionDate,
-          progress: project.progress || (project.metrics?.completionPercentage || 0),
-          isDelayed: project.isDelayed || false,
-          duration: project.duration || 0,
-          planningStage: project.planningStage || 'initial',
-          // Ensure status is always defined
-          status: project.status || 'active',
-        }));
+        const processedProjects = data.map((project: any) => {
+          // Helper function to standardize location within the map function
+          const standardizeLocation = (loc: string | undefined): string => {
+            if (!loc) return '';
+            return loc.toLowerCase() === 'cfalls' ? 'Columbia Falls' : loc;
+          };
+          
+          return {
+            ...project,
+            id: project.id || `temp-${Date.now()}`, // Ensure ID always exists
+            // Create a metrics object if it doesn't exist
+            metrics: project.metrics || { 
+              completionPercentage: project.progress || 0
+            },
+            // Make sure all common properties are available with fallbacks
+            name: project.name || `Project #${project.projectNumber || 'Unknown'}`,
+            startDate: project.startDate || project.contractDate,
+            targetCompletionDate: project.targetCompletionDate || project.delivery,
+            contractDate: project.contractDate || project.startDate,
+            delivery: project.delivery || project.targetCompletionDate,
+            completionDate: project.completionDate || project.actualCompletionDate,
+            progress: project.progress || (project.metrics?.completionPercentage || 0),
+            isDelayed: project.isDelayed || false,
+            duration: project.duration || 0,
+            planningStage: project.planningStage || 'initial',
+            // Ensure status is always defined
+            status: project.status || 'active',
+            // Add standardized location display for consistent UI
+            locationDisplay: standardizeLocation(project.location)
+          };
+        });
         
         // Debug: Verify processed data 
         console.log(`Processed ${processedProjects.length} projects`);
@@ -377,6 +436,113 @@ export const ProductionLinePanel = () => {
     
     return projects.filter(condition);
   };
+  
+  // Helper function to categorize projects by status
+  const isActiveProject = (project: CombinedProject): boolean => {
+    const status = String(project.status || '').toUpperCase();
+    // Active projects are those in production but not completed
+    return ['IN_FAB', 'IN_ASSEMBLY', 'IN_WRAP', 'IN_NTC_TESTING', 'IN_QC', 'active', 'in_progress'].includes(status);
+  };
+  
+  const isPlanningProject = (project: CombinedProject): boolean => {
+    const status = String(project.status || '').toUpperCase();
+    // Planning projects haven't started production yet
+    return ['NOT_STARTED', 'PLANNING', 'planning', 'on_hold'].includes(status);
+  };
+  
+  const isCompletedProject = (project: CombinedProject): boolean => {
+    const status = String(project.status || '').toUpperCase();
+    // Completed or cancelled projects
+    return ['COMPLETED', 'completed', 'cancelled'].includes(status);
+  };
+  
+  // Helper functions for filtering projects based on filter criteria
+  // Helper function to standardize location display
+  const standardizeLocationDisplay = (location: string | undefined): string => {
+    if (!location) return '';
+    
+    // Standardize CFalls/Cfalls to Columbia Falls
+    if (location.toLowerCase() === 'cfalls') {
+      return 'Columbia Falls';
+    }
+    
+    return location;
+  };
+  
+  const applyFilters = (projects: CombinedProject[], filters: ProjectFilter): CombinedProject[] => {
+    // First apply filters
+    let filteredProjects = projects.filter(project => {
+      // Filter by production line if selected
+      if (filters.productionLine && filters.productionLine !== 'all') {
+        // For this implementation we'll use team property as a proxy for production line 
+        // since the current data model doesn't have a productionLine property
+        const isAssignedToTeam = project.team && project.team.includes(filters.productionLine);
+        if (!isAssignedToTeam) {
+          return false;
+        }
+      }
+      
+      // Filter by location if selected
+      if (filters.location && filters.location !== 'all' && project.location !== filters.location) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    // Then apply sorting if specified
+    if (filters.sortBy !== 'none') {
+      filteredProjects = [...filteredProjects].sort((a, b) => {
+        const today = new Date();
+        let dateA: Date | null = null;
+        let dateB: Date | null = null;
+        
+        // Get the appropriate dates based on sort field
+        switch (filters.sortBy) {
+          case 'ntcDate':
+            dateA = a.ntcTesting ? new Date(a.ntcTesting) : null;
+            dateB = b.ntcTesting ? new Date(b.ntcTesting) : null;
+            break;
+          case 'qcDate':
+            dateA = a.qcStart ? new Date(a.qcStart) : null;
+            dateB = b.qcStart ? new Date(b.qcStart) : null;
+            break;
+          case 'shipDate':
+            dateA = a.ship ? new Date(a.ship) : null;
+            dateB = b.ship ? new Date(b.ship) : null;
+            break;
+        }
+        
+        // Handle null dates (push them to the end)
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        
+        // If using proximity-based sorting, sort by distance from current date
+        if (filters.sortMode === 'proximity') {
+          // Calculate proximity to today
+          const diffA = Math.abs(dateA.getTime() - today.getTime());
+          const diffB = Math.abs(dateB.getTime() - today.getTime());
+          
+          // Sort by distance from current date
+          return filters.sortDirection === 'asc'
+            ? diffA - diffB  // Ascending = closest dates first
+            : diffB - diffA; // Descending = furthest dates first
+        }
+        
+        // Standard chronological sorting
+        return filters.sortDirection === 'asc' 
+          ? dateA.getTime() - dateB.getTime()  // Chronological order (arrow up)
+          : dateB.getTime() - dateA.getTime(); // Reverse chronological order (arrow down)
+      });
+    }
+    
+    // Add standardized location display to projects
+    return filteredProjects.map(project => ({
+      ...project,
+      locationDisplay: standardizeLocationDisplay(project.location)
+    }));
+  };
 
   return (
     <div className="space-y-6">
@@ -464,86 +630,126 @@ export const ProductionLinePanel = () => {
                           <span>Loading projects...</span>
                         </div>
                       ) : (
-                        (() => {
-                          // Filter active projects only once to prevent duplication
-                          const activeProjects = safeFilterProjects(projects, p => {
-                            // Check for active projects using exact statuses shown in UI
-                            if (!p.status) return false;
+                        <div className="space-y-4">
+                          {(() => {
+                            // Filter active projects only once to prevent duplication
+                            // Use our isActiveProject helper function to filter active projects
+                            let activeProjects = safeFilterProjects(projects, isActiveProject);
                             
-                            // Use exact status values ONLY for active projects tab
-                            // This matches the dropdown selection values in the UI
-                            const exactStatus = p.status;
+                            // Apply additional filters from the filter row
+                            activeProjects = applyFilters(activeProjects, activeFilters);
+                            
                             return (
-                              exactStatus === 'NOT_STARTED' ||
-                              exactStatus === 'IN_FAB' ||
-                              exactStatus === 'IN_ASSEMBLY' ||
-                              exactStatus === 'IN_WRAP' ||
-                              exactStatus === 'IN_NTC_TESTING' ||
-                              exactStatus === 'IN_QC'
-                              // PLANNING and COMPLETED are excluded to prevent duplication
+                              <>
+                                <ProjectFiltersRow 
+                                  projects={activeProjects} 
+                                  onFilterChange={setActiveFilters} 
+                                  availableProductionLines={productionLines}
+                                />
+                                
+                                {activeProjects.length > 0 ? (
+                                  <div className="space-y-4">
+                                    {activeProjects.map(project => (
+                                      <Card 
+                                        key={project.id} 
+                                        className="cursor-pointer hover:bg-accent/5"
+                                        onClick={() => handleOpenProjectDetails(project)}
+                                      >
+                                        <CardContent className="p-4">
+                                          <div className="flex items-center justify-between">
+                                            <div>
+                                              <h3 className="font-medium">{project.name}</h3>
+                                              <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
+                                            </div>
+                                            <Badge variant="outline">{project.status}</Badge>
+                                          </div>
+                                          <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                            <div>
+                                              <p className="text-muted-foreground">Start Date</p>
+                                              <p>{formatDate(project.startDate, project.contractDate)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Target Date</p>
+                                              <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Progress</p>
+                                              <Progress 
+                                                value={project.metrics?.completionPercentage ?? project.progress ?? 0} 
+                                                className="h-2 mt-1" 
+                                              />
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Production Timeline Component */}
+                                          <ProductionTimeline project={project} />
+                                          
+                                          {/* Key Production Dates */}
+                                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                            <div>
+                                              <p className="text-muted-foreground">Fabrication Start</p>
+                                              <p>{formatDate(project.fabricationStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Assembly Start</p>
+                                              <p>{formatDate(project.assemblyStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">NTC Testing</p>
+                                              <p>{formatDate(project.ntcTesting)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">QC Start</p>
+                                              <p>{formatDate(project.qcStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Executive Review</p>
+                                              <p>{formatDate(project.executiveReview)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Ship Date</p>
+                                              <p>{formatDate(project.ship)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Delivery</p>
+                                              <p>{formatDate(project.delivery)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Location</p>
+                                              <p>{project.locationDisplay || project.location}</p>
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="mt-3 flex justify-end gap-2">
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleAssignProject(project);
+                                              }}
+                                            >
+                                              <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
+                                              Assign to Line
+                                            </Button>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8">
+                                    <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold mb-2">No Active Projects</h3>
+                                    <p className="text-muted-foreground">
+                                      There are no active projects at the moment
+                                    </p>
+                                  </div>
+                                )}
+                              </>
                             );
-                          });
-                          
-                          if (activeProjects.length > 0) {
-                            return activeProjects.map(project => (
-                              <Card 
-                                key={project.id} 
-                                className="cursor-pointer hover:bg-accent/5"
-                                onClick={() => handleOpenProjectDetails(project)}
-                              >
-                                <CardContent className="p-4">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <h3 className="font-medium">{project.name}</h3>
-                                      <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
-                                    </div>
-                                    <Badge variant="outline">{project.status}</Badge>
-                                  </div>
-                                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                                    <div>
-                                      <p className="text-muted-foreground">Start Date</p>
-                                      <p>{formatDate(project.startDate, project.contractDate)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Target Date</p>
-                                      <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Progress</p>
-                                      <Progress 
-                                        value={project.metrics?.completionPercentage ?? project.progress ?? 0} 
-                                        className="h-2 mt-1" 
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="mt-3 flex justify-end gap-2">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAssignProject(project);
-                                      }}
-                                    >
-                                      <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
-                                      Assign to Line
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ));
-                          } else {
-                            return (
-                              <div className="text-center py-8">
-                                <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
-                                <h3 className="text-lg font-semibold mb-2">No Active Projects</h3>
-                                <p className="text-muted-foreground">
-                                  There are no active projects at the moment
-                                </p>
-                              </div>
-                            );
-                          }
-                        })()
+                          })()}
+                        </div>
                       )}
                     </TabsContent>
                     <TabsContent value="planning" className="space-y-4 pt-4">
@@ -553,76 +759,123 @@ export const ProductionLinePanel = () => {
                           <span>Loading projects...</span>
                         </div>
                       ) : (
-                        (() => {
-                          // Filter planning projects only once to prevent duplication
-                          const planningProjects = safeFilterProjects(projects, p => {
-                            // Check for planning projects using ONLY the PLANNING status
-                            if (!p.status) return false;
+                        <div className="space-y-4">
+                          {(() => {
+                            // Filter planning projects only once to prevent duplication
+                            // Use our isPlanningProject helper function for consistent filtering
+                            let planningProjects = safeFilterProjects(projects, isPlanningProject);
                             
-                            // Only consider projects with "PLANNING" status to prevent duplication
-                            return p.status === 'PLANNING';
+                            // Apply additional filters from the filter row
+                            planningProjects = applyFilters(planningProjects, planningFilters);
                             
-                            // NOTE: We've removed NOT_STARTED from here since it's already shown
-                            // in the Active tab to avoid duplication
-                          });
-                          
-                          if (planningProjects.length > 0) {
-                            return planningProjects.map(project => (
-                              <Card 
-                                key={project.id} 
-                                className="cursor-pointer hover:bg-accent/5"
-                                onClick={() => handleOpenProjectDetails(project)}
-                              >
-                                <CardContent className="p-4">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <h3 className="font-medium">{project.name}</h3>
-                                      <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
-                                    </div>
-                                    <Badge variant="outline">{project.status}</Badge>
-                                  </div>
-                                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                                    <div>
-                                      <p className="text-muted-foreground">Start Date</p>
-                                      <p>{formatDate(project.startDate, project.contractDate)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Target Date</p>
-                                      <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Planning Status</p>
-                                      <p>{project.planningStage || 'Initial'}</p>
-                                    </div>
-                                  </div>
-                                  <div className="mt-3 flex justify-end gap-2">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAssignProject(project);
-                                      }}
-                                    >
-                                      <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
-                                      Assign to Line
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ));
-                          } else {
                             return (
-                              <div className="text-center py-8">
-                                <FontAwesomeIcon icon="clipboard-list" className="h-12 w-12 text-muted-foreground mb-4" />
-                                <h3 className="text-lg font-semibold mb-2">No Projects in Planning</h3>
-                                <p className="text-muted-foreground">
-                                  There are no projects in the planning stage
-                                </p>
-                              </div>
+                              <>
+                                <ProjectFiltersRow 
+                                  projects={planningProjects} 
+                                  onFilterChange={setPlanningFilters} 
+                                  availableProductionLines={productionLines}
+                                />
+                                
+                                {planningProjects.length > 0 ? (
+                                  <div className="space-y-4">
+                                    {planningProjects.map(project => (
+                                      <Card 
+                                        key={project.id} 
+                                        className="cursor-pointer hover:bg-accent/5"
+                                        onClick={() => handleOpenProjectDetails(project)}
+                                      >
+                                        <CardContent className="p-4">
+                                          <div className="flex items-center justify-between">
+                                            <div>
+                                              <h3 className="font-medium">{project.name}</h3>
+                                              <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
+                                            </div>
+                                            <Badge variant="outline">{project.status}</Badge>
+                                          </div>
+                                          <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                            <div>
+                                              <p className="text-muted-foreground">Start Date</p>
+                                              <p>{formatDate(project.startDate, project.contractDate)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Target Date</p>
+                                              <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Planning Status</p>
+                                              <p>{project.planningStage || 'Initial'}</p>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Production Timeline Component */}
+                                          <ProductionTimeline project={project} />
+                                          
+                                          {/* Key Production Dates */}
+                                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                            <div>
+                                              <p className="text-muted-foreground">Fabrication Start</p>
+                                              <p>{formatDate(project.fabricationStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Assembly Start</p>
+                                              <p>{formatDate(project.assemblyStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">NTC Testing</p>
+                                              <p>{formatDate(project.ntcTesting)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">QC Start</p>
+                                              <p>{formatDate(project.qcStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Executive Review</p>
+                                              <p>{formatDate(project.executiveReview)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Ship Date</p>
+                                              <p>{formatDate(project.ship)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Delivery</p>
+                                              <p>{formatDate(project.delivery)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Location</p>
+                                              <p>{project.locationDisplay || project.location}</p>
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="mt-3 flex justify-end gap-2">
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleAssignProject(project);
+                                              }}
+                                            >
+                                              <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
+                                              Assign to Line
+                                            </Button>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8">
+                                    <FontAwesomeIcon icon="clipboard-list" className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold mb-2">No Projects in Planning</h3>
+                                    <p className="text-muted-foreground">
+                                      There are no projects in the planning stage
+                                    </p>
+                                  </div>
+                                )}
+                              </>
                             );
-                          }
-                        })()
+                          })()}
+                        </div>
                       )}
                     </TabsContent>
                     
@@ -633,60 +886,242 @@ export const ProductionLinePanel = () => {
                           <span>Loading projects...</span>
                         </div>
                       ) : (
-                        (() => {
-                          // Filter completed projects only once to prevent duplication
-                          const completedProjects = safeFilterProjects(projects, p => {
-                            // Check for completed projects using EXACT status only
-                            if (!p.status) return false;
+                        <div className="space-y-4">
+                          {(() => {
+                            // Filter completed projects only once to prevent duplication
+                            // Use our isCompletedProject helper function for consistent filtering
+                            let completedProjects = safeFilterProjects(projects, isCompletedProject);
                             
-                            // Only match COMPLETED exactly to ensure proper separation
-                            return p.status === 'COMPLETED';
-                          });
-                          
-                          if (completedProjects.length > 0) {
-                            return completedProjects.map(project => (
-                              <Card 
-                                key={project.id} 
-                                className="cursor-pointer hover:bg-accent/5"
-                                onClick={() => handleOpenProjectDetails(project)}
-                              >
-                                <CardContent className="p-4">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <h3 className="font-medium">{project.name}</h3>
-                                      <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
-                                    </div>
-                                    <Badge variant="outline">{project.status}</Badge>
-                                  </div>
-                                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                                    <div>
-                                      <p className="text-muted-foreground">Start Date</p>
-                                      <p>{formatDate(project.startDate, project.contractDate)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Completion Date</p>
-                                      <p>{formatDate(project.completionDate, project.targetCompletionDate)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Duration</p>
-                                      <p>{project.duration || 'N/A'}</p>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ));
-                          } else {
+                            // Apply additional filters from the filter row
+                            completedProjects = applyFilters(completedProjects, completedFilters);
+                            
                             return (
-                              <div className="text-center py-8">
-                                <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
-                                <h3 className="text-lg font-semibold mb-2">No Completed Projects</h3>
-                                <p className="text-muted-foreground">
-                                  There are no completed projects at the moment
-                                </p>
-                              </div>
+                              <>
+                                <ProjectFiltersRow 
+                                  projects={completedProjects} 
+                                  onFilterChange={setCompletedFilters} 
+                                  availableProductionLines={productionLines}
+                                />
+                                
+                                {completedProjects.length > 0 ? (
+                                  <div className="space-y-4">
+                                    {completedProjects.map(project => (
+                                      <Card 
+                                        key={project.id} 
+                                        className="cursor-pointer hover:bg-accent/5"
+                                        onClick={() => handleOpenProjectDetails(project)}
+                                      >
+                                        <CardContent className="p-4">
+                                          <div className="flex items-center justify-between">
+                                            <div>
+                                              <h3 className="font-medium">{project.name}</h3>
+                                              <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
+                                            </div>
+                                            <Badge variant="outline">{project.status}</Badge>
+                                          </div>
+                                          <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                            <div>
+                                              <p className="text-muted-foreground">Start Date</p>
+                                              <p>{formatDate(project.startDate, project.contractDate)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Completion Date</p>
+                                              <p>{formatDate(project.completionDate, project.targetCompletionDate)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Duration</p>
+                                              <p>{project.duration || 'N/A'}</p>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Production Timeline Component */}
+                                          <ProductionTimeline project={project} />
+                                          
+                                          {/* Key Production Dates */}
+                                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                            <div>
+                                              <p className="text-muted-foreground">Fabrication Start</p>
+                                              <p>{formatDate(project.fabricationStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Assembly Start</p>
+                                              <p>{formatDate(project.assemblyStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">NTC Testing</p>
+                                              <p>{formatDate(project.ntcTesting)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">QC Start</p>
+                                              <p>{formatDate(project.qcStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Executive Review</p>
+                                              <p>{formatDate(project.executiveReview)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Ship Date</p>
+                                              <p>{formatDate(project.ship)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Delivery</p>
+                                              <p>{formatDate(project.delivery)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Location</p>
+                                              <p>{project.locationDisplay || project.location}</p>
+                                            </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8">
+                                    <FontAwesomeIcon icon="clipboard-check" className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold mb-2">No Completed Projects</h3>
+                                    <p className="text-muted-foreground">
+                                      There are no completed projects at the moment
+                                    </p>
+                                  </div>
+                                )}
+                              </>
                             );
-                          }
-                        })()
+                          })()}
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    <TabsContent value="all" className="space-y-4 pt-4">
+                      {isLoadingProjects ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
+                          <span>Loading projects...</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {(() => {
+                            // Show all projects regardless of status, but apply filters
+                            let allProjects = safeFilterProjects(projects, p => {
+                              return true; // Include all projects initially
+                            });
+                            
+                            // Apply additional filters from the filter row
+                            allProjects = applyFilters(allProjects, allProjectsFilters);
+                            
+                            return (
+                              <>
+                                <ProjectFiltersRow 
+                                  projects={allProjects} 
+                                  onFilterChange={setAllProjectsFilters} 
+                                  availableProductionLines={productionLines}
+                                />
+                                
+                                {allProjects.length > 0 ? (
+                                  <div className="space-y-4">
+                                    {allProjects.map(project => (
+                                      <Card 
+                                        key={project.id} 
+                                        className="cursor-pointer hover:bg-accent/5"
+                                        onClick={() => handleOpenProjectDetails(project)}
+                                      >
+                                        <CardContent className="p-4">
+                                          <div className="flex items-center justify-between">
+                                            <div>
+                                              <h3 className="font-medium">{project.name}</h3>
+                                              <p className="text-sm text-muted-foreground">ID: {project.projectNumber}</p>
+                                            </div>
+                                            <Badge variant="outline">{project.status}</Badge>
+                                          </div>
+                                          <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                            <div>
+                                              <p className="text-muted-foreground">Start Date</p>
+                                              <p>{formatDate(project.startDate, project.contractDate)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Target Date</p>
+                                              <p>{formatDate(project.targetCompletionDate, project.delivery)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Progress</p>
+                                              <Progress 
+                                                value={project.metrics?.completionPercentage ?? project.progress ?? 0} 
+                                                className="h-2 mt-1" 
+                                              />
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Production Timeline Component */}
+                                          <ProductionTimeline project={project} />
+                                          
+                                          {/* Key Production Dates */}
+                                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                            <div>
+                                              <p className="text-muted-foreground">Fabrication Start</p>
+                                              <p>{formatDate(project.fabricationStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Assembly Start</p>
+                                              <p>{formatDate(project.assemblyStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">NTC Testing</p>
+                                              <p>{formatDate(project.ntcTesting)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">QC Start</p>
+                                              <p>{formatDate(project.qcStart)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Executive Review</p>
+                                              <p>{formatDate(project.executiveReview)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Ship Date</p>
+                                              <p>{formatDate(project.ship)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Delivery</p>
+                                              <p>{formatDate(project.delivery)}</p>
+                                            </div>
+                                            <div>
+                                              <p className="text-muted-foreground">Location</p>
+                                              <p>{project.locationDisplay || project.location}</p>
+                                            </div>
+                                          </div>
+                                          
+                                          {project.status !== 'COMPLETED' && (
+                                            <div className="mt-3 flex justify-end gap-2">
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleAssignProject(project);
+                                                }}
+                                              >
+                                                <FontAwesomeIcon icon="sitemap" className="mr-2 h-3 w-3" />
+                                                Assign to Line
+                                              </Button>
+                                            </div>
+                                          )}
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8">
+                                    <FontAwesomeIcon icon="clipboard-list" className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold mb-2">No Projects Found</h3>
+                                    <p className="text-muted-foreground">
+                                      No projects match your current filters
+                                    </p>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                       )}
                     </TabsContent>
                   </Tabs>
@@ -710,54 +1145,21 @@ export const ProductionLinePanel = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Active Projects</div>
-                        <div className="font-medium">{safeFilterProjects(projects, p => {
-                          if (!p.status) return false;
-                          
-                          // Match the exact values used in the Active tab
-                          return (
-                            p.status === 'NOT_STARTED' ||
-                            p.status === 'IN_FAB' ||
-                            p.status === 'IN_ASSEMBLY' ||
-                            p.status === 'IN_WRAP' ||
-                            p.status === 'IN_NTC_TESTING' ||
-                            p.status === 'IN_QC'
-                          );
-                        }).length}</div>
+                        <div className="font-medium">{safeFilterProjects(projects, isActiveProject).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Planning Stage</div>
-                        <div className="font-medium">{safeFilterProjects(projects, p => {
-                          if (!p.status) return false;
-                          
-                          // Only count PLANNING status projects - matches the Planning tab
-                          return p.status === 'PLANNING';
-                        }).length}</div>
+                        <div className="font-medium">{safeFilterProjects(projects, isPlanningProject).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Completed</div>
-                        <div className="font-medium">{safeFilterProjects(projects, p => {
-                          if (!p.status) return false;
-                          
-                          // Only count COMPLETED status projects - matches the Completed tab
-                          return p.status === 'COMPLETED';
-                        }).length}</div>
+                        <div className="font-medium">{safeFilterProjects(projects, isCompletedProject).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">Delayed</div>
                         <div className="font-medium">{safeFilterProjects(projects, p => {
-                          if (!p.status) return false;
-                          
-                          // Only consider projects using the exact active statuses from the Active tab
-                          const isActiveStatus = (
-                            p.status === 'NOT_STARTED' ||
-                            p.status === 'IN_FAB' ||
-                            p.status === 'IN_ASSEMBLY' ||
-                            p.status === 'IN_WRAP' ||
-                            p.status === 'IN_NTC_TESTING' ||
-                            p.status === 'IN_QC'
-                          );
-                          
-                          return isActiveStatus && p.isDelayed === true;
+                          // Use our isActiveProject helper for consistent status checking
+                          return isActiveProject(p) && p.isDelayed === true;
                         }).length}</div>
                       </div>
                       
@@ -766,31 +1168,9 @@ export const ProductionLinePanel = () => {
                       <div className="mt-4">
                         <div className="text-sm text-muted-foreground mb-2">Project Status Distribution</div>
                         <div className="flex items-center gap-2 mt-2">
-                          <div className="h-2 bg-green-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
-                            if (!p.status) return false;
-                            
-                            // Only use COMPLETED status - exact match for consistency
-                            return p.status === 'COMPLETED';
-                          }).length / (projects?.length || 1)) * 100}%` }} />
-                          <div className="h-2 bg-blue-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
-                            if (!p.status) return false;
-                            
-                            // Use exact statuses to match the Active tab
-                            return (
-                              p.status === 'NOT_STARTED' ||
-                              p.status === 'IN_FAB' ||
-                              p.status === 'IN_ASSEMBLY' ||
-                              p.status === 'IN_WRAP' ||
-                              p.status === 'IN_NTC_TESTING' ||
-                              p.status === 'IN_QC'
-                            );
-                          }).length / (projects?.length || 1)) * 100}%` }} />
-                          <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
-                            if (!p.status) return false;
-                            
-                            // Only use PLANNING status - exact match for Planning tab
-                            return p.status === 'PLANNING';
-                          }).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-green-500 rounded" style={{ width: `${(safeFilterProjects(projects, isCompletedProject).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-blue-500 rounded" style={{ width: `${(safeFilterProjects(projects, isActiveProject).length / (projects?.length || 1)) * 100}%` }} />
+                          <div className="h-2 bg-yellow-500 rounded" style={{ width: `${(safeFilterProjects(projects, isPlanningProject).length / (projects?.length || 1)) * 100}%` }} />
                           <div className="h-2 bg-red-500 rounded" style={{ width: `${(safeFilterProjects(projects, p => {
                             if (!p.status) return false;
                             

@@ -1,223 +1,198 @@
-import { useState, useEffect } from "react";
-import type { Project } from "@/types/manufacturing";
+import React, { useState, useEffect } from 'react';
+import { format, differenceInDays, isAfter, isBefore, isEqual } from 'date-fns';
+import type { CombinedProject } from './ProductionLinePanel';
 
 interface ProductionTimelineProps {
-  project: Project;
+  project: CombinedProject;
 }
 
+interface Milestone {
+  date: Date;
+  label: string;
+  position: number; // Percentage position on timeline (0-100)
+  isPassed: boolean;
+}
+
+/**
+ * A component that displays a production timeline similar to the one in Project Management Tab
+ */
 export function ProductionTimeline({ project }: ProductionTimelineProps) {
-  const [progress, setProgress] = useState(0);
-
+  // Pulsating effect for current date marker
+  const [isVisible, setIsVisible] = useState(true);
+  
+  // Set up pulsating effect
   useEffect(() => {
-    if (!project) return;
+    const interval = setInterval(() => {
+      setIsVisible(prev => !prev);
+    }, 500); // Toggle every 500ms for a flashing effect
+    
+    return () => clearInterval(interval);
+  }, []);
 
-    const startDate = project.fabricationStart 
-      ? new Date(project.fabricationStart) 
-      : project.assemblyStart 
-      ? new Date(project.assemblyStart)
-      : null;
-
-    const endDate = project.ship 
-      ? new Date(project.ship)
-      : null;
-
-    if (!startDate || !endDate) {
-      setProgress(0);
-      return;
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const totalDuration = endDate.getTime() - startDate.getTime();
-    const elapsed = today.getTime() - startDate.getTime();
-    const calculatedProgress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-
-    setProgress(calculatedProgress);
-  }, [project]);
-
-  if (!project) return null;
-
-  const isValidDate = (dateStr?: string) => {
-    if (!dateStr) return false;
-    const date = new Date(dateStr);
-    return date instanceof Date && !isNaN(date.getTime());
+  // Get all relevant dates for the timeline
+  const fabricationStartDate = project.fabricationStart ? new Date(project.fabricationStart) : null;
+  const assemblyStartDate = project.assemblyStart ? new Date(project.assemblyStart) : null;
+  const wrapDate = project.wrapGraphics ? new Date(project.wrapGraphics) : null;
+  const ntcTestingDate = project.ntcTesting ? new Date(project.ntcTesting) : null;
+  const qcStartDate = project.qcStart ? new Date(project.qcStart) : null;
+  const executiveReviewDate = project.executiveReview ? new Date(project.executiveReview) : null;
+  const shipDate = project.ship ? new Date(project.ship) : null;
+  const deliveryDate = project.delivery ? new Date(project.delivery) : null;
+  
+  // Current date for the marker
+  const currentDate = new Date();
+  
+  // Determine if the project is shipped
+  const isShipped = 
+    project.status && 
+    ['COMPLETED', 'completed', 'shipped'].includes(String(project.status).toLowerCase());
+  
+  // Function to format date as MM/DD/YYYY
+  const formatTimelineDate = (date: Date | null) => {
+    return date ? format(date, 'MM/dd/yyyy') : 'N/A';
   };
 
-  // Display dates exactly as stored in project data without timezone manipulation
-  const displayDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('T')[0].split('-');
-    return `${month}/${day}/${year}`;
-  };
-
-  // Calculate working days between two dates (excluding weekends)
-  const calculateWorkingDays = (start: string, end: string): number => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    let days = 0;
-    const current = new Date(startDate);
-
-    while (current <= endDate) {
-      const dayOfWeek = current.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip weekends (0 = Sunday, 6 = Saturday)
-        days++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-
-    return days;
-  };
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const hasShipped = project.ship && new Date(project.ship) <= today;
-
-  const timelineEvents = [
-    { date: project.fabricationStart, label: 'Fabrication Start', type: 'fab' },
-    { date: project.assemblyStart, label: 'Assembly Start', type: 'assembly' },
-    { date: project.wrapGraphics, label: 'Wrap/Graphics', type: 'wrap' },
-    { date: project.ntcTesting, label: 'NTC Testing', type: 'ntc' },
-    { date: project.qcStart, label: 'QC Start', type: 'qc' },
-    { date: project.executiveReview, label: 'Executive Review', type: 'review' },
-    { date: project.ship, label: 'Ship', type: 'ship' },
-  ].filter(event => isValidDate(event.date))
-   .map(event => ({
-     ...event,
-     formattedDate: event.date ? displayDate(event.date) : ''
-   }));
-
-  if (timelineEvents.length === 0) return null;
-
-  const startDateTimeline = timelineEvents[0]?.date 
-    ? new Date(timelineEvents[0].date)
-    : today;
-
-  const endDateTimeline = timelineEvents[timelineEvents.length - 1]?.date
-    ? new Date(timelineEvents[timelineEvents.length - 1].date)
-    : new Date(startDateTimeline.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-  // Find next upcoming milestone
-  const nextMilestone = timelineEvents.find(event => {
-    if (!event.date) return false;
-    const eventDate = new Date(event.date);
-    return eventDate >= today;
-  });
-
-  // Calculate days until next milestone
-  let daysMessage = '';
-  if (nextMilestone?.date) {
-    const eventDate = new Date(nextMilestone.date);
-    const diffTime = eventDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    daysMessage = diffDays === 0 
-      ? `${nextMilestone.label} TODAY`
-      : `${diffDays} days until ${nextMilestone.label}`;
+  // If we have no dates at all, we can't show a timeline
+  if (!fabricationStartDate && !assemblyStartDate && !wrapDate && !ntcTestingDate && 
+      !qcStartDate && !executiveReviewDate && !shipDate && !deliveryDate) {
+    return (
+      <div className="mt-2">
+        <h4 className="text-sm font-medium">Production Timeline</h4>
+        <div className="text-sm text-muted-foreground">No timeline data available</div>
+      </div>
+    );
   }
 
-  const eventPositions = timelineEvents.map((event, index) => {
-    if (!event.date) return { ...event, position: 0, needsOffset: false };
-
-    const eventDate = new Date(event.date);
-    const position = ((eventDate.getTime() - startDateTimeline.getTime()) / 
-      (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100;
-
-    const prevPosition = index > 0 && timelineEvents[index - 1].date
-      ? ((new Date(timelineEvents[index - 1].date).getTime() - startDateTimeline.getTime()) / 
-         (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100
-      : -20;
-
-    const needsOffset = position - prevPosition < 15;
-
-    // Calculate working days to next milestone
-    const nextEvent = timelineEvents[index + 1];
-    const workingDays = nextEvent?.date && event.date
-      ? calculateWorkingDays(event.date, nextEvent.date)
-      : null;
-
-    return { ...event, position, needsOffset, workingDays };
+  // Create an array of valid milestones from earliest to latest
+  let milestones: Milestone[] = [];
+  
+  // Helper to add a milestone if the date exists
+  const addMilestone = (date: Date | null, label: string) => {
+    if (date) {
+      milestones.push({
+        date,
+        label,
+        position: 0, // We'll calculate this after sorting
+        isPassed: isAfter(currentDate, date) || isEqual(currentDate, date)
+      });
+    }
+  };
+  
+  // Add all existing milestones
+  addMilestone(fabricationStartDate, 'Fabrication');
+  addMilestone(assemblyStartDate, 'Assembly');
+  addMilestone(wrapDate, 'Wrap');
+  addMilestone(ntcTestingDate, 'NTC Testing');
+  addMilestone(qcStartDate, 'QC');
+  addMilestone(executiveReviewDate, 'Exec Review');
+  addMilestone(shipDate, 'Ship');
+  addMilestone(deliveryDate, 'Delivery');
+  
+  // Sort milestones by date
+  milestones.sort((a, b) => a.date.getTime() - b.date.getTime());
+  
+  // We need at least one milestone to show a timeline
+  if (milestones.length === 0) {
+    return (
+      <div className="mt-2">
+        <h4 className="text-sm font-medium">Production Timeline</h4>
+        <div className="text-sm text-muted-foreground">No timeline data available</div>
+      </div>
+    );
+  }
+  
+  // Calculate the timeline start and end dates
+  const startDate = milestones[0].date;
+  const endDate = milestones[milestones.length - 1].date;
+  
+  // Calculate the total duration in days
+  const totalDuration = differenceInDays(endDate, startDate) || 1; // Prevent division by zero
+  
+  // Calculate position for each milestone
+  milestones = milestones.map(milestone => {
+    const daysFromStart = differenceInDays(milestone.date, startDate);
+    const position = (daysFromStart / totalDuration) * 100;
+    return { ...milestone, position };
   });
+  
+  // Calculate current date position if it's within the timeline
+  let currentDatePosition: number | null = null;
+  if (isAfter(currentDate, startDate) && isBefore(currentDate, endDate)) {
+    const daysFromStart = differenceInDays(currentDate, startDate);
+    currentDatePosition = (daysFromStart / totalDuration) * 100;
+  }
+  
+  // Determine status label
+  let statusLabel = '';
+  if (isShipped) {
+    statusLabel = 'SHIPPED';
+  } else if (project.status) {
+    const status = String(project.status).toUpperCase();
+    if (status === 'IN_FAB') statusLabel = 'IN FABRICATION';
+    else if (status === 'IN_ASSEMBLY') statusLabel = 'IN ASSEMBLY';
+    else if (status === 'IN_WRAP') statusLabel = 'IN WRAP';
+    else if (status === 'IN_NTC_TESTING') statusLabel = 'IN NTC TESTING';
+    else if (status === 'IN_QC') statusLabel = 'IN QC';
+    else statusLabel = status.replace('_', ' ');
+  }
 
   return (
-    <div className="mx-auto max-w-[95%]">
-      <h3 className="text-lg font-semibold mb-4">Production Timeline</h3>
-      <div className="relative pt-12 pb-16">
-        {/* Timeline base */}
-        <div className="absolute h-2 w-full bg-gray-200 rounded">
-          {/* Progress bar */}
+    <div className="mt-4">
+      <h4 className="text-sm font-medium mb-2">Production Timeline</h4>
+      
+      <div className="relative">
+        {/* Timeline bar */}
+        <div className="h-2 bg-gray-100 rounded-full w-full relative">
+          {/* Progress bar - colored based on status */}
           <div 
-            className={`absolute h-full rounded transition-all duration-1000 ease-in-out ${
-              hasShipped ? 'bg-green-500' : 'bg-blue-500'
-            }`}
-            style={{ width: hasShipped ? '100%' : `${progress}%` }}
+            className={`h-2 rounded-full absolute top-0 left-0 ${isShipped ? 'bg-green-500' : 'bg-blue-500'}`}
+            style={{ width: '100%' }}
           />
-
-          {/* Current date indicator with days until next milestone */}
-          {!hasShipped && (
+          
+          {/* Milestone markers */}
+          {milestones.map((milestone, index) => (
             <div 
-              className="absolute flex flex-col items-center" 
-              style={{ 
-                left: `${((today.getTime() - startDateTimeline.getTime()) / 
-                  (endDateTimeline.getTime() - startDateTimeline.getTime())) * 100}%`,
-                transform: 'translateX(-50%)',
-                top: '-3px'  // Position directly on the timeline
-              }}
-            >
-              {daysMessage && (
-                <div className="absolute -top-8 whitespace-nowrap text-center">
-                  <div className="text-red-500 text-sm font-medium animate-pulse">
-                    {daysMessage}
-                  </div>
-                </div>
-              )}
-              <div className="w-4 h-4 bg-red-500 rounded-full -mt-1 animate-pulse" />
-            </div>
-          )}
-
-          {/* Shipped indicator */}
-          {hasShipped && (
-            <div className="absolute w-full text-center" style={{ top: '-2rem' }}>
-              <span className="text-2xl font-bold text-red-500 animate-pulse">
-                SHIPPED
-              </span>
-            </div>
-          )}
-
-          {/* Timeline events */}
-          {eventPositions.map((event, index) => (
-            <div key={`${event.type}-${index}`}>
-              {/* Event dot and label */}
-              <div
-                className="absolute"
-                style={{
-                  left: `${event.position}%`,
-                  transform: 'translateX(-50%)',
-                  top: event.needsOffset ? '-24px' : '0'
-                }}
-              >
-                <div className={`w-3 h-3 rounded-full ${
-                  event.date && new Date(event.date) <= today ? 'bg-green-500' : 'bg-gray-400'
-                }`} />
-                <div className={`absolute ${event.needsOffset ? 'top-4' : '-bottom-8'} left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs`}>
-                  {`${event.label} (${event.formattedDate})`}
-                </div>
-              </div>
-
-              {/* Working days between milestones */}
-              {event.workingDays && index < eventPositions.length - 1 && (
-                <div 
-                  className="absolute text-xs text-gray-500"
-                  style={{
-                    left: `${(event.position + eventPositions[index + 1].position) / 2}%`,
-                    transform: 'translateX(-50%)',
-                    top: '-20px'
-                  }}
-                >
-                  {event.workingDays} working days
-                </div>
-              )}
-            </div>
+              key={`${milestone.label}-${index}`}
+              className={`absolute top-0 w-1 h-3 -mt-0.5 transform -translate-x-1/2 ${
+                milestone.isPassed ? 'bg-green-600' : 'bg-blue-600'
+              }`}
+              style={{ left: `${milestone.position}%` }}
+              title={`${milestone.label}: ${formatTimelineDate(milestone.date)}`}
+            />
           ))}
+          
+          {/* Current date marker - pulsing red dot */}
+          {currentDatePosition !== null && (
+            <div 
+              className={`absolute top-0 w-2 h-2 rounded-full bg-red-500 transform -translate-x-1/2 -translate-y-0 transition-opacity duration-500 ${
+                isVisible ? 'opacity-100' : 'opacity-40'
+              }`}
+              style={{ left: `${currentDatePosition}%` }}
+              title={`Current Date: ${formatTimelineDate(currentDate)}`}
+            />
+          )}
+          
+          {/* Status label */}
+          {statusLabel && (
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-6 text-red-500 font-semibold text-xs uppercase">
+              {statusLabel}
+            </div>
+          )}
+        </div>
+        
+        {/* Timeline start and end labels */}
+        <div className="flex justify-between mt-1 text-xs">
+          <div>
+            {milestones[0].label} ({formatTimelineDate(milestones[0].date)})
+          </div>
+          <div>
+            {milestones[milestones.length - 1].label} ({formatTimelineDate(milestones[milestones.length - 1].date)})
+          </div>
+        </div>
+        
+        {/* Milestone tooltip hints */}
+        <div className="mt-1 text-xs text-center text-muted-foreground">
+          Hover over markers for milestone dates
         </div>
       </div>
     </div>
