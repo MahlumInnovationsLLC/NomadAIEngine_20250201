@@ -10,6 +10,9 @@ import {
   getContainerClient 
 } from '../../services/azure/blob_service';
 
+// Import the calculateProjectStatus function 
+import { calculateProjectStatus } from '../../services/azure/facility_service';
+
 // Configure multer for file upload
 const storage = multer.memoryStorage();
 
@@ -21,14 +24,15 @@ export type ProjectStatus =
   | 'on_hold' 
   | 'completed'
   | 'cancelled'
-  | 'NOT STARTED'
-  | 'IN FAB'
-  | 'IN ASSEMBLY'
-  | 'IN WRAP'
-  | 'IN NTC TESTING'
-  | 'IN QC'
+  | 'NOT_STARTED'
+  | 'IN_FAB'
+  | 'IN_ASSEMBLY'
+  | 'IN_WRAP'
+  | 'IN_NTC_TESTING'
+  | 'IN_QC'
   | 'PLANNING'
-  | 'COMPLETED';
+  | 'COMPLETED'
+  | 'SHIPPING';
 
 // Project interface definition
 export interface Project {
@@ -168,7 +172,7 @@ router.post("/preview", upload.single('file'), async (req, res) => {
         projectNumber: getValueFromRow(row, headers, 'projectNumber'),
         location: getValueFromRow(row, headers, 'location'),
         team: getValueFromRow(row, headers, 'team'),
-        status: getValueFromRow(row, headers, 'status') || 'NOT STARTED',
+        status: getValueFromRow(row, headers, 'status') || 'NOT_STARTED',
         contractDate: parseExcelDate(getValueFromRow(row, headers, 'contractDate')),
         chassisEta: parseExcelDate(getValueFromRow(row, headers, 'chassisEta')),
         paymentMilestones: getValueFromRow(row, headers, 'paymentMilestones'),
@@ -253,7 +257,7 @@ router.post("/import", upload.single('file'), async (req, res) => {
         projectNumber: getValueFromRow(row, headers, 'projectNumber'),
         location: getValueFromRow(row, headers, 'location'),
         team: getValueFromRow(row, headers, 'team'),
-        status: 'NOT STARTED', // Match the expected format in the UI (with space)
+        status: 'NOT_STARTED', // Using consistent underscore format
         manualStatus: false,
         contractDate: parseExcelDate(getValueFromRow(row, headers, 'contractDate')),
         chassisEta: parseExcelDate(getValueFromRow(row, headers, 'chassisEta')),
@@ -372,6 +376,12 @@ async function getProjects(generateFallbackData: boolean = false): Promise<Proje
             
             try {
               const project = JSON.parse(projectData) as Project;
+              
+              // Calculate the project status based on dates
+              if (!project.manualStatus) {
+                project.status = calculateProjectStatus(project);
+              }
+              
               return project;
             } catch (parseError) {
               console.error(`Error parsing JSON from blob ${blob.name}:`, parseError);
@@ -422,6 +432,134 @@ import { projectCache } from '../../cache';
 
 // Standard TTL for cache freshness
 const CACHE_TTL = 300000; // 5 minutes cache for better reliability
+
+// Count projects by status for dashboard metrics
+router.get("/count-by-status", async (req, res) => {
+  try {
+    console.log("Received count-by-status request");
+    
+    // Try to get projects from cache first
+    const projects = projectCache.getAllProjects(CACHE_TTL) || await getProjects();
+    
+    if (!projects || projects.length === 0) {
+      return res.status(404).json({ error: "No projects found to count" });
+    }
+    
+    // Count projects by status
+    const statusCounts: Record<string, number> = {};
+    
+    // Count active, planning, and completed projects
+    let activeCount = 0;
+    let planningCount = 0;
+    let completedCount = 0;
+    
+    projects.forEach(project => {
+      // Normalize the status
+      const status = String(project.status || '').toUpperCase().trim();
+      
+      // Update the specific status count
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+      
+      // Update category counts based on strict rules
+      if (status === 'NOT_STARTED') {
+        planningCount++;
+      } else if (status === 'COMPLETED') {
+        completedCount++;
+      } else { 
+        // Any other status goes to active
+        activeCount++;
+      }
+    });
+    
+    // Return both detailed and category counts
+    res.status(200).json({
+      status: statusCounts,
+      categories: {
+        active: activeCount,
+        planning: planningCount,
+        completed: completedCount
+      },
+      total: projects.length
+    });
+  } catch (error) {
+    console.error("Error getting count by status:", error);
+    res.status(500).json({ 
+      error: "Failed to get project counts", 
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Get project statistics and metrics for the dashboard
+router.get("/stats", async (req, res) => {
+  try {
+    console.log("Received project stats request");
+    
+    // Try to get projects from cache first
+    const projects = projectCache.getAllProjects(CACHE_TTL) || await getProjects();
+    
+    if (!projects || projects.length === 0) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    // Calculate metrics based on current date
+    const now = new Date();
+    
+    // Count projects by status category
+    const activeCount = projects.filter(p => {
+      const status = String(p.status || '').toUpperCase().trim();
+      return status !== 'NOT_STARTED' && status !== 'COMPLETED';
+    }).length;
+    
+    const planningCount = projects.filter(p => {
+      const status = String(p.status || '').toUpperCase().trim();
+      return status === 'NOT_STARTED';
+    }).length;
+    
+    const completedCount = projects.filter(p => {
+      const status = String(p.status || '').toUpperCase().trim();
+      return status === 'COMPLETED';
+    }).length;
+    
+    // Calculate on-time vs delayed projects
+    const onTimeProjects = projects.filter(p => {
+      // A project is on time if it's not delayed or if it's completed
+      return !p.isDelayed || String(p.status || '').toUpperCase().trim() === 'COMPLETED';
+    }).length;
+    
+    const delayedProjects = projects.length - onTimeProjects;
+    
+    // Calculate projects by location
+    const locationCounts: Record<string, number> = {};
+    projects.forEach(project => {
+      const location = project.location || 'Unknown';
+      locationCounts[location] = (locationCounts[location] || 0) + 1;
+    });
+    
+    // Return dashboard statistics
+    res.status(200).json({
+      total: projects.length,
+      categories: {
+        active: activeCount,
+        planning: planningCount,
+        completed: completedCount
+      },
+      performance: {
+        onTime: onTimeProjects,
+        delayed: delayedProjects,
+        onTimePercentage: Math.round((onTimeProjects / projects.length) * 100)
+      },
+      locations: locationCounts,
+      lastUpdated: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error getting project stats:", error);
+    res.status(500).json({ 
+      error: "Failed to get project statistics", 
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
 
 // Get all projects with enhanced reliability through centralized caching
 router.get("/", async (req, res) => {
@@ -521,6 +659,11 @@ async function getProjectById(id: string): Promise<Project | null> {
         
         try {
           const project = JSON.parse(projectData.trim()) as Project;
+          
+          // Calculate the project status based on dates if not manually set
+          if (!project.manualStatus) {
+            project.status = calculateProjectStatus(project);
+          }
           
           // Update cache with fresh data
           projectCache.setProject(project);

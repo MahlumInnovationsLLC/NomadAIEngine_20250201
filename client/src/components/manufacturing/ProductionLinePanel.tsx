@@ -139,6 +139,8 @@ export type CombinedProject = (Project | ProductionProject) & {
   planningStage?: string;
   // Additional fields for production wrapping
   wrapGraphics?: string;
+  // Add manual status flag for status overrides
+  manualStatus?: boolean;
   // Override status with our comprehensive type
   status: ProjectStatus;
 };
@@ -531,28 +533,78 @@ export const ProductionLinePanel = () => {
   // 2. If status is "NOT_STARTED" → Planning tab
   // 3. If status is "COMPLETE" → Completed tab
   
-  const isActiveProject = (project: CombinedProject): boolean => {
-    // CRITICAL: For testing purposes, mark certain projects as active to demonstrate organization
-    if (project.projectNumber && 
-        (project.projectNumber.includes('804654_AL_ADS') || 
-         project.projectNumber.includes('800245'))) {
-      console.log(`Project ${project.id} with number ${project.projectNumber} MANUALLY MARKED ACTIVE FOR TESTING`);
-      return true;
+  // Calculate project status based on current date and milestone dates - matches ProjectManagementPanel
+  function recalculateProjectStatus(project: CombinedProject): string {
+    if (!project) return "NOT_STARTED";
+
+    // Honor manual status if set (safely check for manualStatus property)
+    if (project.manualStatus === true) {
+      return project.status || "NOT_STARTED";
     }
+
+    const today = new Date();
+    const getValidDate = (date: string | null | undefined) => date ? new Date(date) : null;
+
+    const dates = {
+      fabricationStart: getValidDate(project.fabricationStart),
+      assemblyStart: getValidDate(project.assemblyStart),
+      wrapGraphics: getValidDate(project.wrapGraphics),
+      ntcTesting: getValidDate(project.ntcTesting),
+      qcStart: getValidDate(project.qcStart),
+      ship: getValidDate(project.ship)
+    };
+
+    // Log for debugging purposes
+    console.log(`Project ${project.id}: Raw status=${project.status}, dates=`, 
+      Object.keys(dates).map(key => `${key}=${dates[key as keyof typeof dates]?.toISOString() || 'null'}`).join(', ')
+    );
+
+    if (dates.ship && today >= dates.ship) {
+      return "COMPLETED";
+    }
+
+    if (dates.qcStart && today >= dates.qcStart) {
+      return "IN_QC";
+    }
+
+    if (dates.ntcTesting && today >= dates.ntcTesting) {
+      return "IN_NTC_TESTING";
+    }
+
+    if (dates.wrapGraphics && today >= dates.wrapGraphics) {
+      return "IN_WRAP";
+    }
+
+    if (dates.assemblyStart && today >= dates.assemblyStart) {
+      return "IN_ASSEMBLY";
+    }
+
+    if (dates.fabricationStart && today >= dates.fabricationStart) {
+      return "IN_FAB";
+    }
+
+    return "NOT_STARTED";
+  }
+  
+  const isActiveProject = (project: CombinedProject): boolean => {
+    // Calculate the proper status based on dates
+    const calculatedStatus = recalculateProjectStatus(project);
     
-    // Normalize the status first to ensure consistent format
-    const rawStatus = String(project.status || '');
-    const status = rawStatus.toUpperCase().trim();
+    // Normalize the status to ensure consistent format
+    const status = calculatedStatus.toUpperCase().trim();
     
     // Add debug logging to track status categorization
-    console.log(`Project ${project.id}: Raw status = "${rawStatus}", normalized = "${status}"`);
+    console.log(`Project ${project.id}: Raw status = "${project.status}", recalculated = "${status}"`);
     
     // STRICT RULE: Active is anything NOT in "NOT_STARTED" or "COMPLETE" state
     const isNotStarted = status === 'NOT_STARTED';
     const isCompleted = status === 'COMPLETE' || status === 'COMPLETED';
     
-    // Anything that's not in planning or completed goes to active tab
-    const isActive = !isNotStarted && !isCompleted;
+    // STRICT RULE: Active includes IN_FAB, IN_ASSEMBLY, IN_WRAP, IN_NTC_TESTING, IN_QC
+    const isActiveStatus = ['IN_FAB', 'IN_ASSEMBLY', 'IN_WRAP', 'IN_NTC_TESTING', 'IN_QC'].includes(status);
+    
+    // Anything that's active by status definition
+    const isActive = isActiveStatus && !isNotStarted && !isCompleted;
     
     if (isActive) {
       console.log(`Project ${project.id} categorized as ACTIVE with status ${status}`);
@@ -562,8 +614,14 @@ export const ProductionLinePanel = () => {
   };
   
   const isPlanningProject = (project: CombinedProject): boolean => {
-    // Normalize the status first to ensure consistent format
-    const status = String(project.status || '').toUpperCase().trim();
+    // Calculate the proper status based on dates - same as in isActiveProject
+    const calculatedStatus = recalculateProjectStatus(project);
+    
+    // Normalize the status to ensure consistent format
+    const status = calculatedStatus.toUpperCase().trim();
+    
+    // Add debug logging to track status categorization
+    console.log(`Project ${project.id}: Raw status = "${project.status}", recalculated for planning = "${status}"`);
     
     // STRICT RULE: Planning is exactly "NOT_STARTED" status
     const isPlanning = status === 'NOT_STARTED';
@@ -576,19 +634,17 @@ export const ProductionLinePanel = () => {
   };
   
   const isCompletedProject = (project: CombinedProject): boolean => {
-    // CRITICAL: For testing purposes, mark certain projects as completed to demonstrate organization
-    if (project.projectNumber && 
-        (project.projectNumber.includes('8000') || 
-         project.projectNumber.includes('8010'))) {
-      console.log(`Project ${project.id} with number ${project.projectNumber} MANUALLY MARKED COMPLETED FOR TESTING`);
-      return true;
-    }
+    // Calculate the proper status based on dates - same as in isActiveProject and isPlanningProject
+    const calculatedStatus = recalculateProjectStatus(project);
     
-    // Normalize the status first to ensure consistent format
-    const status = String(project.status || '').toUpperCase().trim();
+    // Normalize the status to ensure consistent format
+    const status = calculatedStatus.toUpperCase().trim();
+    
+    // Add debug logging to track status categorization
+    console.log(`Project ${project.id}: Raw status = "${project.status}", recalculated for completion = "${status}"`);
     
     // STRICT RULE: Completed is exactly "COMPLETE" or "COMPLETED" status 
-    const isCompleted = status === 'COMPLETE' || status === 'COMPLETED';
+    const isCompleted = status === 'COMPLETED' || status === 'COMPLETE';
     
     if (isCompleted) {
       console.log(`Project ${project.id} categorized as COMPLETED with status ${status}`);

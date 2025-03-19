@@ -489,6 +489,7 @@ export interface ProductionProject {
   name: string;
   description: string;
   status: ProjectStatus;
+  manualStatus?: boolean;
   startDate: string;
   targetCompletionDate: string;
   actualCompletionDate?: string;

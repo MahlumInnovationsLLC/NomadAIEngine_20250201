@@ -96,17 +96,17 @@ function getDaysColor(days: number) {
 
 function getStatusColor(status: ProjectStatus): string {
   switch (status) {
-    case "NOT STARTED":
+    case "NOT_STARTED":
       return "bg-gray-500";
-    case "IN FAB":
+    case "IN_FAB":
       return "bg-blue-500";
-    case "IN ASSEMBLY":
+    case "IN_ASSEMBLY":
       return "bg-indigo-500";
-    case "IN WRAP":
+    case "IN_WRAP":
       return "bg-purple-500";
-    case "IN NTC TESTING":
+    case "IN_NTC_TESTING":
       return "bg-orange-500";
-    case "IN QC":
+    case "IN_QC":
       return "bg-yellow-500";
     case "COMPLETED":
       return "bg-green-500";
@@ -130,7 +130,7 @@ function calculateNTCDays(project: Project | null): number {
 }
 
 function calculateProjectStatus(project: Project | null): ProjectStatus {
-  if (!project) return "NOT STARTED";
+  if (!project) return "NOT_STARTED";
 
   if (project.manualStatus) {
     return project.status;
@@ -153,26 +153,26 @@ function calculateProjectStatus(project: Project | null): ProjectStatus {
   }
 
   if (dates.qcStart && today >= dates.qcStart) {
-    return "IN QC";
+    return "IN_QC";
   }
 
   if (dates.ntcTesting && today >= dates.ntcTesting) {
-    return "IN NTC TESTING";
+    return "IN_NTC_TESTING";
   }
 
   if (dates.wrapGraphics && today >= dates.wrapGraphics) {
-    return "IN WRAP";
+    return "IN_WRAP";
   }
 
   if (dates.assemblyStart && today >= dates.assemblyStart) {
-    return "IN ASSEMBLY";
+    return "IN_ASSEMBLY";
   }
 
   if (dates.fabricationStart && today >= dates.fabricationStart) {
-    return "IN FAB";
+    return "IN_FAB";
   }
 
-  return "NOT STARTED";
+  return "NOT_STARTED";
 }
 
 const defaultFormValues = {

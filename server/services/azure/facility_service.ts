@@ -185,31 +185,31 @@ export function calculateProjectStatus(project: any): ProjectStatus {
 
   // Rest of the status checks using normalized date comparisons
   if (dates.qcStart && normalizedToday >= dates.qcStart) {
-    console.log('Project is IN QC');
-    return "IN QC";
+    console.log('Project is IN_QC');
+    return "IN_QC";
   }
 
   if (dates.ntcTesting && normalizedToday >= dates.ntcTesting) {
-    console.log('Project is IN NTC TESTING');
-    return "IN NTC TESTING";
+    console.log('Project is IN_NTC_TESTING');
+    return "IN_NTC_TESTING";
   }
 
   if (dates.wrapGraphics && normalizedToday >= dates.wrapGraphics) {
-    console.log('Project is IN WRAP');
-    return "IN WRAP";
+    console.log('Project is IN_WRAP');
+    return "IN_WRAP";
   }
 
   if (dates.assemblyStart && normalizedToday >= dates.assemblyStart) {
-    console.log('Project is IN ASSEMBLY');
-    return "IN ASSEMBLY";
+    console.log('Project is IN_ASSEMBLY');
+    return "IN_ASSEMBLY";
   }
 
   if (dates.fabricationStart && normalizedToday >= dates.fabricationStart) {
-    console.log('Project is IN FAB');
-    return "IN FAB";
+    console.log('Project is IN_FAB');
+    return "IN_FAB";
   }
 
-  console.log('Project is NOT STARTED');
+  console.log('Project is NOT_STARTED');
   return "NOT_STARTED";
 }
 
