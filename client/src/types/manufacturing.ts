@@ -55,11 +55,15 @@ export interface TeamMember {
   id: string;
   name: string;
   role: string;
+  email?: string;
+  phone?: string;
   skills?: string[];
   yearsExperience?: number;
   certifications?: string[];
   availability?: number; // percentage of time available
   assignedProjects?: string[];
+  startDate?: string;
+  department?: string;
 }
 
 // Define production line interface
@@ -86,12 +90,14 @@ export interface ProductionLine {
     id?: string;
     email?: string;
     phone?: string;
+    role?: string;
   };
   assemblyLead?: {
     name: string;
     id?: string;
     email?: string;
     phone?: string;
+    role?: string;
   };
   teamName?: string;
   teamMembers?: TeamMember[];

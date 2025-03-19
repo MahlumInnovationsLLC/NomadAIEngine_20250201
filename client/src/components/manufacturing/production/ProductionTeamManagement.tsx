@@ -20,12 +20,17 @@ import {
   Settings,
   AlertCircle,
   Edit,
-  ListPlus
+  ListPlus,
+  Info,
+  HardHat, 
+  Brain,
+  Wrench
 } from "lucide-react";
 import { ProductionLine, TeamMember, Project } from "@/types/manufacturing";
 import { TeamMemberManagement } from "./TeamMemberManagement";
 import { ProductionLineDialog } from "./ProductionLineDialog";
 import { ProjectAssignmentDialog } from "./ProjectAssignmentDialog";
+import { TeamLeadAssignmentDialog } from "./TeamLeadAssignmentDialog";
 
 interface ProductionTeamManagementProps {
   productionLines?: ProductionLine[];
@@ -39,6 +44,7 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
   const [createTeamDialogOpen, setCreateTeamDialogOpen] = useState(false);
   const [projectAssignDialogOpen, setProjectAssignDialogOpen] = useState(false);
   const [teamDetailsDialogOpen, setTeamDetailsDialogOpen] = useState(false);
+  const [teamLeadDialogOpen, setTeamLeadDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -137,6 +143,12 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
   const handleCreateTeam = () => {
     setCreateTeamDialogOpen(true);
   };
+  
+  // Function to handle opening the team lead assignment dialog
+  const handleAssignTeamLeads = (line: ProductionLine) => {
+    setSelectedLine(line);
+    setTeamLeadDialogOpen(true);
+  };
 
   if (isLoading && standalonePage) {
     return (
@@ -225,7 +237,13 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
                 <CardContent className="space-y-4">
                   {/* Team leads section */}
                   <div className="space-y-3">
-                    <h4 className="text-sm font-medium">Team Leads</h4>
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-sm font-medium">Team Leads</h4>
+                      <Button variant="ghost" size="sm" onClick={() => handleAssignTeamLeads(line)}>
+                        <HardHat className="h-3 w-3 mr-1" />
+                        Assign
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       {/* Electrical Lead */}
                       <div className="bg-muted/30 p-3 rounded-md">
@@ -401,10 +419,20 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
         />
       )}
 
+      {/* Team Lead Assignment Dialog */}
+      {selectedLine && (
+        <TeamLeadAssignmentDialog
+          open={teamLeadDialogOpen}
+          onOpenChange={setTeamLeadDialogOpen}
+          productionLine={selectedLine}
+          teamMembers={selectedLine.teamMembers || []}
+        />
+      )}
+
       {/* Team Details Dialog */}
       {selectedLine && (
         <Dialog open={teamDetailsDialogOpen} onOpenChange={setTeamDetailsDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {selectedLine.teamName || selectedLine.name} Details
@@ -440,7 +468,17 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
 
               {/* Team leads */}
               <div className="space-y-2">
-                <h3 className="text-sm font-medium">Team Leadership</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-medium">Team Leadership</h3>
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleAssignTeamLeads(selectedLine)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Assign Leads
+                  </Button>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-muted/30 p-3 rounded-md">
                     <Label className="text-muted-foreground">Electrical Lead</Label>
@@ -479,6 +517,18 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
                     </div>
                   </div>
                 </div>
+                
+                {/* Team name formation info */}
+                {selectedLine.teamName && (selectedLine.electricalLead || selectedLine.assemblyLead) && (
+                  <div className="text-sm bg-secondary/20 p-3 rounded-md mt-2">
+                    <div className="flex items-center">
+                      <Info className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>
+                        Team name <span className="font-semibold">{selectedLine.teamName}</span> is derived from the leads' last names.
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Team members */}
@@ -513,28 +563,107 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
                 )}
               </div>
 
+              {/* Team Performance Metrics */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Team Performance</h3>
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="bg-muted/30 p-3 rounded-md text-center">
+                    <div className="text-sm text-muted-foreground">Efficiency</div>
+                    <div className="text-xl font-bold">
+                      {selectedLine.performance?.efficiency 
+                        ? `${Math.round(selectedLine.performance.efficiency * 100)}%` 
+                        : "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-muted/30 p-3 rounded-md text-center">
+                    <div className="text-sm text-muted-foreground">Quality</div>
+                    <div className="text-xl font-bold">
+                      {selectedLine.performance?.quality 
+                        ? `${Math.round(selectedLine.performance.quality * 100)}%` 
+                        : "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-muted/30 p-3 rounded-md text-center">
+                    <div className="text-sm text-muted-foreground">Availability</div>
+                    <div className="text-xl font-bold">
+                      {selectedLine.performance?.availability 
+                        ? `${Math.round(selectedLine.performance.availability * 100)}%` 
+                        : "N/A"}
+                    </div>
+                  </div>
+                  <div className="bg-muted/30 p-3 rounded-md text-center">
+                    <div className="text-sm text-muted-foreground">OEE</div>
+                    <div className="text-xl font-bold">
+                      {selectedLine.performance?.oee 
+                        ? `${Math.round(selectedLine.performance.oee * 100)}%` 
+                        : "N/A"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Assigned projects */}
               <div className="space-y-2">
-                <h3 className="text-sm font-medium">Assigned Projects</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-medium">Assigned Projects</h3>
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setTeamDetailsDialogOpen(false);
+                      setTimeout(() => handleAssignProjects(selectedLine), 100);
+                    }}
+                  >
+                    <ListPlus className="h-4 w-4 mr-2" />
+                    Manage Projects
+                  </Button>
+                </div>
+                
                 {selectedLine.assignedProjects && selectedLine.assignedProjects.length > 0 ? (
                   <div className="bg-muted/30 p-3 rounded-md space-y-2 max-h-[200px] overflow-y-auto">
                     {projects
                       .filter(p => selectedLine.assignedProjects?.includes(p.id))
                       .map(project => (
-                        <div key={project.id} className="flex items-center justify-between">
+                        <div key={project.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md">
                           <div>
                             <div className="font-medium">{project.projectNumber || project.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              Start: {new Date(project.contractDate || Date.now()).toLocaleDateString()}
+                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span>Location: {project.location || 'Unknown'}</span>
+                              <span>•</span>
+                              <span>
+                                Due: {
+                                  project.delivery ? 
+                                  new Date(project.delivery).toLocaleDateString() : 
+                                  'Not set'
+                                }
+                              </span>
                             </div>
                           </div>
-                          <Badge variant="outline">{project.status}</Badge>
+                          <Badge variant={
+                            project.status === 'COMPLETED' ? 'default' :
+                            project.status === 'IN_QC' ? 'warning' :
+                            'outline'
+                          }>
+                            {project.status}
+                          </Badge>
                         </div>
                       ))}
                   </div>
                 ) : (
                   <div className="bg-muted/30 p-4 rounded-md text-center">
                     <p className="text-muted-foreground">No projects assigned to this team</p>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={() => {
+                        setTeamDetailsDialogOpen(false);
+                        setTimeout(() => handleAssignProjects(selectedLine), 100);
+                      }}
+                    >
+                      <ListPlus className="h-4 w-4 mr-2" />
+                      Assign Projects
+                    </Button>
                   </div>
                 )}
               </div>

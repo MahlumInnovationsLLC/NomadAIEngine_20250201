@@ -304,6 +304,36 @@ router.patch('/:id/status', authMiddleware, async (req: AuthenticatedRequest, re
   }
 });
 
+// Generic PATCH endpoint for partial updates (including project assignments)
+router.patch('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    // Get existing production line
+    const { resource: existingLine } = await productionLineContainer.item(id, id).read();
+    
+    if (!existingLine) {
+      return res.status(404).json({ error: "Production line not found" });
+    }
+    
+    // Merge updates with existing line
+    const updatedLine = {
+      ...existingLine,
+      ...updates,
+      id, // Ensure ID doesn't change
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user?.id || "unknown"
+    };
+    
+    const { resource: result } = await productionLineContainer.item(id, id).replace(updatedLine);
+    res.json(result);
+  } catch (error) {
+    console.error("Failed to update production line:", error);
+    res.status(500).json({ error: "Failed to update production line" });
+  }
+});
+
 // Get assigned projects for a production line
 router.get('/:id/assignments', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
