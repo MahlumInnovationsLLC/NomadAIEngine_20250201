@@ -467,39 +467,20 @@ export const ProductionLinePanel = () => {
                         (() => {
                           // Filter active projects only once to prevent duplication
                           const activeProjects = safeFilterProjects(projects, p => {
-                            // Check for active projects - preserve exact status formatting
+                            // Check for active projects using exact statuses shown in UI
                             if (!p.status) return false;
                             
-                            const originalStatus = p.status;
-                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
-                            
-                            // Status value preservation approach:
-                            // 1. Check exact original status values first with direct comparison
-                            // 2. Fall back to lowercase matching only when needed for flexibility 
+                            // Use exact status values ONLY for active projects tab
+                            // This matches the dropdown selection values in the UI
+                            const exactStatus = p.status;
                             return (
-                              // Exact original status values - preserves case integrity
-                              originalStatus === 'NOT_STARTED' ||
-                              originalStatus === 'IN FAB' ||
-                              originalStatus === 'IN ASSEMBLY' ||
-                              originalStatus === 'IN WRAP' ||
-                              originalStatus === 'IN NTC TESTING' ||
-                              originalStatus === 'IN QC' ||
-                              
-                              // Fallback lowercase pattern matching for flexibility
-                              statusLower === 'in_progress' || 
-                              statusLower === 'active' || 
-                              statusLower === 'not started' || 
-                              statusLower === 'not_started' ||
-                              statusLower === 'in fab' || 
-                              statusLower === 'in_fab' ||
-                              statusLower === 'in assembly' || 
-                              statusLower === 'in_assembly' ||
-                              statusLower === 'in wrap' || 
-                              statusLower === 'in_wrap' ||
-                              statusLower === 'in ntc testing' || 
-                              statusLower === 'in_ntc_testing' ||
-                              statusLower === 'in qc' ||
-                              statusLower === 'in_qc'
+                              exactStatus === 'NOT STARTED' ||
+                              exactStatus === 'IN FAB' ||
+                              exactStatus === 'IN ASSEMBLY' ||
+                              exactStatus === 'IN WRAP' ||
+                              exactStatus === 'IN NTC TESTING' ||
+                              exactStatus === 'IN QC'
+                              // PLANNING and COMPLETED are excluded to prevent duplication
                             );
                           });
                           
@@ -575,26 +556,14 @@ export const ProductionLinePanel = () => {
                         (() => {
                           // Filter planning projects only once to prevent duplication
                           const planningProjects = safeFilterProjects(projects, p => {
-                            // Check for planning projects - preserve exact status formatting
+                            // Check for planning projects using ONLY the PLANNING status
                             if (!p.status) return false;
                             
-                            const originalStatus = p.status;
-                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
+                            // Only consider projects with "PLANNING" status to prevent duplication
+                            return p.status === 'PLANNING';
                             
-                            // Status value preservation approach:
-                            // 1. Check exact original status values first with direct comparison
-                            // 2. Fall back to lowercase matching only when needed for flexibility
-                            return (
-                              // Exact original status values - preserves case integrity
-                              originalStatus === 'NOT_STARTED' ||
-                              originalStatus === 'PLANNING' ||
-                              
-                              // Fallback lowercase pattern matching for flexibility
-                              statusLower === 'planning' || 
-                              statusLower === 'not started' ||
-                              statusLower === 'not_started' || 
-                              statusLower === 'pending'
-                            );
+                            // NOTE: We've removed NOT_STARTED from here since it's already shown
+                            // in the Active tab to avoid duplication
                           });
                           
                           if (planningProjects.length > 0) {
@@ -667,16 +636,11 @@ export const ProductionLinePanel = () => {
                         (() => {
                           // Filter completed projects only once to prevent duplication
                           const completedProjects = safeFilterProjects(projects, p => {
-                            // Check for completed projects - preserve exact status formatting
+                            // Check for completed projects using EXACT status only
                             if (!p.status) return false;
                             
-                            const originalStatus = p.status;
-                            const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
-                            
-                            // Status value preservation approach:
-                            // 1. Check exact original status match first
-                            // 2. Fall back to lowercase matching only when needed for flexibility
-                            return originalStatus === 'COMPLETED' || statusLower === 'completed';
+                            // Only match COMPLETED exactly to ensure proper separation
+                            return p.status === 'COMPLETED';
                           });
                           
                           if (completedProjects.length > 0) {
@@ -748,28 +712,15 @@ export const ProductionLinePanel = () => {
                         <div className="text-sm text-muted-foreground">Active Projects</div>
                         <div className="font-medium">{safeFilterProjects(projects, p => {
                           if (!p.status) return false;
-                        
-                          const originalStatus = p.status;
-                          const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
                           
+                          // Match the exact values used in the Active tab
                           return (
-                            // Exact original status values - preserves case integrity
-                            originalStatus === 'NOT_STARTED' ||
-                            originalStatus === 'IN FAB' ||
-                            originalStatus === 'IN ASSEMBLY' ||
-                            originalStatus === 'IN WRAP' ||
-                            originalStatus === 'IN NTC TESTING' ||
-                            originalStatus === 'IN QC' ||
-                            
-                            // Fallback lowercase pattern matching
-                            statusLower === 'in_progress' || 
-                            statusLower === 'active' || 
-                            statusLower === 'not started' || 
-                            statusLower === 'in fab' || 
-                            statusLower === 'in assembly' || 
-                            statusLower === 'in wrap' || 
-                            statusLower === 'in ntc testing' || 
-                            statusLower === 'in qc'
+                            p.status === 'NOT STARTED' ||
+                            p.status === 'IN FAB' ||
+                            p.status === 'IN ASSEMBLY' ||
+                            p.status === 'IN WRAP' ||
+                            p.status === 'IN NTC TESTING' ||
+                            p.status === 'IN QC'
                           );
                         }).length}</div>
                       </div>
@@ -777,20 +728,9 @@ export const ProductionLinePanel = () => {
                         <div className="text-sm text-muted-foreground">Planning Stage</div>
                         <div className="font-medium">{safeFilterProjects(projects, p => {
                           if (!p.status) return false;
-                        
-                          const originalStatus = p.status;
-                          const statusLower = typeof originalStatus === 'string' ? originalStatus.toLowerCase() : '';
                           
-                          return (
-                            // Exact original status values - preserves case integrity
-                            originalStatus === 'NOT_STARTED' ||
-                            originalStatus === 'PLANNING' ||
-                            
-                            // Fallback lowercase pattern matching
-                            statusLower === 'planning' || 
-                            statusLower === 'not started' ||
-                            statusLower === 'not_started'
-                          );
+                          // Only count PLANNING status projects - matches the Planning tab
+                          return p.status === 'PLANNING';
                         }).length}</div>
                       </div>
                       <div className="flex items-center justify-between">
