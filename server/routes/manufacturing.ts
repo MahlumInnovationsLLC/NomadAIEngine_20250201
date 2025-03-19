@@ -20,6 +20,7 @@ import resourceRoutes from './manufacturing/resources';
 import dailyRequirementRoutes from './manufacturing/daily-requirements';
 import auditRoutes from './manufacturing/quality/audits';
 import analyticsRoutes from './manufacturing/analytics';
+import productionLinesRoutes from './manufacturing/production-lines';
 import { ProjectStatus } from "@/types/manufacturing";
 
 const router = Router();
@@ -159,5 +160,6 @@ router.use('/projects', projectRoutes);
 router.use('/resources', resourceRoutes);
 router.use('/daily-requirements', dailyRequirementRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/production-lines', productionLinesRoutes);
 
 export default router;

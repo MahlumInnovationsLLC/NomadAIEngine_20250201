@@ -1,45 +1,130 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Card, 
   CardContent, 
   CardHeader,
   CardTitle,
-  CardDescription
+  CardDescription,
+  CardFooter
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { PlusCircle, BarChart, Settings, AlertCircle } from "lucide-react";
+import { 
+  PlusCircle, 
+  BarChart, 
+  Settings, 
+  AlertCircle, 
+  Edit, 
+  Trash2, 
+  ClipboardCheck,
+  Activity,
+  AlertTriangle,
+  PowerOff,
+  Wrench
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface ProductionLine {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'assembly' | 'machining' | 'fabrication' | 'packaging' | 'testing';
-  status: 'operational' | 'maintenance' | 'error' | 'offline';
-  capacity: {
-    planned: number;
-    actual: number;
-    unit: string;
-  };
-  performance: {
-    efficiency: number;
-    quality: number;
-    availability: number;
-    oee: number;
-  };
-}
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { ProductionLineDialog } from "./ProductionLineDialog";
+import { ProjectAssignmentDialog } from "./ProjectAssignmentDialog";
+import { ProductionLine } from "../../../types/manufacturing";
 
 export function ProductionLineOverview() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedLine, setSelectedLine] = useState<ProductionLine | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch production lines data
   const { data: productionLines = [], isLoading, error } = useQuery<ProductionLine[]>({
     queryKey: ['/api/manufacturing/production-lines'],
-    // For development, let's have a 5 second refresh interval
     refetchInterval: 5000,
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/manufacturing/production-lines/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Production line not found');
+        }
+        throw new Error('Failed to delete production line');
+      }
+      
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+      toast({
+        title: 'Success',
+        description: 'Production line deleted successfully',
+      });
+      setDeleteDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete production line',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Update status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: ProductionLine['status'] }) => {
+      const response = await fetch(`/api/manufacturing/production-lines/${id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update production line status');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+      toast({
+        title: 'Success',
+        description: 'Production line status updated successfully',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update production line status',
+        variant: 'destructive',
+      });
+    },
   });
 
   const getStatusColor = (status: string) => {
@@ -55,6 +140,44 @@ export function ProductionLineOverview() {
       default:
         return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20';
     }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'operational':
+        return <Activity className="h-4 w-4 mr-2" />;
+      case 'maintenance':
+        return <Wrench className="h-4 w-4 mr-2" />;
+      case 'error':
+        return <AlertTriangle className="h-4 w-4 mr-2" />;
+      case 'offline':
+        return <PowerOff className="h-4 w-4 mr-2" />;
+      default:
+        return null;
+    }
+  };
+
+  // Handle edit button click
+  const handleEdit = (line: ProductionLine) => {
+    setSelectedLine(line);
+    setDialogOpen(true);
+  };
+
+  // Handle delete button click
+  const handleDelete = (line: ProductionLine) => {
+    setSelectedLine(line);
+    setDeleteDialogOpen(true);
+  };
+
+  // Handle assign projects button click
+  const handleAssignProjects = (line: ProductionLine) => {
+    setSelectedLine(line);
+    setAssignDialogOpen(true);
+  };
+
+  // Handle status change
+  const handleStatusChange = (line: ProductionLine, status: ProductionLine['status']) => {
+    updateStatusMutation.mutate({ id: line.id, status });
   };
 
   // Calculate summary metrics
@@ -99,7 +222,7 @@ export function ProductionLineOverview() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Production Line Management</h2>
-        <Button>
+        <Button onClick={() => { setSelectedLine(null); setDialogOpen(true); }}>
           <PlusCircle className="h-4 w-4 mr-2" />
           Add Production Line
         </Button>
@@ -157,7 +280,7 @@ export function ProductionLineOverview() {
                   <p className="text-muted-foreground mb-4">
                     Get started by adding your first production line
                   </p>
-                  <Button>
+                  <Button onClick={() => { setSelectedLine(null); setDialogOpen(true); }}>
                     <PlusCircle className="h-4 w-4 mr-2" />
                     Add Production Line
                   </Button>
@@ -181,9 +304,62 @@ export function ProductionLineOverview() {
                             >
                               {line.status}
                             </Badge>
-                            <Button variant="ghost" size="icon">
-                              <Settings className="h-4 w-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <Settings className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => handleEdit(line)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAssignProjects(line)}>
+                                  <ClipboardCheck className="h-4 w-4 mr-2" />
+                                  Assign Projects
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel>Status</DropdownMenuLabel>
+                                <DropdownMenuItem 
+                                  onClick={() => handleStatusChange(line, 'operational')}
+                                  disabled={line.status === 'operational'}
+                                >
+                                  <Activity className="h-4 w-4 mr-2" />
+                                  Set Operational
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleStatusChange(line, 'maintenance')}
+                                  disabled={line.status === 'maintenance'}
+                                >
+                                  <Wrench className="h-4 w-4 mr-2" />
+                                  Set Maintenance
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleStatusChange(line, 'error')}
+                                  disabled={line.status === 'error'}
+                                >
+                                  <AlertTriangle className="h-4 w-4 mr-2" />
+                                  Set Error
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleStatusChange(line, 'offline')}
+                                  disabled={line.status === 'offline'}
+                                >
+                                  <PowerOff className="h-4 w-4 mr-2" />
+                                  Set Offline
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => handleDelete(line)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                         
@@ -219,6 +395,18 @@ export function ProductionLineOverview() {
                           </div>
                         </div>
                       </div>
+                      <CardFooter className="bg-muted/50 p-3 flex justify-end">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleAssignProjects(line)}
+                        >
+                          <ClipboardCheck className="h-4 w-4 mr-2" />
+                          {line.assignedProjects && line.assignedProjects.length 
+                            ? `${line.assignedProjects.length} Projects Assigned` 
+                            : "Assign Projects"}
+                        </Button>
+                      </CardFooter>
                     </Card>
                   ))}
                 </div>
@@ -265,6 +453,63 @@ export function ProductionLineOverview() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Production Line Dialog */}
+      <ProductionLineDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        productionLine={selectedLine || undefined}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Production Line</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this production line? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 bg-muted/50 p-4 rounded-md">
+            <h4 className="font-medium text-lg">{selectedLine?.name}</h4>
+            <p className="text-sm text-muted-foreground mt-1">
+              {selectedLine?.description || `${selectedLine?.type} line`}
+            </p>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => selectedLine && deleteMutation.mutate(selectedLine.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  Deleting...
+                </>
+              ) : (
+                "Delete Production Line"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Project Assignment Dialog - We'll create this component next */}
+      {selectedLine && (
+        <ProjectAssignmentDialog
+          open={assignDialogOpen}
+          onOpenChange={setAssignDialogOpen}
+          productionLine={selectedLine}
+        />
+      )}
     </div>
   );
 }
