@@ -324,6 +324,39 @@ router.get('/:id/assignments', authMiddleware, async (req: AuthenticatedRequest,
   }
 });
 
+// Update assigned projects for a production line
+router.post('/:id/assignments', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { projectIds } = req.body;
+    
+    if (!Array.isArray(projectIds)) {
+      return res.status(400).json({ error: "projectIds must be an array" });
+    }
+    
+    // Get existing production line
+    const { resource: productionLine } = await productionLineContainer.item(id, id).read();
+    
+    if (!productionLine) {
+      return res.status(404).json({ error: "Production line not found" });
+    }
+    
+    // Update assignments
+    const updatedLine = {
+      ...productionLine,
+      assignedProjects: projectIds,
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user?.id || "unknown"
+    };
+    
+    const { resource: result } = await productionLineContainer.item(id, id).replace(updatedLine);
+    res.json(result.assignedProjects || []);
+  } catch (error) {
+    console.error("Failed to update production line assignments:", error);
+    res.status(500).json({ error: "Failed to update production line assignments" });
+  }
+});
+
 // Get production line stats endpoint
 router.get('/stats', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {

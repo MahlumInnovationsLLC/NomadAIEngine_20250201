@@ -2,6 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DailyRequirements } from "./DailyRequirements";
 import { CurrentProjects } from "./CurrentProjects";
+import { ProductionTeamManagement } from "./ProductionTeamManagement";
 import { useQuery } from "@tanstack/react-query";
 import { Project } from "@/types/manufacturing";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -31,6 +32,10 @@ export function ProductionHotProjectsGrid() {
         <TabsTrigger value="daily">
           <FontAwesomeIcon icon="calendar-day" className="mr-2" />
           Daily Requirements
+        </TabsTrigger>
+        <TabsTrigger value="team-management">
+          <FontAwesomeIcon icon="users-gear" className="mr-2" />
+          Production Team Management
         </TabsTrigger>
         <TabsTrigger value="current">
           <FontAwesomeIcon icon="industry" className="mr-2" />
@@ -85,6 +90,10 @@ export function ProductionHotProjectsGrid() {
 
       <TabsContent value="daily">
         <DailyRequirements />
+      </TabsContent>
+      
+      <TabsContent value="team-management">
+        <ProductionTeamManagement />
       </TabsContent>
 
       <TabsContent value="current">
