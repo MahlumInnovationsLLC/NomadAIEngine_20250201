@@ -72,6 +72,12 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
     queryKey: ['/api/manufacturing/projects'],
     enabled: standalonePage,
   });
+  
+  // Fetch all available team members for assignment
+  const { data: availableMembers = [] } = useQuery<TeamMember[]>({
+    queryKey: ['/api/manufacturing/team-members'],
+    enabled: standalonePage || teamLeadDialogOpen,
+  });
 
   // Function to filter production lines based on active tab
   const getFilteredLines = () => {
@@ -426,6 +432,7 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
           onOpenChange={setTeamLeadDialogOpen}
           productionLine={selectedLine}
           teamMembers={selectedLine.teamMembers || []}
+          availableMembers={availableMembers}
         />
       )}
 

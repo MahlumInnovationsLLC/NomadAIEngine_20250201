@@ -66,6 +66,43 @@ export interface TeamMember {
   department?: string;
 }
 
+// Define project hour tracking interface
+export interface ProjectHours {
+  projectId: string;
+  allocatedHours: number;
+  earnedHours: number;
+  lastUpdated: string;
+  updatedBy?: string;
+}
+
+// Define team needs interface
+export interface TeamNeed {
+  id: string;
+  type: 'part' | 'tool' | 'material' | 'assistance' | 'other';
+  description: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  requiredBy?: string; // Date when item is needed by
+  requestedBy?: string;
+  requestedAt: string;
+  status: 'pending' | 'in_progress' | 'resolved' | 'cancelled';
+  projectId?: string; // Associated project (optional)
+  resolvedAt?: string;
+  resolvedBy?: string;
+  notes?: string;
+}
+
+// Define team analytics interface
+export interface TeamAnalytics {
+  totalCapacity: number; // Total hours available for the team
+  utilization: number; // Percentage of capacity currently utilized
+  projectHours: ProjectHours[]; // Hours per project
+  efficiency: number; // Ratio of earned vs allocated hours
+  teamUtilizationTrend?: {
+    dates: string[];
+    values: number[];
+  };
+}
+
 // Define production line interface
 export interface ProductionLine {
   id: string;
@@ -107,6 +144,8 @@ export interface ProductionLine {
   lastMaintenance?: string;
   nextMaintenance?: string;
   assignedProjects?: string[];
+  teamNeeds?: TeamNeed[]; // Team needs and requests
+  teamAnalytics?: TeamAnalytics; // Team analytics data
   metrics?: any[];
   buildStages?: any[];
   allocatedInventory?: any[];

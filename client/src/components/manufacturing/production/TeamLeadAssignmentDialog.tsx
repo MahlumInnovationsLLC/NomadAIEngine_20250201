@@ -82,17 +82,30 @@ export function TeamLeadAssignmentDialog({
     electricalLeadId: string, 
     assemblyLeadId: string
   ): string => {
+    console.log("Generating team name from leads:", { 
+      electricalLeadId, 
+      assemblyLeadId, 
+      availableMembers: allAvailableMembers 
+    });
+    
     // Handle "none" values
     if (electricalLeadId === "none") electricalLeadId = "";
     if (assemblyLeadId === "none") assemblyLeadId = "";
     
+    // Find the member objects for each lead
     const electricalMember = electricalLeadId ? allAvailableMembers.find(m => m.id === electricalLeadId) : null;
     const assemblyMember = assemblyLeadId ? allAvailableMembers.find(m => m.id === assemblyLeadId) : null;
     
+    console.log("Found lead members:", { electricalMember, assemblyMember });
+    
+    // If neither lead is assigned, return the current name or default
     if (!electricalMember && !assemblyMember) {
-      return productionLine.name || "Production Team";
+      const fallbackName = productionLine.name || "Production Team";
+      console.log("No leads found, using fallback name:", fallbackName);
+      return fallbackName;
     }
     
+    // Build the team name from leads' last names
     let teamName = "";
     
     if (electricalMember) {
@@ -108,6 +121,7 @@ export function TeamLeadAssignmentDialog({
       teamName += lastName;
     }
     
+    console.log("Generated team name:", teamName);
     return teamName;
   };
   
@@ -185,12 +199,27 @@ export function TeamLeadAssignmentDialog({
       
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+    onSuccess: (data) => {
+      console.log("Team lead assignment successful:", data);
+      
+      // Force a thorough refresh of all production line data
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/manufacturing/production-lines'],
+        refetchType: 'all'
+      });
+      
+      // Also specifically invalidate this exact production line
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/manufacturing/production-lines/${productionLine.id}`],
+        refetchType: 'all'
+      });
+      
       toast({
         title: "Success",
         description: "Team leads assigned successfully",
       });
+      
+      // Close dialog and reset loading state
       onOpenChange(false);
       setIsLoading(false);
     },
