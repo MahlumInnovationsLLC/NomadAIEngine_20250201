@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Select, 
@@ -654,7 +655,7 @@ export function TeamMemberManagement({
 
                 {selectedMember.availability !== undefined && (
                   <div className="mt-4">
-                    <Label className="text-sm text-muted-foreground mb-1 block">Availability</Label>
+                    <div className="text-sm text-muted-foreground mb-1 block">Availability</div>
                     <div className="h-2.5 w-full bg-secondary/20 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-primary rounded-full"
