@@ -111,7 +111,7 @@ export const productionLineSchema = z.object({
   }).optional(),
   teamNeeds: z.array(z.object({
     id: z.string(),
-    type: z.string(),
+    type: z.enum(['part', 'tool', 'material', 'assistance', 'other']),
     description: z.string(),
     priority: z.enum(['low', 'medium', 'high', 'critical']),
     requiredBy: z.string().optional(),
@@ -123,6 +123,7 @@ export const productionLineSchema = z.object({
     resolvedAt: z.string().optional(),
     resolvedBy: z.string().optional(),
     owner: z.string().optional(),
+    ownerEmail: z.string().optional(),
     notificationSent: z.boolean().optional(),
   })).optional(),
 });
@@ -132,7 +133,7 @@ export type ProductionLine = z.infer<typeof productionLineSchema>;
 // Team need interface
 export interface TeamNeed {
   id: string;
-  type: string;
+  type: 'part' | 'tool' | 'material' | 'assistance' | 'other';
   description: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   requiredBy?: string;
@@ -144,6 +145,7 @@ export interface TeamNeed {
   resolvedAt?: string;
   resolvedBy?: string;
   owner?: string;
+  ownerEmail?: string;
   notificationSent?: boolean;
 }
 

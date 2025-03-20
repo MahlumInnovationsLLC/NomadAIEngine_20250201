@@ -74,6 +74,7 @@ const teamNeedSchema = z.object({
   projectId: z.string().optional(),
   notes: z.string().optional(),
   owner: z.string().optional(),
+  ownerEmail: z.string().email({ message: "Please enter a valid email address" }).optional(),
   sendNotification: z.boolean().optional(),
 });
 
@@ -113,6 +114,7 @@ function TeamNeedDialog({
       projectId: teamNeed?.projectId || undefined,
       notes: teamNeed?.notes || '',
       owner: teamNeed?.owner || '',
+      ownerEmail: teamNeed?.ownerEmail || '',
       sendNotification: teamNeed?.notificationSent || false,
     },
   });
@@ -143,15 +145,29 @@ function TeamNeedDialog({
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Team need saved successfully:", data);
+      
+      // Invalidate all production lines queries to ensure data is refreshed everywhere
       queryClient.invalidateQueries({ 
         queryKey: ['/api/manufacturing/production-lines'],
-        refetchType: 'all'
+        type: 'all'
       });
+      
+      // Specifically invalidate the team needs query for this production line
+      if (productionLineId) {
+        queryClient.invalidateQueries({
+          queryKey: [`/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`],
+          type: 'all'
+        });
+      }
+      
       toast({
         title: "Success",
         description: isEditing ? "Team need updated successfully" : "Team need created successfully",
+        variant: "default"
       });
+      
       setIsLoading(false);
       onOpenChange(false);
       onSave();
@@ -167,12 +183,18 @@ function TeamNeedDialog({
   });
 
   const onSubmit = (values: TeamNeedFormValues) => {
-    saveTeamNeedMutation.mutate(values);
+    // Convert "none" projectId to undefined
+    const formattedValues = {
+      ...values,
+      projectId: values.projectId === "none" ? undefined : values.projectId
+    };
+    console.log("Submitting team need:", formattedValues);
+    saveTeamNeedMutation.mutate(formattedValues);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Team Need" : "Create Team Need"}</DialogTitle>
           <DialogDescription>
@@ -365,6 +387,27 @@ function TeamNeedDialog({
 
             <FormField
               control={form.control}
+              name="ownerEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Owner's Email Address</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="email"
+                      placeholder="Email address for notifications"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Email address where notifications will be sent
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="sendNotification"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
@@ -460,9 +503,18 @@ export function TeamNeedsSection({
         throw new Error(error.message || "Failed to update status");
       }
 
+      console.log("Team need status updated successfully:", newStatus);
+      
+      // Invalidate all production lines queries
       queryClient.invalidateQueries({ 
         queryKey: ['/api/manufacturing/production-lines'],
-        refetchType: 'all'
+        type: 'all'
+      });
+      
+      // Specifically invalidate the team needs query for this production line
+      queryClient.invalidateQueries({
+        queryKey: [`/api/manufacturing/team-analytics/production-lines/${productionLine.id}/team-needs`],
+        type: 'all'
       });
       toast({
         title: "Success",

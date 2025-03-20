@@ -184,7 +184,8 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
       requiredBy, 
       projectId, 
       notes, 
-      owner, 
+      owner,
+      ownerEmail,
       sendNotification 
     } = req.body;
     
@@ -210,6 +211,7 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
       projectId: projectId || undefined,
       notes: notes || undefined,
       owner: owner || undefined,
+      ownerEmail: ownerEmail || undefined,
       notificationSent: false, // Initialize as false, we'll set it below if sent
       requestedBy: req.user?.name || "Unknown",
       requestedAt: new Date().toISOString(),
@@ -224,9 +226,22 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
     // Update the production line
     await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
     
-    // Send email notification if requested and owner is assigned
-    if (sendNotification && owner && process.env.SENDGRID_API_KEY) {
+    // Send email notification if requested and owner email is provided
+    if (sendNotification && ownerEmail && process.env.SENDGRID_API_KEY) {
       try {
+        console.log(`Attempting to send email notification to ${ownerEmail} for team need: ${newTeamNeed.id}`);
+        
+        // Verify we have the required keys
+        if (!process.env.SENDGRID_API_KEY) {
+          console.error("SENDGRID_API_KEY is not set in environment variables");
+          throw new Error("Email service configuration is missing");
+        }
+        
+        if (!process.env.SENDGRID_FROM_EMAIL) {
+          console.error("SENDGRID_FROM_EMAIL is not set in environment variables");
+          throw new Error("Sender email configuration is missing");
+        }
+        
         // Format required by date if provided
         let requiredByText = '';
         if (requiredBy) {
@@ -286,14 +301,23 @@ You can view and respond to this team need in the system by visiting:
 ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${newTeamNeed.id}
         `.trim();
         
-        // Send the email
-        await mailService.send({
-          to: owner, // Owner's email address
-          from: process.env.SENDGRID_FROM_EMAIL || 'noreply@yourdomain.com',
+        // Prepare email data
+        const emailData = {
+          to: ownerEmail,
+          from: process.env.SENDGRID_FROM_EMAIL,
           subject: emailSubject,
           html: htmlContent,
           text: textContent,
-        });
+        };
+        
+        console.log(`Sending email with the following details:
+          To: ${emailData.to}
+          From: ${emailData.from}
+          Subject: ${emailData.subject}
+        `);
+        
+        // Send the email
+        const result = await mailService.send(emailData);
         
         // Mark notification as sent in the database
         productionLine.teamNeeds[productionLine.teamNeeds.length - 1].notificationSent = true;
@@ -301,9 +325,11 @@ ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/tea
         // Update the production line
         await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
         
-        console.log(`Email notification sent to ${owner} for team need: ${newTeamNeed.id}`);
+        console.log(`Email notification sent successfully to ${ownerEmail} for team need: ${newTeamNeed.id}`);
+        console.log(`SendGrid response:`, result);
       } catch (emailError) {
         console.error("Error sending email notification:", emailError);
+        console.error("Error details:", JSON.stringify(emailError, null, 2));
         // We don't want to fail the request if the email fails, so we just log the error
       }
     }
@@ -432,11 +458,24 @@ router.patch('/production-lines/:id/team-needs/:needId', authMiddleware, async (
     await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
     
     // Send email notification if the owner has been assigned or changed
-    if (updates.owner && 
+    if (updates.owner && updates.ownerEmail && 
         process.env.SENDGRID_API_KEY && 
         updates.sendNotification &&
         (!originalTeamNeed.owner || originalTeamNeed.owner !== updates.owner)) {
       try {
+        console.log(`Attempting to send update email notification to ${updates.ownerEmail} for team need: ${teamNeedId}`);
+        
+        // Verify we have the required keys
+        if (!process.env.SENDGRID_API_KEY) {
+          console.error("SENDGRID_API_KEY is not set in environment variables");
+          throw new Error("Email service configuration is missing");
+        }
+        
+        if (!process.env.SENDGRID_FROM_EMAIL) {
+          console.error("SENDGRID_FROM_EMAIL is not set in environment variables");
+          throw new Error("Sender email configuration is missing");
+        }
+        
         // Format required by date if provided
         let requiredByText = '';
         if (productionLine.teamNeeds[teamNeedIndex].requiredBy) {
@@ -497,14 +536,23 @@ You can view and respond to this team need in the system by visiting:
 ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${teamNeedId}
         `.trim();
         
-        // Send the email
-        await mailService.send({
-          to: updates.owner, // Owner's email address
-          from: process.env.SENDGRID_FROM_EMAIL || 'noreply@yourdomain.com',
+        // Prepare email data
+        const emailData = {
+          to: updates.ownerEmail,
+          from: process.env.SENDGRID_FROM_EMAIL,
           subject: emailSubject,
           html: htmlContent,
           text: textContent,
-        });
+        };
+        
+        console.log(`Sending update email with the following details:
+          To: ${emailData.to}
+          From: ${emailData.from}
+          Subject: ${emailData.subject}
+        `);
+        
+        // Send the email
+        const result = await mailService.send(emailData);
         
         // Mark notification as sent in the database
         productionLine.teamNeeds[teamNeedIndex].notificationSent = true;
@@ -512,9 +560,11 @@ ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/tea
         // Update the production line again to save the notification status
         await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
         
-        console.log(`Email notification sent to ${updates.owner} for team need: ${teamNeedId}`);
+        console.log(`Email notification sent successfully to ${updates.ownerEmail} for team need: ${teamNeedId}`);
+        console.log(`SendGrid update response:`, result);
       } catch (emailError) {
-        console.error("Error sending email notification:", emailError);
+        console.error("Error sending update email notification:", emailError);
+        console.error("Error details:", JSON.stringify(emailError, null, 2));
         // We don't want to fail the request if the email fails, so we just log the error
       }
     }
