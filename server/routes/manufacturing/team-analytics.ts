@@ -229,17 +229,24 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
     // Send email notification if requested and owner email is provided
     if (sendNotification && ownerEmail && process.env.SENDGRID_API_KEY) {
       try {
+        console.log(`Team need created with ID: ${newTeamNeed.id}`);
+        console.log(`Email notification requested: ${sendNotification}`);
+        console.log(`Owner email: ${ownerEmail}`);
         console.log(`Attempting to send email notification to ${ownerEmail} for team need: ${newTeamNeed.id}`);
         
         // Verify we have the required keys
         if (!process.env.SENDGRID_API_KEY) {
           console.error("SENDGRID_API_KEY is not set in environment variables");
           throw new Error("Email service configuration is missing");
+        } else {
+          console.log("SENDGRID_API_KEY is configured properly");
         }
         
         if (!process.env.SENDGRID_FROM_EMAIL) {
           console.error("SENDGRID_FROM_EMAIL is not set in environment variables");
           throw new Error("Sender email configuration is missing");
+        } else {
+          console.log(`SENDGRID_FROM_EMAIL is configured: ${process.env.SENDGRID_FROM_EMAIL}`);
         }
         
         // Format required by date if provided

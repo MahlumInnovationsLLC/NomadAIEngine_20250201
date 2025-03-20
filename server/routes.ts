@@ -33,13 +33,10 @@ import {
   updateEquipment,
   uploadEquipmentImage
 } from './services/azure/equipment_service';
-import projectsRouter from "./routes/manufacturing/projects";
-import analyticsRouter from "./routes/manufacturing/analytics";
-import resourcesRouter from "./routes/manufacturing/resources";
-import productionLinesRouter from "./routes/manufacturing/production-lines";
-import teamAnalyticsRouter, { registerWebSocketManager } from "./routes/manufacturing/team-analytics";
-import trainingRouter from "./routes/training"; 
-import qualityRouter, { registerQualityRoutes } from "./routes/manufacturing/quality";
+// Manufacturing routes are now imported and registered through server/index.ts
+import trainingRouter from "./routes/training";
+// Quality routes are now imported and registered through server/index.ts or manufacturing/index.ts
+import { registerQualityRoutes } from "./routes/manufacturing/quality";
 import azureADRouter from "./routes/azure-ad"; // Import Azure AD router
 // Import removed to avoid duplicate route registration
 // Initialize Cosmos DB client
@@ -1973,20 +1970,8 @@ export function registerRoutes(app: express.Application): Server {
       res.status(500).json({ error: "Failed to sync with Outlook calendar" });
     }
   });
-  // Add manufacturing projects routes
-  app.use("/api/manufacturing/projects", projectsRouter);
-  
-  // Add manufacturing resources routes
-  app.use("/api/manufacturing/resources", resourcesRouter);
-  
-  // Add manufacturing analytics routes
-  app.use("/api/manufacturing/analytics", analyticsRouter);
-  
-  // Add production lines routes
-  app.use("/api/manufacturing/production-lines", productionLinesRouter);
-  
-  // Add team analytics routes
-  app.use("/api/manufacturing/team-analytics", teamAnalyticsRouter);
+  // Manufacturing routes are now handled by the consolidated manufacturing router
+  // registered in server/index.ts as app.use('/api/manufacturing', manufacturingRoutes)
   
   // Add material handling routes
   app.get("/api/material/stats", async (_req, res) => {
@@ -2208,8 +2193,7 @@ export function setupWebSocketServer(httpServer: Server, app: Express): WebSocke
       res.status(500).json({ error: 'Failed to sync with Outlook' });
     }
   });
-  // Add manufacturing projects routes
-  app.use("/api/manufacturing/projects", projectsRouter);
+  // Manufacturing projects routes are handled by the consolidated manufacturing router
   
   // Quality inspection template routes are already registered
   

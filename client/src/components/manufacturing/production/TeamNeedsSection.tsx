@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -46,6 +46,7 @@ import {
   Save, 
   PlusCircle, 
   AlertTriangle, 
+  AlertCircle,
   CheckCircle2, 
   Clock, 
   XCircle,
@@ -104,8 +105,10 @@ function TeamNeedDialog({
   const queryClient = useQueryClient();
 
   // Setup form with properly typed values
+  // Setup form with validation
   const form = useForm<TeamNeedFormValues>({
     resolver: zodResolver(teamNeedSchema),
+    mode: "onChange", // Validates on each change
     defaultValues: {
       type: teamNeed?.type || 'part',
       description: teamNeed?.description || '',
@@ -118,10 +121,18 @@ function TeamNeedDialog({
       sendNotification: teamNeed?.notificationSent || false,
     },
   });
+  
+  // Log form validation state in development to help debug form issues
+  useEffect(() => {
+    console.log("Form errors:", form.formState.errors);
+    console.log("Form values:", form.getValues());
+    console.log("Form dirty:", form.formState.isDirty);
+    console.log("Form valid:", form.formState.isValid);
+  }, [form.formState]);
 
   const saveTeamNeedMutation = useMutation({
     mutationFn: async (values: TeamNeedFormValues) => {
-      setIsLoading(true);
+      console.log("Mutation function called with values:", values);
       
       // Determine if we're creating or updating a team need
       const url = isEditing 
@@ -130,20 +141,44 @@ function TeamNeedDialog({
       
       const method = isEditing ? "PATCH" : "POST";
       
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to save team need");
+      console.log(`API Request: ${method} ${url}`);
+      console.log("Request payload:", JSON.stringify(values, null, 2));
+      
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(values),
+        });
+        
+        console.log("API Response status:", response.status);
+        
+        // Get the response body as text first
+        const responseText = await response.text();
+        console.log("Raw response:", responseText);
+        
+        // Now parse it as JSON if possible
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error("Error parsing response as JSON:", parseError);
+          throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
+        }
+        
+        if (!response.ok) {
+          console.error("API request failed:", responseData);
+          throw new Error(responseData.message || "Failed to save team need");
+        }
+        
+        console.log("API request successful:", responseData);
+        return responseData;
+      } catch (error) {
+        console.error("Error in fetch operation:", error);
+        throw error;
       }
-
-      return response.json();
     },
     onSuccess: (data) => {
       console.log("Team need saved successfully:", data);
@@ -183,18 +218,64 @@ function TeamNeedDialog({
   });
 
   const onSubmit = (values: TeamNeedFormValues) => {
-    // Process form values before submitting
-    const formattedValues = {
-      ...values,
-      // Convert empty strings to undefined for optional fields
-      projectId: values.projectId === "none" ? undefined : values.projectId,
-      requiredBy: values.requiredBy?.trim() === "" ? undefined : values.requiredBy,
-      notes: values.notes?.trim() === "" ? undefined : values.notes,
-      owner: values.owner?.trim() === "" ? undefined : values.owner,
-      ownerEmail: values.ownerEmail?.trim() === "" ? undefined : values.ownerEmail
-    };
-    console.log("Submitting team need:", formattedValues);
-    saveTeamNeedMutation.mutate(formattedValues);
+    console.log("onSubmit called with values:", values);
+    
+    // Set loading state immediately
+    setIsLoading(true);
+    
+    try {
+      // Process form values before submitting
+      const formattedValues = {
+        ...values,
+        // Convert empty strings to undefined for optional fields
+        projectId: values.projectId === "none" ? undefined : values.projectId,
+        requiredBy: values.requiredBy?.trim() === "" ? undefined : values.requiredBy,
+        notes: values.notes?.trim() === "" ? undefined : values.notes,
+        owner: values.owner?.trim() === "" ? undefined : values.owner,
+        ownerEmail: values.ownerEmail?.trim() === "" ? undefined : values.ownerEmail
+      };
+      
+      console.log("Submitting team need with formatted values:", formattedValues);
+      console.log("Production line ID:", productionLineId);
+      
+      // Call the mutation to save the team need
+      saveTeamNeedMutation.mutate(formattedValues, {
+        onSuccess: (data) => {
+          console.log("Team need created successfully:", data);
+          toast({
+            title: "Success",
+            description: isEditing ? "Team need updated" : "Team need created",
+          });
+          onOpenChange(false);
+          form.reset();
+          
+          // Invalidate queries to refresh data
+          queryClient.invalidateQueries({ 
+            queryKey: ['/api/manufacturing/production-lines'],
+            type: 'all'
+          });
+          
+          setIsLoading(false);
+        },
+        onError: (error: any) => {
+          console.error("Error creating team need:", error);
+          toast({
+            title: "Error",
+            description: error.message || "Failed to save team need",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+        }
+      });
+    } catch (error) {
+      console.error("Exception in onSubmit:", error);
+      setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -450,7 +531,7 @@ function TeamNeedDialog({
               )}
             />
 
-            <DialogFooter>
+            <DialogFooter className="mt-6">
               <Button 
                 type="button" 
                 variant="outline" 
@@ -461,19 +542,45 @@ function TeamNeedDialog({
               </Button>
               <Button 
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !form.formState.isValid}
+                className={`min-w-[120px] ${!form.formState.isValid && !isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
                   </>
-                ) : (
+                ) : form.formState.isValid ? (
                   <>
                     <Save className="mr-2 h-4 w-4" /> {isEditing ? "Update" : "Create"}
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="mr-2 h-4 w-4" /> Fix Errors
                   </>
                 )}
               </Button>
             </DialogFooter>
+            
+            {/* Form validation summary */}
+            {Object.keys(form.formState.errors).length > 0 && (
+              <div className="mt-4 p-4 border border-red-200 rounded-md bg-red-50">
+                <h4 className="text-sm font-medium text-red-800 flex items-center mb-2">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Please fix the following errors:
+                </h4>
+                <ul className="text-sm text-red-700 list-disc pl-5">
+                  {Object.entries(form.formState.errors).map(([field, error]) => (
+                    <li key={field}>
+                      {field === 'type' && 'Need type is required'}
+                      {field === 'description' && (error?.message || 'Description is required')}
+                      {field === 'priority' && 'Priority is required'}
+                      {field === 'ownerEmail' && (error?.message || 'Valid email is required when assigning an owner')}
+                      {field !== 'type' && field !== 'description' && field !== 'priority' && field !== 'ownerEmail' && (error?.message || `${field} has an error`)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </form>
         </Form>
       </DialogContent>
