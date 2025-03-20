@@ -5,7 +5,7 @@ import {
   Card, 
   CardContent, 
   CardHeader, 
-  CardTitle, 
+  CardTitle,
   CardDescription,
   CardFooter,
 } from "@/components/ui/card";
@@ -26,42 +26,48 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue,
-} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { 
-  Clock, 
-  PlusCircle, 
-  AlertOctagon, 
-  Check, 
-  ArrowRight,
-  X, 
   Loader2, 
-  AlertTriangle,
-  Tool,
+  Save, 
+  PlusCircle, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Clock, 
+  XCircle,
+  CalendarClock,
   Wrench,
-  Package,
+  PackageOpen,
+  Hammer,
   HelpCircle,
-  ThumbsUp,
-  Trash2,
+  Settings
 } from "lucide-react";
+import { format } from "date-fns";
 import { ProductionLine, Project, TeamNeed } from "@/types/manufacturing";
+
+interface TeamNeedsSectionProps {
+  productionLine: ProductionLine;
+  projects: Project[];
+  isExpanded?: boolean;
+}
 
 // Define schema for team need form
 const teamNeedSchema = z.object({
   type: z.enum(['part', 'tool', 'material', 'assistance', 'other']),
-  description: z.string().min(3, { message: "Description must be at least 3 characters" }),
+  description: z.string().min(5, { message: "Description must be at least 5 characters" }),
   priority: z.enum(['low', 'medium', 'high', 'critical']),
   requiredBy: z.string().optional(),
   projectId: z.string().optional(),
@@ -70,50 +76,55 @@ const teamNeedSchema = z.object({
 
 type TeamNeedFormValues = z.infer<typeof teamNeedSchema>;
 
-interface TeamNeedsSectionProps {
-  productionLine: ProductionLine;
-  projects: Project[];
-  isExpanded?: boolean;
-}
-
-interface AddTeamNeedDialogProps {
+interface TeamNeedDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   productionLineId: string;
   projects: Project[];
+  teamNeed?: TeamNeed;
   onSave: () => void;
+  isEditing?: boolean;
 }
 
-function AddTeamNeedDialog({ 
-  open, 
-  onOpenChange, 
+function TeamNeedDialog({
+  open,
+  onOpenChange,
   productionLineId,
   projects,
+  teamNeed,
   onSave,
-}: AddTeamNeedDialogProps) {
+  isEditing = false,
+}: TeamNeedDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Set up form
+  // Setup form
   const form = useForm<TeamNeedFormValues>({
     resolver: zodResolver(teamNeedSchema),
     defaultValues: {
-      type: 'part',
-      description: '',
-      priority: 'medium',
-      requiredBy: '',
-      projectId: '',
-      notes: '',
+      type: teamNeed?.type || 'part',
+      description: teamNeed?.description || '',
+      priority: teamNeed?.priority || 'medium',
+      requiredBy: teamNeed?.requiredBy || '',
+      projectId: teamNeed?.projectId || undefined,
+      notes: teamNeed?.notes || '',
     },
   });
 
-  const addTeamNeedMutation = useMutation({
+  const saveTeamNeedMutation = useMutation({
     mutationFn: async (values: TeamNeedFormValues) => {
       setIsLoading(true);
       
-      const response = await fetch(`/api/manufacturing/production-lines/${productionLineId}/team-needs`, {
-        method: "POST",
+      // Determine if we're creating or updating a team need
+      const url = isEditing 
+        ? `/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs/${teamNeed?.id}`
+        : `/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`;
+      
+      const method = isEditing ? "PATCH" : "POST";
+      
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -122,7 +133,7 @@ function AddTeamNeedDialog({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to add team need");
+        throw new Error(error.message || "Failed to save team need");
       }
 
       return response.json();
@@ -130,21 +141,20 @@ function AddTeamNeedDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ 
         queryKey: ['/api/manufacturing/production-lines'],
-        refetchType: 'all' 
+        refetchType: 'all'
       });
       toast({
         title: "Success",
-        description: "Team need added successfully",
+        description: isEditing ? "Team need updated successfully" : "Team need created successfully",
       });
       setIsLoading(false);
       onOpenChange(false);
       onSave();
-      form.reset();
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to add team need",
+        description: error.message || "Failed to save team need",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -152,32 +162,19 @@ function AddTeamNeedDialog({
   });
 
   const onSubmit = (values: TeamNeedFormValues) => {
-    addTeamNeedMutation.mutate(values);
-  };
-
-  // Render icon based on need type
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'part':
-        return <Package className="h-4 w-4" />;
-      case 'tool':
-        return <Tool className="h-4 w-4" />;
-      case 'material':
-        return <Package className="h-4 w-4" />;
-      case 'assistance':
-        return <HelpCircle className="h-4 w-4" />;
-      default:
-        return <Wrench className="h-4 w-4" />;
-    }
+    saveTeamNeedMutation.mutate(values);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Team Need</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Team Need" : "Create Team Need"}</DialogTitle>
           <DialogDescription>
-            Add a part request, roadblock, or missing item that your team needs
+            {isEditing 
+              ? "Update the details of the existing team need"
+              : "Create a new request for your team needs"
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -188,32 +185,29 @@ function AddTeamNeedDialog({
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
+                  <FormLabel>Need Type</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select type of need" />
+                        <SelectValue placeholder="Select the type of need" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="part">
                         <div className="flex items-center">
-                          <Package className="h-4 w-4 mr-2" />
+                          <PackageOpen className="h-4 w-4 mr-2" />
                           <span>Part</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="tool">
                         <div className="flex items-center">
-                          <Tool className="h-4 w-4 mr-2" />
+                          <Wrench className="h-4 w-4 mr-2" />
                           <span>Tool</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="material">
                         <div className="flex items-center">
-                          <Package className="h-4 w-4 mr-2" />
+                          <Settings className="h-4 w-4 mr-2" />
                           <span>Material</span>
                         </div>
                       </SelectItem>
@@ -225,7 +219,7 @@ function AddTeamNeedDialog({
                       </SelectItem>
                       <SelectItem value="other">
                         <div className="flex items-center">
-                          <Wrench className="h-4 w-4 mr-2" />
+                          <Settings className="h-4 w-4 mr-2" />
                           <span>Other</span>
                         </div>
                       </SelectItem>
@@ -244,13 +238,11 @@ function AddTeamNeedDialog({
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea 
-                      placeholder="Describe what you need..." 
+                      placeholder="Describe what your team needs"
+                      className="min-h-[80px]"
                       {...field} 
                     />
                   </FormControl>
-                  <FormDescription>
-                    Be specific about what's needed and why it's important
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -263,40 +255,17 @@ function AddTeamNeedDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Priority</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="low">
-                          <div className="flex items-center">
-                            <Badge variant="outline" className="mr-2">Low</Badge>
-                            <span>Can wait</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="medium">
-                          <div className="flex items-center">
-                            <Badge variant="secondary" className="mr-2">Medium</Badge>
-                            <span>Somewhat urgent</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="high">
-                          <div className="flex items-center">
-                            <Badge variant="default" className="mr-2">High</Badge>
-                            <span>Urgent need</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="critical">
-                          <div className="flex items-center">
-                            <Badge variant="destructive" className="mr-2">Critical</Badge>
-                            <span>Blocking progress</span>
-                          </div>
-                        </SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -327,19 +296,19 @@ function AddTeamNeedDialog({
               name="projectId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Related Project</FormLabel>
+                  <FormLabel>Associated Project (Optional)</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select related project (optional)" />
+                        <SelectValue placeholder="Select a project (optional)" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">-- No specific project --</SelectItem>
-                      {projects.map(project => (
+                      <SelectItem value="">No specific project</SelectItem>
+                      {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.projectNumber || project.name}
                         </SelectItem>
@@ -356,10 +325,11 @@ function AddTeamNeedDialog({
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Additional Notes</FormLabel>
+                  <FormLabel>Additional Notes (Optional)</FormLabel>
                   <FormControl>
                     <Textarea 
-                      placeholder="Any additional information..." 
+                      placeholder="Any additional details or context"
+                      className="min-h-[60px]"
                       {...field} 
                     />
                   </FormControl>
@@ -383,11 +353,11 @@ function AddTeamNeedDialog({
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
                   </>
                 ) : (
                   <>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Need
+                    <Save className="mr-2 h-4 w-4" /> {isEditing ? "Update" : "Create"}
                   </>
                 )}
               </Button>
@@ -399,329 +369,66 @@ function AddTeamNeedDialog({
   );
 }
 
-interface UpdateTeamNeedDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  teamNeed: TeamNeed;
-  productionLineId: string;
-  onSave: () => void;
-}
-
-function UpdateTeamNeedDialog({ 
-  open, 
-  onOpenChange, 
-  teamNeed,
-  productionLineId,
-  onSave,
-}: UpdateTeamNeedDialogProps) {
-  const [isLoading, setIsLoading] = useState(false);
+export function TeamNeedsSection({ 
+  productionLine, 
+  projects,
+  isExpanded = false,
+}: TeamNeedsSectionProps) {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedTeamNeed, setSelectedTeamNeed] = useState<TeamNeed | null>(null);
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const updateTeamNeedMutation = useMutation({
-    mutationFn: async () => {
-      setIsLoading(true);
-      
-      // Mark the need as resolved
-      const resolvedNeed = {
-        ...teamNeed,
-        status: 'resolved',
-        resolvedAt: new Date().toISOString(),
-      };
-      
-      const response = await fetch(`/api/manufacturing/production-lines/${productionLineId}/team-needs/${teamNeed.id}`, {
+  // Check if teamNeeds exists in the production line, if not create defaults
+  const teamNeeds = productionLine.teamNeeds || [];
+
+  // Filter team needs by status
+  const pendingNeeds = teamNeeds.filter(need => need.status === 'pending');
+  const inProgressNeeds = teamNeeds.filter(need => need.status === 'in_progress');
+  const resolvedNeeds = teamNeeds.filter(need => need.status === 'resolved');
+
+  // Function to handle editing a team need
+  const handleEditTeamNeed = (teamNeed: TeamNeed) => {
+    setSelectedTeamNeed(teamNeed);
+    setEditDialogOpen(true);
+  };
+
+  // Function to handle updating status of a team need
+  const handleUpdateStatus = async (teamNeedId: string, newStatus: 'pending' | 'in_progress' | 'resolved' | 'cancelled') => {
+    setIsStatusUpdating(true);
+    try {
+      const response = await fetch(`/api/manufacturing/team-analytics/production-lines/${productionLine.id}/team-needs/${teamNeedId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(resolvedNeed),
+        body: JSON.stringify({ status: newStatus }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to update team need");
+        throw new Error(error.message || "Failed to update status");
       }
 
-      return response.json();
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ 
         queryKey: ['/api/manufacturing/production-lines'],
-        refetchType: 'all' 
+        refetchType: 'all'
       });
       toast({
         title: "Success",
-        description: "Team need marked as resolved",
+        description: "Status updated successfully",
       });
-      setIsLoading(false);
-      onOpenChange(false);
-      onSave();
-    },
-    onError: (error) => {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update team need",
+        description: error.message || "Failed to update status",
         variant: "destructive",
       });
-      setIsLoading(false);
-    },
-  });
-
-  const deleteTeamNeedMutation = useMutation({
-    mutationFn: async () => {
-      setIsLoading(true);
-      
-      const response = await fetch(`/api/manufacturing/production-lines/${productionLineId}/team-needs/${teamNeed.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to delete team need");
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/manufacturing/production-lines'],
-        refetchType: 'all' 
-      });
-      toast({
-        title: "Success",
-        description: "Team need deleted successfully",
-      });
-      setIsLoading(false);
-      onOpenChange(false);
-      onSave();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete team need",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-    },
-  });
-
-  const handleResolve = () => {
-    updateTeamNeedMutation.mutate();
-  };
-
-  const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this need?")) {
-      deleteTeamNeedMutation.mutate();
+    } finally {
+      setIsStatusUpdating(false);
     }
-  };
-
-  // Get priority badge variant
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-        return <Badge variant="destructive">Critical</Badge>;
-      case 'high':
-        return <Badge variant="default">High</Badge>;
-      case 'medium':
-        return <Badge variant="secondary">Medium</Badge>;
-      default:
-        return <Badge variant="outline">Low</Badge>;
-    }
-  };
-
-  // Get need type icon
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'part':
-        return <Package className="h-4 w-4" />;
-      case 'tool':
-        return <Tool className="h-4 w-4" />;
-      case 'material':
-        return <Package className="h-4 w-4" />;
-      case 'assistance':
-        return <HelpCircle className="h-4 w-4" />;
-      default:
-        return <Wrench className="h-4 w-4" />;
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center">
-            {getTypeIcon(teamNeed.type)}
-            <span className="ml-2">
-              {teamNeed.type.charAt(0).toUpperCase() + teamNeed.type.slice(1)} Need
-            </span>
-          </DialogTitle>
-          <DialogDescription>
-            View details and resolve this team need
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-medium">Priority</h3>
-              {getPriorityBadge(teamNeed.priority)}
-            </div>
-            {teamNeed.requiredBy && (
-              <div className="flex items-center text-sm">
-                <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>Required by: {new Date(teamNeed.requiredBy).toLocaleDateString()}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Description</h3>
-            <div className="bg-muted p-3 rounded-md">
-              {teamNeed.description}
-            </div>
-          </div>
-
-          {teamNeed.notes && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Additional Notes</h3>
-              <div className="bg-muted/50 p-3 rounded-md text-sm">
-                {teamNeed.notes}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Status Information</h3>
-            <div className="bg-muted/50 p-3 rounded-md space-y-2">
-              <div className="flex justify-between items-center">
-                <div className="text-sm">Status</div>
-                <Badge 
-                  variant={
-                    teamNeed.status === 'resolved' ? 'default' :
-                    teamNeed.status === 'in_progress' ? 'secondary' :
-                    teamNeed.status === 'cancelled' ? 'destructive' :
-                    'outline'
-                  }
-                >
-                  {teamNeed.status.replace('_', ' ')}
-                </Badge>
-              </div>
-              <div className="text-sm flex">
-                <span className="text-muted-foreground">Requested: </span>
-                <span className="ml-1">{new Date(teamNeed.requestedAt).toLocaleString()}</span>
-              </div>
-              {teamNeed.requestedBy && (
-                <div className="text-sm flex">
-                  <span className="text-muted-foreground">Requested by: </span>
-                  <span className="ml-1">{teamNeed.requestedBy}</span>
-                </div>
-              )}
-              {teamNeed.resolvedAt && (
-                <div className="text-sm flex">
-                  <span className="text-muted-foreground">Resolved: </span>
-                  <span className="ml-1">{new Date(teamNeed.resolvedAt).toLocaleString()}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="flex gap-2">
-          <div className="flex-1 flex gap-2 justify-start">
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={handleDelete}
-              disabled={isLoading}
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Delete
-            </Button>
-          </div>
-          
-          <Button 
-            variant="outline" 
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}
-          >
-            Close
-          </Button>
-          
-          {teamNeed.status !== 'resolved' && (
-            <Button 
-              onClick={handleResolve}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Resolving...
-                </>
-              ) : (
-                <>
-                  <ThumbsUp className="mr-2 h-4 w-4" /> Mark as Resolved
-                </>
-              )}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function TeamNeedsSection({ 
-  productionLine, 
-  projects,
-  isExpanded = false
-}: TeamNeedsSectionProps) {
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
-  const [selectedNeed, setSelectedNeed] = useState<TeamNeed | null>(null);
-
-  // Get all team needs
-  const teamNeeds = productionLine.teamNeeds || [];
-  const pendingNeeds = teamNeeds.filter(need => need.status === 'pending' || need.status === 'in_progress');
-  const resolvedNeeds = teamNeeds.filter(need => need.status === 'resolved' || need.status === 'cancelled');
-
-  // Function to handle opening the edit dialog
-  const handleViewNeed = (need: TeamNeed) => {
-    setSelectedNeed(need);
-    setUpdateDialogOpen(true);
-  };
-
-  // Function to get priority badge variant
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-        return <Badge variant="destructive">Critical</Badge>;
-      case 'high':
-        return <Badge variant="default">High</Badge>;
-      case 'medium':
-        return <Badge variant="secondary">Medium</Badge>;
-      default:
-        return <Badge variant="outline">Low</Badge>;
-    }
-  };
-
-  // Function to get need type icon
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'part':
-        return <Package className="h-4 w-4 text-blue-500" />;
-      case 'tool':
-        return <Tool className="h-4 w-4 text-orange-500" />;
-      case 'material':
-        return <Package className="h-4 w-4 text-green-500" />;
-      case 'assistance':
-        return <HelpCircle className="h-4 w-4 text-purple-500" />;
-      default:
-        return <Wrench className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  // Function to get type name with proper formatting
-  const getTypeName = (type: string) => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
   // Function to handle refreshing the data
@@ -729,166 +436,310 @@ export function TeamNeedsSection({
     // Not needed since we invalidate queries in the mutations
   };
 
+  // Function to get project name by ID
+  const getProjectName = (projectId?: string) => {
+    if (!projectId) return null;
+    const project = projects.find(p => p.id === projectId);
+    return project ? (project.projectNumber || project.name) : null;
+  };
+  
+  // Function to render priority badge
+  const renderPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case 'low':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">Low</Badge>;
+      case 'medium':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">Medium</Badge>;
+      case 'high':
+        return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">High</Badge>;
+      case 'critical':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">Critical</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
+  // Function to render type icon
+  const renderTypeIcon = (type: string) => {
+    switch (type) {
+      case 'part':
+        return <PackageOpen className="h-4 w-4 text-blue-500" />;
+      case 'tool':
+        return <Wrench className="h-4 w-4 text-purple-500" />;
+      case 'material':
+        return <Settings className="h-4 w-4 text-orange-500" />;
+      case 'assistance':
+        return <HelpCircle className="h-4 w-4 text-pink-500" />;
+      case 'other':
+        return <Settings className="h-4 w-4" />;
+      default:
+        return <Settings className="h-4 w-4" />;
+    }
+  };
+
   return (
-    <div className={`space-y-4 ${isExpanded ? '' : 'max-h-[400px] overflow-y-auto'}`}>
+    <div className={`space-y-4 ${isExpanded ? '' : 'max-h-[500px] overflow-y-auto'}`}>
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">Team Needs</h3>
           <p className="text-sm text-muted-foreground">
-            Track parts, tools, and assistance needed by the team
+            Manage requests for parts, tools, and assistance
           </p>
         </div>
-        <Button onClick={() => setAddDialogOpen(true)}>
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Add Need
+        <Button 
+          variant="default" 
+          size="sm" 
+          onClick={() => setCreateDialogOpen(true)}
+        >
+          <PlusCircle className="h-4 w-4 mr-1" /> Request Item
         </Button>
       </div>
 
-      {/* Active Needs */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-sm font-medium">Active Needs</CardTitle>
-            <Badge variant="outline">{pendingNeeds.length} pending</Badge>
-          </div>
-          <CardDescription>
-            Parts, tools, and assistance needed for ongoing work
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y">
-            {pendingNeeds.length > 0 ? (
-              pendingNeeds
-                .sort((a, b) => {
-                  // Sort by priority (critical first)
-                  const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-                  return priorityOrder[a.priority as keyof typeof priorityOrder] - 
-                         priorityOrder[b.priority as keyof typeof priorityOrder];
-                })
-                .map(need => {
-                  const relatedProject = projects.find(p => p.id === need.projectId);
-                  return (
-                    <div 
-                      key={need.id} 
-                      className="p-3 hover:bg-muted/50 cursor-pointer"
-                      onClick={() => handleViewNeed(need)}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          {getTypeIcon(need.type)}
-                          <span className="font-medium">
-                            {getTypeName(need.type)}
-                          </span>
-                        </div>
-                        {getPriorityBadge(need.priority)}
-                      </div>
-                      <p className="text-sm mb-2">{need.description}</p>
-                      <div className="flex justify-between items-center text-xs text-muted-foreground">
-                        <div className="flex items-center">
-                          {need.requiredBy && (
-                            <div className="flex items-center mr-3">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {new Date(need.requiredBy).toLocaleDateString()}
-                            </div>
-                          )}
-                          {relatedProject && (
-                            <div>Project: {relatedProject.projectNumber}</div>
-                          )}
-                        </div>
-                        <div>
-                          {new Date(need.requestedAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-            ) : (
-              <div className="p-6 text-center text-muted-foreground">
-                <div className="flex justify-center mb-2">
-                  <Check className="h-6 w-6" />
-                </div>
-                <p>No active needs at the moment</p>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="mt-2"
-                  onClick={() => setAddDialogOpen(true)}
-                >
-                  <PlusCircle className="h-4 w-4 mr-1" />
-                  Add a Need
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Resolved Needs */}
-      {resolvedNeeds.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-sm font-medium">Resolved Needs</CardTitle>
-              <Badge variant="outline">{resolvedNeeds.length} completed</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y">
-              {resolvedNeeds
-                .slice(0, 3) // Show only the most recent 3 resolved needs
-                .map(need => (
-                  <div 
-                    key={need.id} 
-                    className="p-3 hover:bg-muted/50 cursor-pointer opacity-70"
-                    onClick={() => handleViewNeed(need)}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(need.type)}
-                        <span className="font-medium line-through">
-                          {getTypeName(need.type)}
-                        </span>
-                      </div>
-                      <Badge variant="outline">Resolved</Badge>
-                    </div>
-                    <p className="text-sm mb-2 line-through">{need.description}</p>
-                    <div className="flex justify-between items-center text-xs text-muted-foreground">
-                      <div>
-                        Resolved: {need.resolvedAt && new Date(need.resolvedAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              
-              {resolvedNeeds.length > 3 && (
-                <div className="p-3 text-center">
-                  <Button variant="ghost" size="sm">
-                    View All {resolvedNeeds.length} Resolved Needs
-                  </Button>
-                </div>
-              )}
+      {teamNeeds.length === 0 ? (
+        <Card className="bg-muted/20">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex flex-col items-center justify-center text-center">
+              <PackageOpen className="h-8 w-8 mb-2 text-muted-foreground" />
+              <h3 className="text-lg font-medium">No Requests</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Your team hasn't requested any parts, tools, or assistance yet. Click the "Request Item" button to create one.
+              </p>
             </div>
           </CardContent>
         </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Pending Needs Column */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2 text-orange-500" />
+                Pending Requests ({pendingNeeds.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2">
+              <div className="space-y-2">
+                {pendingNeeds.length > 0 ? pendingNeeds.map((need) => (
+                  <Card key={need.id} className="bg-muted/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="flex items-center">
+                          {renderTypeIcon(need.type)}
+                          <span className="ml-2 font-medium">{need.type.charAt(0).toUpperCase() + need.type.slice(1)}</span>
+                        </div>
+                        {renderPriorityBadge(need.priority)}
+                      </div>
+                      <p className="text-sm mb-2">{need.description}</p>
+                      
+                      {need.projectId && (
+                        <div className="flex items-center text-xs text-muted-foreground mb-1">
+                          <span>Project: {getProjectName(need.projectId)}</span>
+                        </div>
+                      )}
+                      
+                      {need.requiredBy && (
+                        <div className="flex items-center text-xs text-muted-foreground mb-2">
+                          <CalendarClock className="h-3 w-3 mr-1" />
+                          <span>Needed by: {new Date(need.requiredBy).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(need.requestedAt).toLocaleDateString()}
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => handleUpdateStatus(need.id, 'in_progress')}
+                            disabled={isStatusUpdating}
+                          >
+                            <Clock className="h-3.5 w-3.5 mr-1" />
+                            Start
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => handleEditTeamNeed(need)}
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )) : (
+                  <div className="py-4 text-center text-muted-foreground text-sm">
+                    No pending requests
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* In Progress Needs Column */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center">
+                <Clock className="h-4 w-4 mr-2 text-blue-500" />
+                In Progress ({inProgressNeeds.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2">
+              <div className="space-y-2">
+                {inProgressNeeds.length > 0 ? inProgressNeeds.map((need) => (
+                  <Card key={need.id} className="bg-muted/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="flex items-center">
+                          {renderTypeIcon(need.type)}
+                          <span className="ml-2 font-medium">{need.type.charAt(0).toUpperCase() + need.type.slice(1)}</span>
+                        </div>
+                        {renderPriorityBadge(need.priority)}
+                      </div>
+                      <p className="text-sm mb-2">{need.description}</p>
+                      
+                      {need.projectId && (
+                        <div className="flex items-center text-xs text-muted-foreground mb-1">
+                          <span>Project: {getProjectName(need.projectId)}</span>
+                        </div>
+                      )}
+                      
+                      {need.requiredBy && (
+                        <div className="flex items-center text-xs text-muted-foreground mb-2">
+                          <CalendarClock className="h-3 w-3 mr-1" />
+                          <span>Needed by: {new Date(need.requiredBy).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(need.requestedAt).toLocaleDateString()}
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => handleUpdateStatus(need.id, 'resolved')}
+                            disabled={isStatusUpdating}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                            Complete
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => handleEditTeamNeed(need)}
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )) : (
+                  <div className="py-4 text-center text-muted-foreground text-sm">
+                    No in-progress requests
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Resolved Needs Column */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center">
+                <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                Resolved ({resolvedNeeds.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2">
+              <div className="space-y-2">
+                {resolvedNeeds.length > 0 ? resolvedNeeds.slice(0, 5).map((need) => (
+                  <Card key={need.id} className="bg-muted/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="flex items-center">
+                          {renderTypeIcon(need.type)}
+                          <span className="ml-2 font-medium">{need.type.charAt(0).toUpperCase() + need.type.slice(1)}</span>
+                        </div>
+                        {renderPriorityBadge(need.priority)}
+                      </div>
+                      <p className="text-sm mb-2">{need.description}</p>
+                      
+                      {need.projectId && (
+                        <div className="flex items-center text-xs text-muted-foreground mb-1">
+                          <span>Project: {getProjectName(need.projectId)}</span>
+                        </div>
+                      )}
+                      
+                      {need.resolvedAt && (
+                        <div className="flex items-center text-xs text-muted-foreground mb-2">
+                          <CheckCircle2 className="h-3 w-3 mr-1 text-green-500" />
+                          <span>Resolved: {new Date(need.resolvedAt).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <div className="text-xs text-muted-foreground">
+                          Requested: {new Date(need.requestedAt).toLocaleDateString()}
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => handleUpdateStatus(need.id, 'pending')}
+                            disabled={isStatusUpdating}
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                            Reopen
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )) : (
+                  <div className="py-4 text-center text-muted-foreground text-sm">
+                    No resolved requests
+                  </div>
+                )}
+                {resolvedNeeds.length > 5 && (
+                  <div className="text-center text-xs text-muted-foreground py-2">
+                    +{resolvedNeeds.length - 5} more resolved requests
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      {/* Add Team Need Dialog */}
-      <AddTeamNeedDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
+      {/* Create Team Need Dialog */}
+      <TeamNeedDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
         productionLineId={productionLine.id}
         projects={projects}
         onSave={handleRefresh}
       />
 
-      {/* Update Team Need Dialog */}
-      {selectedNeed && (
-        <UpdateTeamNeedDialog
-          open={updateDialogOpen}
-          onOpenChange={setUpdateDialogOpen}
-          teamNeed={selectedNeed}
+      {/* Edit Team Need Dialog */}
+      {selectedTeamNeed && (
+        <TeamNeedDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
           productionLineId={productionLine.id}
+          projects={projects}
+          teamNeed={selectedTeamNeed}
           onSave={handleRefresh}
+          isEditing
         />
       )}
     </div>

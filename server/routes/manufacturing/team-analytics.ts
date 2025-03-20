@@ -1,298 +1,300 @@
-import express, { Router, Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
-import { Container, SqlQuerySpec } from '@azure/cosmos';
-import { getContainer } from '../../../server/services/azure/cosmos_service';
-import { AuthenticatedRequest, authMiddleware } from '../../auth-middleware';
-import { TeamNeed, ProjectHours } from '../../../client/src/types/manufacturing';
+import express, { Request, Response, Router } from "express";
+import { v4 as uuidv4 } from "uuid";
+import { authMiddleware, AuthenticatedRequest } from "../../auth-middleware";
+import { CosmosClient, Container, Database } from "@azure/cosmos";
 
 const router: Router = express.Router();
 
-// Get the production lines container
-let productionLinesContainer: Container | null = null;
+let cosmosClient: CosmosClient;
+let database: Database;
+let productionLinesContainer: Container;
 
+// Initialize the Cosmos DB container
 async function ensureContainer() {
-  if (!productionLinesContainer) {
-    productionLinesContainer = getContainer('production-lines');
-    if (!productionLinesContainer) {
-      throw new Error('Failed to access production-lines container');
+  try {
+    const databaseName = process.env.AZURE_COSMOS_DATABASE || "nomad-manufacturing";
+    const containerName = "production-lines";
+    
+    if (!cosmosClient) {
+      const endpoint = process.env.AZURE_COSMOS_ENDPOINT || "";
+      const key = process.env.AZURE_COSMOS_KEY || "";
+      cosmosClient = new CosmosClient({ endpoint, key });
     }
+    
+    if (!database) {
+      database = await cosmosClient.databases.createIfNotExists({ id: databaseName }).then(response => response.database);
+    }
+    
+    if (!productionLinesContainer) {
+      productionLinesContainer = await database.containers.createIfNotExists({ id: containerName }).then(response => response.container);
+    }
+    
+    return productionLinesContainer;
+  } catch (error) {
+    console.error("Error initializing containers:", error);
+    throw error;
   }
-  return productionLinesContainer;
 }
 
-// Endpoint to get project hours for a production line
+// Get project hours for a specific production line
 router.get('/production-lines/:id/project-hours', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const container = await ensureContainer();
-    const { id } = req.params;
-
-    // Query the production line
-    const { resource: productionLine } = await container.item(id, id).read();
+    await ensureContainer();
+    
+    const productionLineId = req.params.id;
+    
+    // Get the production line
+    const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
     
     if (!productionLine) {
-      return res.status(404).json({ message: 'Production line not found' });
+      return res.status(404).json({ message: "Production line not found" });
     }
-
-    // Get project hours from the production line
-    const projectHours = productionLine.teamAnalytics?.projectHours || [];
     
-    res.json(projectHours);
+    // Return project hours if they exist, otherwise return empty array
+    res.json(productionLine.teamAnalytics?.projectHours || []);
   } catch (error) {
-    console.error('Error fetching project hours:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fetching project hours:", error);
+    res.status(500).json({ message: "Failed to fetch project hours" });
   }
 });
 
-// Endpoint to update project hours for a production line
+// Update project hours for a specific production line and project
 router.patch('/production-lines/:id/project-hours/:projectId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const container = await ensureContainer();
-    const { id, projectId } = req.params;
+    await ensureContainer();
+    
+    const productionLineId = req.params.id;
+    const projectId = req.params.projectId;
     const { earnedHours, allocatedHours } = req.body;
-
-    // Validate inputs
-    if (typeof earnedHours !== 'number' || typeof allocatedHours !== 'number') {
-      return res.status(400).json({ message: 'Invalid input. earnedHours and allocatedHours must be numbers' });
-    }
-
-    // Query the production line
-    const { resource: productionLine } = await container.item(id, id).read();
+    
+    // Get the production line
+    const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
     
     if (!productionLine) {
-      return res.status(404).json({ message: 'Production line not found' });
+      return res.status(404).json({ message: "Production line not found" });
     }
-
+    
     // Initialize teamAnalytics if it doesn't exist
     if (!productionLine.teamAnalytics) {
       productionLine.teamAnalytics = {
         totalCapacity: productionLine.manpowerCapacity ? productionLine.manpowerCapacity * 40 : 0,
         utilization: 0,
         efficiency: 0,
-        projectHours: [],
+        projectHours: []
       };
     }
-
-    // Initialize projectHours array if it doesn't exist
-    if (!productionLine.teamAnalytics.projectHours) {
-      productionLine.teamAnalytics.projectHours = [];
-    }
-
-    // Find the project hours entry
-    const projectHoursIndex = productionLine.teamAnalytics.projectHours.findIndex(
-      (ph: ProjectHours) => ph.projectId === projectId
+    
+    // Check if project hours already exist for this project
+    const existingProjectHoursIndex = productionLine.teamAnalytics.projectHours.findIndex(
+      (ph: { projectId: string }) => ph.projectId === projectId
     );
-
-    // Update existing entry or add a new one
-    if (projectHoursIndex >= 0) {
-      productionLine.teamAnalytics.projectHours[projectHoursIndex].earnedHours = earnedHours;
-      productionLine.teamAnalytics.projectHours[projectHoursIndex].allocatedHours = allocatedHours;
-      productionLine.teamAnalytics.projectHours[projectHoursIndex].lastUpdated = new Date().toISOString();
-      productionLine.teamAnalytics.projectHours[projectHoursIndex].updatedBy = req.user?.name || 'Unknown';
-    } else {
-      const newProjectHours: ProjectHours = {
-        projectId,
-        earnedHours,
-        allocatedHours,
+    
+    // If project hours exist, update them, otherwise create new
+    if (existingProjectHoursIndex !== -1) {
+      productionLine.teamAnalytics.projectHours[existingProjectHoursIndex] = {
+        ...productionLine.teamAnalytics.projectHours[existingProjectHoursIndex],
+        earnedHours: Number(earnedHours),
+        allocatedHours: Number(allocatedHours),
         lastUpdated: new Date().toISOString(),
-        updatedBy: req.user?.name || 'Unknown',
+        updatedBy: req.user?.name || "Unknown"
+      };
+    } else {
+      const newProjectHours = {
+        projectId,
+        earnedHours: Number(earnedHours),
+        allocatedHours: Number(allocatedHours),
+        lastUpdated: new Date().toISOString(),
+        updatedBy: req.user?.name || "Unknown"
       };
       productionLine.teamAnalytics.projectHours.push(newProjectHours);
     }
-
-    // Recalculate team analytics metrics
-    let totalEarnedHours = 0;
-    let totalAllocatedHours = 0;
-
-    productionLine.teamAnalytics.projectHours.forEach((ph: ProjectHours) => {
-      totalEarnedHours += ph.earnedHours;
-      totalAllocatedHours += ph.allocatedHours;
-    });
-
-    // Update efficiency and utilization
-    productionLine.teamAnalytics.efficiency = totalAllocatedHours > 0 
-      ? totalEarnedHours / totalAllocatedHours 
-      : 0;
-
-    productionLine.teamAnalytics.utilization = productionLine.teamAnalytics.totalCapacity > 0 
-      ? totalAllocatedHours / productionLine.teamAnalytics.totalCapacity 
-      : 0;
-
-    // Update the production line
-    const { resource: updatedProductionLine } = await container.item(id, id).replace(productionLine);
     
-    res.json({
-      success: true,
-      projectHours: updatedProductionLine.teamAnalytics.projectHours,
-      teamAnalytics: updatedProductionLine.teamAnalytics
-    });
+    // Calculate overall efficiency based on total earned / total allocated hours
+    const totalEarnedHours = productionLine.teamAnalytics.projectHours.reduce(
+      (total: number, ph: { earnedHours: number }) => total + Number(ph.earnedHours), 0
+    );
+    const totalAllocatedHours = productionLine.teamAnalytics.projectHours.reduce(
+      (total: number, ph: { allocatedHours: number }) => total + Number(ph.allocatedHours), 0
+    );
+    
+    productionLine.teamAnalytics.efficiency = totalAllocatedHours > 0 
+      ? (totalEarnedHours / totalAllocatedHours) * 100 
+      : 0;
+    
+    productionLine.teamAnalytics.utilization = productionLine.teamAnalytics.totalCapacity > 0 
+      ? (totalAllocatedHours / productionLine.teamAnalytics.totalCapacity) * 100 
+      : 0;
+    
+    // Update the production line
+    await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+    
+    res.json({ message: "Project hours updated successfully", projectHours: productionLine.teamAnalytics.projectHours });
   } catch (error) {
-    console.error('Error updating project hours:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error updating project hours:", error);
+    res.status(500).json({ message: "Failed to update project hours" });
   }
 });
 
-// Endpoint to get team needs for a production line
+// Get team needs for a specific production line
 router.get('/production-lines/:id/team-needs', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const container = await ensureContainer();
-    const { id } = req.params;
-
-    // Query the production line
-    const { resource: productionLine } = await container.item(id, id).read();
+    await ensureContainer();
+    
+    const productionLineId = req.params.id;
+    
+    // Get the production line
+    const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
     
     if (!productionLine) {
-      return res.status(404).json({ message: 'Production line not found' });
+      return res.status(404).json({ message: "Production line not found" });
     }
-
-    // Get team needs from the production line
-    const teamNeeds = productionLine.teamNeeds || [];
     
-    res.json(teamNeeds);
+    // Return team needs if they exist, otherwise return empty array
+    res.json(productionLine.teamNeeds || []);
   } catch (error) {
-    console.error('Error fetching team needs:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fetching team needs:", error);
+    res.status(500).json({ message: "Failed to fetch team needs" });
   }
 });
 
-// Endpoint to add a team need to a production line
+// Create a new team need for a production line
 router.post('/production-lines/:id/team-needs', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const container = await ensureContainer();
-    const { id } = req.params;
+    await ensureContainer();
+    
+    const productionLineId = req.params.id;
     const { type, description, priority, requiredBy, projectId, notes } = req.body;
-
-    // Validate inputs
-    if (!type || !description || !priority) {
-      return res.status(400).json({ message: 'Invalid input. type, description, and priority are required' });
-    }
-
-    // Query the production line
-    const { resource: productionLine } = await container.item(id, id).read();
+    
+    // Get the production line
+    const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
     
     if (!productionLine) {
-      return res.status(404).json({ message: 'Production line not found' });
+      return res.status(404).json({ message: "Production line not found" });
     }
-
-    // Initialize teamNeeds array if it doesn't exist
+    
+    // Initialize teamNeeds if it doesn't exist
     if (!productionLine.teamNeeds) {
       productionLine.teamNeeds = [];
     }
-
+    
     // Create new team need
-    const newTeamNeed: TeamNeed = {
+    const newTeamNeed = {
       id: uuidv4(),
       type,
       description,
       priority,
-      requiredBy,
-      projectId,
-      notes,
-      requestedBy: req.user?.name || 'Unknown',
+      requiredBy: requiredBy || undefined,
+      projectId: projectId || undefined,
+      notes: notes || undefined,
+      requestedBy: req.user?.name || "Unknown",
       requestedAt: new Date().toISOString(),
       status: 'pending',
+      resolvedAt: undefined,
+      resolvedBy: undefined
     };
-
-    // Add the team need
-    productionLine.teamNeeds.push(newTeamNeed);
-
-    // Update the production line
-    const { resource: updatedProductionLine } = await container.item(id, id).replace(productionLine);
     
-    res.json({
-      success: true,
-      teamNeed: newTeamNeed,
-      teamNeeds: updatedProductionLine.teamNeeds
-    });
+    // Add the new team need to the array
+    productionLine.teamNeeds.push(newTeamNeed);
+    
+    // Update the production line
+    await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+    
+    res.status(201).json({ message: "Team need created successfully", teamNeed: newTeamNeed });
   } catch (error) {
-    console.error('Error adding team need:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error creating team need:", error);
+    res.status(500).json({ message: "Failed to create team need" });
   }
 });
 
-// Endpoint to update a team need
+// Update a team need for a production line
 router.patch('/production-lines/:id/team-needs/:needId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const container = await ensureContainer();
-    const { id, needId } = req.params;
+    await ensureContainer();
+    
+    const productionLineId = req.params.id;
+    const teamNeedId = req.params.needId;
     const updates = req.body;
-
-    // Query the production line
-    const { resource: productionLine } = await container.item(id, id).read();
+    
+    // Get the production line
+    const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
     
     if (!productionLine) {
-      return res.status(404).json({ message: 'Production line not found' });
+      return res.status(404).json({ message: "Production line not found" });
     }
-
-    // Initialize teamNeeds array if it doesn't exist
+    
+    // Find the team need to update
     if (!productionLine.teamNeeds) {
-      return res.status(404).json({ message: 'Team need not found' });
+      return res.status(404).json({ message: "Team need not found" });
     }
-
-    // Find the team need
+    
     const teamNeedIndex = productionLine.teamNeeds.findIndex(
-      (need: TeamNeed) => need.id === needId
+      (need: { id: string }) => need.id === teamNeedId
     );
-
+    
     if (teamNeedIndex === -1) {
-      return res.status(404).json({ message: 'Team need not found' });
+      return res.status(404).json({ message: "Team need not found" });
     }
-
-    // Update the team need (merging with existing data)
+    
+    // Special handling for status changes
+    if (updates.status && updates.status !== productionLine.teamNeeds[teamNeedIndex].status) {
+      // If changing to resolved, add resolved info
+      if (updates.status === 'resolved') {
+        updates.resolvedAt = new Date().toISOString();
+        updates.resolvedBy = req.user?.name || "Unknown";
+      }
+    }
+    
+    // Update the team need
     productionLine.teamNeeds[teamNeedIndex] = {
       ...productionLine.teamNeeds[teamNeedIndex],
-      ...updates,
+      ...updates
     };
-
-    // Update the production line
-    const { resource: updatedProductionLine } = await container.item(id, id).replace(productionLine);
     
-    res.json({
-      success: true,
-      teamNeed: productionLine.teamNeeds[teamNeedIndex],
-      teamNeeds: updatedProductionLine.teamNeeds
+    // Update the production line
+    await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+    
+    res.json({ 
+      message: "Team need updated successfully", 
+      teamNeed: productionLine.teamNeeds[teamNeedIndex] 
     });
   } catch (error) {
-    console.error('Error updating team need:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error updating team need:", error);
+    res.status(500).json({ message: "Failed to update team need" });
   }
 });
 
-// Endpoint to delete a team need
+// Delete a team need from a production line
 router.delete('/production-lines/:id/team-needs/:needId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const container = await ensureContainer();
-    const { id, needId } = req.params;
-
-    // Query the production line
-    const { resource: productionLine } = await container.item(id, id).read();
+    await ensureContainer();
+    
+    const productionLineId = req.params.id;
+    const teamNeedId = req.params.needId;
+    
+    // Get the production line
+    const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
     
     if (!productionLine) {
-      return res.status(404).json({ message: 'Production line not found' });
+      return res.status(404).json({ message: "Production line not found" });
     }
-
-    // Initialize teamNeeds array if it doesn't exist
-    if (!productionLine.teamNeeds) {
-      return res.status(404).json({ message: 'Team need not found' });
-    }
-
-    // Check if the team need exists
-    const originalLength = productionLine.teamNeeds.length;
-    productionLine.teamNeeds = productionLine.teamNeeds.filter((need: TeamNeed) => need.id !== needId);
-
-    if (productionLine.teamNeeds.length === originalLength) {
-      return res.status(404).json({ message: 'Team need not found' });
-    }
-
-    // Update the production line
-    const { resource: updatedProductionLine } = await container.item(id, id).replace(productionLine);
     
-    res.json({
-      success: true,
-      teamNeeds: updatedProductionLine.teamNeeds
-    });
+    // Check if team needs exist
+    if (!productionLine.teamNeeds) {
+      return res.status(404).json({ message: "Team need not found" });
+    }
+    
+    // Remove the team need from the array
+    productionLine.teamNeeds = productionLine.teamNeeds.filter(
+      (need: { id: string }) => need.id !== teamNeedId
+    );
+    
+    // Update the production line
+    await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+    
+    res.json({ message: "Team need deleted successfully" });
   } catch (error) {
-    console.error('Error deleting team need:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error deleting team need:", error);
+    res.status(500).json({ message: "Failed to delete team need" });
   }
 });
 
