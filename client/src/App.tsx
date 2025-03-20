@@ -16,6 +16,7 @@ import Navbar from "@/components/layout/Navbar";
 import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from "@/lib/msal-config";
+import TeamNeedsNotifications from "@/components/manufacturing/production/TeamNeedsNotifications";
 
 // Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
@@ -106,6 +107,7 @@ function App() {
           <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <Navbar />
           </div>
+          <TeamNeedsNotifications />
         </AuthenticatedTemplate>
 
         <main className="flex-1 pt-6 relative z-10">

@@ -48,7 +48,6 @@ type TeamLeadAssignmentDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   productionLine: ProductionLine;
-  teamMembers: TeamMember[];
   availableMembers?: TeamMember[];
 };
 
@@ -56,7 +55,6 @@ export function TeamLeadAssignmentDialog({
   open,
   onOpenChange,
   productionLine,
-  teamMembers,
   availableMembers = [],
 }: TeamLeadAssignmentDialogProps) {
   const { toast } = useToast();
@@ -65,9 +63,9 @@ export function TeamLeadAssignmentDialog({
 
   // Combine team members with available members, removing duplicates
   const allAvailableMembers = [
-    ...teamMembers,
+    ...(productionLine.teamMembers || []),
     ...availableMembers.filter(
-      availableMember => !teamMembers.some(
+      availableMember => !(productionLine.teamMembers || []).some(
         teamMember => teamMember.id === availableMember.id
       )
     )

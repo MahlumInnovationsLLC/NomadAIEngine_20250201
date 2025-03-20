@@ -1,41 +1,41 @@
-import { useEffect, useRef } from 'react';
-import io, { Socket } from 'socket.io-client';
+import { useEffect, useState } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+let socket: Socket | null = null;
 
 export function useSocket() {
-  const socketRef = useRef<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Create socket connection
-    if (!socketRef.current) {
-      socketRef.current = io(window.location.origin, {
-        path: '/socket.io',
-        transports: ['websocket'],
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
+    // Create socket connection if it doesn't exist
+    if (!socket) {
+      // Connect to the same host that serves the app
+      // This assumes your Socket.IO server runs on the same host
+      socket = io();
+
+      // Set up event listeners
+      socket.on('connect', () => {
+        console.log('Socket connected');
+        setIsConnected(true);
       });
 
-      // Setup socket event listeners for debugging
-      socketRef.current.on('connect', () => {
-        console.log('Socket connected successfully');
+      socket.on('disconnect', () => {
+        console.log('Socket disconnected');
+        setIsConnected(false);
       });
 
-      socketRef.current.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-      });
-
-      socketRef.current.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', reason);
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
       });
     }
 
-    // Cleanup on unmount
+    // Cleanup function
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      // We don't disconnect the socket when component unmounts
+      // because we want to maintain the connection across components
+      // The socket will be disconnected when the browser tab is closed
     };
   }, []);
 
-  return socketRef.current;
+  return socket;
 }

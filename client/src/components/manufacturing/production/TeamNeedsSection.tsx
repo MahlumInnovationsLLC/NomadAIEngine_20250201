@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -72,6 +73,8 @@ const teamNeedSchema = z.object({
   requiredBy: z.string().optional(),
   projectId: z.string().optional(),
   notes: z.string().optional(),
+  owner: z.string().optional(),
+  sendNotification: z.boolean().optional(),
 });
 
 type TeamNeedFormValues = z.infer<typeof teamNeedSchema>;
@@ -109,6 +112,8 @@ function TeamNeedDialog({
       requiredBy: teamNeed?.requiredBy || '',
       projectId: teamNeed?.projectId || undefined,
       notes: teamNeed?.notes || '',
+      owner: teamNeed?.owner || '',
+      sendNotification: teamNeed?.notificationSent || false,
     },
   });
 
@@ -307,7 +312,7 @@ function TeamNeedDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">No specific project</SelectItem>
+                      <SelectItem value="none">No specific project</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.projectNumber || project.name}
@@ -334,6 +339,49 @@ function TeamNeedDialog({
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="owner"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Owner / Assignee (Optional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="Who should take ownership of this need?"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Assign someone to handle this request
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="sendNotification"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Send Email Notification
+                    </FormLabel>
+                    <FormDescription>
+                      Send an email notification to the team about this request
+                    </FormDescription>
+                  </div>
                 </FormItem>
               )}
             />

@@ -7,6 +7,7 @@ import { initializeManufacturingDatabase } from "./services/azure/facility_servi
 import { initializeOpenAI } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
 import manufacturingRoutes, { setupManufacturingSocketIO } from "./routes/manufacturing";
+import { registerWebSocketManager } from "./routes/manufacturing/team-analytics";
 import inventoryRoutes from "./routes/inventory";
 import aiRoutes from "./routes/ai";
 import salesRoutes from "./routes/sales";
@@ -80,6 +81,7 @@ const startServer = async (retryCount = 0) => {
     // Setup WebSocket server with Socket.IO
     const wsServer = setupWebSocketServer(server);
     setupManufacturingSocketIO(wsServer.io); // Setup manufacturing namespace
+    registerWebSocketManager(wsServer); // Register with team-analytics module
     app.set('wsServer', wsServer);
 
     // Register API routes

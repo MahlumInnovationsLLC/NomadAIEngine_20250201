@@ -2,8 +2,22 @@ import express, { Request, Response, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { authMiddleware, AuthenticatedRequest } from "../../auth-middleware";
 import { CosmosClient, Container, Database } from "@azure/cosmos";
+import { WebSocketManager } from "../../services/websocket";
+import { MailService } from '@sendgrid/mail';
 
 const router: Router = express.Router();
+let webSocketManager: WebSocketManager | null = null;
+
+// Initialize SendGrid mail service
+const mailService = new MailService();
+if (process.env.SENDGRID_API_KEY) {
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+}
+
+// Function to register the WebSocket manager
+export function registerWebSocketManager(wsManager: WebSocketManager) {
+  webSocketManager = wsManager;
+}
 
 let cosmosClient: CosmosClient;
 let database: Database;
@@ -163,7 +177,16 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
     await ensureContainer();
     
     const productionLineId = req.params.id;
-    const { type, description, priority, requiredBy, projectId, notes } = req.body;
+    const { 
+      type, 
+      description, 
+      priority, 
+      requiredBy, 
+      projectId, 
+      notes, 
+      owner, 
+      sendNotification 
+    } = req.body;
     
     // Get the production line
     const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
@@ -186,6 +209,8 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
       requiredBy: requiredBy || undefined,
       projectId: projectId || undefined,
       notes: notes || undefined,
+      owner: owner || undefined,
+      notificationSent: false, // Initialize as false, we'll set it below if sent
       requestedBy: req.user?.name || "Unknown",
       requestedAt: new Date().toISOString(),
       status: 'pending',
@@ -198,6 +223,153 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
     
     // Update the production line
     await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+    
+    // Send email notification if requested and owner is assigned
+    if (sendNotification && owner && process.env.SENDGRID_API_KEY) {
+      try {
+        // Format required by date if provided
+        let requiredByText = '';
+        if (requiredBy) {
+          const requiredDate = new Date(requiredBy);
+          requiredByText = ` needed by ${requiredDate.toLocaleDateString()}`;
+        }
+        
+        // Project-specific message if projectId is provided
+        let projectText = '';
+        if (projectId) {
+          projectText = ` for project #${projectId}`;
+        }
+        
+        // Determine email subject based on priority
+        let priorityText = priority;
+        if (priority === 'critical') {
+          priorityText = 'CRITICAL';
+        }
+        
+        const emailSubject = `[${priorityText.toUpperCase()}] Team Need: ${type}`;
+        
+        // Construct HTML email
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">${priority === 'critical' ? '⚠️ ' : ''}Team Need: ${type}</h2>
+            <p><strong>Description:</strong> ${description}</p>
+            <p><strong>Priority:</strong> ${priority}</p>
+            ${requiredByText ? `<p><strong>Required By:</strong> ${requiredByText}</p>` : ''}
+            ${projectText ? `<p><strong>Project:</strong> ${projectText}</p>` : ''}
+            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+            <p><strong>Requested By:</strong> ${req.user?.name || "Unknown"}</p>
+            <p><strong>Requested At:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>You have been assigned as the owner of this team need.</strong></p>
+            <div style="margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
+              <p>You can view and respond to this team need in the system by clicking the link below:</p>
+              <a href="${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${newTeamNeed.id}" 
+                style="display: inline-block; padding: 10px 15px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px;">
+                View Team Need
+              </a>
+            </div>
+          </div>
+        `;
+        
+        // Define text version for email clients that don't support HTML
+        const textContent = `
+Team Need: ${type} (${priority.toUpperCase()})
+Description: ${description}
+${requiredByText ? `Required By: ${requiredByText}\n` : ''}
+${projectText ? `Project: ${projectText}\n` : ''}
+${notes ? `Notes: ${notes}\n` : ''}
+Requested By: ${req.user?.name || "Unknown"}
+Requested At: ${new Date().toLocaleString()}
+
+You have been assigned as the owner of this team need.
+
+You can view and respond to this team need in the system by visiting:
+${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${newTeamNeed.id}
+        `.trim();
+        
+        // Send the email
+        await mailService.send({
+          to: owner, // Owner's email address
+          from: process.env.SENDGRID_FROM_EMAIL || 'noreply@yourdomain.com',
+          subject: emailSubject,
+          html: htmlContent,
+          text: textContent,
+        });
+        
+        // Mark notification as sent in the database
+        productionLine.teamNeeds[productionLine.teamNeeds.length - 1].notificationSent = true;
+        
+        // Update the production line
+        await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+        
+        console.log(`Email notification sent to ${owner} for team need: ${newTeamNeed.id}`);
+      } catch (emailError) {
+        console.error("Error sending email notification:", emailError);
+        // We don't want to fail the request if the email fails, so we just log the error
+      }
+    }
+    
+    // Send notification to team managers about the new need
+    if (webSocketManager) {
+      try {
+        // Determine notification priority based on the team need priority
+        let notificationPriority: 'low' | 'medium' | 'high' | 'urgent' = 'medium';
+        switch (priority) {
+          case 'critical':
+            notificationPriority = 'urgent';
+            break;
+          case 'high':
+            notificationPriority = 'high';
+            break;
+          case 'medium':
+            notificationPriority = 'medium';
+            break;
+          case 'low':
+            notificationPriority = 'low';
+            break;
+        }
+        
+        // Project-specific message if projectId is provided
+        let projectText = '';
+        if (projectId) {
+          projectText = ` for project #${projectId}`;
+        }
+        
+        // Format required by date if provided
+        let requiredByText = '';
+        if (requiredBy) {
+          const requiredDate = new Date(requiredBy);
+          requiredByText = ` needed by ${requiredDate.toLocaleDateString()}`;
+        }
+        
+        // Use productionLine team lead users to notify them
+        // For this example, we're using "Admin" as a placeholder
+        // In a real system, you would pull the electrical lead and assembly lead from productionLine
+        const teamLeads = ["Admin"]; // Placeholder for actual team leads
+        
+        const link = `/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${newTeamNeed.id}`;
+        
+        // Notify all team leads about the new need
+        for (const userId of teamLeads) {
+          await webSocketManager.sendNotification(userId, {
+            type: 'new_team_need',
+            title: `New ${priority} ${type} Request`,
+            message: `${newTeamNeed.requestedBy} requested ${description}${projectText}${requiredByText}`,
+            priority: notificationPriority,
+            link,
+            metadata: {
+              productionLineId,
+              teamNeedId: newTeamNeed.id,
+              teamNeed: newTeamNeed
+            }
+          });
+        }
+        
+        console.log(`Notifications sent for new team need: ${newTeamNeed.id}`);
+      } catch (notificationError) {
+        console.error("Error sending notification:", notificationError);
+        // We don't want to fail the request if notification fails, so we just log the error
+      }
+    }
     
     res.status(201).json({ message: "Team need created successfully", teamNeed: newTeamNeed });
   } catch (error) {
@@ -235,14 +407,20 @@ router.patch('/production-lines/:id/team-needs/:needId', authMiddleware, async (
       return res.status(404).json({ message: "Team need not found" });
     }
     
+    // Store the original status for comparison
+    const originalStatus = productionLine.teamNeeds[teamNeedIndex].status;
+    
     // Special handling for status changes
-    if (updates.status && updates.status !== productionLine.teamNeeds[teamNeedIndex].status) {
+    if (updates.status && updates.status !== originalStatus) {
       // If changing to resolved, add resolved info
       if (updates.status === 'resolved') {
         updates.resolvedAt = new Date().toISOString();
         updates.resolvedBy = req.user?.name || "Unknown";
       }
     }
+    
+    // Get original data for comparison
+    const originalTeamNeed = { ...productionLine.teamNeeds[teamNeedIndex] };
     
     // Update the team need
     productionLine.teamNeeds[teamNeedIndex] = {
@@ -252,6 +430,154 @@ router.patch('/production-lines/:id/team-needs/:needId', authMiddleware, async (
     
     // Update the production line
     await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+    
+    // Send email notification if the owner has been assigned or changed
+    if (updates.owner && 
+        process.env.SENDGRID_API_KEY && 
+        updates.sendNotification &&
+        (!originalTeamNeed.owner || originalTeamNeed.owner !== updates.owner)) {
+      try {
+        // Format required by date if provided
+        let requiredByText = '';
+        if (productionLine.teamNeeds[teamNeedIndex].requiredBy) {
+          const requiredDate = new Date(productionLine.teamNeeds[teamNeedIndex].requiredBy);
+          requiredByText = ` needed by ${requiredDate.toLocaleDateString()}`;
+        }
+        
+        // Project-specific message if projectId is provided
+        let projectText = '';
+        if (productionLine.teamNeeds[teamNeedIndex].projectId) {
+          projectText = ` for project #${productionLine.teamNeeds[teamNeedIndex].projectId}`;
+        }
+        
+        // Determine email subject based on priority
+        const priority = productionLine.teamNeeds[teamNeedIndex].priority;
+        let priorityText = priority;
+        if (priority === 'critical') {
+          priorityText = 'CRITICAL';
+        }
+        
+        const emailSubject = `[${priorityText.toUpperCase()}] Team Need: ${productionLine.teamNeeds[teamNeedIndex].type}`;
+        
+        // Construct HTML email
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">${priority === 'critical' ? '⚠️ ' : ''}Team Need: ${productionLine.teamNeeds[teamNeedIndex].type}</h2>
+            <p><strong>Description:</strong> ${productionLine.teamNeeds[teamNeedIndex].description}</p>
+            <p><strong>Priority:</strong> ${priority}</p>
+            ${requiredByText ? `<p><strong>Required By:</strong> ${requiredByText}</p>` : ''}
+            ${projectText ? `<p><strong>Project:</strong> ${projectText}</p>` : ''}
+            ${productionLine.teamNeeds[teamNeedIndex].notes ? `<p><strong>Notes:</strong> ${productionLine.teamNeeds[teamNeedIndex].notes}</p>` : ''}
+            <p><strong>Requested By:</strong> ${productionLine.teamNeeds[teamNeedIndex].requestedBy || "Unknown"}</p>
+            <p><strong>Requested At:</strong> ${new Date(productionLine.teamNeeds[teamNeedIndex].requestedAt).toLocaleString()}</p>
+            <p><strong>You have been assigned as the owner of this team need.</strong></p>
+            <div style="margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
+              <p>You can view and respond to this team need in the system by clicking the link below:</p>
+              <a href="${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${teamNeedId}" 
+                style="display: inline-block; padding: 10px 15px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px;">
+                View Team Need
+              </a>
+            </div>
+          </div>
+        `;
+        
+        // Define text version for email clients that don't support HTML
+        const textContent = `
+Team Need: ${productionLine.teamNeeds[teamNeedIndex].type} (${priority.toUpperCase()})
+Description: ${productionLine.teamNeeds[teamNeedIndex].description}
+${requiredByText ? `Required By: ${requiredByText}\n` : ''}
+${projectText ? `Project: ${projectText}\n` : ''}
+${productionLine.teamNeeds[teamNeedIndex].notes ? `Notes: ${productionLine.teamNeeds[teamNeedIndex].notes}\n` : ''}
+Requested By: ${productionLine.teamNeeds[teamNeedIndex].requestedBy || "Unknown"}
+Requested At: ${new Date(productionLine.teamNeeds[teamNeedIndex].requestedAt).toLocaleString()}
+
+You have been assigned as the owner of this team need.
+
+You can view and respond to this team need in the system by visiting:
+${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${teamNeedId}
+        `.trim();
+        
+        // Send the email
+        await mailService.send({
+          to: updates.owner, // Owner's email address
+          from: process.env.SENDGRID_FROM_EMAIL || 'noreply@yourdomain.com',
+          subject: emailSubject,
+          html: htmlContent,
+          text: textContent,
+        });
+        
+        // Mark notification as sent in the database
+        productionLine.teamNeeds[teamNeedIndex].notificationSent = true;
+        
+        // Update the production line again to save the notification status
+        await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+        
+        console.log(`Email notification sent to ${updates.owner} for team need: ${teamNeedId}`);
+      } catch (emailError) {
+        console.error("Error sending email notification:", emailError);
+        // We don't want to fail the request if the email fails, so we just log the error
+      }
+    }
+    
+    // Send notification if the status changed
+    if (webSocketManager && updates.status && updates.status !== originalStatus) {
+      try {
+        // Define the notification details based on status change
+        let title = '';
+        let message = '';
+        let priority: 'low' | 'medium' | 'high' | 'urgent' = 'medium';
+        
+        // Customize notification based on the new status
+        switch(updates.status) {
+          case 'in_progress':
+            title = 'Team Need In Progress';
+            message = `Team need "${productionLine.teamNeeds[teamNeedIndex].description}" is now being addressed`;
+            priority = 'medium';
+            break;
+          case 'resolved':
+            title = 'Team Need Resolved';
+            message = `Team need "${productionLine.teamNeeds[teamNeedIndex].description}" has been resolved by ${updates.resolvedBy || 'a team member'}`;
+            priority = 'low';
+            break;
+          case 'cancelled':
+            title = 'Team Need Cancelled';
+            message = `Team need "${productionLine.teamNeeds[teamNeedIndex].description}" has been cancelled`;
+            priority = 'low';
+            break;
+          default:
+            title = 'Team Need Status Updated';
+            message = `Team need "${productionLine.teamNeeds[teamNeedIndex].description}" status changed to ${updates.status}`;
+            priority = 'medium';
+        }
+        
+        // Get original requestor ID to notify them
+        // Here we're using their name as the ID - in a real system, you'd use actual user IDs
+        const userId = productionLine.teamNeeds[teamNeedIndex].requestedBy || 'Unknown';
+        
+        const link = `/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${teamNeedId}`;
+        
+        // Send notification to the requestor
+        await webSocketManager.sendNotification(userId, {
+          type: 'team_need_status_change',
+          title,
+          message,
+          priority,
+          link,
+          metadata: {
+            productionLineId,
+            teamNeedId,
+            oldStatus: originalStatus,
+            newStatus: updates.status,
+            teamNeed: productionLine.teamNeeds[teamNeedIndex]
+          }
+        });
+        
+        console.log(`Notification sent for team need status change to ${updates.status}`);
+      } catch (notificationError) {
+        console.error("Error sending notification:", notificationError);
+        // We don't want to fail the request if notification fails, so we just log the error
+      }
+    }
     
     res.json({ 
       message: "Team need updated successfully", 

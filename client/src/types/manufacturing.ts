@@ -1,4 +1,6 @@
-// Define project status options
+import { z } from 'zod';
+
+// Project status type
 export type ProjectStatus =
   | 'active' 
   | 'in_progress' 
@@ -16,14 +18,14 @@ export type ProjectStatus =
   | 'COMPLETED'
   | 'SHIPPING';
 
-// Define common project interface
+// Project interface
 export interface Project {
   id: string;
-  projectNumber: string;
+  projectNumber?: string;
   name?: string;
   location?: string;
   team?: string;
-  status: ProjectStatus;
+  status: string;
   manualStatus?: boolean;
   contractDate?: string;
   chassisEta?: string;
@@ -50,126 +52,113 @@ export interface Project {
   updatedAt: string;
 }
 
-// Define team member interface
-export interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  email?: string;
-  phone?: string;
-  skills?: string[];
-  yearsExperience?: number;
-  certifications?: string[];
-  availability?: number; // percentage of time available
-  assignedProjects?: string[];
-  startDate?: string;
-  department?: string;
-}
+// Production Line schema and interface
+export const productionLineSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  type: z.enum(['assembly', 'machining', 'fabrication', 'packaging', 'testing']),
+  status: z.enum(['operational', 'maintenance', 'error', 'offline']),
+  capacity: z.object({
+    planned: z.number(),
+    actual: z.number(),
+    unit: z.string(),
+  }),
+  metrics: z.array(z.object({
+    type: z.string(),
+    value: z.number(),
+    unit: z.string(),
+    timestamp: z.string(),
+    recordedBy: z.string(),
+  })).optional(),
+  buildStages: z.array(z.any()).optional(),
+  allocatedInventory: z.array(z.any()).optional(),
+  performance: z.object({
+    efficiency: z.number(),
+    quality: z.number(),
+    availability: z.number(),
+    oee: z.number(),
+  }),
+  lastMaintenance: z.string(),
+  nextMaintenance: z.string(),
+  notes: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  // Team management specific properties
+  teamMembers: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    role: z.string(),
+    skills: z.array(z.string()).optional(),
+    availability: z.number().optional(),
+    assignedProjects: z.array(z.string()).optional(),
+  })).optional(),
+  teamLeads: z.object({
+    electricalLead: z.string().nullable().optional(),
+    assemblyLead: z.string().nullable().optional(),
+  }).optional(),
+  teamAnalytics: z.object({
+    totalCapacity: z.number(),
+    utilization: z.number(),
+    efficiency: z.number(),
+    projectHours: z.array(z.object({
+      projectId: z.string(),
+      earnedHours: z.number(),
+      allocatedHours: z.number(),
+      lastUpdated: z.string(),
+      updatedBy: z.string(),
+    })),
+  }).optional(),
+  teamNeeds: z.array(z.object({
+    id: z.string(),
+    type: z.string(),
+    description: z.string(),
+    priority: z.enum(['low', 'medium', 'high', 'critical']),
+    requiredBy: z.string().optional(),
+    projectId: z.string().optional(),
+    notes: z.string().optional(),
+    requestedBy: z.string(),
+    requestedAt: z.string(),
+    status: z.enum(['pending', 'in_progress', 'resolved', 'cancelled']),
+    resolvedAt: z.string().optional(),
+    resolvedBy: z.string().optional(),
+    owner: z.string().optional(),
+    notificationSent: z.boolean().optional(),
+  })).optional(),
+});
 
-// Define project hour tracking interface
-export interface ProjectHours {
-  projectId: string;
-  allocatedHours: number;
-  earnedHours: number;
-  lastUpdated: string;
-  updatedBy?: string;
-}
+export type ProductionLine = z.infer<typeof productionLineSchema>;
 
-// Define team needs interface
+// Team need interface
 export interface TeamNeed {
   id: string;
-  type: 'part' | 'tool' | 'material' | 'assistance' | 'other';
+  type: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
-  requiredBy?: string; // Date when item is needed by
-  requestedBy?: string;
+  requiredBy?: string;
+  projectId?: string;
+  notes?: string;
+  requestedBy: string;
   requestedAt: string;
   status: 'pending' | 'in_progress' | 'resolved' | 'cancelled';
-  projectId?: string; // Associated project (optional)
   resolvedAt?: string;
   resolvedBy?: string;
-  notes?: string;
+  owner?: string;
+  notificationSent?: boolean;
 }
 
-// Define team analytics interface
+// Team Analytics
+export interface ProjectHours {
+  projectId: string;
+  earnedHours: number;
+  allocatedHours: number;
+  lastUpdated: string;
+  updatedBy: string;
+}
+
 export interface TeamAnalytics {
-  totalCapacity: number; // Total hours available for the team
-  utilization: number; // Percentage of capacity currently utilized
-  projectHours: ProjectHours[]; // Hours per project
-  efficiency: number; // Ratio of earned vs allocated hours
-  teamUtilizationTrend?: {
-    dates: string[];
-    values: number[];
-  };
-}
-
-// Define production line interface
-export interface ProductionLine {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'assembly' | 'machining' | 'fabrication' | 'packaging' | 'testing';
-  status: 'operational' | 'maintenance' | 'error' | 'offline';
-  capacity: {
-    planned: number;
-    actual: number;
-    unit: string;
-  };
-  performance: {
-    efficiency: number;
-    quality: number;
-    availability: number;
-    oee: number;
-  };
-  // Team structure
-  electricalLead?: {
-    name: string;
-    id?: string;
-    email?: string;
-    phone?: string;
-    role?: string;
-  };
-  assemblyLead?: {
-    name: string;
-    id?: string;
-    email?: string;
-    phone?: string;
-    role?: string;
-  };
-  teamName?: string;
-  teamMembers?: TeamMember[];
-  manpowerCapacity?: number; // Number of people that can work on this line
-  currentManpower?: number; // Current number of team members assigned
-  notes?: string;
-  lastMaintenance?: string;
-  nextMaintenance?: string;
-  assignedProjects?: string[];
-  teamNeeds?: TeamNeed[]; // Team needs and requests
-  teamAnalytics?: TeamAnalytics; // Team analytics data
-  metrics?: any[];
-  buildStages?: any[];
-  allocatedInventory?: any[];
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-// Define production metrics
-export interface ProductionMetrics {
-  type: string;
-  value: number;
-  unit: string;
-  timestamp: string;
-  recordedBy: string;
-}
-
-// Define quality inspection
-export interface QualityInspection {
-  id: string;
-  inspectionDate: string;
-  inspector: string;
-  productionLineId: string;
-  results: any;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  totalCapacity: number;
+  utilization: number;
+  efficiency: number;
+  projectHours: ProjectHours[];
 }

@@ -37,7 +37,7 @@ import projectsRouter from "./routes/manufacturing/projects";
 import analyticsRouter from "./routes/manufacturing/analytics";
 import resourcesRouter from "./routes/manufacturing/resources";
 import productionLinesRouter from "./routes/manufacturing/production-lines";
-import teamAnalyticsRouter from "./routes/manufacturing/team-analytics";
+import teamAnalyticsRouter, { registerWebSocketManager } from "./routes/manufacturing/team-analytics";
 import trainingRouter from "./routes/training"; 
 import qualityRouter, { registerQualityRoutes } from "./routes/manufacturing/quality";
 import azureADRouter from "./routes/azure-ad"; // Import Azure AD router
