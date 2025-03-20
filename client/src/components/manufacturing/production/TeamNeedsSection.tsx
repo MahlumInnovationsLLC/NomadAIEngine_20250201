@@ -75,7 +75,7 @@ const teamNeedSchema = z.object({
   notes: z.string().optional(),
   owner: z.string().optional(),
   ownerEmail: z.string().email({ message: "Please enter a valid email address" }).optional(),
-  sendNotification: z.boolean().optional(),
+  sendNotification: z.boolean().default(false),
 });
 
 type TeamNeedFormValues = z.infer<typeof teamNeedSchema>;
@@ -103,7 +103,7 @@ function TeamNeedDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Setup form
+  // Setup form with properly typed values
   const form = useForm<TeamNeedFormValues>({
     resolver: zodResolver(teamNeedSchema),
     defaultValues: {
@@ -111,7 +111,7 @@ function TeamNeedDialog({
       description: teamNeed?.description || '',
       priority: teamNeed?.priority || 'medium',
       requiredBy: teamNeed?.requiredBy || '',
-      projectId: teamNeed?.projectId || undefined,
+      projectId: teamNeed?.projectId || 'none',
       notes: teamNeed?.notes || '',
       owner: teamNeed?.owner || '',
       ownerEmail: teamNeed?.ownerEmail || '',
@@ -183,10 +183,15 @@ function TeamNeedDialog({
   });
 
   const onSubmit = (values: TeamNeedFormValues) => {
-    // Convert "none" projectId to undefined
+    // Process form values before submitting
     const formattedValues = {
       ...values,
-      projectId: values.projectId === "none" ? undefined : values.projectId
+      // Convert empty strings to undefined for optional fields
+      projectId: values.projectId === "none" ? undefined : values.projectId,
+      requiredBy: values.requiredBy?.trim() === "" ? undefined : values.requiredBy,
+      notes: values.notes?.trim() === "" ? undefined : values.notes,
+      owner: values.owner?.trim() === "" ? undefined : values.owner,
+      ownerEmail: values.ownerEmail?.trim() === "" ? undefined : values.ownerEmail
     };
     console.log("Submitting team need:", formattedValues);
     saveTeamNeedMutation.mutate(formattedValues);
@@ -309,7 +314,11 @@ function TeamNeedDialog({
                     <FormControl>
                       <Input 
                         type="date" 
-                        {...field} 
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        ref={field.ref}
                       />
                     </FormControl>
                     <FormMessage />
@@ -357,7 +366,11 @@ function TeamNeedDialog({
                     <Textarea 
                       placeholder="Any additional details or context"
                       className="min-h-[60px]"
-                      {...field} 
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
                     />
                   </FormControl>
                   <FormMessage />
@@ -374,7 +387,11 @@ function TeamNeedDialog({
                   <FormControl>
                     <Input 
                       placeholder="Who should take ownership of this need?"
-                      {...field} 
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
                     />
                   </FormControl>
                   <FormDescription>
@@ -395,7 +412,11 @@ function TeamNeedDialog({
                     <Input 
                       type="email"
                       placeholder="Email address for notifications"
-                      {...field} 
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
                     />
                   </FormControl>
                   <FormDescription>
