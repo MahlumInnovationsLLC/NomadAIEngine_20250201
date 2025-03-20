@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ProductionLine, Project, ProjectHours, TeamAnalytics } from "@/types/manufacturing";
+import { apiPatch } from "@/lib/api-utils";
 
 interface TeamAnalyticsSectionProps {
   productionLine: ProductionLine;
@@ -96,20 +97,15 @@ function HoursUpdateDialog({
     mutationFn: async (values: HoursUpdateFormValues) => {
       setIsLoading(true);
       
-      const response = await fetch(`/api/manufacturing/team-analytics/production-lines/${productionLineId}/project-hours/${project.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
+      try {
+        return await apiPatch(
+          `/api/manufacturing/team-analytics/production-lines/${productionLineId}/project-hours/${project.id}`, 
+          values
+        );
+      } catch (error: any) {
+        console.error("Error updating hours:", error);
         throw new Error(error.message || "Failed to update hours");
       }
-
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 

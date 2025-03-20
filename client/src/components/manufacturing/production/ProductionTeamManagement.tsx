@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { apiGet } from "@/lib/api-utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,9 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
   const { data: fetchedProductionLines = [], isLoading, error } = useQuery<ProductionLine[]>({
     queryKey: ['/api/manufacturing/production-lines'],
     enabled: standalonePage || productionLines.length === 0,
+    queryFn: async () => {
+      return await apiGet<ProductionLine[]>('/api/manufacturing/production-lines');
+    }
   });
 
   // Use fetched lines if in standalone mode, otherwise use provided lines
@@ -73,12 +77,18 @@ export function ProductionTeamManagement({ productionLines = [], standalonePage 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
     enabled: standalonePage,
+    queryFn: async () => {
+      return await apiGet<Project[]>('/api/manufacturing/projects');
+    }
   });
   
   // Fetch all available team members for assignment
   const { data: availableMembers = [] } = useQuery<TeamMember[]>({
     queryKey: ['/api/manufacturing/team-members'],
     enabled: standalonePage || teamLeadDialogOpen,
+    queryFn: async () => {
+      return await apiGet<TeamMember[]>('/api/manufacturing/team-members');
+    }
   });
 
   // Function to filter production lines based on active tab

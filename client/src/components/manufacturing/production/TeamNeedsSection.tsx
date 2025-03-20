@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { apiPost, apiPatch } from "@/lib/api-utils";
 import { 
   Card, 
   CardContent, 
@@ -139,44 +140,18 @@ function TeamNeedDialog({
         ? `/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs/${teamNeed?.id}`
         : `/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`;
       
-      const method = isEditing ? "PATCH" : "POST";
-      
-      console.log(`API Request: ${method} ${url}`);
+      console.log(`API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
       console.log("Request payload:", JSON.stringify(values, null, 2));
       
       try {
-        const response = await fetch(url, {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(values),
-        });
-        
-        console.log("API Response status:", response.status);
-        
-        // Get the response body as text first
-        const responseText = await response.text();
-        console.log("Raw response:", responseText);
-        
-        // Now parse it as JSON if possible
-        let responseData;
-        try {
-          responseData = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error("Error parsing response as JSON:", parseError);
-          throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
+        // Use our new API utility functions that handle HTML responses
+        if (isEditing) {
+          return await apiPatch(url, values);
+        } else {
+          return await apiPost(url, values);
         }
-        
-        if (!response.ok) {
-          console.error("API request failed:", responseData);
-          throw new Error(responseData.message || "Failed to save team need");
-        }
-        
-        console.log("API request successful:", responseData);
-        return responseData;
       } catch (error) {
-        console.error("Error in fetch operation:", error);
+        console.error("Error in API operation:", error);
         throw error;
       }
     },

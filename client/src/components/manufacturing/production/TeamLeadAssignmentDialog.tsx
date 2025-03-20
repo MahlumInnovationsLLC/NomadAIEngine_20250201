@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiPatch } from "@/lib/api-utils";
 import { 
   Dialog, 
   DialogContent, 
@@ -178,24 +179,16 @@ export function TeamLeadAssignmentDialog({
         email: assemblyLeadMember.email,
       } : null;
       
-      const response = await fetch(`/api/manufacturing/production-lines/${productionLine.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const data = await apiPatch(
+        `/api/manufacturing/production-lines/${productionLine.id}`, 
+        {
           teamName: values.teamName,
           electricalLead,
           assemblyLead,
-        }),
-      });
+        }
+      );
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to update team leads");
-      }
-      
-      return response.json();
+      return data;
     },
     onSuccess: (data) => {
       console.log("Team lead assignment successful:", data);
