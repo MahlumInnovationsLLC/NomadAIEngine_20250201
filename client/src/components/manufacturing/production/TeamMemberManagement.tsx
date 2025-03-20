@@ -125,6 +125,10 @@ export function TeamMemberManagement({
       const updatedTeamMembers = [...(productionLine.teamMembers || []), newMember];
       const currentManpower = updatedTeamMembers.length;
       
+      // Log the update for debugging
+      console.log("Adding team member:", newMember);
+      console.log("Updated team members array:", updatedTeamMembers);
+      
       const response = await fetch(`/api/manufacturing/production-lines/${productionLine.id}`, {
         method: "PATCH",
         headers: {
@@ -144,12 +148,18 @@ export function TeamMemberManagement({
       return response.json();
     },
     onSuccess: (data) => {
-      // Invalidate the entire production-lines query first
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+      console.log("Add successful, invalidating queries with refetchType: 'all'");
       
-      // Also specifically invalidate this exact production line to ensure it refreshes
+      // Force a refetch of all production line data with stronger cache invalidation
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/manufacturing/production-lines/${productionLine.id}`] 
+        queryKey: ['/api/manufacturing/production-lines'],
+        refetchType: 'all'
+      });
+      
+      // Force a refetch of this specific production line
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/manufacturing/production-lines/${productionLine.id}`],
+        refetchType: 'all'
       });
       
       toast({
@@ -159,8 +169,15 @@ export function TeamMemberManagement({
       
       // Reset the form
       form.reset();
+      
+      // Brief delay to allow the UI to refresh with the new team member
+      setTimeout(() => {
+        // This is just to trigger a re-render in some cases by "touching" the dialog state
+        onOpenChange(open);
+      }, 100);
     },
     onError: (error) => {
+      console.error("Error adding team member:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to add team member",
@@ -194,6 +211,10 @@ export function TeamMemberManagement({
         member.id === updatedMember.id ? updatedMember : member
       ) || [];
       
+      // Log the update for debugging
+      console.log("Updating team member:", updatedMember);
+      console.log("Updated team members array:", updatedTeamMembers);
+      
       const response = await fetch(`/api/manufacturing/production-lines/${productionLine.id}`, {
         method: "PATCH",
         headers: {
@@ -201,6 +222,8 @@ export function TeamMemberManagement({
         },
         body: JSON.stringify({
           teamMembers: updatedTeamMembers,
+          // Add currentManpower to ensure all necessary data is updated
+          currentManpower: updatedTeamMembers.length,
         }),
       });
       
@@ -212,23 +235,38 @@ export function TeamMemberManagement({
       return response.json();
     },
     onSuccess: (data) => {
-      // Invalidate the entire production-lines query first
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+      console.log("Update successful, invalidating queries with refetchType: 'all'");
       
-      // Also specifically invalidate this exact production line to ensure it refreshes
+      // Force a refetch of all production line data with stronger cache invalidation
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/manufacturing/production-lines/${productionLine.id}`] 
+        queryKey: ['/api/manufacturing/production-lines'],
+        refetchType: 'all'
+      });
+      
+      // Force a refetch of this specific production line
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/manufacturing/production-lines/${productionLine.id}`],
+        refetchType: 'all'
       });
       
       toast({
         title: "Success",
         description: "Team member updated successfully",
       });
+      
+      // Reset state
       setIsEditing(false);
       setSelectedMember(null);
       form.reset();
+      
+      // Explicitly close the dialog to refresh the UI view
+      setTimeout(() => {
+        onOpenChange(false); // Close dialog so the parent component can update
+        // We could reopen it after a delay if needed
+      }, 100);
     },
     onError: (error) => {
+      console.error("Error updating team member:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to update team member",
