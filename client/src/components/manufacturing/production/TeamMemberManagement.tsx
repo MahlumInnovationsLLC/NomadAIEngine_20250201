@@ -143,12 +143,21 @@ export function TeamMemberManagement({
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate the entire production-lines query first
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+      
+      // Also specifically invalidate this exact production line to ensure it refreshes
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/manufacturing/production-lines/${productionLine.id}`] 
+      });
+      
       toast({
         title: "Success",
         description: "Team member added successfully",
       });
+      
+      // Reset the form
       form.reset();
     },
     onError: (error) => {
@@ -202,8 +211,15 @@ export function TeamMemberManagement({
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate the entire production-lines query first
       queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+      
+      // Also specifically invalidate this exact production line to ensure it refreshes
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/manufacturing/production-lines/${productionLine.id}`] 
+      });
+      
       toast({
         title: "Success",
         description: "Team member updated successfully",
@@ -230,6 +246,9 @@ export function TeamMemberManagement({
       const updatedTeamMembers = productionLine.teamMembers.filter(member => member.id !== memberId);
       const currentManpower = updatedTeamMembers.length;
       
+      console.log("Deleting member with ID:", memberId);
+      console.log("Updated team members:", updatedTeamMembers);
+      
       const response = await fetch(`/api/manufacturing/production-lines/${productionLine.id}`, {
         method: "PATCH",
         headers: {
@@ -246,18 +265,33 @@ export function TeamMemberManagement({
         throw new Error(error.message || "Failed to delete team member");
       }
       
-      return response.json();
+      return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/production-lines'] });
+    onSuccess: (data) => {
+      console.log("Delete successful, invalidating queries");
+      
+      // Force a refetch of all production line data
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/manufacturing/production-lines'],
+        refetchType: 'all'
+      });
+      
+      // Force a refetch of this specific production line
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/manufacturing/production-lines/${productionLine.id}`],
+        refetchType: 'all'
+      });
+      
       toast({
         title: "Success",
         description: "Team member removed successfully",
       });
+      
       setDeleteDialogOpen(false);
       setMemberToDelete(null);
     },
     onError: (error) => {
+      console.error("Error deleting team member:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to remove team member",
@@ -291,7 +325,10 @@ export function TeamMemberManagement({
   // Handle deletion confirmation
   const handleDeleteConfirm = () => {
     if (memberToDelete) {
+      console.log("Confirming deletion of member:", memberToDelete);
       deleteMemberMutation.mutate(memberToDelete.id);
+      // Immediately close the dialog to improve UX
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -764,18 +801,30 @@ export function TeamMemberManagement({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMemberMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteConfirm}
+            <AlertDialogCancel 
               disabled={deleteMemberMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                console.log("Canceling delete operation");
+                setDeleteDialogOpen(false);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button 
+              onClick={(e) => {
+                e.preventDefault();
+                console.log("Delete confirmation button clicked");
+                handleDeleteConfirm();
+              }}
+              disabled={deleteMemberMutation.isPending}
+              variant="destructive"
             >
               {deleteMemberMutation.isPending ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Removing...</>
               ) : (
                 "Remove"
               )}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
