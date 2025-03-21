@@ -3,16 +3,11 @@ import { v4 as uuidv4 } from "uuid";
 import { authMiddleware, AuthenticatedRequest } from "../../auth-middleware";
 import { CosmosClient, Container, Database } from "@azure/cosmos";
 import { WebSocketManager } from "../../services/websocket";
-import { MailService } from '@sendgrid/mail';
 
 const router: Router = express.Router();
 let webSocketManager: WebSocketManager | null = null;
 
-// Initialize SendGrid mail service
-const mailService = new MailService();
-if (process.env.SENDGRID_API_KEY) {
-  mailService.setApiKey(process.env.SENDGRID_API_KEY);
-}
+// Remove SendGrid completely as requested
 
 // Function to register the WebSocket manager
 export function registerWebSocketManager(wsManager: WebSocketManager) {
@@ -176,7 +171,15 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
   try {
     await ensureContainer();
     
-    const productionLineId = req.params.id;
+    // Check for productionLineId in both params and body
+    const productionLineId = req.params.id || req.body.productionLineId;
+    if (!productionLineId) {
+      return res.status(400).json({ message: "Production line ID is required" });
+    }
+    
+    console.log("Production line ID received:", productionLineId);
+    console.log("Request body:", req.body);
+    
     const { 
       type, 
       description, 
@@ -226,28 +229,14 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
     // Update the production line
     await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
     
-    // Send email notification if requested and owner email is provided
-    if (sendNotification && ownerEmail && process.env.SENDGRID_API_KEY) {
+    // Create mailto link if notification requested and owner email is provided
+    let mailtoLink = null;
+    if (sendNotification && ownerEmail) {
       try {
         console.log(`Team need created with ID: ${newTeamNeed.id}`);
         console.log(`Email notification requested: ${sendNotification}`);
         console.log(`Owner email: ${ownerEmail}`);
-        console.log(`Attempting to send email notification to ${ownerEmail} for team need: ${newTeamNeed.id}`);
-        
-        // Verify we have the required keys
-        if (!process.env.SENDGRID_API_KEY) {
-          console.error("SENDGRID_API_KEY is not set in environment variables");
-          throw new Error("Email service configuration is missing");
-        } else {
-          console.log("SENDGRID_API_KEY is configured properly");
-        }
-        
-        if (!process.env.SENDGRID_FROM_EMAIL) {
-          console.error("SENDGRID_FROM_EMAIL is not set in environment variables");
-          throw new Error("Sender email configuration is missing");
-        } else {
-          console.log(`SENDGRID_FROM_EMAIL is configured: ${process.env.SENDGRID_FROM_EMAIL}`);
-        }
+        console.log(`Creating mailto link for email client to: ${ownerEmail}`);
         
         // Format required by date if provided
         let requiredByText = '';
@@ -263,36 +252,11 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
         }
         
         // Determine email subject based on priority
-        let priorityText = priority;
-        if (priority === 'critical') {
-          priorityText = 'CRITICAL';
-        }
+        let priorityText = priority.toUpperCase();
         
-        const emailSubject = `[${priorityText.toUpperCase()}] Team Need: ${type}`;
+        const emailSubject = `[${priorityText}] Team Need: ${type}`;
         
-        // Construct HTML email
-        const htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">${priority === 'critical' ? '⚠️ ' : ''}Team Need: ${type}</h2>
-            <p><strong>Description:</strong> ${description}</p>
-            <p><strong>Priority:</strong> ${priority}</p>
-            ${requiredByText ? `<p><strong>Required By:</strong> ${requiredByText}</p>` : ''}
-            ${projectText ? `<p><strong>Project:</strong> ${projectText}</p>` : ''}
-            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
-            <p><strong>Requested By:</strong> ${req.user?.name || "Unknown"}</p>
-            <p><strong>Requested At:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>You have been assigned as the owner of this team need.</strong></p>
-            <div style="margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
-              <p>You can view and respond to this team need in the system by clicking the link below:</p>
-              <a href="${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${newTeamNeed.id}" 
-                style="display: inline-block; padding: 10px 15px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px;">
-                View Team Need
-              </a>
-            </div>
-          </div>
-        `;
-        
-        // Define text version for email clients that don't support HTML
+        // Define text version for email clients
         const textContent = `
 Team Need: ${type} (${priority.toUpperCase()})
 Description: ${description}
@@ -308,36 +272,19 @@ You can view and respond to this team need in the system by visiting:
 ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${newTeamNeed.id}
         `.trim();
         
-        // Prepare email data
-        const emailData = {
-          to: ownerEmail,
-          from: process.env.SENDGRID_FROM_EMAIL,
-          subject: emailSubject,
-          html: htmlContent,
-          text: textContent,
-        };
+        // Create a mailto link for client use
+        mailtoLink = `mailto:${ownerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(textContent)}`;
+        console.log(`Created mailto link for email client`);
         
-        console.log(`Sending email with the following details:
-          To: ${emailData.to}
-          From: ${emailData.from}
-          Subject: ${emailData.subject}
-        `);
-        
-        // Send the email
-        const result = await mailService.send(emailData);
-        
-        // Mark notification as sent in the database
+        // Mark notification as being handled client-side
         productionLine.teamNeeds[productionLine.teamNeeds.length - 1].notificationSent = true;
         
         // Update the production line
         await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
-        
-        console.log(`Email notification sent successfully to ${ownerEmail} for team need: ${newTeamNeed.id}`);
-        console.log(`SendGrid response:`, result);
       } catch (emailError) {
-        console.error("Error sending email notification:", emailError);
+        console.error("Error creating mailto link:", emailError);
         console.error("Error details:", JSON.stringify(emailError, null, 2));
-        // We don't want to fail the request if the email fails, so we just log the error
+        // We don't want to fail the request if the email link creation fails
       }
     }
     
@@ -416,9 +363,18 @@ router.patch('/production-lines/:id/team-needs/:needId', authMiddleware, async (
   try {
     await ensureContainer();
     
-    const productionLineId = req.params.id;
+    // Check for productionLineId in both params and body
+    const productionLineId = req.params.id || req.body.productionLineId;
     const teamNeedId = req.params.needId;
     const updates = req.body;
+    
+    if (!productionLineId) {
+      return res.status(400).json({ message: "Production line ID is required" });
+    }
+    
+    console.log("PATCH - Production line ID received:", productionLineId);
+    console.log("PATCH - Team need ID received:", teamNeedId);
+    console.log("PATCH - Request body:", req.body);
     
     // Get the production line
     const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
@@ -464,24 +420,13 @@ router.patch('/production-lines/:id/team-needs/:needId', authMiddleware, async (
     // Update the production line
     await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
     
-    // Send email notification if the owner has been assigned or changed
+    // Create mailto link if notification requested and owner email is provided
+    let mailtoLink = null;
     if (updates.owner && updates.ownerEmail && 
-        process.env.SENDGRID_API_KEY && 
         updates.sendNotification &&
         (!originalTeamNeed.owner || originalTeamNeed.owner !== updates.owner)) {
       try {
-        console.log(`Attempting to send update email notification to ${updates.ownerEmail} for team need: ${teamNeedId}`);
-        
-        // Verify we have the required keys
-        if (!process.env.SENDGRID_API_KEY) {
-          console.error("SENDGRID_API_KEY is not set in environment variables");
-          throw new Error("Email service configuration is missing");
-        }
-        
-        if (!process.env.SENDGRID_FROM_EMAIL) {
-          console.error("SENDGRID_FROM_EMAIL is not set in environment variables");
-          throw new Error("Sender email configuration is missing");
-        }
+        console.log(`Creating email notification link for ${updates.ownerEmail} for team need: ${teamNeedId}`);
         
         // Format required by date if provided
         let requiredByText = '';
@@ -498,38 +443,13 @@ router.patch('/production-lines/:id/team-needs/:needId', authMiddleware, async (
         
         // Determine email subject based on priority
         const priority = productionLine.teamNeeds[teamNeedIndex].priority;
-        let priorityText = priority;
-        if (priority === 'critical') {
-          priorityText = 'CRITICAL';
-        }
+        const priorityText = priority.toUpperCase();
         
-        const emailSubject = `[${priorityText.toUpperCase()}] Team Need: ${productionLine.teamNeeds[teamNeedIndex].type}`;
+        const emailSubject = `[${priorityText}] Team Need: ${productionLine.teamNeeds[teamNeedIndex].type}`;
         
-        // Construct HTML email
-        const htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">${priority === 'critical' ? '⚠️ ' : ''}Team Need: ${productionLine.teamNeeds[teamNeedIndex].type}</h2>
-            <p><strong>Description:</strong> ${productionLine.teamNeeds[teamNeedIndex].description}</p>
-            <p><strong>Priority:</strong> ${priority}</p>
-            ${requiredByText ? `<p><strong>Required By:</strong> ${requiredByText}</p>` : ''}
-            ${projectText ? `<p><strong>Project:</strong> ${projectText}</p>` : ''}
-            ${productionLine.teamNeeds[teamNeedIndex].notes ? `<p><strong>Notes:</strong> ${productionLine.teamNeeds[teamNeedIndex].notes}</p>` : ''}
-            <p><strong>Requested By:</strong> ${productionLine.teamNeeds[teamNeedIndex].requestedBy || "Unknown"}</p>
-            <p><strong>Requested At:</strong> ${new Date(productionLine.teamNeeds[teamNeedIndex].requestedAt).toLocaleString()}</p>
-            <p><strong>You have been assigned as the owner of this team need.</strong></p>
-            <div style="margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
-              <p>You can view and respond to this team need in the system by clicking the link below:</p>
-              <a href="${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${teamNeedId}" 
-                style="display: inline-block; padding: 10px 15px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px;">
-                View Team Need
-              </a>
-            </div>
-          </div>
-        `;
-        
-        // Define text version for email clients that don't support HTML
+        // Define text version for email clients
         const textContent = `
-Team Need: ${productionLine.teamNeeds[teamNeedIndex].type} (${priority.toUpperCase()})
+Team Need: ${productionLine.teamNeeds[teamNeedIndex].type} (${priorityText})
 Description: ${productionLine.teamNeeds[teamNeedIndex].description}
 ${requiredByText ? `Required By: ${requiredByText}\n` : ''}
 ${projectText ? `Project: ${projectText}\n` : ''}
@@ -543,36 +463,20 @@ You can view and respond to this team need in the system by visiting:
 ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${teamNeedId}
         `.trim();
         
-        // Prepare email data
-        const emailData = {
-          to: updates.ownerEmail,
-          from: process.env.SENDGRID_FROM_EMAIL,
-          subject: emailSubject,
-          html: htmlContent,
-          text: textContent,
-        };
+        // Create a mailto link for client use
+        mailtoLink = `mailto:${updates.ownerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(textContent)}`;
         
-        console.log(`Sending update email with the following details:
-          To: ${emailData.to}
-          From: ${emailData.from}
-          Subject: ${emailData.subject}
-        `);
-        
-        // Send the email
-        const result = await mailService.send(emailData);
+        console.log(`Created mailto link for email client`);
         
         // Mark notification as sent in the database
         productionLine.teamNeeds[teamNeedIndex].notificationSent = true;
         
         // Update the production line again to save the notification status
         await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
-        
-        console.log(`Email notification sent successfully to ${updates.ownerEmail} for team need: ${teamNeedId}`);
-        console.log(`SendGrid update response:`, result);
       } catch (emailError) {
-        console.error("Error sending update email notification:", emailError);
+        console.error("Error creating mailto link:", emailError);
         console.error("Error details:", JSON.stringify(emailError, null, 2));
-        // We don't want to fail the request if the email fails, so we just log the error
+        // We don't want to fail the request if the email link creation fails
       }
     }
     
@@ -651,8 +555,16 @@ router.delete('/production-lines/:id/team-needs/:needId', authMiddleware, async 
   try {
     await ensureContainer();
     
-    const productionLineId = req.params.id;
+    // Check for productionLineId in both params and body
+    const productionLineId = req.params.id || req.body.productionLineId;
     const teamNeedId = req.params.needId;
+    
+    if (!productionLineId) {
+      return res.status(400).json({ message: "Production line ID is required" });
+    }
+    
+    console.log("DELETE - Production line ID received:", productionLineId);
+    console.log("DELETE - Team need ID received:", teamNeedId);
     
     // Get the production line
     const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();

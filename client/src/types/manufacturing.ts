@@ -173,6 +173,7 @@ export interface TeamNeed {
   priority: 'low' | 'medium' | 'high' | 'critical';
   requiredBy?: string;
   projectId?: string;
+  productionLineId: string; // Add explicitly to type
   notes?: string;
   requestedBy: string;
   requestedAt: string;

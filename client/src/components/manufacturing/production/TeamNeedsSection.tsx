@@ -74,6 +74,7 @@ const teamNeedSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'critical']),
   requiredBy: z.string().optional(),
   projectId: z.string().optional(),
+  productionLineId: z.string().optional(), // Allow it to be optional in the schema but ensure it's populated in the form
   notes: z.string().optional(),
   owner: z.string().optional(),
   ownerEmail: z.string().email({ message: "Please enter a valid email address" }).optional(),
@@ -116,12 +117,15 @@ function TeamNeedDialog({
       priority: teamNeed?.priority || 'medium',
       requiredBy: teamNeed?.requiredBy || '',
       projectId: teamNeed?.projectId || 'none',
+      productionLineId: teamNeed?.productionLineId || productionLineId, // Initialize with the passed production line ID
       notes: teamNeed?.notes || '',
       owner: teamNeed?.owner || '',
       ownerEmail: teamNeed?.ownerEmail || '',
       sendNotification: teamNeed?.notificationSent || false,
     },
   });
+  
+  console.log("TeamNeedDialog initialized with productionLineId:", productionLineId);
   
   // Log form validation state in development to help debug form issues
   useEffect(() => {
@@ -133,54 +137,194 @@ function TeamNeedDialog({
 
   const saveTeamNeedMutation = useMutation({
     mutationFn: async (values: TeamNeedFormValues) => {
-      console.log("Mutation function called with values:", values);
+      console.log("⭐ Mutation function called with values:", values);
+      console.log("⭐ Production line ID in mutationFn:", productionLineId);
+      
+      // Make sure we have a productionLineId either from the prop or the values
+      const effectiveProductionLineId = values.productionLineId || productionLineId;
+      
+      if (!effectiveProductionLineId) {
+        console.error("🔴 CRITICAL ERROR: Production line ID is missing in both props and values");
+        throw new Error("Production line ID is required");
+      }
       
       // Determine if we're creating or updating a team need
       const url = isEditing 
-        ? `/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs/${teamNeed?.id}`
-        : `/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`;
+        ? `/api/manufacturing/team-analytics/production-lines/${effectiveProductionLineId}/team-needs/${teamNeed?.id}`
+        : `/api/manufacturing/team-analytics/production-lines/${effectiveProductionLineId}/team-needs`;
       
-      console.log(`API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
-      console.log("Request payload:", JSON.stringify(values, null, 2));
+      console.log(`⭐ API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
+      console.log("⭐ Request payload:", JSON.stringify(values, null, 2));
+      
+      // Generate a mailto link for email fallback if sending notification
+      if (values.sendNotification && values.ownerEmail) {
+        try {
+          // Format required by date if provided
+          let requiredByText = '';
+          if (values.requiredBy) {
+            const requiredDate = new Date(values.requiredBy);
+            requiredByText = ` needed by ${requiredDate.toLocaleDateString()}`;
+          }
+          
+          // Project-specific message if projectId is provided
+          let projectText = '';
+          if (values.projectId && values.projectId !== 'none') {
+            projectText = ` for project #${values.projectId}`;
+          }
+          
+          // Determine email subject based on priority
+          let priorityText = values.priority;
+          // Keep the same priority value, just use uppercase for display
+          
+          const emailSubject = `[${priorityText.toUpperCase()}] Team Need: ${values.type}`;
+          
+          // Create email body
+          const emailBody = `
+Team Need: ${values.type} (${values.priority.toUpperCase()})
+Description: ${values.description}
+${requiredByText ? `Required By: ${requiredByText}\n` : ''}
+${projectText ? `Project: ${projectText}\n` : ''}
+${values.notes ? `Notes: ${values.notes}\n` : ''}
+Requested By: ${values.owner || 'Team Member'}
+          
+You have been assigned as the owner of this team need.
+          `.trim();
+          
+          // Save mailto link to localStorage for fallback
+          const mailtoLink = `mailto:${values.ownerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+          localStorage.setItem('lastTeamNeedEmailLink', mailtoLink);
+          console.log("⭐ Email fallback link created:", mailtoLink);
+        } catch (e) {
+          console.error("⭐ Error creating mailto link:", e);
+        }
+      }
+      
+      // Prepare the payload that explicitly includes productionLineId
+      const payload = {
+        ...values,
+        productionLineId: effectiveProductionLineId
+      };
+      
+      console.log("⭐ Final payload with explicit productionLineId:", JSON.stringify(payload, null, 2));
       
       try {
-        // Use our new API utility functions that handle HTML responses
-        if (isEditing) {
-          return await apiPatch(url, values);
-        } else {
-          return await apiPost(url, values);
+        console.log(`⭐ Making ${isEditing ? 'PATCH' : 'POST'} request to ${url}`);
+        
+        // Direct fetch to ensure we have a successful API call
+        const directResponse = await fetch(url, {
+          method: isEditing ? 'PATCH' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          // Add credentials to ensure cookies are sent
+          credentials: 'include'
+        });
+        
+        console.log(`⭐ Direct fetch response status: ${directResponse.status}`);
+        
+        if (!directResponse.ok) {
+          const errorText = await directResponse.text();
+          console.error("🔴 Error response from server:", errorText);
+          throw new Error(`API request failed with status ${directResponse.status}: ${errorText}`);
         }
-      } catch (error) {
-        console.error("Error in API operation:", error);
-        throw error;
+        
+        const responseData = await directResponse.json();
+        console.log("⭐ Direct fetch response data:", responseData);
+        return responseData;
+      } catch (directError) {
+        console.error("🔴 Direct fetch error:", directError);
+        
+        console.log("⭐ Trying fallback with API utility functions");
+        // Use our API utility functions as fallback
+        try {
+          if (isEditing) {
+            return await apiPatch(url, payload);
+          } else {
+            return await apiPost(url, payload);
+          }
+        } catch (error) {
+          console.error("🔴 Error in API operation:", error);
+          throw error;
+        }
       }
     },
     onSuccess: (data) => {
-      console.log("Team need saved successfully:", data);
+      console.log("⭐ Team need saved successfully:", data);
       
-      // Invalidate all production lines queries to ensure data is refreshed everywhere
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/manufacturing/production-lines'],
-        type: 'all'
-      });
-      
-      // Specifically invalidate the team needs query for this production line
-      if (productionLineId) {
-        queryClient.invalidateQueries({
-          queryKey: [`/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`],
+      // Execute success steps in a try/catch to make it more robust
+      try {
+        // Invalidate all production lines queries to ensure data is refreshed everywhere
+        console.log("⭐ Invalidating production lines queries");
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/manufacturing/production-lines'],
           type: 'all'
         });
+        
+        // Specifically invalidate the team needs query for this production line
+        if (productionLineId) {
+          console.log(`⭐ Invalidating team needs queries for production line: ${productionLineId}`);
+          queryClient.invalidateQueries({
+            queryKey: [`/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`],
+            type: 'all'
+          });
+        }
+        
+        // Check if we have an email fallback link
+        const emailLink = localStorage.getItem('lastTeamNeedEmailLink');
+        const isNotificationRequested = form.getValues().sendNotification;
+        
+        console.log(`⭐ Email notification requested: ${isNotificationRequested}, Email link available: ${!!emailLink}`);
+        
+        if (isNotificationRequested && emailLink) {
+          // Create a toast without the action property since it's not supported
+          toast({
+            title: "Success",
+            description: isEditing 
+              ? "Team need updated successfully. Opening email client..." 
+              : "Team need created successfully. Opening email client...",
+            variant: "default"
+          });
+          
+          // Remove the link after use
+          localStorage.removeItem('lastTeamNeedEmailLink');
+          
+          // Open the email client automatically
+          console.log("⭐ Opening email client with mailto link");
+          window.open(emailLink, '_blank');
+        } else {
+          toast({
+            title: "Success",
+            description: isEditing ? "Team need updated successfully" : "Team need created successfully",
+            variant: "default"
+          });
+        }
+        
+        // Reset form state and close dialog
+        console.log("⭐ Resetting form and closing dialog");
+        setIsLoading(false);
+        
+        // Ensure the dialog closes with a small timeout to prevent race conditions
+        setTimeout(() => {
+          onOpenChange(false);
+          // Wait a little longer before calling onSave to ensure UI has updated
+          setTimeout(() => {
+            onSave();
+          }, 100);
+        }, 100);
+      } catch (error) {
+        console.error("⭐ Error in onSuccess handler:", error);
+        // Ensure we still close the dialog even if there's an error
+        setIsLoading(false);
+        onOpenChange(false);
+        onSave();
+        toast({
+          title: "Success with warnings",
+          description: "Team need was saved, but there were some UI update issues.",
+          variant: "default"
+        });
       }
-      
-      toast({
-        title: "Success",
-        description: isEditing ? "Team need updated successfully" : "Team need created successfully",
-        variant: "default"
-      });
-      
-      setIsLoading(false);
-      onOpenChange(false);
-      onSave();
     },
     onError: (error) => {
       toast({
@@ -193,7 +337,7 @@ function TeamNeedDialog({
   });
 
   const onSubmit = (values: TeamNeedFormValues) => {
-    console.log("onSubmit called with values:", values);
+    console.log("⭐ onSubmit called with values:", values);
     
     // Set loading state immediately
     setIsLoading(true);
@@ -202,6 +346,8 @@ function TeamNeedDialog({
       // Process form values before submitting
       const formattedValues = {
         ...values,
+        // Explicitly include the productionLineId
+        productionLineId,
         // Convert empty strings to undefined for optional fields
         projectId: values.projectId === "none" ? undefined : values.projectId,
         requiredBy: values.requiredBy?.trim() === "" ? undefined : values.requiredBy,
@@ -210,40 +356,32 @@ function TeamNeedDialog({
         ownerEmail: values.ownerEmail?.trim() === "" ? undefined : values.ownerEmail
       };
       
-      console.log("Submitting team need with formatted values:", formattedValues);
-      console.log("Production line ID:", productionLineId);
+      console.log("⭐ Submitting team need with formatted values:", JSON.stringify(formattedValues, null, 2));
+      console.log("⭐ Production line ID:", productionLineId);
       
-      // Call the mutation to save the team need
-      saveTeamNeedMutation.mutate(formattedValues, {
-        onSuccess: (data) => {
-          console.log("Team need created successfully:", data);
-          toast({
-            title: "Success",
-            description: isEditing ? "Team need updated" : "Team need created",
-          });
-          onOpenChange(false);
-          form.reset();
-          
-          // Invalidate queries to refresh data
-          queryClient.invalidateQueries({ 
-            queryKey: ['/api/manufacturing/production-lines'],
-            type: 'all'
-          });
-          
-          setIsLoading(false);
-        },
-        onError: (error: any) => {
-          console.error("Error creating team need:", error);
-          toast({
-            title: "Error",
-            description: error.message || "Failed to save team need",
-            variant: "destructive",
-          });
-          setIsLoading(false);
-        }
+      // Verify that the form is valid before submitting
+      if (!form.formState.isValid) {
+        console.error("⭐ Form is invalid - checking errors:", form.formState.errors);
+        Object.entries(form.formState.errors).forEach(([field, error]) => {
+          console.error(`⭐ Field ${field} error:`, error);
+        });
+        setIsLoading(false);
+        toast({
+          title: "Form Validation Error",
+          description: "Please check form fields for errors",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Call the mutation to save the team need with explicit productionLineId passed as a parameter for debugging
+      console.log(`⭐ Calling mutation for productionLine: ${productionLineId}`);
+      saveTeamNeedMutation.mutate({
+        ...formattedValues,
+        productionLineId: productionLineId,
       });
     } catch (error) {
-      console.error("Exception in onSubmit:", error);
+      console.error("⭐ Exception in onSubmit:", error);
       setIsLoading(false);
       toast({
         title: "Error",
@@ -575,8 +713,15 @@ export function TeamNeedsSection({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Log productionLine details to help debug productionLineId issues
+  console.log("TeamNeedsSection - productionLine:", productionLine?.id);
+
   // Check if teamNeeds exists in the production line, if not create defaults
-  const teamNeeds = productionLine.teamNeeds || [];
+  // Ensure all team needs have a productionLineId
+  const teamNeeds = (productionLine?.teamNeeds || []).map(need => ({
+    ...need,
+    productionLineId: need.productionLineId || productionLine?.id || ''
+  }));
 
   // Filter team needs by status
   const pendingNeeds = teamNeeds.filter(need => need.status === 'pending');
@@ -585,20 +730,42 @@ export function TeamNeedsSection({
 
   // Function to handle editing a team need
   const handleEditTeamNeed = (teamNeed: TeamNeed) => {
-    setSelectedTeamNeed(teamNeed);
+    // Ensure the team need has the production line ID
+    const enrichedTeamNeed: TeamNeed = {
+      ...teamNeed,
+      // Set productionLineId if it's missing, using the current production line's ID
+      productionLineId: teamNeed.productionLineId || productionLine?.id || ''
+    };
+    console.log("⭐ Editing team need with productionLineId:", enrichedTeamNeed.productionLineId);
+    setSelectedTeamNeed(enrichedTeamNeed);
     setEditDialogOpen(true);
   };
 
   // Function to handle updating status of a team need
   const handleUpdateStatus = async (teamNeedId: string, newStatus: 'pending' | 'in_progress' | 'resolved' | 'cancelled') => {
+    if (!productionLine?.id) {
+      console.error("Cannot update team need status: production line ID is missing");
+      toast({
+        title: "Error",
+        description: "Cannot update status: production line information is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log(`Updating team need ${teamNeedId} status to ${newStatus} for production line ${productionLine.id}`);
     setIsStatusUpdating(true);
+    
     try {
       const response = await fetch(`/api/manufacturing/team-analytics/production-lines/${productionLine.id}/team-needs/${teamNeedId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ 
+          status: newStatus,
+          productionLineId: productionLine.id // Explicitly include productionLineId in body
+        }),
       });
 
       if (!response.ok) {
@@ -766,7 +933,7 @@ export function TeamNeedsSection({
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2"
-                            onClick={() => handleEditTeamNeed(need)}
+                            onClick={() => handleEditTeamNeed(need as TeamNeed)}
                           >
                             Edit
                           </Button>
@@ -837,7 +1004,7 @@ export function TeamNeedsSection({
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2"
-                            onClick={() => handleEditTeamNeed(need)}
+                            onClick={() => handleEditTeamNeed(need as TeamNeed)}
                           >
                             Edit
                           </Button>
@@ -925,16 +1092,18 @@ export function TeamNeedsSection({
       )}
 
       {/* Create Team Need Dialog */}
-      <TeamNeedDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        productionLineId={productionLine.id}
-        projects={projects}
-        onSave={handleRefresh}
-      />
+      {productionLine?.id && (
+        <TeamNeedDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          productionLineId={productionLine.id}
+          projects={projects}
+          onSave={handleRefresh}
+        />
+      )}
 
       {/* Edit Team Need Dialog */}
-      {selectedTeamNeed && (
+      {selectedTeamNeed && productionLine?.id && (
         <TeamNeedDialog
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
