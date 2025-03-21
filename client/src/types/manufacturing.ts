@@ -151,6 +151,7 @@ export const productionLineSchema = z.object({
     priority: z.enum(['low', 'medium', 'high', 'critical']),
     requiredBy: z.string().optional(),
     projectId: z.string().optional(),
+    productionLineId: z.string().optional(), // Add to schema to match interface
     notes: z.string().optional(),
     requestedBy: z.string(),
     requestedAt: z.string(),

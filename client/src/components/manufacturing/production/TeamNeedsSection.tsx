@@ -61,6 +61,12 @@ import {
 import { format } from "date-fns";
 import { ProductionLine, Project, TeamNeed } from "@/types/manufacturing";
 
+interface TeamNeedApiResponse {
+  message: string;
+  teamNeed: TeamNeed;
+  mailtoLink?: string | null;
+}
+
 interface TeamNeedsSectionProps {
   productionLine: ProductionLine;
   projects: Project[];
@@ -135,7 +141,7 @@ function TeamNeedDialog({
     console.log("Form valid:", form.formState.isValid);
   }, [form.formState]);
 
-  const saveTeamNeedMutation = useMutation({
+  const saveTeamNeedMutation = useMutation<TeamNeedApiResponse, Error, TeamNeedFormValues>({
     mutationFn: async (values: TeamNeedFormValues) => {
       console.log("⭐ Mutation function called with values:", values);
       console.log("⭐ Production line ID in mutationFn:", productionLineId);
@@ -198,7 +204,7 @@ function TeamNeedDialog({
           throw new Error(`API request failed with status ${directResponse.status}: ${errorText}`);
         }
         
-        const responseData = await directResponse.json();
+        const responseData: TeamNeedApiResponse = await directResponse.json();
         console.log("⭐ Direct fetch response data:", responseData);
         return responseData;
       } catch (directError) {
@@ -208,9 +214,9 @@ function TeamNeedDialog({
         // Use our API utility functions as fallback
         try {
           if (isEditing) {
-            return await apiPatch(url, payload);
+            return await apiPatch<TeamNeedApiResponse>(url, payload);
           } else {
-            return await apiPost(url, payload);
+            return await apiPost<TeamNeedApiResponse>(url, payload);
           }
         } catch (error) {
           console.error("🔴 Error in API operation:", error);
