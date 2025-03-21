@@ -143,8 +143,8 @@ function TeamNeedDialog({
 
   const saveTeamNeedMutation = useMutation<TeamNeedApiResponse, Error, TeamNeedFormValues>({
     mutationFn: async (values: TeamNeedFormValues) => {
-      console.log("⭐ Mutation function called with values:", values);
-      console.log("⭐ Production line ID in mutationFn:", productionLineId);
+      console.log("🚀 DEBUG - Mutation function called with values:", values);
+      console.log("🚀 DEBUG - Production line ID in mutationFn:", productionLineId);
       
       // Make sure we have a productionLineId either from the prop or the values
       const effectiveProductionLineId = values.productionLineId || productionLineId;
@@ -159,17 +159,17 @@ function TeamNeedDialog({
         ? `/api/manufacturing/team-analytics/production-lines/${effectiveProductionLineId}/team-needs/${teamNeed?.id}`
         : `/api/manufacturing/team-analytics/production-lines/${effectiveProductionLineId}/team-needs`;
       
-      console.log(`⭐ API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
-      console.log("⭐ Request payload:", JSON.stringify(values, null, 2));
+      console.log(`🚀 DEBUG - API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
+      console.log("🚀 DEBUG - Request payload:", JSON.stringify(values, null, 2));
       
       // Generate a mailto link for email fallback if sending notification
       if (values.sendNotification && values.ownerEmail) {
         try {
           // We no longer need to create our own mailto link in the client
           // The server will create it and send it back in the response
-          console.log("⭐ Email notification will be handled by server and sent back in response");
+          console.log("🚀 DEBUG - Email notification will be handled by server and sent back in response");
         } catch (e) {
-          console.error("⭐ Error creating mailto link:", e);
+          console.error("🔴 Error creating mailto link:", e);
         }
       }
       
@@ -179,10 +179,10 @@ function TeamNeedDialog({
         productionLineId: effectiveProductionLineId
       };
       
-      console.log("⭐ Final payload with explicit productionLineId:", JSON.stringify(payload, null, 2));
+      console.log("🚀 DEBUG - Final payload with explicit productionLineId:", JSON.stringify(payload, null, 2));
       
       try {
-        console.log(`⭐ Making ${isEditing ? 'PATCH' : 'POST'} request to ${url}`);
+        console.log(`🚀 DEBUG - Making ${isEditing ? 'PATCH' : 'POST'} request to ${url}`);
         
         // Direct fetch to ensure we have a successful API call
         const directResponse = await fetch(url, {
@@ -196,7 +196,7 @@ function TeamNeedDialog({
           credentials: 'include'
         });
         
-        console.log(`⭐ Direct fetch response status: ${directResponse.status}`);
+        console.log(`🚀 DEBUG - Direct fetch response status: ${directResponse.status}`);
         
         if (!directResponse.ok) {
           const errorText = await directResponse.text();
@@ -204,33 +204,63 @@ function TeamNeedDialog({
           throw new Error(`API request failed with status ${directResponse.status}: ${errorText}`);
         }
         
-        const responseData: TeamNeedApiResponse = await directResponse.json();
-        console.log("⭐ Direct fetch response data:", responseData);
-        return responseData;
+        try {
+          const responseText = await directResponse.text();
+          console.log("🚀 DEBUG - Raw response text:", responseText);
+          
+          // Try to parse the response as JSON
+          let responseData: TeamNeedApiResponse;
+          try {
+            responseData = JSON.parse(responseText) as TeamNeedApiResponse;
+          } catch (parseError) {
+            console.error("🔴 Failed to parse response as JSON:", parseError);
+            throw new Error(`Invalid JSON response: ${responseText}`);
+          }
+          
+          console.log("🚀 DEBUG - Parsed response data:", responseData);
+          return responseData;
+        } catch (textError) {
+          console.error("🔴 Error getting response text:", textError);
+          throw textError;
+        }
       } catch (directError) {
         console.error("🔴 Direct fetch error:", directError);
         
-        console.log("⭐ Trying fallback with API utility functions");
+        console.log("🚀 DEBUG - Trying fallback with API utility functions");
         // Use our API utility functions as fallback
         try {
-          if (isEditing) {
-            return await apiPatch<TeamNeedApiResponse>(url, payload);
-          } else {
-            return await apiPost<TeamNeedApiResponse>(url, payload);
-          }
-        } catch (error) {
-          console.error("🔴 Error in API operation:", error);
-          throw error;
+          const apiResponse = isEditing 
+            ? await apiPatch<TeamNeedApiResponse>(url, payload)
+            : await apiPost<TeamNeedApiResponse>(url, payload);
+          
+          console.log("🚀 DEBUG - API utility response:", apiResponse);
+          return apiResponse;
+        } catch (apiError) {
+          console.error("🔴 Error in API operation:", apiError);
+          throw apiError;
         }
       }
     },
     onSuccess: (data) => {
-      console.log("⭐ Team need saved successfully:", data);
+      console.log("🚀 DEBUG - Team need saved successfully:", data);
+      console.log("🚀 DEBUG - Full response data details:", JSON.stringify(data, null, 2));
       
       // Execute success steps in a try/catch to make it more robust
       try {
+        // Double-check if we received the expected data shape
+        if (!data || !data.teamNeed || !data.teamNeed.id) {
+          console.error("🔴 Invalid response data structure:", data);
+          throw new Error("Server returned an invalid response");
+        }
+        
+        console.log("🚀 DEBUG - Server returned team need ID:", data.teamNeed.id);
+        console.log("🚀 DEBUG - Team need details:", data.teamNeed);
+        
+        // Log cache invalidation steps for debugging
+        console.log("🚀 DEBUG - Starting cache invalidation");
+        
         // Invalidate all production lines queries to ensure data is refreshed everywhere
-        console.log("⭐ Invalidating production lines queries");
+        console.log("🚀 DEBUG - Invalidating ALL production lines queries");
         queryClient.invalidateQueries({ 
           queryKey: ['/api/manufacturing/production-lines'],
           type: 'all'
@@ -238,18 +268,26 @@ function TeamNeedDialog({
         
         // Specifically invalidate the team needs query for this production line
         if (productionLineId) {
-          console.log(`⭐ Invalidating team needs queries for production line: ${productionLineId}`);
+          const teamNeedsQueryKey = `/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`;
+          console.log(`🚀 DEBUG - Invalidating specific team needs query: ${teamNeedsQueryKey}`);
           queryClient.invalidateQueries({
-            queryKey: [`/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`],
+            queryKey: [teamNeedsQueryKey],
             type: 'all'
           });
         }
+        
+        // Force a refetch of production lines to get updated data
+        console.log("🚀 DEBUG - Forcing refetch of production lines data");
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/manufacturing/production-lines'],
+          type: 'all'
+        });
         
         // Check if we have an email mailtoLink from the server response
         const mailtoLink = data.mailtoLink;
         const isNotificationRequested = form.getValues().sendNotification;
         
-        console.log(`⭐ Email notification requested: ${isNotificationRequested}, Mailto link from server: ${!!mailtoLink}`);
+        console.log(`🚀 DEBUG - Email notification requested: ${isNotificationRequested}, Mailto link from server: ${!!mailtoLink}`);
         
         if (isNotificationRequested && mailtoLink) {
           // Create a toast without the action property since it's not supported
@@ -262,7 +300,7 @@ function TeamNeedDialog({
           });
           
           // Open the email client automatically with the link from the server
-          console.log("⭐ Opening email client with mailto link from server");
+          console.log("🚀 DEBUG - Opening email client with mailto link from server");
           window.open(mailtoLink, '_blank');
         } else {
           toast({
@@ -273,23 +311,42 @@ function TeamNeedDialog({
         }
         
         // Reset form state and close dialog
-        console.log("⭐ Resetting form and closing dialog");
+        console.log("🚀 DEBUG - Resetting form and closing dialog");
         setIsLoading(false);
         
         // Ensure the dialog closes with a small timeout to prevent race conditions
         setTimeout(() => {
+          console.log("🚀 DEBUG - Closing dialog");
           onOpenChange(false);
+          
           // Wait a little longer before calling onSave to ensure UI has updated
           setTimeout(() => {
+            console.log("🚀 DEBUG - Calling onSave callback");
             onSave();
-          }, 100);
-        }, 100);
+            
+            // Add additional check to ensure data refresh
+            setTimeout(() => {
+              console.log("🚀 DEBUG - Forcing additional refetch after save");
+              queryClient.refetchQueries({ 
+                queryKey: ['/api/manufacturing/production-lines'],
+                type: 'all' 
+              });
+            }, 500);
+          }, 250);
+        }, 250);
       } catch (error) {
-        console.error("⭐ Error in onSuccess handler:", error);
+        console.error("🔴 Error in onSuccess handler:", error);
         // Ensure we still close the dialog even if there's an error
         setIsLoading(false);
         onOpenChange(false);
         onSave();
+        
+        // Force a refetch even on error as a fallback
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/manufacturing/production-lines'],
+          type: 'all'
+        });
+        
         toast({
           title: "Success with warnings",
           description: "Team need was saved, but there were some UI update issues.",

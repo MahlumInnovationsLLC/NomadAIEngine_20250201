@@ -169,16 +169,18 @@ router.get('/production-lines/:id/team-needs', authMiddleware, async (req: Authe
 // Create a new team need for a production line
 router.post('/production-lines/:id/team-needs', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log("📌 SERVER: POST team need - Starting request processing");
     await ensureContainer();
     
     // Check for productionLineId in both params and body
     const productionLineId = req.params.id || req.body.productionLineId;
     if (!productionLineId) {
+      console.error("📌 SERVER: Missing productionLineId in both params and body");
       return res.status(400).json({ message: "Production line ID is required" });
     }
     
-    console.log("Production line ID received:", productionLineId);
-    console.log("Request body:", req.body);
+    console.log("📌 SERVER: Production line ID received:", productionLineId);
+    console.log("📌 SERVER: Request body:", JSON.stringify(req.body, null, 2));
     
     const { 
       type, 
@@ -193,23 +195,31 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
     } = req.body;
     
     // Get the production line
+    console.log(`📌 SERVER: Reading production line with ID: ${productionLineId}`);
     const { resource: productionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
     
     if (!productionLine) {
+      console.error(`📌 SERVER: Production line with ID ${productionLineId} not found`);
       return res.status(404).json({ message: "Production line not found" });
     }
     
     // Initialize teamNeeds if it doesn't exist
     if (!productionLine.teamNeeds) {
+      console.log("📌 SERVER: Initializing teamNeeds array");
       productionLine.teamNeeds = [];
     }
     
+    // Generate a new UUID for the team need
+    const teamNeedId = uuidv4();
+    console.log(`📌 SERVER: Generated new team need ID: ${teamNeedId}`);
+    
     // Create new team need
     const newTeamNeed = {
-      id: uuidv4(),
+      id: teamNeedId,
       type,
       description,
       priority,
+      productionLineId: productionLineId, // Explicitly store the productionLineId
       requiredBy: requiredBy || undefined,
       projectId: projectId || undefined,
       notes: notes || undefined,
@@ -233,10 +243,10 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
     let mailtoLink = null;
     if (sendNotification && ownerEmail) {
       try {
-        console.log(`Team need created with ID: ${newTeamNeed.id}`);
-        console.log(`Email notification requested: ${sendNotification}`);
-        console.log(`Owner email: ${ownerEmail}`);
-        console.log(`Creating mailto link for email client to: ${ownerEmail}`);
+        console.log(`📌 SERVER: Team need created with ID: ${newTeamNeed.id}`);
+        console.log(`📌 SERVER: Email notification requested: ${sendNotification}`);
+        console.log(`📌 SERVER: Owner email: ${ownerEmail}`);
+        console.log(`📌 SERVER: Creating mailto link for email client to: ${ownerEmail}`);
         
         // Format required by date if provided
         let requiredByText = '';
@@ -274,16 +284,18 @@ ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/tea
         
         // Create a mailto link for client use
         mailtoLink = `mailto:${ownerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(textContent)}`;
-        console.log(`Created mailto link for email client`);
+        console.log(`📌 SERVER: Created mailto link for email client: ${mailtoLink.substring(0, 50)}...`);
         
         // Mark notification as being handled client-side
         productionLine.teamNeeds[productionLine.teamNeeds.length - 1].notificationSent = true;
         
-        // Update the production line
+        // Update the production line again 
+        console.log(`📌 SERVER: Updating production line with notification flag`);
         await productionLinesContainer.item(productionLineId, productionLineId).replace(productionLine);
+        console.log(`📌 SERVER: Production line updated with notification flag`);
       } catch (emailError) {
-        console.error("Error creating mailto link:", emailError);
-        console.error("Error details:", JSON.stringify(emailError, null, 2));
+        console.error("📌 SERVER: Error creating mailto link:", emailError);
+        console.error("📌 SERVER: Error details:", JSON.stringify(emailError, null, 2));
         // We don't want to fail the request if the email link creation fails
       }
     }
@@ -291,6 +303,8 @@ ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/tea
     // Send notification to team managers about the new need
     if (webSocketManager) {
       try {
+        console.log(`📌 SERVER: Preparing WebSocket notifications`);
+        
         // Determine notification priority based on the team need priority
         let notificationPriority: 'low' | 'medium' | 'high' | 'urgent' = 'medium';
         switch (priority) {
@@ -325,11 +339,13 @@ ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/tea
         // For this example, we're using "Admin" as a placeholder
         // In a real system, you would pull the electrical lead and assembly lead from productionLine
         const teamLeads = ["Admin"]; // Placeholder for actual team leads
+        console.log(`📌 SERVER: Will notify team leads: ${teamLeads.join(', ')}`);
         
         const link = `/manufacturing/production/team/${productionLineId}?tab=needs&highlight=${newTeamNeed.id}`;
         
         // Notify all team leads about the new need
         for (const userId of teamLeads) {
+          console.log(`📌 SERVER: Sending notification to user: ${userId}`);
           await webSocketManager.sendNotification(userId, {
             type: 'new_team_need',
             title: `New ${priority} ${type} Request`,
@@ -342,23 +358,45 @@ ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/tea
               teamNeed: newTeamNeed
             }
           });
+          console.log(`📌 SERVER: Successfully sent notification to user: ${userId}`);
         }
         
-        console.log(`Notifications sent for new team need: ${newTeamNeed.id}`);
+        console.log(`📌 SERVER: WebSocket notifications sent for team need: ${newTeamNeed.id}`);
       } catch (notificationError) {
-        console.error("Error sending notification:", notificationError);
+        console.error("📌 SERVER: Error sending notification:", notificationError);
+        console.error("📌 SERVER: Notification error details:", JSON.stringify(notificationError, null, 2));
         // We don't want to fail the request if notification fails, so we just log the error
       }
     }
     
-    // Include the mailtoLink in the response to allow client to open email client
-    res.status(201).json({ 
+    // Double-check that the team need was actually added to the production line
+    try {
+      console.log(`📌 SERVER: Verifying team need was added correctly`);
+      const { resource: updatedProductionLine } = await productionLinesContainer.item(productionLineId, productionLineId).read();
+      
+      const addedTeamNeed = updatedProductionLine.teamNeeds?.find((need: any) => need.id === teamNeedId);
+      if (!addedTeamNeed) {
+        console.error(`📌 SERVER: Team need with ID ${teamNeedId} was not found in production line after adding it!`);
+      } else {
+        console.log(`📌 SERVER: Team need with ID ${teamNeedId} was successfully verified in production line`);
+      }
+    } catch (verifyError) {
+      console.error(`📌 SERVER: Error verifying team need was added:`, verifyError);
+    }
+    
+    // Create the response object with the correct shape
+    const response = {
       message: "Team need created successfully", 
       teamNeed: newTeamNeed,
       mailtoLink: mailtoLink  // Pass the mailtoLink to the client
-    });
+    };
+    
+    console.log(`📌 SERVER: Sending successful response:`, JSON.stringify(response, null, 2));
+    
+    // Include the mailtoLink in the response to allow client to open email client
+    res.status(201).json(response);
   } catch (error) {
-    console.error("Error creating team need:", error);
+    console.error("📌 SERVER: Error creating team need:", error);
     res.status(500).json({ message: "Failed to create team need" });
   }
 });
