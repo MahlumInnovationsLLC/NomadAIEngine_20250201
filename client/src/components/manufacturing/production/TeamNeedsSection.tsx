@@ -764,6 +764,7 @@ export function TeamNeedsSection({
 
   // Function to handle editing a team need
   const handleEditTeamNeed = (teamNeed: TeamNeed) => {
+    console.log("💎 Editing team need:", teamNeed);
     // Ensure the team need has the production line ID
     const enrichedTeamNeed: TeamNeed = {
       ...teamNeed,
