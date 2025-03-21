@@ -689,10 +689,16 @@ export function TeamNeedsSection({
 
   // Check if teamNeeds exists in the production line, if not create defaults
   // Ensure all team needs have a productionLineId
-  const teamNeeds = (productionLine?.teamNeeds || []).map(need => ({
-    ...need,
-    productionLineId: need.productionLineId || productionLine?.id || ''
-  }));
+  const teamNeeds = (productionLine?.teamNeeds || []).map(need => {
+    // Create a properly typed TeamNeed object with all required properties
+    return {
+      ...need,
+      productionLineId: need.productionLineId || productionLine?.id || '',
+      // Ensure these required properties exist (they should be there from the server)
+      requestedBy: need.requestedBy || 'Unknown',
+      requestedAt: need.requestedAt || new Date().toISOString()
+    } as TeamNeed;
+  });
 
   // Filter team needs by status
   const pendingNeeds = teamNeeds.filter(need => need.status === 'pending');
@@ -705,7 +711,10 @@ export function TeamNeedsSection({
     const enrichedTeamNeed: TeamNeed = {
       ...teamNeed,
       // Set productionLineId if it's missing, using the current production line's ID
-      productionLineId: teamNeed.productionLineId || productionLine?.id || ''
+      productionLineId: teamNeed.productionLineId || productionLine?.id || '',
+      // Ensure these required properties exist
+      requestedBy: teamNeed.requestedBy || 'Unknown',
+      requestedAt: teamNeed.requestedAt || new Date().toISOString()
     };
     console.log("⭐ Editing team need with productionLineId:", enrichedTeamNeed.productionLineId);
     setSelectedTeamNeed(enrichedTeamNeed);
@@ -904,7 +913,7 @@ export function TeamNeedsSection({
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2"
-                            onClick={() => handleEditTeamNeed(need as TeamNeed)}
+                            onClick={() => handleEditTeamNeed(need)}
                           >
                             Edit
                           </Button>
@@ -975,7 +984,7 @@ export function TeamNeedsSection({
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2"
-                            onClick={() => handleEditTeamNeed(need as TeamNeed)}
+                            onClick={() => handleEditTeamNeed(need)}
                           >
                             Edit
                           </Button>
