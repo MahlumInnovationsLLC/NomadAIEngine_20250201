@@ -351,7 +351,12 @@ ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/tea
       }
     }
     
-    res.status(201).json({ message: "Team need created successfully", teamNeed: newTeamNeed });
+    // Include the mailtoLink in the response to allow client to open email client
+    res.status(201).json({ 
+      message: "Team need created successfully", 
+      teamNeed: newTeamNeed,
+      mailtoLink: mailtoLink  // Pass the mailtoLink to the client
+    });
   } catch (error) {
     console.error("Error creating team need:", error);
     res.status(500).json({ message: "Failed to create team need" });
@@ -542,7 +547,8 @@ ${process.env.BASE_URL || 'https://NOMAD_BASE_URL'}/manufacturing/production/tea
     
     res.json({ 
       message: "Team need updated successfully", 
-      teamNeed: productionLine.teamNeeds[teamNeedIndex] 
+      teamNeed: productionLine.teamNeeds[teamNeedIndex],
+      mailtoLink: mailtoLink // Include the mailtoLink in the response for the client to open email
     });
   } catch (error) {
     console.error("Error updating team need:", error);

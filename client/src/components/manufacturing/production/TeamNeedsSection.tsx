@@ -159,41 +159,9 @@ function TeamNeedDialog({
       // Generate a mailto link for email fallback if sending notification
       if (values.sendNotification && values.ownerEmail) {
         try {
-          // Format required by date if provided
-          let requiredByText = '';
-          if (values.requiredBy) {
-            const requiredDate = new Date(values.requiredBy);
-            requiredByText = ` needed by ${requiredDate.toLocaleDateString()}`;
-          }
-          
-          // Project-specific message if projectId is provided
-          let projectText = '';
-          if (values.projectId && values.projectId !== 'none') {
-            projectText = ` for project #${values.projectId}`;
-          }
-          
-          // Determine email subject based on priority
-          let priorityText = values.priority;
-          // Keep the same priority value, just use uppercase for display
-          
-          const emailSubject = `[${priorityText.toUpperCase()}] Team Need: ${values.type}`;
-          
-          // Create email body
-          const emailBody = `
-Team Need: ${values.type} (${values.priority.toUpperCase()})
-Description: ${values.description}
-${requiredByText ? `Required By: ${requiredByText}\n` : ''}
-${projectText ? `Project: ${projectText}\n` : ''}
-${values.notes ? `Notes: ${values.notes}\n` : ''}
-Requested By: ${values.owner || 'Team Member'}
-          
-You have been assigned as the owner of this team need.
-          `.trim();
-          
-          // Save mailto link to localStorage for fallback
-          const mailtoLink = `mailto:${values.ownerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-          localStorage.setItem('lastTeamNeedEmailLink', mailtoLink);
-          console.log("⭐ Email fallback link created:", mailtoLink);
+          // We no longer need to create our own mailto link in the client
+          // The server will create it and send it back in the response
+          console.log("⭐ Email notification will be handled by server and sent back in response");
         } catch (e) {
           console.error("⭐ Error creating mailto link:", e);
         }
@@ -271,13 +239,13 @@ You have been assigned as the owner of this team need.
           });
         }
         
-        // Check if we have an email fallback link
-        const emailLink = localStorage.getItem('lastTeamNeedEmailLink');
+        // Check if we have an email mailtoLink from the server response
+        const mailtoLink = data.mailtoLink;
         const isNotificationRequested = form.getValues().sendNotification;
         
-        console.log(`⭐ Email notification requested: ${isNotificationRequested}, Email link available: ${!!emailLink}`);
+        console.log(`⭐ Email notification requested: ${isNotificationRequested}, Mailto link from server: ${!!mailtoLink}`);
         
-        if (isNotificationRequested && emailLink) {
+        if (isNotificationRequested && mailtoLink) {
           // Create a toast without the action property since it's not supported
           toast({
             title: "Success",
@@ -287,12 +255,9 @@ You have been assigned as the owner of this team need.
             variant: "default"
           });
           
-          // Remove the link after use
-          localStorage.removeItem('lastTeamNeedEmailLink');
-          
-          // Open the email client automatically
-          console.log("⭐ Opening email client with mailto link");
-          window.open(emailLink, '_blank');
+          // Open the email client automatically with the link from the server
+          console.log("⭐ Opening email client with mailto link from server");
+          window.open(mailtoLink, '_blank');
         } else {
           toast({
             title: "Success",
