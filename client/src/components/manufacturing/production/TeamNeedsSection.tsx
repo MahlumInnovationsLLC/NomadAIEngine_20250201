@@ -143,8 +143,8 @@ function TeamNeedDialog({
 
   const saveTeamNeedMutation = useMutation<TeamNeedApiResponse, Error, TeamNeedFormValues>({
     mutationFn: async (values: TeamNeedFormValues) => {
-      console.log("🚀 DEBUG - Mutation function called with values:", values);
-      console.log("🚀 DEBUG - Production line ID in mutationFn:", productionLineId);
+      console.log("🔄 Mutation function called with values:", values);
+      console.log("🔄 Production line ID in mutationFn:", productionLineId);
       
       // Make sure we have a productionLineId either from the prop or the values
       const effectiveProductionLineId = values.productionLineId || productionLineId;
@@ -159,15 +159,15 @@ function TeamNeedDialog({
         ? `/api/manufacturing/team-analytics/production-lines/${effectiveProductionLineId}/team-needs/${teamNeed?.id}`
         : `/api/manufacturing/team-analytics/production-lines/${effectiveProductionLineId}/team-needs`;
       
-      console.log(`🚀 DEBUG - API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
-      console.log("🚀 DEBUG - Request payload:", JSON.stringify(values, null, 2));
+      console.log(`🔄 API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
+      console.log("🔄 Request payload:", JSON.stringify(values, null, 2));
       
       // Generate a mailto link for email fallback if sending notification
       if (values.sendNotification && values.ownerEmail) {
         try {
           // We no longer need to create our own mailto link in the client
           // The server will create it and send it back in the response
-          console.log("🚀 DEBUG - Email notification will be handled by server and sent back in response");
+          console.log("🔄 Email notification will be handled by server and sent back in response");
         } catch (e) {
           console.error("🔴 Error creating mailto link:", e);
         }
@@ -179,10 +179,10 @@ function TeamNeedDialog({
         productionLineId: effectiveProductionLineId
       };
       
-      console.log("🚀 DEBUG - Final payload with explicit productionLineId:", JSON.stringify(payload, null, 2));
+      console.log("🔄 Final payload with explicit productionLineId:", JSON.stringify(payload, null, 2));
       
       try {
-        console.log(`🚀 DEBUG - Making ${isEditing ? 'PATCH' : 'POST'} request to ${url}`);
+        console.log(`🔄 Making ${isEditing ? 'PATCH' : 'POST'} request to ${url}`);
         
         // Direct fetch to ensure we have a successful API call
         const directResponse = await fetch(url, {
@@ -196,7 +196,7 @@ function TeamNeedDialog({
           credentials: 'include'
         });
         
-        console.log(`🚀 DEBUG - Direct fetch response status: ${directResponse.status}`);
+        console.log(`🔄 Direct fetch response status: ${directResponse.status}`);
         
         if (!directResponse.ok) {
           const errorText = await directResponse.text();
@@ -206,7 +206,7 @@ function TeamNeedDialog({
         
         try {
           const responseText = await directResponse.text();
-          console.log("🚀 DEBUG - Raw response text:", responseText);
+          console.log("🔄 Raw response text:", responseText);
           
           // Try to parse the response as JSON
           let responseData: TeamNeedApiResponse;
@@ -217,7 +217,7 @@ function TeamNeedDialog({
             throw new Error(`Invalid JSON response: ${responseText}`);
           }
           
-          console.log("🚀 DEBUG - Parsed response data:", responseData);
+          console.log("🔄 Parsed response data:", responseData);
           return responseData;
         } catch (textError) {
           console.error("🔴 Error getting response text:", textError);
@@ -226,14 +226,14 @@ function TeamNeedDialog({
       } catch (directError) {
         console.error("🔴 Direct fetch error:", directError);
         
-        console.log("🚀 DEBUG - Trying fallback with API utility functions");
+        console.log("🔄 Trying fallback with API utility functions");
         // Use our API utility functions as fallback
         try {
           const apiResponse = isEditing 
             ? await apiPatch<TeamNeedApiResponse>(url, payload)
             : await apiPost<TeamNeedApiResponse>(url, payload);
           
-          console.log("🚀 DEBUG - API utility response:", apiResponse);
+          console.log("🔄 API utility response:", apiResponse);
           return apiResponse;
         } catch (apiError) {
           console.error("🔴 Error in API operation:", apiError);
@@ -242,52 +242,47 @@ function TeamNeedDialog({
       }
     },
     onSuccess: (data) => {
-      console.log("🚀 DEBUG - Team need saved successfully:", data);
-      console.log("🚀 DEBUG - Full response data details:", JSON.stringify(data, null, 2));
+      console.log("✅ Team need saved successfully:", data);
       
       // Execute success steps in a try/catch to make it more robust
       try {
         // Double-check if we received the expected data shape
         if (!data || !data.teamNeed || !data.teamNeed.id) {
-          console.error("🔴 Invalid response data structure:", data);
+          console.error("⛔ Invalid response data structure:", data);
           throw new Error("Server returned an invalid response");
         }
         
-        console.log("🚀 DEBUG - Server returned team need ID:", data.teamNeed.id);
-        console.log("🚀 DEBUG - Team need details:", data.teamNeed);
+        console.log("🔄 Server returned team need ID:", data.teamNeed.id);
         
-        // Log cache invalidation steps for debugging
-        console.log("🚀 DEBUG - Starting cache invalidation");
+        // More systematic approach to cache invalidation
+        console.log("🔄 Starting cache invalidation sequence");
         
-        // Invalidate all production lines queries to ensure data is refreshed everywhere
-        console.log("🚀 DEBUG - Invalidating ALL production lines queries");
-        queryClient.invalidateQueries({ 
-          queryKey: ['/api/manufacturing/production-lines'],
-          type: 'all'
-        });
-        
-        // Specifically invalidate the team needs query for this production line
+        // First, remove specific cached items
         if (productionLineId) {
           const teamNeedsQueryKey = `/api/manufacturing/team-analytics/production-lines/${productionLineId}/team-needs`;
-          console.log(`🚀 DEBUG - Invalidating specific team needs query: ${teamNeedsQueryKey}`);
-          queryClient.invalidateQueries({
-            queryKey: [teamNeedsQueryKey],
-            type: 'all'
-          });
+          console.log(`🔄 Removing specific query cache: ${teamNeedsQueryKey}`);
+          queryClient.removeQueries({ queryKey: [teamNeedsQueryKey] });
         }
         
-        // Force a refetch of production lines to get updated data
-        console.log("🚀 DEBUG - Forcing refetch of production lines data");
+        // Then invalidate parent queries
+        console.log(`🔄 Invalidating production lines query`);
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/manufacturing/production-lines'],
+          exact: false // This ensures it invalidates all nested queries too
+        });
+        
+        // Force an immediate refetch of the key queries
+        console.log(`🔄 Forcing refetch of production lines data`);
         queryClient.refetchQueries({ 
           queryKey: ['/api/manufacturing/production-lines'],
-          type: 'all'
+          type: 'active' // Only refetch queries that are currently rendered
         });
         
         // Check if we have an email mailtoLink from the server response
         const mailtoLink = data.mailtoLink;
         const isNotificationRequested = form.getValues().sendNotification;
         
-        console.log(`🚀 DEBUG - Email notification requested: ${isNotificationRequested}, Mailto link from server: ${!!mailtoLink}`);
+        console.log(`🔄 Email notification requested: ${isNotificationRequested}, Mailto link from server: ${!!mailtoLink}`);
         
         if (isNotificationRequested && mailtoLink) {
           // Create a toast without the action property since it's not supported
@@ -300,7 +295,7 @@ function TeamNeedDialog({
           });
           
           // Open the email client automatically with the link from the server
-          console.log("🚀 DEBUG - Opening email client with mailto link from server");
+          console.log("🔄 Opening email client with mailto link from server");
           window.open(mailtoLink, '_blank');
         } else {
           toast({
@@ -311,22 +306,22 @@ function TeamNeedDialog({
         }
         
         // Reset form state and close dialog
-        console.log("🚀 DEBUG - Resetting form and closing dialog");
+        console.log("🔄 Resetting form and closing dialog");
         setIsLoading(false);
         
         // Ensure the dialog closes with a small timeout to prevent race conditions
         setTimeout(() => {
-          console.log("🚀 DEBUG - Closing dialog");
+          console.log("🔄 Closing dialog");
           onOpenChange(false);
           
           // Wait a little longer before calling onSave to ensure UI has updated
           setTimeout(() => {
-            console.log("🚀 DEBUG - Calling onSave callback");
+            console.log("🔄 Calling onSave callback");
             onSave();
             
             // Add additional check to ensure data refresh
             setTimeout(() => {
-              console.log("🚀 DEBUG - Forcing additional refetch after save");
+              console.log("🔄 Forcing additional refetch after save");
               queryClient.refetchQueries({ 
                 queryKey: ['/api/manufacturing/production-lines'],
                 type: 'all' 
@@ -782,7 +777,7 @@ export function TeamNeedsSection({
   // Function to handle updating status of a team need
   const handleUpdateStatus = async (teamNeedId: string, newStatus: 'pending' | 'in_progress' | 'resolved' | 'cancelled') => {
     if (!productionLine?.id) {
-      console.error("Cannot update team need status: production line ID is missing");
+      console.error("⛔ Cannot update team need status: production line ID is missing");
       toast({
         title: "Error",
         description: "Cannot update status: production line information is missing",
@@ -791,44 +786,49 @@ export function TeamNeedsSection({
       return;
     }
     
-    console.log(`Updating team need ${teamNeedId} status to ${newStatus} for production line ${productionLine.id}`);
+    console.log(`🔄 Updating team need ${teamNeedId} status to ${newStatus} for production line ${productionLine.id}`);
     setIsStatusUpdating(true);
     
     try {
-      const response = await fetch(`/api/manufacturing/team-analytics/production-lines/${productionLine.id}/team-needs/${teamNeedId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          status: newStatus,
-          productionLineId: productionLine.id // Explicitly include productionLineId in body
-        }),
+      // Use apiPatch from our API utilities for consistent error handling
+      const url = `/api/manufacturing/team-analytics/production-lines/${productionLine.id}/team-needs/${teamNeedId}`;
+      console.log(`🔄 Making API request to: ${url}`);
+      
+      const response = await apiPatch(url, { 
+        status: newStatus,
+        productionLineId: productionLine.id // Explicitly include productionLineId in body
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to update status");
-      }
-
-      console.log("Team need status updated successfully:", newStatus);
+      console.log("✅ Team need status updated successfully:", response);
       
-      // Invalidate all production lines queries
+      // More systematic approach to cache invalidation
+      console.log("🔄 Starting cache invalidation sequence");
+      
+      // First, remove specific cached items
+      const teamNeedsQueryKey = `/api/manufacturing/team-analytics/production-lines/${productionLine.id}/team-needs`;
+      console.log(`🔄 Removing specific query cache: ${teamNeedsQueryKey}`);
+      queryClient.removeQueries({ queryKey: [teamNeedsQueryKey] });
+      
+      // Then invalidate parent queries
+      console.log(`🔄 Invalidating production lines query`);
       queryClient.invalidateQueries({ 
         queryKey: ['/api/manufacturing/production-lines'],
-        type: 'all'
+        exact: false // This ensures it invalidates all nested queries too
       });
       
-      // Specifically invalidate the team needs query for this production line
-      queryClient.invalidateQueries({
-        queryKey: [`/api/manufacturing/team-analytics/production-lines/${productionLine.id}/team-needs`],
-        type: 'all'
+      // Force an immediate refetch of the key queries
+      console.log(`🔄 Forcing refetch of production lines data`);
+      await queryClient.refetchQueries({ 
+        queryKey: ['/api/manufacturing/production-lines'],
+        type: 'active' // Only refetch queries that are currently rendered
       });
+      
       toast({
         title: "Success",
-        description: "Status updated successfully",
+        description: `Team need status updated to ${newStatus.replace('_', ' ')}`,
       });
     } catch (error: any) {
+      console.error("⛔ Error updating team need status:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to update status",
