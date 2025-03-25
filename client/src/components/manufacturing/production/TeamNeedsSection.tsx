@@ -757,42 +757,125 @@ function TeamNeedDialog({
                 </Button>
               </div>
               
-              {/* Hidden Developer Tool - Emergency email opener */}
+              {/* User-facing emergency tools with email fallbacks */}
               {form.getValues().ownerEmail && (
                 <div className="w-full flex flex-col mt-3 pt-3 border-t border-gray-300 dark:border-gray-700">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    Development Tools - Use these only if standard email opening fails
+                    Email Options - Use these if automatic email client opening fails
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button 
                       type="button"
-                      variant="destructive" 
+                      variant="secondary" 
                       size="sm"
                       onClick={() => {
                         const ownerEmail = form.getValues().ownerEmail;
                         if (ownerEmail) {
-                          const emergencyMailtoLink = `mailto:${ownerEmail}?subject=Team Need (Emergency Backup Email)&body=This is an emergency backup email for a team need.`;
-                          console.log("🚨 EMERGENCY: Using direct mailto:", emergencyMailtoLink);
+                          // Create a more detailed backup email
+                          const values = form.getValues();
+                          const subject = `Team Need: ${values.type} (${values.priority.toUpperCase()})`;
+                          
+                          // Create a detailed email body
+                          const body = `
+Team Need: ${values.type} (${values.priority.toUpperCase()})
+Description: ${values.description || 'No description provided'}
+${values.requiredBy ? `Required By: ${values.requiredBy}\n` : ''}
+${values.projectId && values.projectId !== 'none' ? `Project ID: ${values.projectId}\n` : ''}
+${values.notes ? `Notes: ${values.notes}\n` : ''}
+Requested By: ${values.requestedBy || 'System User'}
+Requested At: ${new Date().toLocaleString()}
+
+You have been assigned as the owner of this team need.
+`;
+
+                          const emergencyMailtoLink = `mailto:${ownerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                          console.log("🔄 Using direct mailto:", emergencyMailtoLink);
                           window.location.href = emergencyMailtoLink;
                         } else {
-                          alert("Please enter an owner email address first");
+                          toast({
+                            title: "Missing Email",
+                            description: "Please enter an owner email address first",
+                            variant: "destructive",
+                          });
                         }
                       }}
                       className="text-xs"
                     >
-                      Emergency Email Link
+                      <Mail className="h-3 w-3 mr-1" /> Open Email Client
                     </Button>
+                    
                     <Button 
                       type="button"
                       variant="outline" 
                       size="sm"
                       onClick={() => {
-                        const formData = form.getValues();
-                        alert(`Current Form Data:\n${JSON.stringify(formData, null, 2)}`);
+                        const ownerEmail = form.getValues().ownerEmail;
+                        if (ownerEmail) {
+                          // Create a more detailed backup email
+                          const values = form.getValues();
+                          const subject = `Team Need: ${values.type} (${values.priority.toUpperCase()})`;
+                          
+                          // Create a detailed email body
+                          const body = `
+Team Need: ${values.type} (${values.priority.toUpperCase()})
+Description: ${values.description || 'No description provided'}
+${values.requiredBy ? `Required By: ${values.requiredBy}\n` : ''}
+${values.projectId && values.projectId !== 'none' ? `Project ID: ${values.projectId}\n` : ''}
+${values.notes ? `Notes: ${values.notes}\n` : ''}
+Requested By: ${values.requestedBy || 'System User'}
+Requested At: ${new Date().toLocaleString()}
+
+You have been assigned as the owner of this team need.
+`;
+
+                          const emailText = `To: ${ownerEmail}\nSubject: ${subject}\n\n${body}`;
+                          
+                          // Copy to clipboard
+                          navigator.clipboard.writeText(emailText)
+                            .then(() => {
+                              toast({
+                                title: "Email Copied",
+                                description: "Email content copied to clipboard. Paste into your email client to send.",
+                                variant: "default",
+                              });
+                            })
+                            .catch(err => {
+                              console.error("Failed to copy email:", err);
+                              toast({
+                                title: "Copy Failed",
+                                description: "Unable to copy email to clipboard. Try the Open Email button instead.",
+                                variant: "destructive",
+                              });
+                            });
+                        } else {
+                          toast({
+                            title: "Missing Email",
+                            description: "Please enter an owner email address first",
+                            variant: "destructive",
+                          });
+                        }
                       }}
                       className="text-xs"
                     >
-                      Debug Form Data
+                      <Copy className="h-3 w-3 mr-1" /> Copy Email Text
+                    </Button>
+                    
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        const formData = form.getValues();
+                        console.log("Form data:", formData);
+                        toast({
+                          title: "Form Data Logged",
+                          description: "Current form data has been logged to the console",
+                          variant: "default",
+                        });
+                      }}
+                      className="text-xs"
+                    >
+                      <FileText className="h-3 w-3 mr-1" /> Log Form Data
                     </Button>
                   </div>
                 </div>
