@@ -797,7 +797,7 @@ Description: ${values.description || 'No description provided'}
 ${values.requiredBy ? `Required By: ${values.requiredBy}\n` : ''}
 ${values.projectId && values.projectId !== 'none' ? `Project ID: ${values.projectId}\n` : ''}
 ${values.notes ? `Notes: ${values.notes}\n` : ''}
-Requested By: System User
+Requested By: ${values.requestedBy || 'System User'}
 Requested At: ${new Date().toLocaleString()}
 
 You have been assigned as the owner of this team need.
@@ -837,7 +837,7 @@ Description: ${values.description || 'No description provided'}
 ${values.requiredBy ? `Required By: ${values.requiredBy}\n` : ''}
 ${values.projectId && values.projectId !== 'none' ? `Project ID: ${values.projectId}\n` : ''}
 ${values.notes ? `Notes: ${values.notes}\n` : ''}
-Requested By: System User
+Requested By: ${values.requestedBy || 'System User'}
 Requested At: ${new Date().toLocaleString()}
 
 You have been assigned as the owner of this team need.

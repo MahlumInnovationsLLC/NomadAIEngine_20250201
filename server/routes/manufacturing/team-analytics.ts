@@ -226,7 +226,7 @@ router.post('/production-lines/:id/team-needs', authMiddleware, async (req: Auth
       owner: owner || undefined,
       ownerEmail: ownerEmail || undefined,
       notificationSent: false, // Initialize as false, we'll set it below if sent
-      requestedBy: req.user?.name || "Unknown",
+      requestedBy: "System User",
       requestedAt: new Date().toISOString(),
       status: 'pending',
       resolvedAt: undefined,
@@ -273,7 +273,7 @@ Description: ${description}
 ${requiredByText ? `Required By: ${requiredByText}\n` : ''}
 ${projectText ? `Project: ${projectText}\n` : ''}
 ${notes ? `Notes: ${notes}\n` : ''}
-Requested By: ${req.user?.name || "Unknown"}
+Requested By: System User
 Requested At: ${new Date().toLocaleString()}
 
 You have been assigned as the owner of this team need.
@@ -447,7 +447,7 @@ router.patch('/production-lines/:id/team-needs/:needId', authMiddleware, async (
       // If changing to resolved, add resolved info
       if (updates.status === 'resolved') {
         updates.resolvedAt = new Date().toISOString();
-        updates.resolvedBy = req.user?.name || "Unknown";
+        updates.resolvedBy = "System User";
       }
     }
     
