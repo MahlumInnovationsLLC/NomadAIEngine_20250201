@@ -278,75 +278,90 @@ function TeamNeedDialog({
           type: 'active' // Only refetch queries that are currently rendered
         });
         
+        // Close the dialog first to prevent UI freezing
+        console.log("🔄 Closing dialog first to prevent UI freezing");
+        setIsLoading(false);
+        onOpenChange(false);
+        
         // Check if we have an email mailtoLink from the server response
         const mailtoLink = data.mailtoLink;
         const isNotificationRequested = form.getValues().sendNotification;
         
         console.log(`🔄 Email notification requested: ${isNotificationRequested}, Mailto link from server: ${!!mailtoLink}`);
         
-        if (isNotificationRequested && mailtoLink) {
-          // Create a toast without the action property since it's not supported
-          toast({
-            title: "Success",
-            description: isEditing 
-              ? "Team need updated successfully. Opening email client..." 
-              : "Team need created successfully. Opening email client...",
-            variant: "default"
-          });
-          
-          // Open the email client automatically with the link from the server
-          console.log("🔄 Opening email client with mailto link from server");
-          window.open(mailtoLink, '_blank');
-        } else {
-          toast({
-            title: "Success",
-            description: isEditing ? "Team need updated successfully" : "Team need created successfully",
-            variant: "default"
-          });
-        }
-        
-        // Reset form state and close dialog
-        console.log("🔄 Resetting form and closing dialog");
-        setIsLoading(false);
-        
-        // Ensure the dialog closes with a small timeout to prevent race conditions
+        // Wait a short time to allow UI to update before showing toast and opening email
         setTimeout(() => {
-          console.log("🔄 Closing dialog");
-          onOpenChange(false);
-          
-          // Wait a little longer before calling onSave to ensure UI has updated
-          setTimeout(() => {
-            console.log("🔄 Calling onSave callback");
-            onSave();
+          if (isNotificationRequested && mailtoLink) {
+            toast({
+              title: "Success",
+              description: isEditing 
+                ? "Team need updated successfully. Opening email client..." 
+                : "Team need created successfully. Opening email client...",
+              variant: "default"
+            });
             
-            // Add additional check to ensure data refresh
-            setTimeout(() => {
-              console.log("🔄 Forcing additional refetch after save");
-              queryClient.refetchQueries({ 
-                queryKey: ['/api/manufacturing/production-lines'],
-                type: 'all' 
-              });
-            }, 500);
-          }, 250);
-        }, 250);
+            // Open the email client automatically with the link from the server
+            console.log("🔄 Opening email client with mailto link from server");
+            // Use a try-catch to handle potential issues with window.open
+            try {
+              const emailWindow = window.open(mailtoLink, '_blank');
+              
+              // Handle potential popup blockers
+              if (!emailWindow || emailWindow.closed || typeof emailWindow.closed === 'undefined') {
+                console.warn("🔄 Email client could not be opened automatically (possibly blocked by popup blocker)");
+                toast({
+                  title: "Notice",
+                  description: "Please allow popups to open email client automatically",
+                  variant: "default"
+                });
+              }
+            } catch (emailError) {
+              console.error("🔴 Error opening email client:", emailError);
+            }
+          } else {
+            toast({
+              title: "Success",
+              description: isEditing ? "Team need updated successfully" : "Team need created successfully",
+              variant: "default"
+            });
+          }
+          
+          // Trigger onSave to update UI after the dialog is closed
+          console.log("🔄 Calling onSave callback");
+          onSave();
+          
+          // Add additional check to ensure data refresh
+          setTimeout(() => {
+            console.log("🔄 Forcing additional refetch after save");
+            queryClient.refetchQueries({ 
+              queryKey: ['/api/manufacturing/production-lines'],
+              type: 'all' 
+            });
+          }, 300);
+        }, 100);
+        
       } catch (error) {
         console.error("🔴 Error in onSuccess handler:", error);
         // Ensure we still close the dialog even if there's an error
         setIsLoading(false);
         onOpenChange(false);
-        onSave();
         
-        // Force a refetch even on error as a fallback
-        queryClient.refetchQueries({ 
-          queryKey: ['/api/manufacturing/production-lines'],
-          type: 'all'
-        });
-        
+        // Show a more specific toast message
         toast({
-          title: "Success with warnings",
-          description: "Team need was saved, but there were some UI update issues.",
+          title: "Team need saved",
+          description: "Team need was saved, but there were some issues with the UI update. The page will refresh to show your changes.",
           variant: "default"
         });
+        
+        // Wait briefly then trigger refresh
+        setTimeout(() => {
+          onSave();
+          // Force a refetch even on error as a fallback
+          queryClient.refetchQueries({ 
+            queryKey: ['/api/manufacturing/production-lines'],
+            type: 'all'
+          });
+        }, 100);
       }
     },
     onError: (error) => {
