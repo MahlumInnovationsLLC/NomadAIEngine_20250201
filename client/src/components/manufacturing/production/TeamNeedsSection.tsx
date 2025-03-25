@@ -143,8 +143,8 @@ function TeamNeedDialog({
 
   const saveTeamNeedMutation = useMutation<TeamNeedApiResponse, Error, TeamNeedFormValues>({
     mutationFn: async (values: TeamNeedFormValues) => {
-      console.log("🔄 Mutation function called with values:", values);
-      console.log("🔄 Production line ID in mutationFn:", productionLineId);
+      console.log("🟢 DEBUGGING: Mutation function called with values:", values);
+      console.log("🟢 DEBUGGING: Production line ID in mutationFn:", productionLineId);
       
       // Make sure we have a productionLineId either from the prop or the values
       const effectiveProductionLineId = values.productionLineId || productionLineId;
@@ -159,17 +159,17 @@ function TeamNeedDialog({
         ? `/api/manufacturing/team-analytics/production-lines/${effectiveProductionLineId}/team-needs/${teamNeed?.id}`
         : `/api/manufacturing/team-analytics/production-lines/${effectiveProductionLineId}/team-needs`;
       
-      console.log(`🔄 API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
-      console.log("🔄 Request payload:", JSON.stringify(values, null, 2));
+      console.log(`🟢 DEBUGGING: API Request: ${isEditing ? 'PATCH' : 'POST'} ${url}`);
+      console.log("🟢 DEBUGGING: Request payload:", JSON.stringify(values, null, 2));
       
       // Generate a mailto link for email fallback if sending notification
       if (values.sendNotification && values.ownerEmail) {
         try {
           // We no longer need to create our own mailto link in the client
           // The server will create it and send it back in the response
-          console.log("🔄 Email notification will be handled by server and sent back in response");
+          console.log("🟢 DEBUGGING: Email notification requested, server will handle it");
         } catch (e) {
-          console.error("🔴 Error creating mailto link:", e);
+          console.error("🔴 DEBUGGING ERROR: Error creating mailto link:", e);
         }
       }
       
@@ -179,10 +179,10 @@ function TeamNeedDialog({
         productionLineId: effectiveProductionLineId
       };
       
-      console.log("🔄 Final payload with explicit productionLineId:", JSON.stringify(payload, null, 2));
+      console.log("🟢 DEBUGGING: Final payload with explicit productionLineId:", JSON.stringify(payload, null, 2));
       
       try {
-        console.log(`🔄 Making ${isEditing ? 'PATCH' : 'POST'} request to ${url}`);
+        console.log(`🟢 DEBUGGING: Making ${isEditing ? 'PATCH' : 'POST'} request to ${url}`);
         
         // Direct fetch to ensure we have a successful API call
         const directResponse = await fetch(url, {
@@ -196,47 +196,63 @@ function TeamNeedDialog({
           credentials: 'include'
         });
         
-        console.log(`🔄 Direct fetch response status: ${directResponse.status}`);
+        console.log(`🟢 DEBUGGING: Direct fetch response status: ${directResponse.status}`);
         
         if (!directResponse.ok) {
           const errorText = await directResponse.text();
-          console.error("🔴 Error response from server:", errorText);
+          console.error("🔴 DEBUGGING ERROR: Error response from server:", errorText);
           throw new Error(`API request failed with status ${directResponse.status}: ${errorText}`);
         }
         
         try {
           const responseText = await directResponse.text();
-          console.log("🔄 Raw response text:", responseText);
+          console.log("🟢 DEBUGGING: Raw response text:", responseText);
           
           // Try to parse the response as JSON
           let responseData: TeamNeedApiResponse;
           try {
             responseData = JSON.parse(responseText) as TeamNeedApiResponse;
+            console.log("🟢 DEBUGGING: Successfully parsed response JSON:", responseData);
+            
+            // Check specifically for mailtoLink
+            if (responseData.mailtoLink) {
+              console.log("🟢 DEBUGGING: Server returned mailtoLink:", responseData.mailtoLink);
+            } else {
+              console.warn("🟡 DEBUGGING WARNING: Server did not return mailtoLink in response");
+            }
+            
           } catch (parseError) {
-            console.error("🔴 Failed to parse response as JSON:", parseError);
+            console.error("🔴 DEBUGGING ERROR: Failed to parse response as JSON:", parseError);
             throw new Error(`Invalid JSON response: ${responseText}`);
           }
           
-          console.log("🔄 Parsed response data:", responseData);
           return responseData;
         } catch (textError) {
-          console.error("🔴 Error getting response text:", textError);
+          console.error("🔴 DEBUGGING ERROR: Error getting response text:", textError);
           throw textError;
         }
       } catch (directError) {
-        console.error("🔴 Direct fetch error:", directError);
+        console.error("🔴 DEBUGGING ERROR: Direct fetch error:", directError);
         
-        console.log("🔄 Trying fallback with API utility functions");
+        console.log("🟢 DEBUGGING: Trying fallback with API utility functions");
         // Use our API utility functions as fallback
         try {
           const apiResponse = isEditing 
             ? await apiPatch<TeamNeedApiResponse>(url, payload)
             : await apiPost<TeamNeedApiResponse>(url, payload);
           
-          console.log("🔄 API utility response:", apiResponse);
+          console.log("🟢 DEBUGGING: API utility response:", apiResponse);
+          
+          // Check specifically for mailtoLink in the fallback
+          if (apiResponse.mailtoLink) {
+            console.log("🟢 DEBUGGING: Fallback returned mailtoLink:", apiResponse.mailtoLink);
+          } else {
+            console.warn("🟡 DEBUGGING WARNING: Fallback did not return mailtoLink in response");
+          }
+          
           return apiResponse;
         } catch (apiError) {
-          console.error("🔴 Error in API operation:", apiError);
+          console.error("🔴 DEBUGGING ERROR: Error in API operation:", apiError);
           throw apiError;
         }
       }
@@ -306,16 +322,34 @@ function TeamNeedDialog({
               console.log("🔄 Opening email client with mailto link from server");
               // Use a try-catch to handle potential issues with window.open
               try {
-                const emailWindow = window.open(mailtoLink, '_blank');
+                console.log("🔴 CRITICAL DEBUG: Attempting to open mailto link:", mailtoLink);
                 
-                // Handle potential popup blockers
-                if (!emailWindow || emailWindow.closed || typeof emailWindow.closed === 'undefined') {
-                  console.warn("🔄 Email client could not be opened automatically (possibly blocked by popup blocker)");
-                  toast({
-                    title: "Notice",
-                    description: "Please allow popups to open email client automatically",
-                    variant: "default"
-                  });
+                // CRITICAL FIX: Use direct location change instead of window.open for mailto 
+                // This has much higher success rate with email clients
+                try {
+                  // Force using window.location for mailto links which works better with email clients
+                  window.location.href = mailtoLink;
+                  console.log("🔴 CRITICAL DEBUG: Redirected to mailto link using window.location");
+                } catch (locationError) {
+                  console.error("🔴 CRITICAL DEBUG: Error with location redirect:", locationError);
+                  
+                  // Fallback to window.open approach
+                  try {
+                    console.log("🔴 CRITICAL DEBUG: Trying fallback with window.open");
+                    const emailWindow = window.open(mailtoLink, '_blank');
+                    
+                    // Handle potential popup blockers
+                    if (!emailWindow || emailWindow.closed || typeof emailWindow.closed === 'undefined') {
+                      console.warn("🔴 CRITICAL DEBUG: Email client could not be opened (possible popup blocker)");
+                      alert("Please click OK and then we'll try to open your email client. If it doesn't open, check popup blockers or copy this link:\n\n" + mailtoLink);
+                      
+                      // Last resort - try direct href again after alert
+                      window.location.href = mailtoLink;
+                    }
+                  } catch (windowError) {
+                    console.error("🔴 CRITICAL DEBUG: All email opening methods failed:", windowError);
+                    alert("Unable to open email client automatically. Please try manually with this link:\n\n" + mailtoLink);
+                  }
                 }
               } catch (emailError) {
                 console.error("🔴 Error opening email client:", emailError);
@@ -691,34 +725,78 @@ function TeamNeedDialog({
               )}
             />
 
-            <DialogFooter className="mt-6">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => onOpenChange(false)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit"
-                disabled={isLoading || !form.formState.isValid}
-                className={`min-w-[120px] ${!form.formState.isValid && !isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-                  </>
-                ) : form.formState.isValid ? (
-                  <>
-                    <Save className="mr-2 h-4 w-4" /> {isEditing ? "Update" : "Create"}
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="mr-2 h-4 w-4" /> Fix Errors
-                  </>
-                )}
-              </Button>
+            <DialogFooter className="flex flex-col sm:flex-row mt-6 gap-2">
+              <div className="w-full flex items-center justify-between gap-2 sm:w-auto">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => onOpenChange(false)}
+                  disabled={isLoading}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit"
+                  disabled={isLoading || !form.formState.isValid}
+                  className={`flex-1 min-w-[120px] ${!form.formState.isValid && !isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                    </>
+                  ) : form.formState.isValid ? (
+                    <>
+                      <Save className="mr-2 h-4 w-4" /> {isEditing ? "Update" : "Create"}
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="mr-2 h-4 w-4" /> Fix Errors
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Hidden Developer Tool - Emergency email opener */}
+              {form.getValues().ownerEmail && (
+                <div className="w-full flex flex-col mt-3 pt-3 border-t border-gray-300 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Development Tools - Use these only if standard email opening fails
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      type="button"
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => {
+                        const ownerEmail = form.getValues().ownerEmail;
+                        if (ownerEmail) {
+                          const emergencyMailtoLink = `mailto:${ownerEmail}?subject=Team Need (Emergency Backup Email)&body=This is an emergency backup email for a team need.`;
+                          console.log("🚨 EMERGENCY: Using direct mailto:", emergencyMailtoLink);
+                          window.location.href = emergencyMailtoLink;
+                        } else {
+                          alert("Please enter an owner email address first");
+                        }
+                      }}
+                      className="text-xs"
+                    >
+                      Emergency Email Link
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const formData = form.getValues();
+                        alert(`Current Form Data:\n${JSON.stringify(formData, null, 2)}`);
+                      }}
+                      className="text-xs"
+                    >
+                      Debug Form Data
+                    </Button>
+                  </div>
+                </div>
+              )}
             </DialogFooter>
             
             {/* Form validation summary */}
