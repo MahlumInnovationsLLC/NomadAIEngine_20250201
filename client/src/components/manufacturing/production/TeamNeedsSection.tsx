@@ -283,13 +283,14 @@ function TeamNeedDialog({
         setIsLoading(false);
         onOpenChange(false);
         
-        // Check if we have an email mailtoLink from the server response
+        // Store values for use after dialog closes
         const mailtoLink = data.mailtoLink;
         const isNotificationRequested = form.getValues().sendNotification;
         
         console.log(`🔄 Email notification requested: ${isNotificationRequested}, Mailto link from server: ${!!mailtoLink}`);
         
-        // Wait a short time to allow UI to update before showing toast and opening email
+        // Wait for dialog to completely close before showing toast and opening email
+        // Use a longer timeout to ensure dialog is fully closed
         setTimeout(() => {
           if (isNotificationRequested && mailtoLink) {
             toast({
@@ -300,24 +301,32 @@ function TeamNeedDialog({
               variant: "default"
             });
             
-            // Open the email client automatically with the link from the server
-            console.log("🔄 Opening email client with mailto link from server");
-            // Use a try-catch to handle potential issues with window.open
-            try {
-              const emailWindow = window.open(mailtoLink, '_blank');
-              
-              // Handle potential popup blockers
-              if (!emailWindow || emailWindow.closed || typeof emailWindow.closed === 'undefined') {
-                console.warn("🔄 Email client could not be opened automatically (possibly blocked by popup blocker)");
+            // Open the email client with a further delay to ensure toast is shown and UI is updated
+            setTimeout(() => {
+              console.log("🔄 Opening email client with mailto link from server");
+              // Use a try-catch to handle potential issues with window.open
+              try {
+                const emailWindow = window.open(mailtoLink, '_blank');
+                
+                // Handle potential popup blockers
+                if (!emailWindow || emailWindow.closed || typeof emailWindow.closed === 'undefined') {
+                  console.warn("🔄 Email client could not be opened automatically (possibly blocked by popup blocker)");
+                  toast({
+                    title: "Notice",
+                    description: "Please allow popups to open email client automatically",
+                    variant: "default"
+                  });
+                }
+              } catch (emailError) {
+                console.error("🔴 Error opening email client:", emailError);
+                // Show a toast when email client fails to open
                 toast({
                   title: "Notice",
-                  description: "Please allow popups to open email client automatically",
+                  description: "Unable to open email client automatically. Please try manually.",
                   variant: "default"
                 });
               }
-            } catch (emailError) {
-              console.error("🔴 Error opening email client:", emailError);
-            }
+            }, 300); // Delay email opening by 300ms after toast
           } else {
             toast({
               title: "Success",
