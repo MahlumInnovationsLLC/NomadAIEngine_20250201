@@ -1491,6 +1491,183 @@ router.post('/scars/import', fileUpload.single('file'), async (req, res) => {
   }
 });
 
+// Get all inspections (REST API endpoint)
+router.get('/inspections', async (req, res) => {
+  try {
+    // Check if container is initialized
+    if (!container) {
+      try {
+        container = await initializeContainer();
+      } catch (initError) {
+        console.error('Failed to initialize container for inspections API:', initError);
+        return res.status(500).json({
+          error: 'Database connection failed',
+          details: initError instanceof Error ? initError.message : 'Unknown error'
+        });
+      }
+    }
+    
+    console.log('[REST API] Getting all quality inspections');
+    
+    // Query for inspections from Cosmos DB
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.type IN ('in-process', 'final-qc', 'executive-review', 'pdi') ORDER BY c._ts DESC",
+      parameters: []
+    };
+    
+    const { resources: inspections } = await container.items
+      .query(querySpec)
+      .fetchAll();
+    
+    console.log(`[REST API] Found ${inspections.length} inspections`);
+    
+    // Add important field if missing to ensure consistent format
+    const processedInspections = inspections.map((inspection: any) => {
+      if (!inspection.results) {
+        inspection.results = { defectsFound: [], checklistItems: [] };
+      }
+      if (!inspection.results.defectsFound) {
+        inspection.results.defectsFound = [];
+      }
+      if (!inspection.results.checklistItems) {
+        inspection.results.checklistItems = [];
+      }
+      return inspection;
+    });
+    
+    res.json(processedInspections);
+  } catch (error) {
+    console.error('Error getting inspections:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve inspections',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get a specific inspection by ID
+router.get('/inspections/:id', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+    
+    const { id } = req.params;
+    console.log(`[REST API] Getting inspection with ID: ${id}`);
+    
+    const { resource: inspection } = await container.item(id, 'default').read();
+    
+    if (!inspection) {
+      return res.status(404).json({ error: 'Inspection not found' });
+    }
+    
+    // Ensure consistent format
+    if (!inspection.results) {
+      inspection.results = { defectsFound: [], checklistItems: [] };
+    }
+    if (!inspection.results.defectsFound) {
+      inspection.results.defectsFound = [];
+    }
+    if (!inspection.results.checklistItems) {
+      inspection.results.checklistItems = [];
+    }
+    
+    res.json(inspection);
+  } catch (error) {
+    if (error.code === 404) {
+      return res.status(404).json({ error: 'Inspection not found' });
+    }
+    
+    console.error('Error getting inspection:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve inspection',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Create a new inspection via REST API
+router.post('/inspections', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+    
+    console.log('[REST API] Creating new inspection');
+    
+    const inspectionData = {
+      ...req.body,
+      id: `inspection-${Date.now()}`,
+      userKey: 'default',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Ensure the inspection data has the required fields
+    if (!inspectionData.results) {
+      inspectionData.results = { defectsFound: [], checklistItems: [] };
+    }
+    if (!inspectionData.results.defectsFound) {
+      inspectionData.results.defectsFound = [];
+    }
+    if (!inspectionData.results.checklistItems) {
+      inspectionData.results.checklistItems = [];
+    }
+    
+    const { resource: createdInspection } = await container.items.create(inspectionData);
+    console.log(`[REST API] Created inspection with ID: ${createdInspection.id}`);
+    
+    res.status(201).json(createdInspection);
+  } catch (error) {
+    console.error('Error creating inspection:', error);
+    res.status(500).json({
+      error: 'Failed to create inspection',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Update an inspection
+router.put('/inspections/:id', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+    
+    const { id } = req.params;
+    console.log(`[REST API] Updating inspection with ID: ${id}`);
+    
+    try {
+      // First get the existing inspection
+      const { resource: existingInspection } = await container.item(id, 'default').read();
+      
+      // Merge the existing inspection with the updates
+      const updatedInspection = {
+        ...existingInspection,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Replace the document in Cosmos DB
+      const { resource: result } = await container.item(id, 'default').replace(updatedInspection);
+      console.log(`[REST API] Updated inspection with ID: ${id}`);
+      
+      res.json(result);
+    } catch (error) {
+      if (error.code === 404) {
+        return res.status(404).json({ error: 'Inspection not found' });
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error updating inspection:', error);
+    res.status(500).json({
+      error: 'Failed to update inspection',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Register template API routes
 export function registerQualityRoutes(app: express.Application) {
   app.use('/api/manufacturing/quality', router);

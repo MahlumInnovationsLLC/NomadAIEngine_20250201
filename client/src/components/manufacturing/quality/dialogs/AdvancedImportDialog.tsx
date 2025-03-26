@@ -611,10 +611,6 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
     setCreatingInspection(true);
     
     try {
-      if (!socket) {
-        throw new Error('Manufacturing socket connection not available');
-      }
-      
       // Create a new inspection record with the OCR results
       const inspection = {
         type: inspectionType || 'final-qc',
@@ -639,22 +635,68 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
         }
       };
       
-      console.log('Creating inspection with manufacturing socket:', inspection);
+      console.log('Creating inspection from OCR results:', inspection);
       
-      // Use the enhanced socket with promise-based one-time event handling
+      // Try to use REST API first (more reliable persistence)
       try {
-        // Emit the event to create the inspection using manufacturing namespace
-        socket.emit('quality:inspection:create', inspection);
+        console.log('Saving inspection via REST API...');
         
-        // Wait for the response using the oncePromise method
-        const response = await (socket as any).oncePromise('quality:inspection:created', 5000);
-        console.log('Inspection created successfully:', response);
+        const response = await fetch('/api/manufacturing/quality/inspections', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(inspection),
+        });
+        
+        if (!response.ok) {
+          let errorText = 'Unknown server error';
+          try {
+            const errorData = await response.json();
+            errorText = errorData.error || errorData.details || errorText;
+          } catch (e) {
+            console.error('Failed to parse error response:', e);
+          }
+          
+          throw new Error(`Server error: ${errorText} (${response.status})`);
+        }
+        
+        const createdInspection = await response.json();
+        console.log('Inspection created successfully via REST API:', createdInspection.id);
         
         // Invalidate queries to refresh the inspection list
-        queryClient.invalidateQueries(); // Invalidate all queries to ensure everything is refreshed
-      } catch (socketError) {
-        console.error('Socket error:', socketError);
-        throw socketError;
+        queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/inspections'] });
+        
+        // Also notify connected clients via socket if available
+        if (socket) {
+          socket.emit('quality:refresh:needed', { 
+            timestamp: new Date().toISOString(),
+            message: 'Inspection created via REST API' 
+          });
+        }
+      } catch (restError) {
+        console.error('REST API failed, falling back to socket:', restError);
+        
+        // Fallback to socket if REST API fails
+        if (!socket) {
+          throw new Error('Connection error: REST API failed and socket connection not available');
+        }
+        
+        // Use socket as fallback with promise-based one-time event handling
+        try {
+          // Emit the event to create the inspection using manufacturing namespace
+          socket.emit('quality:inspection:create', inspection);
+          
+          // Wait for the response using the oncePromise method 
+          const response = await (socket as any).oncePromise('quality:inspection:created', 10000);
+          console.log('Inspection created successfully via socket fallback:', response);
+          
+          // Invalidate queries to refresh the inspection list
+          queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/inspections'] });
+        } catch (socketError) {
+          console.error('Socket fallback also failed:', socketError);
+          throw new Error('Failed to create inspection: both REST API and Socket methods failed');
+        }
       }
       
       toast({
