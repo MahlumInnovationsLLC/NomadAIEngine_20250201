@@ -241,10 +241,70 @@ export default function QualityInspectionList({ inspections = [], type, projects
           inspection={selectedInspection}
           onUpdate={(updated) => {
             if (socket) {
+              // First show loading toast
+              // Generate a unique ID for this toast
+              const toastId = `update-${Date.now()}`;
+              
+              // Show loading toast
+              toast({
+                id: toastId,
+                title: "Saving changes...",
+                description: "Updating inspection details",
+              });
+              
+              // Set up a listener for the update confirmation
+              const handleUpdateConfirmation = (response: any) => {
+                // Remove this listener to prevent memory leaks
+                socket.off('quality:inspection:updated', handleUpdateConfirmation);
+                
+                // Update the toast with new content based on result
+                
+                if (response.error) {
+                  // Update the toast with error message
+                  toast({
+                    id: toastId,
+                    title: "Error",
+                    description: response.error || "Failed to update inspection",
+                    variant: "destructive",
+                  });
+                } else {
+                  // Update was successful, update the toast
+                  toast({
+                    id: toastId,
+                    title: "Success",
+                    description: "Inspection details have been updated successfully",
+                    variant: "default",
+                  });
+                  
+                  // Close the dialog
+                  setShowDetailsDialog(false);
+                  
+                  // Refresh the data
+                  socket.emit('quality:inspection:list');
+                }
+              };
+              
+              // Listen for update confirmation
+              socket.on('quality:inspection:updated', handleUpdateConfirmation);
+              
+              // Emit the update event
               socket.emit('quality:inspection:update', {
                 id: updated.id,
                 updates: updated
               });
+              
+              // Add a timeout to handle cases where we don't get a response
+              setTimeout(() => {
+                socket.off('quality:inspection:updated', handleUpdateConfirmation);
+                
+                // Replace the loading toast with timeout message
+                toast({
+                  id: toastId,
+                  title: "Update Status Unknown",
+                  description: "The server did not confirm the update. Please refresh to see if changes were applied.",
+                  variant: "default",
+                });
+              }, 5000);
             }
           }}
         />

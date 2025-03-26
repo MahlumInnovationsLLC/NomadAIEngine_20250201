@@ -23,7 +23,6 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useWebSocket } from '@/hooks/use-websocket';
-import { useSocket } from '@/hooks/use-socket';
 
 interface AdvancedImportDialogProps {
   open: boolean;
@@ -574,6 +573,38 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
   // Get socket from hook with manufacturing namespace
   const socket = useWebSocket({ namespace: 'manufacturing' });
   
+  // Log socket connection status
+  useEffect(() => {
+    console.log('Socket connection status:', socket ? 'Connected' : 'Disconnected');
+    
+    // Add socket event handlers
+    if (socket) {
+      console.log('Setting up socket event handlers');
+      
+      const handleConnect = () => {
+        console.log('Socket connected to manufacturing namespace');
+      };
+      
+      const handleDisconnect = () => {
+        console.log('Socket disconnected from manufacturing namespace');
+      };
+      
+      const handleError = (err: any) => {
+        console.error('Socket error:', err);
+      };
+      
+      socket.on('connect', handleConnect);
+      socket.on('disconnect', handleDisconnect);
+      socket.on('connect_error', handleError);
+      
+      return () => {
+        socket.off('connect', handleConnect);
+        socket.off('disconnect', handleDisconnect);
+        socket.off('connect_error', handleError);
+      };
+    }
+  }, [socket]);
+  
   const handleCreateInspection = async () => {
     setCreatingInspection(true);
     
@@ -608,20 +639,18 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
       
       console.log('Creating inspection with manufacturing socket:', inspection);
       
-      // Emit the event to create the inspection using manufacturing namespace
-      await new Promise((resolve, reject) => {
-        socket.emit('quality:inspection:create', inspection, (response: any) => {
-          console.log('Manufacturing socket response:', response);
-          if (response && response.error) {
-            reject(new Error(response.error));
-          } else {
-            resolve(response);
-          }
-        });
+      // Use the enhanced socket with promise-based one-time event handling
+      try {
+        // Emit the event to create the inspection using manufacturing namespace
+        socket.emit('quality:inspection:create', inspection);
         
-        // Add timeout for socket response
-        setTimeout(() => reject(new Error('Socket timeout - server did not respond')), 5000);
-      });
+        // Wait for the response using the oncePromise method
+        const response = await (socket as any).oncePromise('quality:inspection:created', 5000);
+        console.log('Inspection created successfully:', response);
+      } catch (socketError) {
+        console.error('Socket error:', socketError);
+        throw socketError;
+      }
       
       toast({
         title: "Inspection record created",

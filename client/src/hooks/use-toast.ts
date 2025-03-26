@@ -10,6 +10,7 @@ interface Toast {
 }
 
 interface ToastOptions {
+  id?: string;
   title: string;
   description?: string;
   variant?: ToastVariant;
@@ -20,9 +21,18 @@ interface ToastOptions {
 let globalToasts: Toast[] = [];
 let setGlobalToasts: (toasts: Toast[]) => void = () => {};
 
-export const toast = ({ title, description, variant = 'default', duration = 5000 }: ToastOptions) => {
-  const id = Math.random().toString(36).slice(2, 9);
+export const toast = ({ id: providedId, title, description, variant = 'default', duration = 5000 }: ToastOptions) => {
+  const id = providedId || Math.random().toString(36).slice(2, 9);
   
+  // If an existing toast with this ID exists, remove it first
+  if (providedId) {
+    const existingIndex = globalToasts.findIndex(t => t.id === providedId);
+    if (existingIndex >= 0) {
+      setGlobalToasts(globalToasts.filter(t => t.id !== providedId));
+    }
+  }
+  
+  // Add the new toast (or replace existing one)
   setGlobalToasts([
     ...globalToasts,
     {
@@ -33,11 +43,14 @@ export const toast = ({ title, description, variant = 'default', duration = 5000
     },
   ]);
 
-  setTimeout(() => {
-    setGlobalToasts(globalToasts.filter((toast) => toast.id !== id));
-  }, duration);
+  // Only set a timeout if duration > 0
+  if (duration > 0) {
+    setTimeout(() => {
+      setGlobalToasts(globalToasts.filter((toast) => toast.id !== id));
+    }, duration);
+  }
 
-  return id;
+  return { id };
 };
 
 export function useToast() {
@@ -48,9 +61,15 @@ export function useToast() {
   setGlobalToasts = setToasts;
 
   const toastFunction = useCallback(
-    ({ title, description, variant = 'default', duration = 5000 }: ToastOptions) => {
-      const id = Math.random().toString(36).slice(2, 9);
+    ({ id: providedId, title, description, variant = 'default', duration = 5000 }: ToastOptions) => {
+      const id = providedId || Math.random().toString(36).slice(2, 9);
       
+      // If an existing toast with this ID exists, remove it first
+      if (providedId) {
+        setToasts((prevToasts) => prevToasts.filter(t => t.id !== providedId));
+      }
+      
+      // Add the new toast (or replace existing one)
       setToasts((prevToasts) => [
         ...prevToasts,
         {
@@ -61,11 +80,14 @@ export function useToast() {
         },
       ]);
 
-      setTimeout(() => {
-        setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id));
-      }, duration);
+      // Only set a timeout if duration > 0
+      if (duration > 0) {
+        setTimeout(() => {
+          setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id));
+        }, duration);
+      }
 
-      return id;
+      return { id };
     },
     []
   );
