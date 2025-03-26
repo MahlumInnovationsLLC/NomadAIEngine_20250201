@@ -217,9 +217,12 @@ export class OCRService {
             console.log('Found issue description column - extracting structured quality issues');
             
             // Get all row indices after the header row (rowIndex > 0)
-            const rowIndices = [...new Set(tableCells
+            const rowIndexSet = new Set(tableCells
               .filter(cell => cell.rowIndex > 0)
-              .map(cell => cell.rowIndex))];
+              .map(cell => cell.rowIndex));
+              
+            // Convert Set to Array for iteration
+            const rowIndices = Array.from(rowIndexSet);
             
             // For each row, extract issue description, location, and assignment
             for (const rowIndex of rowIndices) {

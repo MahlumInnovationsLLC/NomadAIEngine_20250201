@@ -909,53 +909,127 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
 
                   <TabsContent value="results">
                     <div className="space-y-2 mb-4 overflow-y-auto pr-4 h-[60vh]">
-                      {results.map((result, index) => (
-                        <Card key={index} className="p-4">
+                      {/* First show structured table rows as they have more complete information */}
+                      {results.filter(r => r.isStructuredTableRow).map((result, index) => (
+                        <Card key={`structured-${index}`} className="p-4 border-l-4 border-blue-400">
                           <div className="flex justify-between">
                             <div className="w-full">
-                              {!result.isTable && (
-                                <>
-                                  <div className="flex justify-between items-center mb-1">
-                                    <p className="font-medium">{result.category || 'Uncategorized'}</p>
-                                    <Badge variant={result.severity === 'critical' ? 'destructive' : 
-                                                   result.severity === 'major' ? 'default' : 'secondary'}>
-                                      {result.severity || 'minor'}
-                                    </Badge>
+                              <div className="flex justify-between items-center mb-1">
+                                <div className="flex items-center">
+                                  <FontAwesomeIcon icon="table" className="text-blue-500 mr-2" />
+                                  <p className="font-medium">{result.category || 'Uncategorized'}</p>
+                                </div>
+                                <Badge variant={result.severity === 'critical' ? 'destructive' : 
+                                               result.severity === 'major' ? 'default' : 'secondary'}>
+                                  {result.severity || 'minor'}
+                                </Badge>
+                              </div>
+                              <div className="mb-4">
+                                <div className="mb-2">
+                                  <p className="text-sm font-medium mb-1">Issue Description:</p>
+                                  <p className="text-sm border-l-2 border-blue-300 pl-2 py-1 bg-blue-50">{result.text}</p>
+                                </div>
+                                
+                                <div className="grid grid-cols-3 gap-4 mb-2 bg-gray-50 p-3 rounded border">
+                                  <div>
+                                    <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Location</p>
+                                    <p className="text-sm">{result.location || 'Not specified'}</p>
                                   </div>
-                                  <div className="mb-4">
-                                    <div className="mb-2 flex gap-2">
-                                      <span className="font-medium text-sm">Raw OCR Text:</span>
-                                      <p className="text-sm border-l-2 border-blue-300 pl-2">{result.text}</p>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-4 mb-2 bg-gray-50 p-2 rounded border">
-                                      <div>
-                                        <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Problem Description</p>
-                                        <p className="text-sm">{result.category || 'Uncategorized'}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Assigned To</p>
-                                        <p className="text-sm">{result.department || 'Unassigned'}</p>
-                                      </div>
-                                    </div>
+                                  <div>
+                                    <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Assignment</p>
+                                    <p className="text-sm">{result.department || 'Unassigned'}</p>
                                   </div>
-                                  
-                                  <div className="flex justify-between text-xs text-gray-500 bg-gray-100 p-1 rounded">
-                                    <div className="flex items-center">
-                                      <FontAwesomeIcon icon="info-circle" className="mr-1" />
-                                      Extraction Confidence: {Math.round(result.confidence * 100)}%
-                                    </div>
-                                    <div className="flex items-center">
-                                      <FontAwesomeIcon icon="tag" className="mr-1" />
-                                      Severity: {result.severity || 'minor'}
-                                    </div>
+                                  <div>
+                                    <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Category</p>
+                                    <p className="text-sm">{result.category || 'Uncategorized'}</p>
                                   </div>
-                                </>
-                              )}
+                                </div>
+                              </div>
+                              
+                              <div className="flex justify-between text-xs text-gray-500 bg-blue-50 p-2 rounded border border-blue-100">
+                                <div className="flex items-center">
+                                  <FontAwesomeIcon icon="info-circle" className="mr-1 text-blue-500" />
+                                  Structured Table Data
+                                </div>
+                                <div className="flex items-center">
+                                  <FontAwesomeIcon icon="check-circle" className="mr-1 text-green-500" />
+                                  Confidence: {Math.round(result.confidence * 100)}%
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </Card>
                       ))}
+                      
+                      {/* Then show non-table results */}
+                      {results.filter(r => !r.isTable && !r.isStructuredTableRow).map((result, index) => (
+                        <Card key={`text-${index}`} className="p-4">
+                          <div className="flex justify-between">
+                            <div className="w-full">
+                              <div className="flex justify-between items-center mb-1">
+                                <p className="font-medium">{result.category || 'Uncategorized'}</p>
+                                <Badge variant={result.severity === 'critical' ? 'destructive' : 
+                                               result.severity === 'major' ? 'default' : 'secondary'}>
+                                  {result.severity || 'minor'}
+                                </Badge>
+                              </div>
+                              <div className="mb-4">
+                                <div className="mb-2 flex gap-2">
+                                  <span className="font-medium text-sm">Raw OCR Text:</span>
+                                  <p className="text-sm border-l-2 border-blue-300 pl-2">{result.text}</p>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-2 bg-gray-50 p-2 rounded border">
+                                  <div>
+                                    <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Problem Description</p>
+                                    <p className="text-sm">{result.category || 'Uncategorized'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Assigned To</p>
+                                    <p className="text-sm">{result.department || 'Unassigned'}</p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex justify-between text-xs text-gray-500 bg-gray-100 p-1 rounded">
+                                <div className="flex items-center">
+                                  <FontAwesomeIcon icon="info-circle" className="mr-1" />
+                                  Extraction Confidence: {Math.round(result.confidence * 100)}%
+                                </div>
+                                <div className="flex items-center">
+                                  <FontAwesomeIcon icon="tag" className="mr-1" />
+                                  Severity: {result.severity || 'minor'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                      
+                      {/* Optionally show table headers at the end */}
+                      {results.filter(r => r.isTable && !r.isStructuredTableRow).length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <h4 className="text-sm font-medium text-gray-500 mb-2">Table Content</h4>
+                          {results.filter(r => r.isTable && !r.isStructuredTableRow).map((result, index) => (
+                            <Card key={`table-${index}`} className="p-4 mb-2">
+                              <h4 className="text-md font-medium">Table {index + 1}</h4>
+                              <p className="text-sm text-gray-500 mb-2">{result.text}</p>
+                              <div className="flex justify-between text-xs text-gray-500">
+                                <div>Rows: {new Set(result.tableCells?.map(c => c.rowIndex)).size || 0}</div>
+                                <div>Columns: {new Set(result.tableCells?.map(c => c.columnIndex)).size || 0}</div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Empty state */}
+                      {results.length === 0 && (
+                        <div className="text-center py-12">
+                          <FontAwesomeIcon icon="file-search" className="text-4xl text-gray-300 mb-3" />
+                          <p className="text-gray-500">No findings detected</p>
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
 
@@ -1002,66 +1076,126 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                   
                   <TabsContent value="tables">
                     <div className="space-y-4 mb-4 overflow-y-auto pr-4 h-[60vh]">
-                      {results.filter(r => r.isTable).length === 0 ? (
-                        <div className="text-center py-6 text-gray-500">
-                          No tables detected in this document
-                        </div>
+                      {/* Display structured extraction results first */}
+                      {results.filter(r => r.isStructuredTableRow).length > 0 && (
+                        <Card className="p-4">
+                          <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-medium">Structured Quality Issues</h3>
+                            <Badge variant="outline" className="bg-green-50">
+                              {results.filter(r => r.isStructuredTableRow).length} issues found
+                            </Badge>
+                          </div>
+                          
+                          <div className="overflow-x-auto border rounded">
+                            <table className="w-full border-collapse">
+                              <thead>
+                                <tr className="bg-gray-100 font-medium text-left">
+                                  <th className="border px-3 py-2 text-sm">Issue Description</th>
+                                  <th className="border px-3 py-2 text-sm">Location</th>
+                                  <th className="border px-3 py-2 text-sm">Assignment</th>
+                                  <th className="border px-3 py-2 text-sm">Severity</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {results.filter(r => r.isStructuredTableRow).map((issue, index) => (
+                                  <tr key={`issue-${index}`} className="even:bg-gray-50">
+                                    <td className="border px-3 py-2 text-sm">{issue.text}</td>
+                                    <td className="border px-3 py-2 text-sm">{issue.location || 'Not specified'}</td>
+                                    <td className="border px-3 py-2 text-sm">{issue.department || 'Not specified'}</td>
+                                    <td className="border px-3 py-2 text-sm">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                        issue.severity === 'critical' ? 'bg-red-100 text-red-800' : 
+                                        issue.severity === 'major' ? 'bg-orange-100 text-orange-800' : 
+                                        'bg-yellow-100 text-yellow-800'
+                                      }`}>
+                                        {issue.severity ? issue.severity.charAt(0).toUpperCase() + issue.severity.slice(1) : 'Minor'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          
+                          <div className="mt-3 bg-blue-50 p-3 rounded text-sm border border-blue-200">
+                            <div className="flex items-center text-blue-700 mb-1">
+                              <FontAwesomeIcon icon="info-circle" className="mr-2" />
+                              <span className="font-medium">Structured Data Extraction</span>
+                            </div>
+                            <p className="text-blue-600 text-xs">
+                              The system has successfully extracted and paired issue descriptions with their 
+                              corresponding locations and department assignments from the document.
+                            </p>
+                          </div>
+                        </Card>
+                      )}
+                      
+                      {/* Show generic tables if any */}
+                      {results.filter(r => r.isTable && !r.isStructuredTableRow).length === 0 ? (
+                        results.filter(r => r.isStructuredTableRow).length === 0 && (
+                          <div className="text-center py-6 text-gray-500">
+                            No tables detected in this document
+                          </div>
+                        )
                       ) : (
-                        results.filter(r => r.isTable).map((result, index) => (
-                          <Card key={index} className="p-4">
-                            <div className="flex justify-between items-center mb-3">
-                              <h3 className="font-medium">Table {index + 1}</h3>
-                              <div className="text-sm text-gray-500">
-                                Confidence: {Math.round(result.confidence * 100)}%
-                              </div>
-                            </div>
-                            
-                            <div className="overflow-x-auto border rounded">
-                              <table className="w-full border-collapse">
-                                <tbody>
-                                  {Array.from(new Set(result.tableCells?.map(cell => cell.rowIndex) || [])).sort().map(rowIndex => (
-                                    <tr key={`row-${rowIndex}`} className={rowIndex === 0 ? 'bg-gray-100 font-medium' : 'even:bg-gray-50'}>
-                                      {Array.from(new Set(result.tableCells?.filter(cell => cell.rowIndex === rowIndex).map(cell => cell.columnIndex) || [])).sort().map(colIndex => {
-                                        const cell = result.tableCells?.find(c => c.rowIndex === rowIndex && c.columnIndex === colIndex);
-                                        return (
-                                          <td key={`cell-${rowIndex}-${colIndex}`} className="border px-3 py-2 text-sm">
-                                            {cell?.text || ''}
-                                          </td>
-                                        );
-                                      })}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            
-                            <div className="mt-3 space-y-2">
-                              <div className="text-sm text-gray-600 p-2 rounded border border-gray-200">
-                                <div className="grid grid-cols-3 gap-2">
-                                  <div>
-                                    <span className="font-medium">Department:</span><br />
-                                    {result.department || 'Not specified'}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Issue Type:</span><br />
-                                    {result.category || 'Uncategorized'}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Severity:</span><br />
-                                    {result.severity || 'minor'}
-                                  </div>
+                        <>
+                          <div className="text-sm font-medium text-gray-500 mt-6 mb-2">Additional Tables</div>
+                          {results.filter(r => r.isTable && !r.isStructuredTableRow).map((result, index) => (
+                            <Card key={index} className="p-4">
+                              <div className="flex justify-between items-center mb-3">
+                                <h3 className="font-medium">Table {index + 1}</h3>
+                                <div className="text-sm text-gray-500">
+                                  Confidence: {Math.round(result.confidence * 100)}%
                                 </div>
                               </div>
                               
-                              <div className="bg-gray-50 p-2 rounded text-sm">
-                                <div className="font-medium mb-1">Raw OCR Text for Table:</div>
-                                <div className="border-l-2 border-blue-300 pl-2 text-xs font-mono">
-                                  {result.text}
+                              <div className="overflow-x-auto border rounded">
+                                <table className="w-full border-collapse">
+                                  <tbody>
+                                    {Array.from(new Set(result.tableCells?.map(cell => cell.rowIndex) || [])).sort().map(rowIndex => (
+                                      <tr key={`row-${rowIndex}`} className={rowIndex === 0 ? 'bg-gray-100 font-medium' : 'even:bg-gray-50'}>
+                                        {Array.from(new Set(result.tableCells?.filter(cell => cell.rowIndex === rowIndex).map(cell => cell.columnIndex) || [])).sort().map(colIndex => {
+                                          const cell = result.tableCells?.find(c => c.rowIndex === rowIndex && c.columnIndex === colIndex);
+                                          return (
+                                            <td key={`cell-${rowIndex}-${colIndex}`} className="border px-3 py-2 text-sm">
+                                              {cell?.text || ''}
+                                            </td>
+                                          );
+                                        })}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              
+                              <div className="mt-3 space-y-2">
+                                <div className="text-sm text-gray-600 p-2 rounded border border-gray-200">
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <span className="font-medium">Department:</span><br />
+                                      {result.department || 'Not specified'}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Issue Type:</span><br />
+                                      {result.category || 'Uncategorized'}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Severity:</span><br />
+                                      {result.severity || 'minor'}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="bg-gray-50 p-2 rounded text-sm">
+                                  <div className="font-medium mb-1">Raw OCR Text for Table:</div>
+                                  <div className="border-l-2 border-blue-300 pl-2 text-xs font-mono">
+                                    {result.text}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </Card>
-                        ))
+                            </Card>
+                          ))}
+                        </>
                       )}
                     </div>
                   </TabsContent>
