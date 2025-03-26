@@ -32,6 +32,14 @@ interface OCRResult {
   boundingBox: number[];
   category?: string;
   severity?: 'critical' | 'major' | 'minor';
+  tableCells?: {
+    rowIndex: number;
+    columnIndex: number;
+    text: string;
+    confidence: number;
+  }[];
+  isTable?: boolean;
+  department?: string;
 }
 
 interface Analytics {
@@ -40,7 +48,7 @@ interface Analytics {
   confidence: number;
 }
 
-export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialogProps) {
+export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: AdvancedImportDialogProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<OCRResult[]>([]);
@@ -78,6 +86,11 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
 
     const formData = new FormData();
     formData.append('file', file);
+    
+    // Add inspection type to the form data if available
+    if (inspectionType) {
+      formData.append('inspectionType', inspectionType);
+    }
 
     try {
       // Simulate progress while processing
@@ -101,7 +114,7 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
       const data = await response.json();
       setResults(data.results);
       setAnalytics(data.analytics);
-      setFailureAnalysis(data.results.map(result => ({
+      setFailureAnalysis(data.results.map((result: OCRResult) => ({
         category: result.category || 'Uncategorized',
         sentiment: result.severity || 'minor',
         confidence: result.confidence
@@ -210,14 +223,55 @@ export function AdvancedImportDialog({ open, onOpenChange }: AdvancedImportDialo
                   {results.map((result, index) => (
                     <Card key={index} className="p-4">
                       <div className="flex justify-between">
-                        <div>
-                          <p className="font-medium">{result.text}</p>
-                          <p className="text-sm text-gray-500">
-                            Category: {result.category || 'Uncategorized'} | Severity: {result.severity || 'minor'}
-                          </p>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Confidence: {Math.round(result.confidence * 100)}%
+                        <div className="w-full">
+                          {result.isTable ? (
+                            <div>
+                              <div className="flex justify-between mb-2">
+                                <p className="font-medium">Table Data</p>
+                                <div className="text-sm text-gray-500">
+                                  Confidence: {Math.round(result.confidence * 100)}%
+                                </div>
+                              </div>
+                              
+                              <div className="overflow-x-auto">
+                                <table className="w-full border-collapse border border-gray-200">
+                                  <tbody>
+                                    {Array.from(new Set(result.tableCells?.map(cell => cell.rowIndex) || [])).sort().map(rowIndex => (
+                                      <tr key={`row-${rowIndex}`} className="border-b border-gray-200">
+                                        {Array.from(new Set(result.tableCells?.filter(cell => cell.rowIndex === rowIndex).map(cell => cell.columnIndex) || [])).sort().map(colIndex => {
+                                          const cell = result.tableCells?.find(c => c.rowIndex === rowIndex && c.columnIndex === colIndex);
+                                          return (
+                                            <td key={`cell-${rowIndex}-${colIndex}`} className="border px-2 py-1">
+                                              {cell?.text || ''}
+                                            </td>
+                                          );
+                                        })}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              
+                              <div className="mt-2">
+                                <span className="text-sm text-gray-500">
+                                  Department: {result.department || 'Not specified'} | Issue Type: {result.category || 'Uncategorized'} | Severity: {result.severity || 'minor'}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="font-medium">{result.text}</p>
+                              <div className="flex justify-between">
+                                <p className="text-sm text-gray-500">
+                                  Category: {result.category || 'Uncategorized'} | Severity: {result.severity || 'minor'}
+                                  {result.department && ` | Department: ${result.department}`}
+                                </p>
+                                <div className="text-sm text-gray-500">
+                                  Confidence: {Math.round(result.confidence * 100)}%
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </Card>

@@ -8,6 +8,14 @@ interface OCRResult {
   boundingBox: number[];
   category?: string;
   severity?: string;
+  department?: string;
+  isTable?: boolean;
+  tableCells?: {
+    rowIndex: number;
+    columnIndex: number;
+    text: string;
+    confidence: number;
+  }[];
 }
 
 export class OCRService {

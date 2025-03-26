@@ -115,6 +115,7 @@ export default function QualityInspectionList({ inspections = [], type, projects
           </p>
         </div>
         <div className="flex gap-2">
+          <AdvancedImportButton inspectionType={type} />
           <Button onClick={() => {
             setSelectedTemplate(null);
             setShowCreateDialog(true);
