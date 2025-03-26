@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@/components/ui/font-awesome-icon';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   BarChart,
   Bar,
@@ -80,6 +81,7 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
   const [showRealTimePreview, setShowRealTimePreview] = useState(false);
   const [creatingInspection, setCreatingInspection] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
   const SENTIMENT_COLORS = {
@@ -647,6 +649,11 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
         // Wait for the response using the oncePromise method
         const response = await (socket as any).oncePromise('quality:inspection:created', 5000);
         console.log('Inspection created successfully:', response);
+        
+        // Invalidate queries to refresh the inspection list
+        queryClient.invalidateQueries(['inspections']);
+        queryClient.invalidateQueries(['quality', 'inspections']);
+        queryClient.invalidateQueries(['manufacturing', 'quality', 'inspections']);
       } catch (socketError) {
         console.error('Socket error:', socketError);
         throw socketError;
