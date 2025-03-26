@@ -108,6 +108,19 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
       })));
     }
   }, [open]);
+  
+  // Handle the "+ more issues" click to scroll to detailed findings
+  const handleShowMoreIssues = () => {
+    // Force a short delay to ensure the DOM is ready
+    setTimeout(() => {
+      const detailedTab = document.getElementById('detailed-findings-tab');
+      if (detailedTab) {
+        detailedTab.click();
+        // Scroll the tab content into view
+        detailedTab.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
 
   // Simulate real-time result updates during processing
   useEffect(() => {
@@ -396,12 +409,12 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="text-xl">Advanced QC Document Import</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto flex flex-col">
           {/* Progress bar that appears during processing */}
           {isProcessing && (
             <div className="space-y-2 mb-4">
@@ -656,9 +669,12 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                                   </div>
                                 ))}
                                 {deptResults.length > 3 && (
-                                  <div className="text-sm text-center text-blue-600 p-1">
+                                  <button 
+                                    className="text-sm text-center text-blue-600 p-1 w-full hover:bg-blue-50 rounded cursor-pointer transition-colors"
+                                    onClick={handleShowMoreIssues}
+                                  >
                                     + {deptResults.length - 3} more issues
-                                  </div>
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -670,11 +686,11 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                 )}
                 
                 {/* Detailed results tabs */}
-                <Tabs defaultValue="results" className="w-full">
+                <Tabs defaultValue="results" className="w-full" id="findings-tabs">
                   <TabsList className="mb-2">
-                    <TabsTrigger value="results">Detailed Findings</TabsTrigger>
-                    <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                    <TabsTrigger value="tables">Table Data</TabsTrigger>
+                    <TabsTrigger value="results" data-value="results" id="detailed-findings-tab">Detailed Findings</TabsTrigger>
+                    <TabsTrigger value="analytics" data-value="analytics">Analytics</TabsTrigger>
+                    <TabsTrigger value="tables" data-value="tables">Table Data</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="results">
