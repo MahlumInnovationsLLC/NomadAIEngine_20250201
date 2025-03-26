@@ -9,7 +9,9 @@ interface OCRResult {
   category?: string;
   severity?: string;
   department?: string;
+  location?: string;
   isTable?: boolean;
+  isStructuredTableRow?: boolean;
   tableCells?: {
     rowIndex: number;
     columnIndex: number;
@@ -189,50 +191,140 @@ export class OCRService {
             });
           }
           
-          // Try to identify the department column and the issue type column
-          let departmentColIndex = -1;
-          let issueTypeColIndex = -1;
-          let severityColIndex = -1;
+          // Specifically identify Issue Description, Location, and Assignment columns
+          let issueDescriptionColIndex = -1;
+          let locationColIndex = -1;
+          let assignmentColIndex = -1;
           
           headerRow.forEach((header, index) => {
             const headerLower = header.toLowerCase();
-            if (headerLower.includes('department') || headerLower.includes('dept') || headerLower.includes('area')) {
-              departmentColIndex = index;
+            if (headerLower.includes('issue description') || headerLower.includes('description') || headerLower.includes('defect')) {
+              issueDescriptionColIndex = index;
+              console.log(`Found Issue Description column at index ${index}`);
             }
-            if (headerLower.includes('issue') || headerLower.includes('defect') || headerLower.includes('problem')) {
-              issueTypeColIndex = index;
+            if (headerLower.includes('location') || headerLower.includes('position') || headerLower.includes('area')) {
+              locationColIndex = index;
+              console.log(`Found Location column at index ${index}`);
             }
-            if (headerLower.includes('severity') || headerLower.includes('priority') || headerLower.includes('critical')) {
-              severityColIndex = index;
+            if (headerLower.includes('assignment') || headerLower.includes('department') || headerLower.includes('assigned to') || headerLower.includes('responsible')) {
+              assignmentColIndex = index;
+              console.log(`Found Assignment/Department column at index ${index}`);
             }
           });
           
-          // Extract a summary of the table for categorization
-          const tableText = tableCells.map(cell => cell.text).join(' ');
-          const category = await this.categorizeIssue(tableText);
-          const severity = await this.determineSeverity(tableText);
-          const department = await this.determineDepartment(tableText, inspectionType);
-          
-          // Calculate average confidence for the table
-          const avgConfidence = tableCells.reduce((sum, cell) => sum + cell.confidence, 0) / tableCells.length;
-          
-          const tableResult: OCRResult = {
-            text: `Table with ${table.rowCount} rows and ${table.columnCount} columns`,
-            confidence: avgConfidence,
-            boundingBox: [],  // We don't have the polygon for the whole table
-            category,
-            severity,
-            department,
-            isTable: true,
-            tableCells
-          };
-          
-          ocrResults.push(tableResult);
-          
-          // Update analytics
-          analytics.issueTypes[category] = (analytics.issueTypes[category] || 0) + 1;
-          analytics.severityDistribution[severity] = (analytics.severityDistribution[severity] || 0) + 1;
-          analytics.confidence += avgConfidence;
+          // If we found at least the issue description column, extract structured data
+          if (issueDescriptionColIndex !== -1) {
+            console.log('Found issue description column - extracting structured quality issues');
+            
+            // Get all row indices after the header row (rowIndex > 0)
+            const rowIndices = [...new Set(tableCells
+              .filter(cell => cell.rowIndex > 0)
+              .map(cell => cell.rowIndex))];
+            
+            // For each row, extract issue description, location, and assignment
+            for (const rowIndex of rowIndices) {
+              // Find cells for this row
+              const issueDescriptionCell = tableCells.find(
+                cell => cell.rowIndex === rowIndex && cell.columnIndex === issueDescriptionColIndex
+              );
+              
+              // Skip empty rows or rows without issue description
+              if (!issueDescriptionCell || !issueDescriptionCell.text.trim()) {
+                continue;
+              }
+              
+              const locationCell = locationColIndex !== -1 ? 
+                tableCells.find(cell => cell.rowIndex === rowIndex && cell.columnIndex === locationColIndex) : null;
+                
+              const assignmentCell = assignmentColIndex !== -1 ? 
+                tableCells.find(cell => cell.rowIndex === rowIndex && cell.columnIndex === assignmentColIndex) : null;
+              
+              // Extract text values
+              const issueText = issueDescriptionCell.text.trim();
+              const locationText = locationCell ? locationCell.text.trim() : '';
+              const assignmentText = assignmentCell ? assignmentCell.text.trim() : '';
+              
+              console.log(`Row ${rowIndex} - Issue: "${issueText}", Location: "${locationText}", Assignment: "${assignmentText}"`);
+              
+              // Use the assignment text as the department if available
+              const department = assignmentText || await this.determineDepartment(issueText, inspectionType);
+              
+              // Determine severity based on the issue text
+              const severity = await this.determineSeverity(issueText);
+              
+              // Determine category based on the issue text
+              const category = await this.categorizeIssue(issueText);
+              
+              // Create a structured OCR result for this issue
+              const issueResult: OCRResult = {
+                text: issueText,
+                confidence: issueDescriptionCell.confidence,
+                boundingBox: [], // We don't have the polygon coordinates here
+                category,
+                severity,
+                department,
+                location: locationText, // Add location as a new field
+                isStructuredTableRow: true, // Mark this as a structured table row
+                tableCells: [
+                  {
+                    rowIndex,
+                    columnIndex: issueDescriptionColIndex,
+                    text: issueText,
+                    confidence: issueDescriptionCell.confidence
+                  },
+                  ...(locationCell ? [{
+                    rowIndex,
+                    columnIndex: locationColIndex,
+                    text: locationText,
+                    confidence: locationCell.confidence
+                  }] : []),
+                  ...(assignmentCell ? [{
+                    rowIndex,
+                    columnIndex: assignmentColIndex,
+                    text: assignmentText,
+                    confidence: assignmentCell.confidence
+                  }] : [])
+                ]
+              };
+              
+              ocrResults.push(issueResult);
+              
+              // Update analytics
+              analytics.issueTypes[category] = (analytics.issueTypes[category] || 0) + 1;
+              analytics.severityDistribution[severity] = (analytics.severityDistribution[severity] || 0) + 1;
+              analytics.confidence += issueDescriptionCell.confidence;
+            }
+          } else {
+            // If we couldn't find specific columns, fall back to the original approach
+            console.log('Unable to find Issue Description column - falling back to generic table processing');
+            
+            // Extract a summary of the table for categorization
+            const tableText = tableCells.map(cell => cell.text).join(' ');
+            const category = await this.categorizeIssue(tableText);
+            const severity = await this.determineSeverity(tableText);
+            const department = await this.determineDepartment(tableText, inspectionType);
+            
+            // Calculate average confidence for the table
+            const avgConfidence = tableCells.reduce((sum, cell) => sum + cell.confidence, 0) / tableCells.length;
+            
+            const tableResult: OCRResult = {
+              text: `Table with ${table.rowCount} rows and ${table.columnCount} columns`,
+              confidence: avgConfidence,
+              boundingBox: [],  // We don't have the polygon for the whole table
+              category,
+              severity,
+              department,
+              isTable: true,
+              tableCells
+            };
+            
+            ocrResults.push(tableResult);
+            
+            // Update analytics
+            analytics.issueTypes[category] = (analytics.issueTypes[category] || 0) + 1;
+            analytics.severityDistribution[severity] = (analytics.severityDistribution[severity] || 0) + 1;
+            analytics.confidence += avgConfidence;
+          }
         }
       }
 

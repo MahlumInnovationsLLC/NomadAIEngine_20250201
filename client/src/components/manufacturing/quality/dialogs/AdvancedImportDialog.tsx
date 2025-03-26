@@ -42,7 +42,9 @@ interface OCRResult {
     confidence: number;
   }[];
   isTable?: boolean;
+  isStructuredTableRow?: boolean;
   department?: string;
+  location?: string;
 }
 
 interface Analytics {
