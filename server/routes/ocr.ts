@@ -43,8 +43,33 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
     // Process the document with Azure OCR service
     let result;
     try {
+      // Make sure Azure credentials are available before proceeding
+      const endpoint = process.env.NOMAD_AZURE_VISION_ENDPOINT;
+      const key = process.env.NOMAD_AZURE_VISION_KEY;
+      
+      if (!endpoint || !key) {
+        console.error('Azure Vision API credentials missing:', { 
+          hasEndpoint: !!endpoint, 
+          hasKey: !!key 
+        });
+        return res.status(500).json({
+          error: 'Server configuration error',
+          details: 'Azure Vision API credentials are not configured properly'
+        });
+      }
+      
+      console.log('Starting OCR document analysis with valid credentials');
+      
       // Call the OCR service to analyze the document
       result = await ocrService.analyzeDocument(req.file.buffer, inspectionType);
+      
+      // Enhanced validation and debugging
+      console.log('Raw OCR result structure:', JSON.stringify({
+        hasResults: !!result,
+        resultsIsArray: result && Array.isArray(result.results),
+        resultsLength: result && result.results ? result.results.length : 0,
+        hasAnalytics: result && !!result.analytics
+      }));
       
       // Validate the results
       if (!result || !result.results || !Array.isArray(result.results)) {
@@ -53,8 +78,8 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
       
       console.log('OCR Analysis completed successfully', {
         issueCount: result.results.length,
-        averageConfidence: result.analytics.confidence,
-        categories: Object.keys(result.analytics.issueTypes)
+        averageConfidence: result.analytics ? result.analytics.confidence : 'N/A',
+        categories: result.analytics ? Object.keys(result.analytics.issueTypes) : []
       });
       
       // Log detailed results for debugging if needed
@@ -70,19 +95,43 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
       } else {
         console.log('No OCR results detected in the document');
       }
+      
+      // Create a valid response even if there are no results
+      if (result.results.length === 0) {
+        console.log('Adding placeholder analytics for empty results set');
+        result.analytics = {
+          issueTypes: { 'No Issues Detected': 1 },
+          severityDistribution: { 'Minor': 1 },
+          confidence: 0.8
+        };
+      }
     } catch (ocrError) {
       // If OCR service fails, propagate the error to the client
       console.error('OCR service error:', ocrError);
       throw new Error(`OCR analysis failed: ${ocrError instanceof Error ? ocrError.message : 'Unknown error'}`);
     }
 
-    // Send back the result
-    console.log('Sending OCR response back to client');
+    // Verify result structure before sending
+    if (!result) {
+      console.error('Something went wrong - result is null or undefined after processing');
+      return res.status(500).json({
+        error: 'Server processing error',
+        details: 'OCR processing completed but returned no result'
+      });
+    }
+    
+    console.log('Sending OCR response back to client with structure:', {
+      hasResults: !!result.results,
+      resultsCount: result.results ? result.results.length : 0, 
+      hasAnalytics: !!result.analytics
+    });
+    
     res.json(result);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('OCR Analysis Error:', {
       error: errorMessage,
+      stack: error instanceof Error ? error.stack : 'No stack trace',
       fileInfo: req.file ? {
         name: req.file.originalname,
         size: req.file.size,

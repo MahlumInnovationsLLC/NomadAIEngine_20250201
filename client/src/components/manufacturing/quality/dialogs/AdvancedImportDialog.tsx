@@ -336,49 +336,128 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
       let data;
       
       try {
-        data = await response.json();
-        console.log('Parsed OCR response data:', data);
+        // Improved JSON parsing with better error handling
+        console.log('Attempting to parse response body...');
+        
+        // First check if the response is empty
+        const responseText = await response.text();
+        if (!responseText || responseText.trim() === '') {
+          console.error('OCR response body is empty');
+          addRealTimeResult(
+            "Error: Server returned an empty response",
+            0.5,
+            'System Error',
+            'critical',
+            'System'
+          );
+          throw new Error('Server returned an empty response');
+        }
+        
+        // Attempt to parse as JSON
+        try {
+          data = JSON.parse(responseText);
+          console.log('Parsed OCR response data:', data);
+        } catch (jsonError) {
+          console.error('Failed to parse response as JSON:', responseText.substring(0, 200) + '...');
+          addRealTimeResult(
+            "Error: Server returned an invalid JSON response",
+            0.5,
+            'System Error',
+            'critical',
+            'System'
+          );
+          throw new Error('Failed to parse server response as JSON');
+        }
         
         // Check if we have valid results
-        if (!data || !data.results || !Array.isArray(data.results) || data.results.length === 0) {
-          console.error('OCR response does not contain valid results:', data);
-          throw new Error('Server returned empty or invalid results');
-        }
-        
-        // Add detection results to real-time feed
-        addRealTimeResult(`Successfully analyzed document with ${data.results.length} findings`, 0.98, 
-                         'Analysis Complete', 'minor', 'System');
-        
-        // Add a few actual results from the data to real-time feed for user feedback
-        const resultsToShow = Math.min(3, data.results.length);
-        for (let i = 0; i < resultsToShow; i++) {
-          const result = data.results[i];
-          if (result && result.text) {
-            // Only add to real-time if it's an actual issue (not just structural text)
-            if (result.category && result.severity) {
-              addRealTimeResult(
-                result.text.substring(0, 120) + (result.text.length > 120 ? '...' : ''),
-                result.confidence || 0.8,
-                result.category,
-                result.severity as 'critical' | 'major' | 'minor',
-                result.department
-              );
-            }
-          }
-        }
-        
-        // If we have more results than shown in real-time preview
-        if (data.results.length > resultsToShow) {
+        if (!data || typeof data !== 'object') {
+          console.error('OCR response is not a valid object:', data);
           addRealTimeResult(
-            `${data.results.length - resultsToShow} more items detected - see detailed findings`,
-            0.95,
-            'Additional Findings',
+            "Error: Server returned an invalid response format",
+            0.5,
+            'System Error',
+            'critical',
+            'System'
+          );
+          throw new Error('Server returned invalid response format');
+        }
+        
+        // Check for error message in response
+        if (data.error) {
+          console.error('OCR service returned an error:', data.error, data.details);
+          addRealTimeResult(
+            `Error: ${data.details || data.error}`,
+            0.5,
+            'Service Error',
+            'critical',
+            'System'
+          );
+          throw new Error(data.details || data.error);
+        }
+        
+        // Check for results array
+        if (!data.results || !Array.isArray(data.results)) {
+          console.error('OCR response missing results array:', data);
+          // Initialize with empty results instead of failing
+          data.results = [];
+          addRealTimeResult(
+            "No text or tables detected in document",
+            0.9,
+            'Analysis Result',
             'minor',
             'System'
           );
         }
         
-        // Validate data analytics
+        // Add detection results to real-time feed
+        if (data.results.length > 0) {
+          addRealTimeResult(
+            `Successfully analyzed document with ${data.results.length} findings`, 
+            0.98, 
+            'Analysis Complete', 
+            'minor', 
+            'System'
+          );
+          
+          // Add a few actual results from the data to real-time feed for user feedback
+          const resultsToShow = Math.min(3, data.results.length);
+          for (let i = 0; i < resultsToShow; i++) {
+            const result = data.results[i];
+            if (result && result.text) {
+              // Only add to real-time if it's an actual issue (not just structural text)
+              if (result.category && result.severity) {
+                addRealTimeResult(
+                  result.text.substring(0, 120) + (result.text.length > 120 ? '...' : ''),
+                  result.confidence || 0.8,
+                  result.category,
+                  result.severity as 'critical' | 'major' | 'minor',
+                  result.department
+                );
+              }
+            }
+          }
+          
+          // If we have more results than shown in real-time preview
+          if (data.results.length > resultsToShow) {
+            addRealTimeResult(
+              `${data.results.length - resultsToShow} more items detected - see detailed findings`,
+              0.95,
+              'Additional Findings',
+              'minor',
+              'System'
+            );
+          }
+        } else {
+          addRealTimeResult(
+            "Document analysis complete - no quality issues detected",
+            0.9,
+            'Analysis Complete',
+            'minor',
+            'System'
+          );
+        }
+        
+        // Validate and create analytics if missing
         if (!data.analytics) {
           console.log('OCR response missing analytics, constructing from results');
           // Build analytics from results if missing
@@ -386,22 +465,29 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
           const severityDistribution: Record<string, number> = {};
           let totalConfidence = 0;
           
-          data.results.forEach((result: any) => {
-            // Process categories
-            if (result.category) {
-              issueTypes[result.category] = (issueTypes[result.category] || 0) + 1;
-            }
-            
-            // Process severities
-            if (result.severity) {
-              severityDistribution[result.severity] = (severityDistribution[result.severity] || 0) + 1;
-            }
-            
-            // Sum up confidence
-            if (typeof result.confidence === 'number') {
-              totalConfidence += result.confidence;
-            }
-          });
+          // If we have results, calculate analytics from them
+          if (data.results.length > 0) {
+            data.results.forEach((result: any) => {
+              // Process categories
+              if (result.category) {
+                issueTypes[result.category] = (issueTypes[result.category] || 0) + 1;
+              }
+              
+              // Process severities
+              if (result.severity) {
+                severityDistribution[result.severity] = (severityDistribution[result.severity] || 0) + 1;
+              }
+              
+              // Sum up confidence
+              if (typeof result.confidence === 'number') {
+                totalConfidence += result.confidence;
+              }
+            });
+          } else {
+            // Default analytics for empty results
+            issueTypes['No Issues Detected'] = 1;
+            severityDistribution['minor'] = 1;
+          }
           
           // Create analytics object
           data.analytics = {
@@ -411,7 +497,17 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
           };
         }
       } catch (e) {
-        console.error('Failed to parse OCR response:', e);
+        console.error('Failed to process OCR response:', e);
+        // Add error to real-time results if not already added
+        if (!realTimeResults.some(r => r.category === 'System Error' || r.category === 'Service Error')) {
+          addRealTimeResult(
+            `Error: ${e instanceof Error ? e.message : 'Unknown error processing document'}`,
+            0.5,
+            'System Error',
+            'critical',
+            'System'
+          );
+        }
         throw new Error('Failed to process document: ' + (e instanceof Error ? e.message : 'Server returned invalid data'));
       }
       
@@ -434,8 +530,39 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
         variant: "destructive",
       });
     } finally {
+      // Add a short delay to ensure all UI states are properly updated
       setTimeout(() => {
-        setIsProcessing(false);
+        // Keep processing state active if we have real-time error results to show
+        const hasErrorResults = realTimeResults.some(r => 
+          r.category === 'System Error' || 
+          r.category === 'Service Error'
+        );
+        
+        // Check if we have valid results
+        const hasValidResults = results.length > 0;
+        
+        // Only stop processing if there are no errors to show or if we have valid results
+        if (!hasErrorResults || hasValidResults) {
+          setIsProcessing(false);
+        } else {
+          // If we have errors but no results, keep the processing UI but mark the stages as failed
+          setProcessingStages(prev => {
+            const currentStageIndex = prev.findIndex(s => s.inProgress);
+            if (currentStageIndex >= 0) {
+              const updated = [...prev];
+              updated[currentStageIndex] = {
+                ...updated[currentStageIndex],
+                inProgress: false,
+                error: true
+              };
+              return updated;
+            }
+            return prev;
+          });
+          
+          // Keep the progress at current value to indicate failure
+          console.log('OCR processing failed, showing error state');
+        }
       }, 500);
     }
   };

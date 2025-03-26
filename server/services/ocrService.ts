@@ -23,18 +23,38 @@ export class OCRService {
   private visionClient: ComputerVisionClient;
 
   constructor() {
+    // Get credentials from environment variables
     const endpoint = process.env.NOMAD_AZURE_VISION_ENDPOINT || "";
     const key = process.env.NOMAD_AZURE_VISION_KEY || "";
 
-    this.documentClient = new DocumentAnalysisClient(
-      endpoint,
-      new AzureKeyCredential(key)
-    );
+    // Log initialization (without revealing full credentials)
+    console.log(`Initializing OCR Service with Azure Vision endpoint: ${endpoint ? endpoint.substring(0, 15) + '...' : 'MISSING ENDPOINT'}`);
+    console.log(`Azure Vision API key present: ${key ? 'Yes' : 'No - Missing API Key'}`);
 
-    this.visionClient = new ComputerVisionClient(
-      new ApiKeyCredentials({ inHeader: { "Ocp-Apim-Subscription-Key": key } }),
-      endpoint
-    );
+    if (!endpoint || !key) {
+      console.error('Missing Azure Vision API credentials - OCR functionality will not work properly');
+    }
+
+    try {
+      // Initialize the Document Analysis client for form recognition and layout analysis
+      this.documentClient = new DocumentAnalysisClient(
+        endpoint,
+        new AzureKeyCredential(key)
+      );
+
+      // Initialize the Computer Vision client for text recognition
+      this.visionClient = new ComputerVisionClient(
+        new ApiKeyCredentials({ inHeader: { "Ocp-Apim-Subscription-Key": key } }),
+        endpoint
+      );
+      
+      console.log('OCR Service clients initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize OCR service clients:', error);
+      // Initialize with empty clients that will be checked before use
+      this.documentClient = null as any;
+      this.visionClient = null as any;
+    }
   }
 
   async analyzeDocument(fileBuffer: Buffer, inspectionType?: string): Promise<{
@@ -48,22 +68,49 @@ export class OCRService {
     try {
       console.log('Starting document analysis...');
       console.log('Inspection type:', inspectionType || 'not specified');
+      console.log('Document buffer size:', fileBuffer.length, 'bytes');
+      
+      // Validate client availability first
+      if (!this.documentClient || !this.visionClient) {
+        console.error('OCR clients not properly initialized - Azure credentials may be missing');
+        throw new Error('OCR service not properly configured: Azure credentials missing or invalid');
+      }
+      
+      console.log('Analyzing document layout with Form Recognizer...');
       
       // First try to analyze as a table/form document for better table detection
-      const formPoller = await this.documentClient.beginAnalyzeDocument(
-        "prebuilt-layout",
-        fileBuffer
-      );
-      const formResult = await formPoller.pollUntilDone();
+      let formResult;
+      try {
+        const formPoller = await this.documentClient.beginAnalyzeDocument(
+          "prebuilt-layout",
+          fileBuffer
+        );
+        formResult = await formPoller.pollUntilDone();
+        console.log('Layout analysis completed successfully');
+      } catch (layoutError) {
+        console.error('Error during layout analysis:', layoutError);
+        console.log('Proceeding with text-only analysis');
+        formResult = { tables: [] };
+      }
+      
+      console.log('Analyzing document text with Document Intelligence...');
       
       // Then analyze as a general document for better text extraction
-      const textPoller = await this.documentClient.beginAnalyzeDocument(
-        "prebuilt-document",
-        fileBuffer
-      );
-      const textResult = await textPoller.pollUntilDone();
+      let textResult;
+      try {
+        const textPoller = await this.documentClient.beginAnalyzeDocument(
+          "prebuilt-document",
+          fileBuffer
+        );
+        textResult = await textPoller.pollUntilDone();
+        console.log('Text analysis completed successfully');
+      } catch (textError) {
+        console.error('Error during text analysis:', textError);
+        throw new Error('Failed to analyze document text: ' + 
+          (textError instanceof Error ? textError.message : 'Unknown error'));
+      }
       
-      console.log('Document analysis completed');
+      console.log('Document analysis completed successfully');
 
       const ocrResults: OCRResult[] = [];
       const analytics = {
