@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FontAwesomeIcon } from '@/components/ui/font-awesome-icon';
@@ -409,12 +409,15 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl ocr-dialog-content">
         <DialogHeader>
           <DialogTitle className="text-xl">Advanced QC Document Import</DialogTitle>
+          <p className="text-sm text-gray-500">
+            Upload and analyze quality control documents with AI-powered OCR
+          </p>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto flex flex-col">
+        <div className="ocr-dialog-scrollable">
           {/* Progress bar that appears during processing */}
           {isProcessing && (
             <div className="space-y-2 mb-4">
@@ -693,8 +696,8 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                     <TabsTrigger value="tables" data-value="tables">Table Data</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="results">
-                    <div className="space-y-2 mb-4">
+                  <TabsContent value="results" className="h-[60vh]">
+                    <div className="space-y-2 mb-4 overflow-y-auto pr-4">
                       {results.map((result, index) => (
                         <Card key={index} className="p-4">
                           <div className="flex justify-between">
@@ -708,13 +711,32 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                                       {result.severity || 'minor'}
                                     </Badge>
                                   </div>
-                                  <p className="mb-2">{result.text}</p>
-                                  <div className="flex justify-between text-sm text-gray-500">
-                                    <p>
-                                      Department: {result.department || 'Unassigned'}
-                                    </p>
-                                    <div>
-                                      Confidence: {Math.round(result.confidence * 100)}%
+                                  <div className="mb-4">
+                                    <div className="mb-2 flex gap-2">
+                                      <span className="font-medium text-sm">Raw OCR Text:</span>
+                                      <p className="text-sm border-l-2 border-blue-300 pl-2">{result.text}</p>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4 mb-2 bg-gray-50 p-2 rounded border">
+                                      <div>
+                                        <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Problem Description</p>
+                                        <p className="text-sm">{result.category || 'Uncategorized'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs uppercase font-semibold text-gray-500 mb-1">Assigned To</p>
+                                        <p className="text-sm">{result.department || 'Unassigned'}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex justify-between text-xs text-gray-500 bg-gray-100 p-1 rounded">
+                                    <div className="flex items-center">
+                                      <FontAwesomeIcon icon="info-circle" className="mr-1" />
+                                      Extraction Confidence: {Math.round(result.confidence * 100)}%
+                                    </div>
+                                    <div className="flex items-center">
+                                      <FontAwesomeIcon icon="tag" className="mr-1" />
+                                      Severity: {result.severity || 'minor'}
                                     </div>
                                   </div>
                                 </>
@@ -726,43 +748,43 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="analytics">
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                  <TabsContent value="analytics" className="h-[60vh]">
+                    <div className="grid grid-cols-2 gap-4 mb-4 overflow-y-auto pr-4">
                       <Card className="p-4">
                         <h3 className="mb-4 text-lg font-medium">Issue Types Distribution</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <PieChart>
-                            <Pie
-                              data={prepareChartData(analytics.issueTypes)}
-                              dataKey="value"
-                              nameKey="name"
-                              cx="50%"
-                              cy="50%"
-                              outerRadius={80}
-                              label
-                            >
-                              {prepareChartData(analytics.issueTypes).map((_, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <RechartsTooltip />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </Card>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                              <Pie
+                                data={prepareChartData(analytics.issueTypes)}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={80}
+                                label
+                              >
+                                {prepareChartData(analytics.issueTypes).map((_, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </Card>
 
-                      <Card className="p-4">
-                        <h3 className="mb-4 text-lg font-medium">Severity Distribution</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={prepareChartData(analytics.severityDistribution)}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis />
-                            <RechartsTooltip />
-                            <Bar dataKey="value" fill="#8884d8" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </Card>
-                    </div>
+                        <Card className="p-4">
+                          <h3 className="mb-4 text-lg font-medium">Severity Distribution</h3>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={prepareChartData(analytics.severityDistribution)}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <RechartsTooltip />
+                              <Bar dataKey="value" fill="#8884d8" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </Card>
+                      </div>
                   </TabsContent>
                   
                   <TabsContent value="tables">
@@ -800,16 +822,30 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                               </table>
                             </div>
                             
-                            <div className="mt-3 text-sm text-gray-600">
-                              <span className="mr-3">
-                                <span className="font-medium">Department:</span> {result.department || 'Not specified'}
-                              </span>
-                              <span className="mr-3">
-                                <span className="font-medium">Issue Type:</span> {result.category || 'Uncategorized'}
-                              </span>
-                              <span>
-                                <span className="font-medium">Severity:</span> {result.severity || 'minor'}
-                              </span>
+                            <div className="mt-3 space-y-2">
+                              <div className="text-sm text-gray-600 p-2 rounded border border-gray-200">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <span className="font-medium">Department:</span><br />
+                                    {result.department || 'Not specified'}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Issue Type:</span><br />
+                                    {result.category || 'Uncategorized'}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Severity:</span><br />
+                                    {result.severity || 'minor'}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="bg-gray-50 p-2 rounded text-sm">
+                                <div className="font-medium mb-1">Raw OCR Text for Table:</div>
+                                <div className="border-l-2 border-blue-300 pl-2 text-xs font-mono">
+                                  {result.text}
+                                </div>
+                              </div>
                             </div>
                           </Card>
                         ))

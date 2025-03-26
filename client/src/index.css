@@ -2,6 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom styles for OCR Dialog scrolling */
+.ocr-dialog-content {
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.ocr-dialog-scrollable {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding-right: 0.5rem !important;
+  max-height: 70vh !important;
+}
+
+.ocr-findings-list {
+  max-height: 50vh !important;
+  overflow-y: auto !important;
+}
+
+/* Force scrollbars to appear */
+.ocr-dialog-content::-webkit-scrollbar,
+.ocr-dialog-scrollable::-webkit-scrollbar,
+.ocr-findings-list::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.ocr-dialog-content::-webkit-scrollbar-track,
+.ocr-dialog-scrollable::-webkit-scrollbar-track,
+.ocr-findings-list::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+  border-radius: 4px !important;
+}
+
+.ocr-dialog-content::-webkit-scrollbar-thumb,
+.ocr-dialog-scrollable::-webkit-scrollbar-thumb,
+.ocr-findings-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1 !important;
+  border-radius: 4px !important;
+}
+
+.ocr-dialog-content::-webkit-scrollbar-thumb:hover,
+.ocr-dialog-scrollable::-webkit-scrollbar-thumb:hover,
+.ocr-findings-list::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1 !important;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
