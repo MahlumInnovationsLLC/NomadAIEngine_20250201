@@ -2,16 +2,32 @@ import { AzureKeyCredential, DocumentAnalysisClient } from "@azure/ai-form-recog
 import { ComputerVisionClient } from "@azure/cognitiveservices-computervision";
 import { ApiKeyCredentials } from "@azure/ms-rest-js";
 
+/**
+ * OCRResult - Represents an item extracted from OCR processing
+ * For QC Punchlist, we specifically focus on extracting:
+ * - Issue Description (text)
+ * - Location
+ * - Assignment/Department (department)
+ */
 interface OCRResult {
-  text: string;
-  confidence: number;
-  boundingBox: number[];
-  category?: string;
-  severity?: string;
-  department?: string;
-  location?: string;
-  isTable?: boolean;
-  isStructuredTableRow?: boolean;
+  // Core fields (always present)
+  text: string;               // The issue description text
+  confidence: number;         // Confidence level of extraction
+  boundingBox: number[];      // For visualization (may be empty)
+  
+  // Structural information about the extraction
+  isStructuredTableRow?: boolean;   // True for rows extracted from structured tables
+  isTable?: boolean;                // True for generic table data (not used in structured extraction)
+  
+  // Key fields from QC Punchlist
+  location?: string;        // The location field from the table
+  department?: string;      // The assignment/department field from the table
+  
+  // Additional metadata (derived or inferred)
+  category?: string;        // Category of issue (derived from text analysis)
+  severity?: string;        // Severity level (derived from text analysis)
+  
+  // Raw table cell data if available
   tableCells?: {
     rowIndex: number;
     columnIndex: number;
@@ -95,6 +111,7 @@ export class OCRService {
       console.log('Starting document analysis...');
       console.log('Inspection type:', inspectionType || 'not specified');
       console.log('Document buffer size:', fileBuffer.length, 'bytes');
+      console.log('FOCUS: Extracting ONLY "Issue Description", "Location", and "Assignment" columns');
       
       // Determine document type for optimized processing
       const isPdf = this.isPDF(fileBuffer);
@@ -112,12 +129,13 @@ export class OCRService {
       // First try to analyze as a table/form document for better table detection
       let formResult;
       try {
-        // Select model based on file type
-        const modelId = isPdf ? "prebuilt-layout" : "prebuilt-document";
-        console.log(`Using model ${modelId} for initial document analysis based on file type`);
+        // For QC Punchlist documents, we specifically want to use the layout model
+        // which is better at detecting tables with headers and columns
+        const modelId = "prebuilt-layout";
+        console.log(`Using model ${modelId} for QC Punchlist analysis`);
         
         const formPoller = await this.documentClient.beginAnalyzeDocument(
-          modelId, // Use the appropriate model based on file type
+          modelId,
           fileBuffer
         );
         formResult = await formPoller.pollUntilDone();
@@ -133,13 +151,13 @@ export class OCRService {
       // Then analyze as a general document for better text extraction
       let textResult;
       try {
-        // For image files, use the read model for better OCR
-        // For PDFs and other docs, use the prebuilt-document model
-        const modelId = isImg ? "prebuilt-read" : "prebuilt-document";
+        // For QC Punchlist documents, we specifically want to use the document model
+        // which is better at extracting structured content
+        const modelId = isPdf ? "prebuilt-document" : "prebuilt-read";
         console.log(`Using model ${modelId} for text extraction based on file type`);
         
         const textPoller = await this.documentClient.beginAnalyzeDocument(
-          modelId, // Use the appropriate model based on file type
+          modelId,
           fileBuffer
         );
         textResult = await textPoller.pollUntilDone();
@@ -152,6 +170,7 @@ export class OCRService {
       
       console.log('Document analysis completed successfully');
 
+      // Results will only include structured row data from the three target columns
       const ocrResults: OCRResult[] = [];
       const analytics = {
         issueTypes: {} as { [key: string]: number },
@@ -160,6 +179,7 @@ export class OCRService {
       };
       
       // Process tables first (from layout analysis)
+      // STRICTLY FOCUS ON: "Issue Description", "Location", and "Assignment" columns only
       if (formResult.tables && formResult.tables.length > 0) {
         console.log(`Detected ${formResult.tables.length} tables in the document`);
         
@@ -174,47 +194,76 @@ export class OCRService {
             confidence: number;
           }[] = [];
           
-          // Determine the header row to use for categorization
-          const headerRow = table.cells
-            .filter(cell => cell.rowIndex === 0)
-            .map(cell => cell.content);
+          // Determine the header row to use for column identification
+          const headerRowCells = table.cells.filter(cell => cell.rowIndex === 0);
+          const headerRow = headerRowCells.map(cell => cell.content);
             
           console.log('Table headers:', headerRow);
           
-          // Extract cells
-          for (const cell of table.cells) {
-            tableCells.push({
-              rowIndex: cell.rowIndex,
-              columnIndex: cell.columnIndex,
-              text: cell.content,
-              confidence: 0.9 // High confidence for table structure
-            });
-          }
-          
-          // Specifically identify Issue Description, Location, and Assignment columns
+          // Extract only relevant cells (don't store ALL cells)
+          // First identify the target column indices
           let issueDescriptionColIndex = -1;
           let locationColIndex = -1;
           let assignmentColIndex = -1;
           
-          headerRow.forEach((header, index) => {
-            const headerLower = header.toLowerCase();
-            if (headerLower.includes('issue description') || headerLower.includes('description') || headerLower.includes('defect')) {
-              issueDescriptionColIndex = index;
-              console.log(`Found Issue Description column at index ${index}`);
+          // Get exact column indices for our three target columns
+          headerRowCells.forEach(cell => {
+            const headerLower = cell.content.toLowerCase().trim();
+            
+            // Check for exact column header matches first
+            if (headerLower === 'issue description') {
+              issueDescriptionColIndex = cell.columnIndex;
+              console.log(`Found exact match for Issue Description column at index ${cell.columnIndex}`);
+            } 
+            else if (headerLower.includes('issue description')) {
+              issueDescriptionColIndex = cell.columnIndex;
+              console.log(`Found fuzzy match for Issue Description column at index ${cell.columnIndex}`);
             }
-            if (headerLower.includes('location') || headerLower.includes('position') || headerLower.includes('area')) {
-              locationColIndex = index;
-              console.log(`Found Location column at index ${index}`);
+            
+            if (headerLower === 'location') {
+              locationColIndex = cell.columnIndex;
+              console.log(`Found exact match for Location column at index ${cell.columnIndex}`);
             }
-            if (headerLower.includes('assignment') || headerLower.includes('department') || headerLower.includes('assigned to') || headerLower.includes('responsible')) {
-              assignmentColIndex = index;
-              console.log(`Found Assignment/Department column at index ${index}`);
+            else if (headerLower.includes('location')) {
+              locationColIndex = cell.columnIndex;
+              console.log(`Found fuzzy match for Location column at index ${cell.columnIndex}`);
+            }
+            
+            if (headerLower === 'assignment') {
+              assignmentColIndex = cell.columnIndex;
+              console.log(`Found exact match for Assignment column at index ${cell.columnIndex}`);
+            }
+            else if (headerLower.includes('assignment')) {
+              assignmentColIndex = cell.columnIndex;
+              console.log(`Found fuzzy match for Assignment column at index ${cell.columnIndex}`);
             }
           });
           
+          // Only collect cells from the three columns we care about
+          console.log(`Target columns - Issue: ${issueDescriptionColIndex}, Location: ${locationColIndex}, Assignment: ${assignmentColIndex}`);
+          
+          // Only collect cells from the identified target columns
+          for (const cell of table.cells) {
+            if (
+              cell.rowIndex > 0 && // Skip header row
+              (
+                cell.columnIndex === issueDescriptionColIndex || 
+                cell.columnIndex === locationColIndex || 
+                cell.columnIndex === assignmentColIndex
+              )
+            ) {
+              tableCells.push({
+                rowIndex: cell.rowIndex,
+                columnIndex: cell.columnIndex,
+                text: cell.content.trim(),
+                confidence: 0.95 // High confidence for table structure
+              });
+            }
+          }
+          
           // If we found at least the issue description column, extract structured data
           if (issueDescriptionColIndex !== -1) {
-            console.log('Found issue description column - extracting structured quality issues');
+            console.log('Found issue description column - extracting only relevant structured quality issues');
             
             // Get all row indices after the header row (rowIndex > 0)
             const rowIndexSet = new Set(tableCells
@@ -222,9 +271,10 @@ export class OCRService {
               .map(cell => cell.rowIndex));
               
             // Convert Set to Array for iteration
-            const rowIndices = Array.from(rowIndexSet);
+            const rowIndices = Array.from(rowIndexSet).sort((a, b) => a - b);
+            console.log(`Processing ${rowIndices.length} data rows from the table`);
             
-            // For each row, extract issue description, location, and assignment
+            // For each row, extract ONLY issue description, location, and assignment
             for (const rowIndex of rowIndices) {
               // Find cells for this row
               const issueDescriptionCell = tableCells.find(
@@ -242,31 +292,34 @@ export class OCRService {
               const assignmentCell = assignmentColIndex !== -1 ? 
                 tableCells.find(cell => cell.rowIndex === rowIndex && cell.columnIndex === assignmentColIndex) : null;
               
-              // Extract text values
+              // Extract text values (only from the three columns we care about)
               const issueText = issueDescriptionCell.text.trim();
               const locationText = locationCell ? locationCell.text.trim() : '';
               const assignmentText = assignmentCell ? assignmentCell.text.trim() : '';
               
+              // Skip rows that don't have meaningful content
+              if (!issueText || issueText === '') {
+                console.log(`Skipping row ${rowIndex} due to empty issue description`);
+                continue;
+              }
+              
               console.log(`Row ${rowIndex} - Issue: "${issueText}", Location: "${locationText}", Assignment: "${assignmentText}"`);
               
-              // Use the assignment text as the department if available
-              const department = assignmentText || await this.determineDepartment(issueText, inspectionType);
+              // Use the assignment text as the department
+              const department = assignmentText;
               
               // Determine severity based on the issue text
               const severity = await this.determineSeverity(issueText);
               
-              // Determine category based on the issue text
-              const category = await this.categorizeIssue(issueText);
-              
               // Create a structured OCR result for this issue
+              // Only include the three fields we care about
               const issueResult: OCRResult = {
                 text: issueText,
                 confidence: issueDescriptionCell.confidence,
-                boundingBox: [], // We don't have the polygon coordinates here
-                category,
+                boundingBox: [],
                 severity,
                 department,
-                location: locationText, // Add location as a new field
+                location: locationText,
                 isStructuredTableRow: true, // Mark this as a structured table row
                 tableCells: [
                   {
@@ -293,99 +346,27 @@ export class OCRService {
               ocrResults.push(issueResult);
               
               // Update analytics
+              const category = await this.categorizeIssue(issueText);
               analytics.issueTypes[category] = (analytics.issueTypes[category] || 0) + 1;
               analytics.severityDistribution[severity] = (analytics.severityDistribution[severity] || 0) + 1;
               analytics.confidence += issueDescriptionCell.confidence;
             }
+            
+            console.log(`Successfully extracted ${ocrResults.length} structured issues from the table`);
           } else {
-            // If we couldn't find specific columns, fall back to the original approach
-            console.log('Unable to find Issue Description column - falling back to generic table processing');
-            
-            // Extract a summary of the table for categorization
-            const tableText = tableCells.map(cell => cell.text).join(' ');
-            const category = await this.categorizeIssue(tableText);
-            const severity = await this.determineSeverity(tableText);
-            const department = await this.determineDepartment(tableText, inspectionType);
-            
-            // Calculate average confidence for the table
-            const avgConfidence = tableCells.reduce((sum, cell) => sum + cell.confidence, 0) / tableCells.length;
-            
-            const tableResult: OCRResult = {
-              text: `Table with ${table.rowCount} rows and ${table.columnCount} columns`,
-              confidence: avgConfidence,
-              boundingBox: [],  // We don't have the polygon for the whole table
-              category,
-              severity,
-              department,
-              isTable: true,
-              tableCells
-            };
-            
-            ocrResults.push(tableResult);
-            
-            // Update analytics
-            analytics.issueTypes[category] = (analytics.issueTypes[category] || 0) + 1;
-            analytics.severityDistribution[severity] = (analytics.severityDistribution[severity] || 0) + 1;
-            analytics.confidence += avgConfidence;
+            // Log that we couldn't find the required columns
+            console.log('CRITICAL: Could not find Issue Description column - this document may not have the expected format');
+            console.log('WARNING: Not adding generic table data since we only want data from the three target columns');
           }
         }
       }
 
-      // Process text from document analysis
-      if (textResult.pages) {
-        for (const page of textResult.pages) {
-          for (const line of page.lines || []) {
-            // Skip lines that are likely part of tables we already processed
-            if (ocrResults.some(result => result.isTable && result.tableCells?.some(cell => cell.text === line.content))) {
-              continue;
-            }
-            
-            // Calculate confidence based on available data
-            const spans = line.spans || [];
-            let avgConfidence = 0.8; // Default confidence
-
-            if (spans.length > 0) {
-              const confidenceSum = spans.reduce((sum, span) => {
-                // DocumentSpan doesn't have confidence in typings 
-                // Use a default confidence value of 0.85 for OCR text recognition
-                const spanConfidence = 0.85;
-                return sum + spanConfidence;
-              }, 0);
-              avgConfidence = confidenceSum / spans.length;
-            }
-
-            // Extract polygon points for bounding box
-            const polygonPoints = line.polygon || [];
-            const boundingBox = polygonPoints.reduce((arr: number[], point) => {
-              arr.push(point.x, point.y);
-              return arr;
-            }, []);
-
-            const text = line.content;
-
-            // AI-based categorization of issues
-            const category = await this.categorizeIssue(text);
-            const severity = await this.determineSeverity(text);
-            const department = await this.determineDepartment(text, inspectionType);
-
-            const ocrResult: OCRResult = {
-              text,
-              confidence: avgConfidence,
-              boundingBox,
-              category,
-              severity,
-              department
-            };
-
-            ocrResults.push(ocrResult);
-
-            // Update analytics
-            analytics.issueTypes[category] = (analytics.issueTypes[category] || 0) + 1;
-            analytics.severityDistribution[severity] = (analytics.severityDistribution[severity] || 0) + 1;
-            analytics.confidence += avgConfidence;
-          }
-        }
-      }
+      // DO NOT process regular text from document analysis - we only want the structured data
+      // from the three specific columns (Issue Description, Location, Assignment)
+      console.log('Skipping processing of regular text content - focusing ONLY on structured table data');
+      
+      // Nothing to do here - we've already extracted the structured data from tables
+      // with the specific columns we need
 
       // Calculate average confidence
       analytics.confidence = ocrResults.length > 0 

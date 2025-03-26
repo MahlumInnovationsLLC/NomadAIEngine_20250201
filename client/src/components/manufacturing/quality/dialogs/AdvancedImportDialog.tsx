@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useWebSocket } from '@/hooks/use-websocket';
+import { useSocket } from '@/hooks/use-socket';
 
 interface AdvancedImportDialogProps {
   open: boolean;
@@ -569,19 +571,75 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
     }
   };
 
-  const handleCreateInspection = () => {
+  // Get socket from hook with manufacturing namespace
+  const socket = useWebSocket({ namespace: 'manufacturing' });
+  
+  const handleCreateInspection = async () => {
     setCreatingInspection(true);
     
-    // Simulate creating an inspection record
-    setTimeout(() => {
+    try {
+      if (!socket) {
+        throw new Error('Manufacturing socket connection not available');
+      }
+      
+      // Create a new inspection record with the OCR results
+      const inspection = {
+        type: inspectionType || 'final-qc',
+        status: "open",
+        projectNumber: "OCR-" + new Date().toISOString().slice(0, 10),
+        partNumber: "",
+        inspector: "System OCR",
+        inspectionDate: new Date().toISOString(),
+        productionLine: "Assembly",
+        defects: results.length,
+        results: {
+          checklistItems: [],
+          defectsFound: results.map(result => ({
+            description: result.text,
+            location: result.location || 'Unknown',
+            severity: result.severity || 'minor',
+            assignedTo: result.department || 'Quality Control',
+            status: 'open',
+            notes: '',
+            dateFound: new Date().toISOString()
+          }))
+        }
+      };
+      
+      console.log('Creating inspection with manufacturing socket:', inspection);
+      
+      // Emit the event to create the inspection using manufacturing namespace
+      await new Promise((resolve, reject) => {
+        socket.emit('quality:inspection:create', inspection, (response: any) => {
+          console.log('Manufacturing socket response:', response);
+          if (response && response.error) {
+            reject(new Error(response.error));
+          } else {
+            resolve(response);
+          }
+        });
+        
+        // Add timeout for socket response
+        setTimeout(() => reject(new Error('Socket timeout - server did not respond')), 5000);
+      });
+      
       toast({
         title: "Inspection record created",
         description: `${results.length} items have been added to a new inspection record`,
       });
       
+      // Close dialog after successful creation
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error creating inspection:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create inspection record. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setCreatingInspection(false);
-      onOpenChange(false); // Close dialog after successful creation
-    }, 1500);
+    }
   };
 
   const prepareChartData = (data: { [key: string]: number }) => {
