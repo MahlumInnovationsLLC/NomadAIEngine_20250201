@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 interface AdvancedImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  inspectionType?: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
 }
 
 interface OCRResult {
