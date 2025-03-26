@@ -122,29 +122,56 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
     }, 100);
   };
 
-  // Simulate real-time result updates during processing
+  // Function to add real-time results during processing
+  const addRealTimeResult = (text: string, confidence: number, category?: string, severity?: string, department?: string) => {
+    const detectedCategory = category || 
+      (text.toLowerCase().includes('material') ? 'Material Defect' : 
+       text.toLowerCase().includes('assembly') ? 'Assembly Issue' :
+       text.toLowerCase().includes('process') ? 'Process Deviation' :
+       'Quality Standard Violation');
+       
+    const detectedSeverity = severity || 
+      (text.toLowerCase().includes('critical') || text.toLowerCase().includes('severe') ? 'critical' :
+       text.toLowerCase().includes('major') || text.toLowerCase().includes('significant') ? 'major' :
+       'minor');
+       
+    const detectedDepartment = department || 
+      (inspectionType === 'in-process' ? 'Manufacturing' :
+       inspectionType === 'final-qc' ? 'Quality Control' :
+       inspectionType === 'executive-review' ? 'Management' :
+       'Pre-Delivery');
+    
+    setRealTimeResults(prev => {
+      const updated = [...prev, {
+        text,
+        confidence,
+        boundingBox: [100, 100, 200, 100, 200, 150, 100, 150], // Default bounding box
+        category: detectedCategory,
+        severity: detectedSeverity as 'critical' | 'major' | 'minor',
+        department: detectedDepartment
+      }];
+      return updated;
+    });
+  };
+  
+  // Listen for ongoing processing status to show real-time results
   useEffect(() => {
     if (isProcessing && progress > 20 && progress < 90) {
-      const interval = setInterval(() => {
-        if (Math.random() > 0.5) {
-          // Simulate a new result being found
-          const newResult: OCRResult = {
-            text: `Found potential ${Math.random() > 0.5 ? 'defect' : 'issue'} in document`,
-            confidence: 0.75 + Math.random() * 0.2,
-            boundingBox: [100, 100, 200, 100, 200, 150, 100, 150],
-            category: Math.random() > 0.7 ? 'Material Defect' : Math.random() > 0.5 ? 'Assembly Issue' : 'Quality Standard Violation',
-            severity: Math.random() > 0.8 ? 'critical' : Math.random() > 0.5 ? 'major' : 'minor',
-            department: inspectionType === 'in-process' ? 'Manufacturing' : 
-                      inspectionType === 'final-qc' ? 'Quality Control' : 
-                      inspectionType === 'executive-review' ? 'Management' : 'Pre-Delivery'
-          };
-          setRealTimeResults(prev => [...prev, newResult]);
+      // Show initial processing notification
+      if (realTimeResults.length === 0) {
+        addRealTimeResult('Starting document analysis...', 0.9);
+        
+        // Add appropriate stage message based on progress
+        if (progress < 40) {
+          addRealTimeResult('Detecting document layout and structure', 0.9);
+        } else if (progress < 60) {
+          addRealTimeResult('Extracting text content and tables', 0.9);
+        } else {
+          addRealTimeResult('Analyzing content for quality issues', 0.9);
         }
-      }, 1500);
-      
-      return () => clearInterval(interval);
+      }
     }
-  }, [isProcessing, progress, inspectionType]);
+  }, [isProcessing, progress, inspectionType, realTimeResults.length]);
 
   // Update processing stages based on progress
   useEffect(() => {
@@ -237,6 +264,9 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
     setRealTimeResults([]);
     setShowRealTimePreview(true);
 
+    // Add initial real-time result to indicate processing has started
+    addRealTimeResult(`Processing document: ${selectedFile.name}`, 1.0);
+
     const formData = new FormData();
     formData.append('file', selectedFile);
     
@@ -244,14 +274,29 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
     if (inspectionType) {
       formData.append('inspectionType', inspectionType);
       console.log('Added inspection type to form data:', inspectionType);
+      
+      // Add a real-time result for the inspection type context
+      addRealTimeResult(`Using ${inspectionType} inspection context for analysis`, 0.95);
     }
 
     try {
-      // Start simulating progress immediately
+      // Start progress updates
       const progressInterval = setInterval(() => {
         setProgress(prev => {
-          const increment = Math.floor(Math.random() * 10) + 5; // Random increment between 5-15
-          return Math.min(prev + increment, 95); // Don't reach 100% until done
+          const newProgress = Math.min(prev + (Math.floor(Math.random() * 10) + 5), 95);
+          
+          // Add appropriate real-time messages based on progress stages
+          if (prev < 20 && newProgress >= 20) {
+            addRealTimeResult('Analyzing document structure...', 0.9);
+          } else if (prev < 40 && newProgress >= 40) {
+            addRealTimeResult('Scanning for tables and formatted content...', 0.9);
+          } else if (prev < 60 && newProgress >= 60) {
+            addRealTimeResult('Processing text and extracting quality issues...', 0.9);
+          } else if (prev < 80 && newProgress >= 80) {
+            addRealTimeResult('Categorizing findings by department and severity...', 0.9);
+          }
+          
+          return newProgress;
         });
       }, 800);
 
@@ -279,6 +324,9 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
           console.error('Could not parse error response', e);
         }
         
+        // Add error to real-time results
+        addRealTimeResult(`Error: ${errorMessage}`, 0.5, 'System Error', 'critical', 'System');
+        
         updateStage(processingStages.findIndex(s => s.inProgress), false, false, true);
         throw new Error(errorMessage);
       }
@@ -290,47 +338,81 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
       try {
         data = await response.json();
         console.log('Parsed OCR response data:', data);
+        
+        // Check if we have valid results
+        if (!data || !data.results || !Array.isArray(data.results) || data.results.length === 0) {
+          console.error('OCR response does not contain valid results:', data);
+          throw new Error('Server returned empty or invalid results');
+        }
+        
+        // Add detection results to real-time feed
+        addRealTimeResult(`Successfully analyzed document with ${data.results.length} findings`, 0.98, 
+                         'Analysis Complete', 'minor', 'System');
+        
+        // Add a few actual results from the data to real-time feed for user feedback
+        const resultsToShow = Math.min(3, data.results.length);
+        for (let i = 0; i < resultsToShow; i++) {
+          const result = data.results[i];
+          if (result && result.text) {
+            // Only add to real-time if it's an actual issue (not just structural text)
+            if (result.category && result.severity) {
+              addRealTimeResult(
+                result.text.substring(0, 120) + (result.text.length > 120 ? '...' : ''),
+                result.confidence || 0.8,
+                result.category,
+                result.severity as 'critical' | 'major' | 'minor',
+                result.department
+              );
+            }
+          }
+        }
+        
+        // If we have more results than shown in real-time preview
+        if (data.results.length > resultsToShow) {
+          addRealTimeResult(
+            `${data.results.length - resultsToShow} more items detected - see detailed findings`,
+            0.95,
+            'Additional Findings',
+            'minor',
+            'System'
+          );
+        }
+        
+        // Validate data analytics
+        if (!data.analytics) {
+          console.log('OCR response missing analytics, constructing from results');
+          // Build analytics from results if missing
+          const issueTypes: Record<string, number> = {};
+          const severityDistribution: Record<string, number> = {};
+          let totalConfidence = 0;
+          
+          data.results.forEach((result: any) => {
+            // Process categories
+            if (result.category) {
+              issueTypes[result.category] = (issueTypes[result.category] || 0) + 1;
+            }
+            
+            // Process severities
+            if (result.severity) {
+              severityDistribution[result.severity] = (severityDistribution[result.severity] || 0) + 1;
+            }
+            
+            // Sum up confidence
+            if (typeof result.confidence === 'number') {
+              totalConfidence += result.confidence;
+            }
+          });
+          
+          // Create analytics object
+          data.analytics = {
+            issueTypes,
+            severityDistribution,
+            confidence: data.results.length > 0 ? totalConfidence / data.results.length : 0.8
+          };
+        }
       } catch (e) {
-        console.log('Failed to parse OCR response, using simulated data for demo');
-        
-        // Simulate OCR results if parsing fails or no results
-        const simulatedResults = Array.from({ length: 8 }, (_, i) => ({
-          text: `Sample quality issue #${i+1} detected in document`,
-          confidence: 0.7 + Math.random() * 0.25,
-          boundingBox: [100, 100, 300, 100, 300, 200, 100, 200],
-          category: ['Material Defect', 'Assembly Issue', 'Quality Standard Violation', 'Process Deviation'][Math.floor(Math.random() * 4)],
-          severity: Math.random() > 0.7 ? 'critical' : Math.random() > 0.5 ? 'major' : 'minor',
-          department: inspectionType === 'in-process' ? 'Manufacturing' : 
-                    inspectionType === 'final-qc' ? 'Quality Control' : 
-                    inspectionType === 'executive-review' ? 'Management' : 'Pre-Delivery',
-          isTable: i === 2 || i === 5,
-          tableCells: (i === 2 || i === 5) ? Array.from({ length: 9 }, (_, j) => ({
-            rowIndex: Math.floor(j / 3),
-            columnIndex: j % 3,
-            text: `Cell ${j+1}`,
-            confidence: 0.8
-          })) : undefined
-        }));
-        
-        const simulatedAnalytics = {
-          issueTypes: {
-            'Material Defect': 3,
-            'Assembly Issue': 2,
-            'Quality Standard Violation': 2,
-            'Process Deviation': 1
-          },
-          severityDistribution: {
-            'critical': 2,
-            'major': 3,
-            'minor': 3
-          },
-          confidence: 0.85
-        };
-        
-        data = {
-          results: simulatedResults,
-          analytics: simulatedAnalytics
-        };
+        console.error('Failed to parse OCR response:', e);
+        throw new Error('Failed to process document: ' + (e instanceof Error ? e.message : 'Server returned invalid data'));
       }
       
       setResults(data.results);
@@ -696,8 +778,8 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                     <TabsTrigger value="tables" data-value="tables">Table Data</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="results" className="h-[60vh]">
-                    <div className="space-y-2 mb-4 overflow-y-auto pr-4">
+                  <TabsContent value="results">
+                    <div className="space-y-2 mb-4 overflow-y-auto pr-4 h-[60vh]">
                       {results.map((result, index) => (
                         <Card key={index} className="p-4">
                           <div className="flex justify-between">
@@ -748,10 +830,11 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="analytics" className="h-[60vh]">
-                    <div className="grid grid-cols-2 gap-4 mb-4 overflow-y-auto pr-4">
-                      <Card className="p-4">
-                        <h3 className="mb-4 text-lg font-medium">Issue Types Distribution</h3>
+                  <TabsContent value="analytics">
+                    <div className="overflow-y-auto pr-4 h-[60vh]">
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <Card className="p-4">
+                          <h3 className="mb-4 text-lg font-medium">Issue Types Distribution</h3>
                           <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
                               <Pie
@@ -785,10 +868,11 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                           </ResponsiveContainer>
                         </Card>
                       </div>
+                    </div>
                   </TabsContent>
                   
                   <TabsContent value="tables">
-                    <div className="space-y-4 mb-4">
+                    <div className="space-y-4 mb-4 overflow-y-auto pr-4 h-[60vh]">
                       {results.filter(r => r.isTable).length === 0 ? (
                         <div className="text-center py-6 text-gray-500">
                           No tables detected in this document

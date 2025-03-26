@@ -40,54 +40,40 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
     // For debugging: Log some info about the file buffer
     console.log(`File buffer received: ${req.file.buffer.length} bytes`);
     
-    // To aid testing, we can simulate a successful response even without Azure OCR
-    // Comment out the real call during testing if needed
+    // Process the document with Azure OCR service
     let result;
     try {
+      // Call the OCR service to analyze the document
       result = await ocrService.analyzeDocument(req.file.buffer, inspectionType);
+      
+      // Validate the results
+      if (!result || !result.results || !Array.isArray(result.results)) {
+        throw new Error('OCR service returned invalid results structure');
+      }
+      
       console.log('OCR Analysis completed successfully', {
         issueCount: result.results.length,
         averageConfidence: result.analytics.confidence,
         categories: Object.keys(result.analytics.issueTypes)
       });
-    } catch (ocrError) {
-      // If OCR service fails, log the error but don't fail completely
-      console.error('OCR service error:', ocrError);
-      console.log('Generating simulated OCR results for testing');
       
-      // Provide simulated results for testing
-      result = {
-        results: [
-          {
-            text: "Quality issue detected in welding seam",
-            confidence: 0.89,
-            boundingBox: [100, 100, 300, 100, 300, 200, 100, 200],
-            category: "Material Defect",
-            severity: "major",
-            department: inspectionType || "Quality Control"
+      // Log detailed results for debugging if needed
+      if (result.results.length > 0) {
+        console.log('Sample OCR result:', {
+          firstItem: {
+            text: result.results[0].text,
+            category: result.results[0].category,
+            confidence: result.results[0].confidence
           },
-          {
-            text: "Incorrect assembly of component A-123",
-            confidence: 0.95,
-            boundingBox: [150, 250, 350, 250, 350, 300, 150, 300],
-            category: "Assembly Issue",
-            severity: "critical",
-            department: inspectionType || "Manufacturing"
-          }
-        ],
-        analytics: {
-          issueTypes: {
-            "Material Defect": 1,
-            "Assembly Issue": 1
-          },
-          severityDistribution: {
-            "critical": 1,
-            "major": 1,
-            "minor": 0
-          },
-          confidence: 0.92
-        }
-      };
+          totalItems: result.results.length
+        });
+      } else {
+        console.log('No OCR results detected in the document');
+      }
+    } catch (ocrError) {
+      // If OCR service fails, propagate the error to the client
+      console.error('OCR service error:', ocrError);
+      throw new Error(`OCR analysis failed: ${ocrError instanceof Error ? ocrError.message : 'Unknown error'}`);
     }
 
     // Send back the result
