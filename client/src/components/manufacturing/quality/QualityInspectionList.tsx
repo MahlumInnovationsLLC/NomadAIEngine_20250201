@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,44 @@ export default function QualityInspectionList({ inspections = [], type, projects
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // Add a direct REST API query to ensure we always have the latest data
+  // This query will run automatically in addition to the inspections prop
+  const { data: inspectionsFromApi, isLoading: isLoadingInspections } = useQuery({
+    queryKey: ['/api/manufacturing/quality/inspections', refreshTrigger],
+    queryFn: async () => {
+      try {
+        console.log('[QualityInspectionList] Fetching inspections via REST API');
+        const response = await fetch('/api/manufacturing/quality/inspections');
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch inspections: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log(`[QualityInspectionList] REST API returned ${data.length} inspections`);
+        return data as QualityInspection[];
+      } catch (error) {
+        console.error('[QualityInspectionList] Error fetching inspections:', error);
+        // We still want to show whatever inspections were passed as props
+        return [] as QualityInspection[];
+      }
+    },
+    // 30 second stale time (don't refetch too frequently)
+    staleTime: 30 * 1000,
+    // Never consider this query fresh forever
+    gcTime: 5 * 60 * 1000,
+  });
+  
+  // Function to force refresh from API - memoized to avoid dependency issues
+  const refreshInspections = useCallback(() => {
+    console.log('[QualityInspectionList] Manual refresh triggered');
+    // Increment refresh trigger to force refetch
+    setRefreshTrigger(prev => prev + 1);
+    // Also invalidate the query to ensure fresh data
+    queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/inspections'] });
+  }, [queryClient]);
   
   // Set up listeners for data updates from the server to ensure consistent state
   useEffect(() => {
@@ -56,27 +94,29 @@ export default function QualityInspectionList({ inspections = [], type, projects
     // Listen for new inspection notifications
     const handleNewInspection = (data: any) => {
       console.log('[QualityInspectionList] New inspection notification received:', data);
-      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+      // Use the correct query key for invalidation
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/inspections'] });
     };
     
     // Listen for inspection update notifications
     const handleUpdatedInspection = (data: any) => {
       console.log('[QualityInspectionList] Inspection update notification received:', data);
-      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+      // Use the correct query key for invalidation
+      queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/inspections'] });
     };
     
     // Listen for global refresh signals
     const handleRefreshNeeded = (data: any) => {
       console.log('[QualityInspectionList] Refresh signal received:', data);
-      // Request fresh inspection data from the server
-      socket.emit('quality:inspection:list');
-      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+      // Trigger manual refresh
+      refreshInspections();
     };
     
     // Register event listeners
     socket.on('quality:inspection:new', handleNewInspection);
     socket.on('quality:inspection:modified', handleUpdatedInspection);
     socket.on('quality:refresh:needed', handleRefreshNeeded);
+    socket.on('quality:inspection:updated', handleRefreshNeeded);
     
     // When component loads, request the latest inspection data
     socket.emit('quality:inspection:list');
@@ -86,8 +126,9 @@ export default function QualityInspectionList({ inspections = [], type, projects
       socket.off('quality:inspection:new', handleNewInspection);
       socket.off('quality:inspection:modified', handleUpdatedInspection);
       socket.off('quality:refresh:needed', handleRefreshNeeded);
+      socket.off('quality:inspection:updated', handleRefreshNeeded);
     };
-  }, [socket, queryClient]);
+  }, [socket, queryClient, refreshInspections]);
 
   // Filter inspections by type
   const filteredInspections = inspections.filter(inspection => inspection.type === type);
@@ -281,72 +322,109 @@ export default function QualityInspectionList({ inspections = [], type, projects
           open={showDetailsDialog}
           onOpenChange={setShowDetailsDialog}
           inspection={selectedInspection}
-          onUpdate={(updated) => {
-            if (socket) {
-              // First show loading toast
-              // Generate a unique ID for this toast
-              const toastId = `update-${Date.now()}`;
+          onUpdate={async (updated) => {
+            // Generate a unique ID for this toast
+            const toastId = `update-${Date.now()}`;
+            
+            // Show loading toast
+            toast({
+              id: toastId,
+              title: "Saving changes...",
+              description: "Updating inspection details",
+            });
               
-              // Show loading toast
-              toast({
-                id: toastId,
-                title: "Saving changes...",
-                description: "Updating inspection details",
+            try {
+              // First try to update via the REST API (more reliable)
+              const response = await fetch(`/api/manufacturing/quality/inspections/${updated.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updated)
               });
               
-              // Set up a listener for the update confirmation
-              const handleUpdateConfirmation = (response: any) => {
-                // Remove this listener to prevent memory leaks
-                socket.off('quality:inspection:updated', handleUpdateConfirmation);
-                
-                // Update the toast with new content based on result
-                
-                if (response.error) {
-                  // Update the toast with error message
-                  toast({
-                    id: toastId,
-                    title: "Error",
-                    description: response.error || "Failed to update inspection",
-                    variant: "destructive",
+              if (!response.ok) {
+                // If REST API fails but we have socket as fallback, try it
+                if (socket) {
+                  console.log('Trying socket fallback for update...');
+                  
+                  // Set up a listener for the update confirmation
+                  const handleUpdateConfirmation = (response: any) => {
+                    // Remove this listener to prevent memory leaks
+                    socket.off('quality:inspection:updated', handleUpdateConfirmation);
+                    
+                    if (response.error) {
+                      throw new Error(response.error);
+                    } else {
+                      // Success via socket
+                      toast({
+                        id: toastId,
+                        title: "Success",
+                        description: "Inspection details have been updated successfully (via WebSocket)",
+                      });
+                      
+                      // Close the dialog
+                      setShowDetailsDialog(false);
+                      
+                      // Refresh the data
+                      refreshInspections();
+                    }
+                  };
+                  
+                  // Listen for update confirmation
+                  socket.on('quality:inspection:updated', handleUpdateConfirmation);
+                  
+                  // Emit the update event
+                  socket.emit('quality:inspection:update', {
+                    id: updated.id,
+                    updates: updated
                   });
+                  
+                  // Add a timeout to handle cases where we don't get a response
+                  setTimeout(() => {
+                    socket.off('quality:inspection:updated', handleUpdateConfirmation);
+                    throw new Error('Update timeout: The server did not confirm the update.');
+                  }, 5000);
                 } else {
-                  // Update was successful, update the toast
-                  toast({
-                    id: toastId,
-                    title: "Success",
-                    description: "Inspection details have been updated successfully",
-                    variant: "default",
-                  });
-                  
-                  // Close the dialog
-                  setShowDetailsDialog(false);
-                  
-                  // Refresh the data
-                  socket.emit('quality:inspection:list');
+                  // No socket fallback available
+                  throw new Error(`Failed to update inspection: ${response.status} ${response.statusText}`);
                 }
-              };
-              
-              // Listen for update confirmation
-              socket.on('quality:inspection:updated', handleUpdateConfirmation);
-              
-              // Emit the update event
-              socket.emit('quality:inspection:update', {
-                id: updated.id,
-                updates: updated
-              });
-              
-              // Add a timeout to handle cases where we don't get a response
-              setTimeout(() => {
-                socket.off('quality:inspection:updated', handleUpdateConfirmation);
+              } else {
+                // REST API success
+                const data = await response.json();
+                console.log('Inspection updated successfully via REST API:', data);
                 
-                // Replace the loading toast with timeout message
+                // Update the toast
                 toast({
                   id: toastId,
-                  title: "Update Status Unknown",
-                  description: "The server did not confirm the update. Please refresh to see if changes were applied.",
-                  variant: "default",
+                  title: "Success",
+                  description: "Inspection details have been updated successfully",
                 });
-              }, 5000);
+                
+                // Invalidate the query to refresh the list
+                queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/inspections'] });
+                
+                // Broadcast update to other connected clients
+                if (socket) {
+                  socket.emit('quality:refresh:needed', { 
+                    timestamp: new Date().toISOString(),
+                    message: 'Inspection updated'
+                  });
+                }
+                
+                // Close the dialog
+                setShowDetailsDialog(false);
+              }
+            } catch (error) {
+              console.error('Error updating inspection:', error);
+              
+              // Update toast with error
+              toast({
+                id: toastId,
+                title: "Error",
+                description: error instanceof Error ? error.message : "Failed to update inspection",
+                variant: "destructive",
+              });
             }
           }}
         />

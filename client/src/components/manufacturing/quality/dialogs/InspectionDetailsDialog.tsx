@@ -199,7 +199,7 @@ export function InspectionDetailsDialog({
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
       const hasDefects = currentInspection.results.defectsFound.length > 0;
       const allItemsComplete = currentInspection.results.checklistItems.every(
@@ -219,16 +219,80 @@ export function InspectionDetailsDialog({
         status: newStatus,
         projectNumber: currentInspection.projectNumber
       };
-
-      onUpdate(updatedInspection);
-      toast({
-        title: "Success",
-        description: "Inspection details have been updated.",
-      });
+      
+      // Save via REST API first (more reliable)
+      try {
+        console.log('Saving inspection via REST API...');
+        
+        const response = await fetch(`/api/manufacturing/quality/inspections/${updatedInspection.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updatedInspection)
+        });
+        
+        if (!response.ok) {
+          let errorText = 'Unknown server error';
+          try {
+            const errorData = await response.json();
+            errorText = errorData.error || errorData.details || errorText;
+          } catch (e) {
+            console.error('Failed to parse error response:', e);
+          }
+          
+          throw new Error(`Server error: ${errorText} (${response.status})`);
+        }
+        
+        const savedInspection = await response.json();
+        console.log('Inspection updated successfully via REST API:', savedInspection.id);
+        
+        // Invalidate React Query cache to refresh the list
+        queryClient.invalidateQueries({ queryKey: ['/api/manufacturing/quality/inspections'] });
+        
+        // Update project number on NCRs if needed
+        if (updatedInspection.projectNumber !== inspection.projectNumber) {
+          await updateLinkedNCRs(updatedInspection.projectNumber || '');
+        }
+        
+        // Also notify connected clients via socket if available
+        if (socket) {
+          socket.emit('quality:refresh:needed', { 
+            timestamp: new Date().toISOString(),
+            message: 'Inspection updated via REST API' 
+          });
+        }
+        
+        // Call the parent component's onUpdate handler
+        onUpdate(savedInspection);
+        
+        // Show success message
+        toast({
+          title: "Success",
+          description: "Inspection details have been updated.",
+        });
+      } catch (restError) {
+        console.error('REST API failed, falling back to socket:', restError);
+        
+        // Fallback to socket approach
+        if (!socket) {
+          throw new Error('Connection error: REST API failed and socket connection not available');
+        }
+        
+        // Use the original parent component handler which uses socket
+        onUpdate(updatedInspection);
+        
+        // Show success message but with a note about using fallback
+        toast({
+          title: "Success",
+          description: "Inspection details have been updated (socket fallback used).",
+        });
+      }
     } catch (error) {
+      console.error('Error saving inspection:', error);
       toast({
         title: "Error",
-        description: "Failed to update inspection details.",
+        description: error instanceof Error ? error.message : "Failed to update inspection details.",
         variant: "destructive",
       });
     }
