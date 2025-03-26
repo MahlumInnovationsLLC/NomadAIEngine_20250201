@@ -23,16 +23,21 @@ export class OCRService {
   private visionClient: ComputerVisionClient;
 
   constructor() {
-    // Get credentials from environment variables
-    const endpoint = process.env.NOMAD_AZURE_VISION_ENDPOINT || "";
-    const key = process.env.NOMAD_AZURE_VISION_KEY || "";
+    // Get credentials from environment variables - specifically for Form Recognizer
+    const endpoint = process.env.AZURE_FORM_RECOGNIZER_ENDPOINT || 
+                     process.env.NOMAD_AZURE_FORM_RECOGNIZER_ENDPOINT || 
+                     process.env.NOMAD_AZURE_VISION_ENDPOINT || "";
+                     
+    const key = process.env.AZURE_FORM_RECOGNIZER_KEY || 
+                process.env.NOMAD_AZURE_FORM_RECOGNIZER_KEY || 
+                process.env.NOMAD_AZURE_VISION_KEY || "";
 
     // Log initialization (without revealing full credentials)
-    console.log(`Initializing OCR Service with Azure Vision endpoint: ${endpoint ? endpoint.substring(0, 15) + '...' : 'MISSING ENDPOINT'}`);
-    console.log(`Azure Vision API key present: ${key ? 'Yes' : 'No - Missing API Key'}`);
+    console.log(`Initializing OCR Service with Azure Form Recognizer endpoint: ${endpoint ? endpoint.substring(0, 15) + '...' : 'MISSING ENDPOINT'}`);
+    console.log(`Azure Form Recognizer API key present: ${key ? 'Yes' : 'No - Missing API Key'}`);
 
     if (!endpoint || !key) {
-      console.error('Missing Azure Vision API credentials - OCR functionality will not work properly');
+      console.error('Missing Azure Form Recognizer API credentials - OCR functionality will not work properly');
     }
 
     try {
@@ -48,13 +53,32 @@ export class OCRService {
         endpoint
       );
       
-      console.log('OCR Service clients initialized successfully');
+      console.log('Azure Form Recognizer clients initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize OCR service clients:', error);
+      console.error('Failed to initialize Azure Form Recognizer clients:', error);
       // Initialize with empty clients that will be checked before use
       this.documentClient = null as any;
       this.visionClient = null as any;
     }
+  }
+  
+  // Helper methods for file type detection
+  private isPDF(buffer: Buffer): boolean {
+    // Check for PDF signature (%PDF-)
+    return buffer.length > 4 && buffer.slice(0, 4).toString() === '%PDF';
+  }
+  
+  private isImage(buffer: Buffer): boolean {
+    // Check for common image signatures (JPEG, PNG)
+    if (buffer.length < 8) return false;
+    
+    // JPEG
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8) return true;
+    
+    // PNG
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return true;
+    
+    return false;
   }
 
   async analyzeDocument(fileBuffer: Buffer, inspectionType?: string): Promise<{
@@ -70,6 +94,11 @@ export class OCRService {
       console.log('Inspection type:', inspectionType || 'not specified');
       console.log('Document buffer size:', fileBuffer.length, 'bytes');
       
+      // Determine document type for optimized processing
+      const isPdf = this.isPDF(fileBuffer);
+      const isImg = this.isImage(fileBuffer);
+      console.log(`Document type detection: PDF=${isPdf}, Image=${isImg}`);
+      
       // Validate client availability first
       if (!this.documentClient || !this.visionClient) {
         console.error('OCR clients not properly initialized - Azure credentials may be missing');
@@ -81,8 +110,12 @@ export class OCRService {
       // First try to analyze as a table/form document for better table detection
       let formResult;
       try {
+        // Select model based on file type
+        const modelId = isPdf ? "prebuilt-layout" : "prebuilt-document";
+        console.log(`Using model ${modelId} for initial document analysis based on file type`);
+        
         const formPoller = await this.documentClient.beginAnalyzeDocument(
-          "prebuilt-layout",
+          modelId, // Use the appropriate model based on file type
           fileBuffer
         );
         formResult = await formPoller.pollUntilDone();
@@ -98,8 +131,13 @@ export class OCRService {
       // Then analyze as a general document for better text extraction
       let textResult;
       try {
+        // For image files, use the read model for better OCR
+        // For PDFs and other docs, use the prebuilt-document model
+        const modelId = isImg ? "prebuilt-read" : "prebuilt-document";
+        console.log(`Using model ${modelId} for text extraction based on file type`);
+        
         const textPoller = await this.documentClient.beginAnalyzeDocument(
-          "prebuilt-document",
+          modelId, // Use the appropriate model based on file type
           fileBuffer
         );
         textResult = await textPoller.pollUntilDone();
@@ -264,6 +302,23 @@ export class OCRService {
         averageConfidence: analytics.confidence,
         categories: Object.keys(analytics.issueTypes)
       });
+
+      // Ensure we have at least some results
+      if (ocrResults.length === 0) {
+        // Create a default result to indicate we received the document but couldn't extract text
+        ocrResults.push({
+          text: "No text content could be extracted from this document. Try a different format or check image quality.",
+          confidence: 0.5,
+          boundingBox: [],
+          category: "Other",
+          severity: "Minor",
+          department: "Quality Control"
+        });
+        
+        analytics.issueTypes["Other"] = 1;
+        analytics.severityDistribution["Minor"] = 1;
+        analytics.confidence = 0.5;
+      }
 
       return { results: ocrResults, analytics };
     } catch (error) {

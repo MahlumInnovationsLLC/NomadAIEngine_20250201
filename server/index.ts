@@ -15,6 +15,7 @@ import facilityRoutes from "./routes/facility";
 import logisticsRoutes from "./routes/logistics";
 import warehouseRoutes from "./routes/warehouse";
 import azureADRouter from "./routes/azure-ad";
+import ocrRouter from "./routes/ocr";
 
 const app = express();
 // Increase JSON and URL-encoded limits
@@ -114,6 +115,7 @@ const startServer = async (retryCount = 0) => {
     app.use('/api/logistics', logisticsRoutes);
     app.use('/api/warehouse', warehouseRoutes);
     app.use('/api/azure-ad', azureADRouter);
+    app.use('/api/ocr', ocrRouter);
 
     // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

@@ -43,22 +43,27 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
     // Process the document with Azure OCR service
     let result;
     try {
-      // Make sure Azure credentials are available before proceeding
-      const endpoint = process.env.NOMAD_AZURE_VISION_ENDPOINT;
-      const key = process.env.NOMAD_AZURE_VISION_KEY;
+      // Make sure Azure Form Recognizer credentials are available before proceeding
+      const endpoint = process.env.AZURE_FORM_RECOGNIZER_ENDPOINT || 
+                       process.env.NOMAD_AZURE_FORM_RECOGNIZER_ENDPOINT || 
+                       process.env.NOMAD_AZURE_VISION_ENDPOINT;
+                       
+      const key = process.env.AZURE_FORM_RECOGNIZER_KEY || 
+                  process.env.NOMAD_AZURE_FORM_RECOGNIZER_KEY || 
+                  process.env.NOMAD_AZURE_VISION_KEY;
       
       if (!endpoint || !key) {
-        console.error('Azure Vision API credentials missing:', { 
+        console.error('Azure Form Recognizer API credentials missing:', { 
           hasEndpoint: !!endpoint, 
           hasKey: !!key 
         });
         return res.status(500).json({
           error: 'Server configuration error',
-          details: 'Azure Vision API credentials are not configured properly'
+          details: 'Azure Form Recognizer API credentials are not configured properly. Please set the AZURE_FORM_RECOGNIZER_ENDPOINT and AZURE_FORM_RECOGNIZER_KEY environment variables.'
         });
       }
       
-      console.log('Starting OCR document analysis with valid credentials');
+      console.log('Starting OCR document analysis with valid Form Recognizer credentials');
       
       // Call the OCR service to analyze the document
       result = await ocrService.analyzeDocument(req.file.buffer, inspectionType);
