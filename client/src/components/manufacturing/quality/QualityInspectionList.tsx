@@ -27,14 +27,13 @@ import { InspectionDetailsDialog } from "./dialogs/InspectionDetailsDialog";
 import { NCRDialog } from "./dialogs/NCRDialog";
 import { InspectionTemplateDialog } from "./dialogs/InspectionTemplateDialog";
 import { ImportInspectionsDialog } from "./dialogs/ImportInspectionsDialog";
+import { AdvancedImportButton } from "./AdvancedImportButton";
 
 interface QualityInspectionListProps {
   inspections?: QualityInspection[];
   type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
   projects?: Project[];
 }
-
-import { AdvancedImportButton } from './AdvancedImportButton';
 
 
 export default function QualityInspectionList({ inspections = [], type, projects = [] }: QualityInspectionListProps) {

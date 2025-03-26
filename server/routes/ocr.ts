@@ -26,8 +26,14 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
     }
 
     console.log(`Processing file: ${req.file.originalname}, size: ${req.file.size} bytes, type: ${req.file.mimetype}`);
+    
+    // Extract inspection type from form data if available
+    const inspectionType = req.body.inspectionType as string | undefined;
+    if (inspectionType) {
+      console.log(`Inspection type specified: ${inspectionType}`);
+    }
 
-    const result = await ocrService.analyzeDocument(req.file.buffer);
+    const result = await ocrService.analyzeDocument(req.file.buffer, inspectionType);
     console.log('OCR Analysis completed successfully', {
       issueCount: result.results.length,
       averageConfidence: result.analytics.confidence,

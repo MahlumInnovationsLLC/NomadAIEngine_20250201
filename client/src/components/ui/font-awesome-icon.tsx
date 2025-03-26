@@ -63,7 +63,17 @@ import {
   faProjectDiagram,
   faFileContract,
   faRocket,
-  faGears
+  faGears,
+  faFileImport,
+  faSpinner,
+  faCloudUploadAlt,
+  faInfoCircle,
+  faCheckCircle,
+  faExchangeAlt,
+  faFilePdf,
+  faMicroscope,
+  faDownload,
+  faClipboardCheck
 } from '@fortawesome/pro-light-svg-icons';
 import { faWindows } from '@fortawesome/free-brands-svg-icons';
 
@@ -127,7 +137,17 @@ library.add(
   faFileContract,
   faRocket,
   faGears,
-  faWindows
+  faWindows,
+  faFileImport,
+  faSpinner,
+  faCloudUploadAlt,
+  faInfoCircle,
+  faCheckCircle,
+  faExchangeAlt,
+  faFilePdf,
+  faMicroscope, 
+  faDownload,
+  faClipboardCheck
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -198,6 +218,16 @@ const iconMap: Record<string, IconDefinition> = {
   'rocket': faRocket,
   'gears': faGears,
   'windows': faWindows,
+  'file-import': faFileImport,
+  'spinner': faSpinner,
+  'cloud-upload-alt': faCloudUploadAlt,
+  'info-circle': faInfoCircle,
+  'check-circle': faCheckCircle,
+  'exchange-alt': faExchangeAlt,
+  'file-pdf': faFilePdf,
+  'microscope': faMicroscope,
+  'download': faDownload,
+  'clipboard-check': faClipboardCheck
 };
 
 export function FontAwesomeIcon({
