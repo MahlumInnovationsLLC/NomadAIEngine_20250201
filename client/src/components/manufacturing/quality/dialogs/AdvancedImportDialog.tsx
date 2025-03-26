@@ -651,9 +651,7 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
         console.log('Inspection created successfully:', response);
         
         // Invalidate queries to refresh the inspection list
-        queryClient.invalidateQueries(['inspections']);
-        queryClient.invalidateQueries(['quality', 'inspections']);
-        queryClient.invalidateQueries(['manufacturing', 'quality', 'inspections']);
+        queryClient.invalidateQueries(); // Invalidate all queries to ensure everything is refreshed
       } catch (socketError) {
         console.error('Socket error:', socketError);
         throw socketError;

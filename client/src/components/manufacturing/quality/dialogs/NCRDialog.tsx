@@ -46,6 +46,7 @@ interface NCRDialogProps {
   ncr?: NCR;
   onDeleteAttachment?: (ncrId: string, attachmentId: string) => Promise<void>;
   onRefreshData?: () => void;
+  inspection?: any; // Add inspection prop to handle QualityInspection data
 }
 
 export function NCRDialog({
@@ -57,6 +58,7 @@ export function NCRDialog({
   ncr,
   onDeleteAttachment,
   onRefreshData,
+  inspection,
 }: NCRDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();

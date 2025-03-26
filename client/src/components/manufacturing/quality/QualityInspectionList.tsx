@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,48 @@ export default function QualityInspectionList({ inspections = [], type, projects
   const [selectedInspection, setSelectedInspection] = useState<QualityInspection | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<QualityFormTemplate | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  
+  // Set up listeners for data updates from the server to ensure consistent state
+  useEffect(() => {
+    if (!socket) return;
+    
+    console.log('[QualityInspectionList] Setting up socket.io event listeners for data updates');
+    
+    // Listen for new inspection notifications
+    const handleNewInspection = (data: any) => {
+      console.log('[QualityInspectionList] New inspection notification received:', data);
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+    };
+    
+    // Listen for inspection update notifications
+    const handleUpdatedInspection = (data: any) => {
+      console.log('[QualityInspectionList] Inspection update notification received:', data);
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+    };
+    
+    // Listen for global refresh signals
+    const handleRefreshNeeded = (data: any) => {
+      console.log('[QualityInspectionList] Refresh signal received:', data);
+      // Request fresh inspection data from the server
+      socket.emit('quality:inspection:list');
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+    };
+    
+    // Register event listeners
+    socket.on('quality:inspection:new', handleNewInspection);
+    socket.on('quality:inspection:modified', handleUpdatedInspection);
+    socket.on('quality:refresh:needed', handleRefreshNeeded);
+    
+    // When component loads, request the latest inspection data
+    socket.emit('quality:inspection:list');
+    
+    // Cleanup listeners on unmount
+    return () => {
+      socket.off('quality:inspection:new', handleNewInspection);
+      socket.off('quality:inspection:modified', handleUpdatedInspection);
+      socket.off('quality:refresh:needed', handleRefreshNeeded);
+    };
+  }, [socket, queryClient]);
 
   // Filter inspections by type
   const filteredInspections = inspections.filter(inspection => inspection.type === type);

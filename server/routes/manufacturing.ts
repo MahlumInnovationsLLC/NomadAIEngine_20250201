@@ -76,31 +76,92 @@ export function setupManufacturingSocketIO(io: Server) {
     // Quality Inspection events
     socket.on('quality:inspection:create', async (data) => {
       try {
+        console.log('[QualityInspection] Creating new inspection:', {
+          type: data.type,
+          projectNumber: data.projectNumber,
+          inspector: data.inspector,
+          date: data.inspectionDate,
+          resultsCount: data.results ? data.results.defectsFound?.length : 0
+        });
+        
+        // Save inspection to Cosmos DB
         const result = await saveQualityInspection(data);
+        console.log('[QualityInspection] Successfully created inspection with ID:', result.id);
+        
+        // Emit success event to requesting client
         socket.emit('quality:inspection:created', result);
+        
+        // Broadcast to all clients to refresh their lists
+        socket.broadcast.emit('quality:inspection:new', {
+          message: 'New inspection was created',
+          inspectionId: result.id
+        });
+        
+        // Notify all clients to refresh their inspection lists
+        manufacturingNamespace.emit('quality:refresh:needed', { timestamp: new Date().toISOString() });
       } catch (error) {
-        console.error('Failed to create quality inspection:', error);
-        socket.emit('error', { message: 'Failed to create quality inspection' });
+        console.error('[QualityInspection] Failed to create quality inspection:', error);
+        socket.emit('error', { 
+          message: 'Failed to create quality inspection',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
       }
     });
 
     socket.on('quality:inspection:list', async () => {
       try {
+        console.log('[QualityInspection] Fetching all quality inspections');
         const inspections = await getQualityInspections();
+        console.log(`[QualityInspection] Successfully retrieved ${inspections.length} inspections`);
+        
+        // Send inspections to requesting client
         socket.emit('quality:inspection:list', inspections);
+        
+        // Log inspections summary by type for easy diagnostics
+        const inspectionsByType = inspections.reduce((acc: Record<string, number>, inspection: any) => {
+          const type = inspection.type || 'unknown';
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        }, {});
+        
+        console.log('[QualityInspection] Inspections by type:', inspectionsByType);
       } catch (error) {
-        console.error('Failed to get quality inspections:', error);
-        socket.emit('error', { message: 'Failed to get quality inspections' });
+        console.error('[QualityInspection] Failed to get quality inspections:', error);
+        socket.emit('error', { 
+          message: 'Failed to get quality inspections',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
       }
     });
 
     socket.on('quality:inspection:update', async ({ id, updates }) => {
       try {
+        console.log(`[QualityInspection] Updating inspection with ID: ${id}`, {
+          updatedFields: Object.keys(updates),
+          inspectionType: updates.type
+        });
+        
+        // Update inspection in Cosmos DB
         const result = await updateQualityInspection(id, updates);
+        console.log(`[QualityInspection] Successfully updated inspection ${id}`);
+        
+        // Emit success event to requesting client
         socket.emit('quality:inspection:updated', result);
+        
+        // Broadcast to all clients to refresh their lists
+        socket.broadcast.emit('quality:inspection:modified', {
+          message: 'Inspection was updated',
+          inspectionId: id
+        });
+        
+        // Notify all clients to refresh their inspection lists
+        manufacturingNamespace.emit('quality:refresh:needed', { timestamp: new Date().toISOString() });
       } catch (error) {
-        console.error('Failed to update quality inspection:', error);
-        socket.emit('error', { message: 'Failed to update quality inspection' });
+        console.error('[QualityInspection] Failed to update quality inspection:', error);
+        socket.emit('error', { 
+          message: 'Failed to update quality inspection',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
       }
     });
 

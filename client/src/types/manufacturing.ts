@@ -201,3 +201,71 @@ export interface TeamAnalytics {
   efficiency: number;
   projectHours: ProjectHours[];
 }
+
+// Quality inspection types
+export interface QualityInspectionDefect {
+  id: string;
+  description: string;
+  location?: string;
+  department?: string;
+  category?: string;
+  severity: 'minor' | 'major' | 'critical';
+  status: 'open' | 'in_progress' | 'closed';
+  createdAt: string;
+  assignedTo?: string;
+  photos?: string[];
+}
+
+export interface QualityInspection {
+  id: string;
+  type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  projectId?: string;
+  projectNumber?: string;
+  partNumber?: string;
+  inspector: string;
+  inspectionDate: string;
+  productionLineId: string;
+  results: {
+    defectsFound: QualityInspectionDefect[];
+    passedChecks: number;
+    totalChecks: number;
+    notes?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Quality Form Template types
+export interface QualityFormField {
+  id: string;
+  type: 'text' | 'number' | 'boolean' | 'date' | 'select' | 'visual' | 'measurement';
+  label: string;
+  description?: string;
+  required: boolean;
+  options?: string[];
+  min?: number;
+  max?: number;
+  unit?: string;
+}
+
+export interface QualityFormSection {
+  id: string;
+  title: string;
+  description?: string;
+  fields: QualityFormField[];
+  order: number;
+}
+
+export interface QualityFormTemplate {
+  id: string;
+  name: string;
+  description: string;
+  type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
+  sections: QualityFormSection[];
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  isDefault?: boolean;
+}
