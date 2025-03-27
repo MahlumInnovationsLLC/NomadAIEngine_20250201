@@ -38,7 +38,7 @@ export default function LoginPage() {
 
       // Log attempt configuration
       console.debug("Login attempt:", {
-        origin: window.location.origin,
+        origin: "https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev",
         href: window.location.href,
         pathname: window.location.pathname
       });
