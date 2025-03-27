@@ -45,7 +45,7 @@ export default function Navbar() {
 
       // Use simple logout to avoid any issues with the popup
       await instance.logoutRedirect({
-        postLogoutRedirectUri: "https://46b47950-8491-429d-bb1f-18901647ad16-00-2mfwamy4bpsuy.spock.replit.dev",
+        postLogoutRedirectUri: window.location.origin,
         onRedirectNavigate: () => {
           // Return false to prevent automatic navigation
           return false;
