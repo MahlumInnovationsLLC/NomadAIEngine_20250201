@@ -292,6 +292,8 @@ export function InspectionDetailsDialog({
     formData.append('file', file);
     
     try {
+      console.log('Uploading new defect photo...');
+      
       // Upload the photo to the server and get the URL
       const response = await fetch(`/api/manufacturing/quality/defect-photos`, {
         method: 'POST',
@@ -303,12 +305,16 @@ export function InspectionDetailsDialog({
       }
 
       const { url, id } = await response.json();
+      console.log('Photo uploaded successfully, URL:', url, 'ID:', id);
+      
+      // Create a photo URL with ID embedded for tracking
+      const photoUrlWithId = `${url}#${id}`;
       
       // Store both the URL and ID for the photo
       setNewDefect(prev => ({
         ...prev,
-        // Store photo data as objects with id and url to facilitate deletion later
-        photos: [...prev.photos, `${url}#${id}`]
+        // Store photo URLs with IDs to facilitate deletion later
+        photos: [...(prev.photos || []), photoUrlWithId]
       }));
 
       toast({
@@ -339,6 +345,8 @@ export function InspectionDetailsDialog({
     formData.append('file', file);
     
     try {
+      console.log(`Uploading photo for existing defect ID: ${defectId}`);
+      
       // Upload the photo to the server and get the URL
       const response = await fetch(`/api/manufacturing/quality/defect-photos`, {
         method: 'POST',
@@ -350,7 +358,17 @@ export function InspectionDetailsDialog({
       }
 
       const { url, id } = await response.json();
+      console.log('Photo uploaded successfully for existing defect, URL:', url, 'ID:', id);
+      
       const photoUrlWithId = `${url}#${id}`;
+      
+      // Find the defect to ensure it exists before updating
+      const defect = currentInspection.results.defectsFound.find(d => d.id === defectId);
+      if (!defect) {
+        throw new Error(`Defect with ID ${defectId} not found`);
+      }
+      
+      console.log('Adding photo to defect:', defect.description);
       
       // Update the defect in the current inspection
       setCurrentInspection(prev => ({
@@ -361,7 +379,10 @@ export function InspectionDetailsDialog({
             defect.id === defectId 
               ? {
                   ...defect,
-                  photos: [...(defect.photos || []), photoUrlWithId]
+                  photos: [...(defect.photos || []), photoUrlWithId],
+                  // Ensure location and assignment are preserved
+                  location: defect.location,
+                  assignedTo: defect.assignedTo
                 }
               : defect
           )
@@ -426,10 +447,20 @@ export function InspectionDetailsDialog({
   
   const handleDeleteExistingDefectPhoto = async (photoUrl: string, defectId: string) => {
     try {
+      console.log(`Deleting photo from existing defect ID: ${defectId}`);
+      
       // Extract the photo ID from the URL (format: url#id)
       const photoId = photoUrl.split('#').pop();
       if (!photoId) {
         throw new Error('Invalid photo URL format');
+      }
+      
+      console.log(`Extracted photo ID: ${photoId}`);
+      
+      // Find the defect to ensure it exists before updating
+      const defect = currentInspection.results.defectsFound.find(d => d.id === defectId);
+      if (!defect) {
+        throw new Error(`Defect with ID ${defectId} not found`);
       }
       
       // Delete the photo from the server
@@ -441,6 +472,8 @@ export function InspectionDetailsDialog({
         throw new Error('Failed to delete defect photo');
       }
 
+      console.log(`Photo with ID ${photoId} successfully deleted from server`);
+      
       // Remove the photo from the defect in the current inspection
       setCurrentInspection(prev => ({
         ...prev,
@@ -450,7 +483,10 @@ export function InspectionDetailsDialog({
             defect.id === defectId 
               ? {
                   ...defect,
-                  photos: (defect.photos || []).filter(photo => photo !== photoUrl)
+                  photos: (defect.photos || []).filter(photo => photo !== photoUrl),
+                  // Ensure location and assignment are preserved
+                  location: defect.location,
+                  assignedTo: defect.assignedTo
                 }
               : defect
           )
@@ -529,11 +565,15 @@ export function InspectionDetailsDialog({
                        allItemsComplete ? "completed" as const : 
                        "in_progress" as const;
 
+      // Ensure we explicitly preserve all fields, especially projectNumber and location
+      // which were getting lost in some scenarios
       const updatedInspection = {
         ...currentInspection,
         updatedAt: new Date().toISOString(),
         status: newStatus,
-        projectNumber: currentInspection.projectNumber
+        projectNumber: currentInspection.projectNumber,
+        projectId: currentInspection.projectId,
+        location: currentInspection.location
       };
       
       // Generate a unique ID for this toast
@@ -546,7 +586,10 @@ export function InspectionDetailsDialog({
         description: "Updating inspection details",
       });
       
-      // Save via REST API first (more reliable)
+      // First, immediately update the parent to reflect changes in the UI
+      onUpdate(updatedInspection);
+        
+      // Save via REST API to persist changes
       try {
         console.log('Saving inspection via REST API...');
         
@@ -590,9 +633,10 @@ export function InspectionDetailsDialog({
         }
         
         // Call the parent component's onUpdate handler with the saved inspection
+        // We want the UI to update immediately to show changes
         onUpdate(savedInspection);
         
-        // Close the dialog
+        // Close the dialog after successful save
         onOpenChange(false);
         
         // Show success message
@@ -716,13 +760,13 @@ export function InspectionDetailsDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
+        <DialogContent className="max-w-6xl h-[95vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Inspection Details</DialogTitle>
+            <DialogTitle>Final QC Inspection</DialogTitle>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>ID: {inspection.id}</span>
               <span>•</span>
-              <span>Type: {inspection.templateType}</span>
+              <span>Type: {inspection.templateType || inspection.type}</span>
               <span>•</span>
               <Badge>{inspection.status}</Badge>
             </div>

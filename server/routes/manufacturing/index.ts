@@ -27,6 +27,60 @@ export function setupManufacturingSocketIO(io: Server) {
   manufacturingNsp.on('connection', (socket) => {
     console.log('Manufacturing namespace client connected');
     
+    // Quality inspection update handler
+    socket.on('quality:inspection:update', async (data) => {
+      try {
+        const { id, updates } = data;
+        console.log(`[Socket] Received quality inspection update for ID: ${id}`);
+        
+        if (!id || !updates) {
+          socket.emit('quality:inspection:updated', { 
+            error: true, 
+            message: 'Invalid data: missing id or updates' 
+          });
+          return;
+        }
+        
+        // Import the facility service to handle the actual update
+        const { updateQualityInspection } = await import('../../services/azure/facility_service');
+        
+        // Perform the update
+        const result = await updateQualityInspection(id, updates);
+        
+        // Emit success response back to the client
+        socket.emit('quality:inspection:updated', { 
+          success: true, 
+          data: result,
+          message: 'Inspection updated successfully'
+        });
+        
+        // Broadcast to other clients that an update happened (without the data)
+        socket.broadcast.emit('quality:refresh:needed', {
+          timestamp: new Date().toISOString(),
+          message: 'Inspection updated',
+          inspectionId: id
+        });
+        
+      } catch (error) {
+        console.error('[Socket] Error updating quality inspection:', error);
+        
+        // Send back error details
+        socket.emit('quality:inspection:updated', { 
+          error: true, 
+          message: error instanceof Error ? error.message : 'Failed to update inspection',
+          details: error instanceof Error ? error.stack : undefined
+        });
+      }
+    });
+    
+    socket.on('quality:inspection:list', () => {
+      // Broadcast to all clients to refresh their inspection lists
+      manufacturingNsp.emit('quality:refresh:needed', {
+        timestamp: new Date().toISOString(),
+        message: 'Refresh inspection list'
+      });
+    });
+    
     socket.on('join:production-line', (productionLineId) => {
       socket.join(`production-line:${productionLineId}`);
       console.log(`Client joined production-line:${productionLineId}`);

@@ -252,13 +252,75 @@ export interface ProductionLine {
 // Add inspection-specific interfaces and functions
 export interface QualityInspection {
   id: string;
-  inspectionDate: string;
+  type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
+  templateType?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  projectId?: string;
+  projectNumber?: string;
+  partNumber?: string;
+  location?: string;
+  department?: string;
   inspector: string;
+  inspectionDate: string;
   productionLineId: string;
-  results: any; // Replace 'any' with a more specific type if needed
-  notes?: string;
+  results: {
+    defectsFound: any[];
+    checklistItems?: any[];
+    passedChecks: number;
+    totalChecks: number;
+    notes?: string;
+  };
+  attachments?: any[];
   createdAt: string;
   updatedAt: string;
+}
+
+// Utility function to fix partition key issues
+async function fixQualityInspectionPartitionKey(id: string): Promise<boolean> {
+  try {
+    console.log(`[DEBUG] Checking if inspection ${id} needs partition key fixing`);
+    
+    try {
+      // Try to get with "default" partition key (wrong way)
+      const { resource: legacyItem } = await qualityInspectionContainer.item(id, "default").read();
+      
+      if (legacyItem) {
+        console.log(`[DEBUG] Found inspection with 'default' partition key, migrating to correct partition key...`);
+        
+        // Delete the original with incorrect partition key
+        await qualityInspectionContainer.item(id, "default").delete();
+        
+        // Create a new one with correct partition key and preserve important fields
+        const newItem = {
+          ...legacyItem,
+          id: id, // ensure same ID
+          // Explicitly preserve these fields
+          projectNumber: legacyItem.projectNumber,
+          projectId: legacyItem.projectId,
+          location: legacyItem.location
+        };
+        
+        console.log(`[DEBUG] Creating new item with preserved fields:`, JSON.stringify({
+          projectNumber: newItem.projectNumber,
+          projectId: newItem.projectId,
+          location: newItem.location
+        }, null, 2));
+        
+        await qualityInspectionContainer.items.create(newItem);
+        
+        console.log(`[DEBUG] Successfully migrated inspection with ID ${id} to correct partition key`);
+        return true;
+      }
+    } catch (err) {
+      // This is expected if the item doesn't have "default" partition key
+      console.log(`[DEBUG] No need to fix partition key for ${id} - either already fixed or not found with 'default' key`);
+    }
+    
+    return false;
+  } catch (error) {
+    console.error(`[DEBUG] Error fixing partition key for inspection ${id}:`, error);
+    return false;
+  }
 }
 
 export async function getQualityInspections(): Promise<QualityInspection[]> {
@@ -296,18 +358,122 @@ export async function saveQualityInspection(inspection: Omit<QualityInspection, 
 
 export async function updateQualityInspection(id: string, updates: Partial<QualityInspection>): Promise<QualityInspection> {
   try {
-    const existing = await qualityInspectionContainer.item(id, id).read();
-    if (!existing.resource) throw new Error("Inspection not found");
-
-    const updated = {
-      ...existing.resource,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-
-    const { resource } = await qualityInspectionContainer.item(id, id).replace(updated);
-    if (!resource) throw new Error("Failed to update quality inspection");
-    return resource;
+    console.log(`[DEBUG] Attempting to update quality inspection with ID: ${id}`);
+    console.log(`[DEBUG] Updates received:`, JSON.stringify(updates, null, 2));
+    
+    // Try to fix partition key issues before attempting to update
+    const fixed = await fixQualityInspectionPartitionKey(id);
+    if (fixed) {
+      console.log(`[DEBUG] Successfully fixed partition key for inspection ${id}`);
+    }
+    
+    try {
+      // First try with id as partition key (correct way)
+      console.log(`[DEBUG] Trying to read with ID as partition key`);
+      const existing = await qualityInspectionContainer.item(id, id).read();
+      
+      if (!existing.resource) {
+        console.log(`[DEBUG] Not found with ID as partition key, trying with 'default' partition key`);
+        // Try with 'default' partition key (legacy way)
+        const legacyExisting = await qualityInspectionContainer.item(id, 'default').read();
+        
+        if (!legacyExisting.resource) {
+          throw new Error("Inspection not found with either partition key");
+        }
+        
+        console.log(`[DEBUG] Found with 'default' partition key`);
+        // Continue with the legacy approach
+        const legacyResource = legacyExisting.resource as QualityInspection;
+        const updated = {
+          ...legacyResource,
+          ...updates,
+          // Explicitly ensure these fields are preserved from updates
+          projectNumber: updates.projectNumber || legacyResource.projectNumber,
+          projectId: updates.projectId || legacyResource.projectId,
+          location: updates.location || legacyResource.location,
+          updatedAt: new Date().toISOString()
+        };
+        
+        console.log(`[DEBUG] About to replace with 'default' partition key. Updated data:`, JSON.stringify({
+          projectNumber: updated.projectNumber,
+          projectId: updated.projectId,
+          location: updated.location
+        }, null, 2));
+        
+        const { resource } = await qualityInspectionContainer.item(id, 'default').replace(updated);
+        if (!resource) throw new Error("Failed to update quality inspection");
+        
+        console.log(`[DEBUG] Successfully updated with 'default' partition key`);
+        
+        // Since we found it with 'default', let's try to migrate it now
+        try {
+          console.log(`[DEBUG] Attempting to migrate from 'default' to correct partition key after update`);
+          await fixQualityInspectionPartitionKey(id);
+        } catch (migrationError) {
+          console.error(`[DEBUG] Error during migration attempt:`, migrationError);
+          // Continue with the process even if migration fails
+        }
+        
+        return resource as QualityInspection;
+      }
+      
+      console.log(`[DEBUG] Found with ID as partition key`);
+      const existingResource = existing.resource as QualityInspection;
+      
+      // Ensure project-related fields are explicitly preserved
+      const updated = {
+        ...existingResource,
+        ...updates,
+        // Explicitly ensure these fields are preserved from updates
+        projectNumber: updates.projectNumber || existingResource.projectNumber,
+        projectId: updates.projectId || existingResource.projectId,
+        location: updates.location || existingResource.location,
+        updatedAt: new Date().toISOString()
+      };
+      
+      console.log(`[DEBUG] About to replace with ID as partition key. Updated data:`, JSON.stringify({
+        projectNumber: updated.projectNumber,
+        projectId: updated.projectId,
+        location: updated.location
+      }, null, 2));
+      
+      const { resource } = await qualityInspectionContainer.item(id, id).replace(updated);
+      if (!resource) throw new Error("Failed to update quality inspection");
+      
+      console.log(`[DEBUG] Successfully updated with ID as partition key`);
+      return resource as QualityInspection;
+    } catch (readError: any) { // Type assertion for the error
+      console.error(`[DEBUG] Error during read operation:`, readError);
+      
+      // If we get here and can't find the inspection, let's create a new one as a last resort
+      if (readError.code === 404 || (readError.message && readError.message.includes("not found"))) {
+        console.log(`[DEBUG] Inspection not found at all, attempting to create a new one with the same ID`);
+        
+        const typedUpdates = updates as QualityInspection;
+        // Only proceed if we have enough data to create a new inspection
+        if (typedUpdates.type && typedUpdates.inspector && typedUpdates.inspectionDate) {
+          const now = new Date().toISOString();
+          const newInspection: QualityInspection = {
+            ...typedUpdates,
+            id: id,  // Use the same ID
+            createdAt: now,
+            updatedAt: now
+          };
+          
+          console.log(`[DEBUG] Creating new inspection with data:`, JSON.stringify(newInspection, null, 2));
+          const { resource: createdResource } = await qualityInspectionContainer.items.create(newInspection);
+          
+          if (createdResource) {
+            console.log(`[DEBUG] Successfully created new inspection with the same ID`);
+            return createdResource as QualityInspection;
+          }
+        } else {
+          console.log(`[DEBUG] Not enough data to create a new inspection`);
+        }
+      }
+      
+      throw readError;
+    }
   } catch (error) {
     console.error("Failed to update quality inspection:", error);
     throw error;

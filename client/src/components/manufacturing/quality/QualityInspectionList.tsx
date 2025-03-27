@@ -131,8 +131,11 @@ export default function QualityInspectionList({ inspections = [], type, projects
     };
   }, [socket, queryClient, refreshInspections]);
 
-  // Filter inspections by type
-  const filteredInspections = inspections.filter(inspection => inspection.type === type);
+  // Merge inspections from props and API data
+  const mergedInspections = inspectionsFromApi || inspections;
+  
+  // Filter merged inspections by type
+  const filteredInspections = mergedInspections.filter(inspection => inspection.type === type);
 
   const createInspectionMutation = useMutation({
     mutationFn: async (data: Partial<QualityInspection>) => {
@@ -349,6 +352,9 @@ export default function QualityInspectionList({ inspections = [], type, projects
                 if (socket) {
                   console.log('Trying socket fallback for update...');
                   
+                  // Declare timeout id variable
+                  let socketTimeoutId: NodeJS.Timeout | null = null;
+                  
                   // Set up a listener for the update confirmation with better error handling
                   const handleUpdateConfirmation = (response: any) => {
                     console.log('[QualityInspectionList] Received socket update confirmation:', response);
@@ -357,8 +363,9 @@ export default function QualityInspectionList({ inspections = [], type, projects
                     socket.off('quality:inspection:updated', handleUpdateConfirmation);
                     
                     // Clear the timeout since we got a response
-                    if (timeoutId) {
-                      clearTimeout(timeoutId);
+                    if (socketTimeoutId) {
+                      clearTimeout(socketTimeoutId);
+                      socketTimeoutId = null;
                     }
                     
                     if (response.error) {
@@ -382,6 +389,11 @@ export default function QualityInspectionList({ inspections = [], type, projects
                       
                       // Refresh the data
                       refreshInspections();
+                      
+                      // Update the selectedInspection with latest data
+                      if (response.data) {
+                        setSelectedInspection(response.data);
+                      }
                     }
                   };
                   
@@ -396,7 +408,7 @@ export default function QualityInspectionList({ inspections = [], type, projects
                   
                   // Add a timeout to handle cases where we don't get a response
                   // Store the timeout ID so we can clear it if we get a response
-                  const timeoutId = setTimeout(() => {
+                  socketTimeoutId = setTimeout(() => {
                     socket.off('quality:inspection:updated', handleUpdateConfirmation);
                     
                     // No need to throw here - just show an error toast and continue

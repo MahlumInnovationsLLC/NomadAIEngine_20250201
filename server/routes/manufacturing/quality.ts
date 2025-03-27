@@ -1636,8 +1636,31 @@ router.put('/inspections/:id', async (req, res) => {
     
     const { id } = req.params;
     console.log(`[REST API] Updating inspection with ID: ${id}`);
+    console.log(`[DEBUG] Request body:`, JSON.stringify(req.body, null, 2));
     
     try {
+      // First check if this is a quality inspection (which uses a different container)
+      if (req.body.type && ['in-process', 'final-qc', 'executive-review', 'pdi'].includes(req.body.type)) {
+        try {
+          // Import directly from the facility service which handles quality inspections
+          const { updateQualityInspection } = await import('../../services/azure/facility_service');
+          
+          console.log(`[REST API] Using quality-inspections container for inspection type: ${req.body.type}`);
+          console.log(`[DEBUG] Delegating to updateQualityInspection function`);
+          
+          const result = await updateQualityInspection(id, req.body);
+          
+          console.log(`[REST API] Successfully updated quality inspection with ID: ${id}`);
+          console.log(`[DEBUG] Result:`, JSON.stringify(result, null, 2));
+          
+          return res.json(result);
+        } catch (specialError) {
+          console.error(`[DEBUG] Error in quality inspection update:`, specialError);
+          throw specialError;
+        }
+      }
+      
+      // For other inspection types, use the quality-management container
       // First get the existing inspection
       const { resource: existingInspection } = await container.item(id, 'default').read();
       
