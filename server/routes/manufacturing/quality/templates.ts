@@ -367,7 +367,7 @@ async function getTemplatesContainer(): Promise<Container | null> {
   }
 }
 
-export function registerTemplateRoutes(app: express.Application) {
+export function registerTemplateRoutes(app: any) {
   // Get all templates
   app.get('/api/manufacturing/quality/templates', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

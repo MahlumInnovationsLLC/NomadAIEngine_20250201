@@ -216,22 +216,66 @@ export interface QualityInspectionDefect {
   photos?: string[];
 }
 
+export interface InspectionAttachment {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  blobUrl: string;
+  contentType: string;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+export interface InspectionChecklistItem {
+  id: string;
+  type?: "number" | "text" | "select";
+  label?: string;
+  parameter: string;
+  specification: string;
+  measurement?: string | number;
+  status: "pass" | "fail" | "na";
+  notes?: string;
+}
+
+export interface NonConformanceReport {
+  id: string;
+  inspectionId?: string;
+  projectId?: string;
+  projectNumber?: string;
+  defectIds: string[];
+  description: string;
+  severity: 'minor' | 'major' | 'critical';
+  status: 'open' | 'in_progress' | 'closed' | 'resolved';
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  assignedTo?: string;
+  resolution?: string;
+  closedAt?: string;
+  closedBy?: string;
+}
+
 export interface QualityInspection {
   id: string;
   type: 'in-process' | 'final-qc' | 'executive-review' | 'pdi';
+  templateType?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   projectId?: string;
   projectNumber?: string;
   partNumber?: string;
+  location?: string;
+  department?: string;
   inspector: string;
   inspectionDate: string;
   productionLineId: string;
   results: {
     defectsFound: QualityInspectionDefect[];
+    checklistItems?: InspectionChecklistItem[];
     passedChecks: number;
     totalChecks: number;
     notes?: string;
   };
+  attachments?: InspectionAttachment[];
   createdAt: string;
   updatedAt: string;
 }

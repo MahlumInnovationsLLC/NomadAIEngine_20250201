@@ -145,8 +145,15 @@ export function setupManufacturingSocketIO(io: Server) {
         const result = await updateQualityInspection(id, updates);
         console.log(`[QualityInspection] Successfully updated inspection ${id}`);
         
-        // Emit success event to requesting client
-        socket.emit('quality:inspection:updated', result);
+        // Enhanced logging to track response
+        console.log(`[QualityInspection] Emitting success response to client for inspection ${id}`);
+        
+        // Emit success event to requesting client with better structure
+        socket.emit('quality:inspection:updated', {
+          ...result,
+          success: true,
+          timestamp: new Date().toISOString()
+        });
         
         // Broadcast to all clients to refresh their lists
         socket.broadcast.emit('quality:inspection:modified', {
@@ -155,10 +162,16 @@ export function setupManufacturingSocketIO(io: Server) {
         });
         
         // Notify all clients to refresh their inspection lists
-        manufacturingNamespace.emit('quality:refresh:needed', { timestamp: new Date().toISOString() });
+        manufacturingNamespace.emit('quality:refresh:needed', { 
+          timestamp: new Date().toISOString(),
+          source: 'socket_update'
+        });
       } catch (error) {
         console.error('[QualityInspection] Failed to update quality inspection:', error);
-        socket.emit('error', { 
+        
+        // Emit a properly formatted error to the client through the same event
+        socket.emit('quality:inspection:updated', { 
+          error: true,
           message: 'Failed to update quality inspection',
           details: error instanceof Error ? error.message : 'Unknown error'
         });

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { CosmosClient } from "@azure/cosmos";
 import { BlobServiceClient } from "@azure/storage-blob";
 import multer from 'multer';
-import { uploadNCRAttachment, uploadInspectionAttachment, deleteNCRAttachment, deleteInspectionAttachment } from '../../services/azure/ncr_attachment_service';
+import { uploadNCRAttachment, uploadInspectionAttachment, deleteNCRAttachment, deleteInspectionAttachment, uploadDefectPhoto, deleteDefectPhoto } from '../../services/azure/ncr_attachment_service';
 import { db } from "@db";
 import { capas, capaActions, capaCategories } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -1669,7 +1669,7 @@ router.put('/inspections/:id', async (req, res) => {
 });
 
 // Register template API routes
-export function registerQualityRoutes(app: express.Application) {
+export function registerQualityRoutes(app: any) {
   app.use('/api/manufacturing/quality', router);
   
   // Register inspection template routes
@@ -1678,5 +1678,58 @@ export function registerQualityRoutes(app: express.Application) {
   // Register gages routes
   app.use('/api/manufacturing/quality/gages', gagesRouter);
 }
+
+// Upload defect photo
+router.post('/defect-photos', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file provided' });
+    }
+
+    const uploadedBy = req.body.uploadedBy || 'system';
+    console.log(`Uploading defect photo by ${uploadedBy}`);
+
+    // Upload the defect photo
+    const photo = await uploadDefectPhoto(
+      req.file,
+      uploadedBy
+    );
+
+    // Return the result with URL and ID
+    res.json({
+      id: photo.id,
+      url: photo.blobUrl,
+      fileName: photo.fileName,
+      fileSize: photo.fileSize
+    });
+  } catch (error) {
+    console.error('Error uploading defect photo:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to upload defect photo' 
+    });
+  }
+});
+
+// Delete defect photo
+router.delete('/defect-photos/:photoId', async (req, res) => {
+  try {
+    const { photoId } = req.params;
+    console.log(`Deleting defect photo with ID: ${photoId}`);
+
+    // Delete the photo from Azure Storage
+    const deleted = await deleteDefectPhoto(photoId);
+
+    if (!deleted) {
+      return res.status(404).json({ message: 'Defect photo not found or could not be deleted' });
+    }
+
+    res.json({ success: true, message: 'Defect photo deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting defect photo:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Failed to delete defect photo' 
+    });
+  }
+});
 
 export default router;

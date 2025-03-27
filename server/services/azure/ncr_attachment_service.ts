@@ -9,8 +9,10 @@ if (!connectionString) {
 const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
 const ncrContainerName = "ncr-attachments";
 const inspectionContainerName = "inspection-attachments";
+const defectPhotoContainerName = "defect-photos";
 let ncrContainerClient: ContainerClient;
 let inspectionContainerClient: ContainerClient;
+let defectPhotoContainerClient: ContainerClient;
 
 export interface UploadAttachmentResult {
   id: string;
@@ -50,6 +52,10 @@ export async function initializeNCRAttachmentsContainer() {
 
 export async function initializeInspectionAttachmentsContainer() {
   inspectionContainerClient = await initializeContainer(inspectionContainerName);
+}
+
+export async function initializeDefectPhotosContainer() {
+  defectPhotoContainerClient = await initializeContainer(defectPhotoContainerName);
 }
 
 async function uploadAttachment(
@@ -168,8 +174,27 @@ export async function deleteInspectionAttachment(inspectionId: string, attachmen
   return deleteAttachment(inspectionId, attachmentId, inspectionContainerClient);
 }
 
+export async function uploadDefectPhoto(
+  file: Express.Multer.File,
+  uploadedBy: string
+): Promise<UploadAttachmentResult> {
+  if (!defectPhotoContainerClient) {
+    await initializeDefectPhotosContainer();
+  }
+  // Use 'defects' as the parent folder for all defect photos
+  return uploadAttachment(file, 'defects', uploadedBy, defectPhotoContainerClient);
+}
+
+export async function deleteDefectPhoto(attachmentId: string): Promise<boolean> {
+  if (!defectPhotoContainerClient) {
+    await initializeDefectPhotosContainer();
+  }
+  return deleteAttachment('defects', attachmentId, defectPhotoContainerClient);
+}
+
 // Initialize the containers when the service loads
 Promise.all([
   initializeNCRAttachmentsContainer(),
-  initializeInspectionAttachmentsContainer()
+  initializeInspectionAttachmentsContainer(),
+  initializeDefectPhotosContainer()
 ]).catch(console.error);

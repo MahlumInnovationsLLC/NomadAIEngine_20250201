@@ -116,7 +116,8 @@ export default function QualityInspectionList({ inspections = [], type, projects
     socket.on('quality:inspection:new', handleNewInspection);
     socket.on('quality:inspection:modified', handleUpdatedInspection);
     socket.on('quality:refresh:needed', handleRefreshNeeded);
-    socket.on('quality:inspection:updated', handleRefreshNeeded);
+    // We'll handle quality:inspection:updated in specific update flow only to avoid conflicts
+    // socket.on('quality:inspection:updated', handleRefreshNeeded);
     
     // When component loads, request the latest inspection data
     socket.emit('quality:inspection:list');
@@ -126,7 +127,7 @@ export default function QualityInspectionList({ inspections = [], type, projects
       socket.off('quality:inspection:new', handleNewInspection);
       socket.off('quality:inspection:modified', handleUpdatedInspection);
       socket.off('quality:refresh:needed', handleRefreshNeeded);
-      socket.off('quality:inspection:updated', handleRefreshNeeded);
+      // socket.off('quality:inspection:updated', handleRefreshNeeded);
     };
   }, [socket, queryClient, refreshInspections]);
 
@@ -348,13 +349,26 @@ export default function QualityInspectionList({ inspections = [], type, projects
                 if (socket) {
                   console.log('Trying socket fallback for update...');
                   
-                  // Set up a listener for the update confirmation
+                  // Set up a listener for the update confirmation with better error handling
                   const handleUpdateConfirmation = (response: any) => {
+                    console.log('[QualityInspectionList] Received socket update confirmation:', response);
+                    
                     // Remove this listener to prevent memory leaks
                     socket.off('quality:inspection:updated', handleUpdateConfirmation);
                     
+                    // Clear the timeout since we got a response
+                    if (timeoutId) {
+                      clearTimeout(timeoutId);
+                    }
+                    
                     if (response.error) {
-                      throw new Error(response.error);
+                      // Handle error format from server
+                      toast({
+                        id: toastId,
+                        title: "Error",
+                        description: response.details || response.message || "Failed to update inspection",
+                        variant: "destructive",
+                      });
                     } else {
                       // Success via socket
                       toast({
@@ -381,10 +395,18 @@ export default function QualityInspectionList({ inspections = [], type, projects
                   });
                   
                   // Add a timeout to handle cases where we don't get a response
-                  setTimeout(() => {
+                  // Store the timeout ID so we can clear it if we get a response
+                  const timeoutId = setTimeout(() => {
                     socket.off('quality:inspection:updated', handleUpdateConfirmation);
-                    throw new Error('Update timeout: The server did not confirm the update.');
-                  }, 5000);
+                    
+                    // No need to throw here - just show an error toast and continue
+                    toast({
+                      id: toastId,
+                      title: "Error",
+                      description: "Update timeout: The server did not confirm the update. Please try again.",
+                      variant: "destructive",
+                    });
+                  }, 10000);
                 } else {
                   // No socket fallback available
                   throw new Error(`Failed to update inspection: ${response.status} ${response.statusText}`);
