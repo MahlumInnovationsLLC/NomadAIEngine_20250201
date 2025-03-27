@@ -44,10 +44,7 @@ export default function LoginPage() {
       });
 
       // Attempt login with popup
-      const result = await instance.loginPopup({
-        ...loginRequest,
-        redirectUri: window.location.origin
-      });
+      const result = await instance.loginPopup(loginRequest);
 
       if (result) {
         console.debug("Login successful:", { 
