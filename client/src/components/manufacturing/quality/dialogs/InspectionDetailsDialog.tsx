@@ -52,6 +52,34 @@ export function InspectionDetailsDialog({
   const [isEditing, setIsEditing] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadingDefectPhoto, setUploadingDefectPhoto] = useState(false);
+  const [productionLines, setProductionLines] = useState<any[]>([]);
+  const [loadingProductionLines, setLoadingProductionLines] = useState(false);
+
+  // Fetch production lines
+  useEffect(() => {
+    const fetchProductionLines = async () => {
+      setLoadingProductionLines(true);
+      try {
+        const response = await fetch('/api/manufacturing/quality/production-lines');
+        if (!response.ok) {
+          throw new Error('Failed to fetch production lines');
+        }
+        const data = await response.json();
+        setProductionLines(data);
+      } catch (error) {
+        console.error('Error fetching production lines:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load production teams. Using manual entry.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingProductionLines(false);
+      }
+    };
+
+    fetchProductionLines();
+  }, [toast]);
 
   const updateLinkedNCRs = async (projectNumber: string) => {
     try {
@@ -826,6 +854,45 @@ export function InspectionDetailsDialog({
                     }))}
                     placeholder="Enter location"
                   />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Production Team</label>
+                  {loadingProductionLines ? (
+                    <div className="h-10 flex items-center pl-3 border rounded-md">
+                      <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin mr-2" />
+                      <span className="text-muted-foreground">Loading teams...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={currentInspection.productionLineId || ""}
+                      onValueChange={(value) => {
+                        const selectedLine = productionLines.find(line => line.id === value);
+                        setCurrentInspection(prev => ({
+                          ...prev,
+                          productionLineId: value,
+                          productionTeam: selectedLine?.teamName || selectedLine?.team || selectedLine?.name || "",
+                          // Store the team name in a dedicated field for better persistence
+                          location: prev.location // Don't modify location when changing team
+                        }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a production team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {productionLines.length === 0 ? (
+                          <SelectItem value="no-teams" disabled>No production teams available</SelectItem>
+                        ) : (
+                          productionLines.map((line) => (
+                            <SelectItem key={line.id} value={line.id}>
+                              {line.teamName || line.team || line.name || "Unnamed Team"}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div>

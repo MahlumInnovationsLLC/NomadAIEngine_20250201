@@ -227,6 +227,8 @@ export interface ProductionLine {
   description?: string;
   type: 'assembly' | 'machining' | 'fabrication' | 'packaging' | 'testing';
   status: 'operational' | 'maintenance' | 'error' | 'offline';
+  team?: string;  // Team property
+  teamName?: string; // TeamName property for the team name displayed in the UI
   capacity: {
     planned: number;
     actual: number;
@@ -263,6 +265,7 @@ export interface QualityInspection {
   inspector: string;
   inspectionDate: string;
   productionLineId: string;
+  productionTeam?: string;
   results: {
     defectsFound: any[];
     checklistItems?: any[];
@@ -391,13 +394,17 @@ export async function updateQualityInspection(id: string, updates: Partial<Quali
           projectNumber: updates.projectNumber || legacyResource.projectNumber,
           projectId: updates.projectId || legacyResource.projectId,
           location: updates.location || legacyResource.location,
+          productionLineId: updates.productionLineId || legacyResource.productionLineId,
+          productionTeam: updates.productionTeam || legacyResource.productionTeam,
           updatedAt: new Date().toISOString()
         };
         
         console.log(`[DEBUG] About to replace with 'default' partition key. Updated data:`, JSON.stringify({
           projectNumber: updated.projectNumber,
           projectId: updated.projectId,
-          location: updated.location
+          location: updated.location,
+          productionLineId: updated.productionLineId,
+          productionTeam: updated.productionTeam
         }, null, 2));
         
         const { resource } = await qualityInspectionContainer.item(id, 'default').replace(updated);
@@ -428,13 +435,17 @@ export async function updateQualityInspection(id: string, updates: Partial<Quali
         projectNumber: updates.projectNumber || existingResource.projectNumber,
         projectId: updates.projectId || existingResource.projectId,
         location: updates.location || existingResource.location,
+        productionLineId: updates.productionLineId || existingResource.productionLineId,
+        productionTeam: updates.productionTeam || existingResource.productionTeam,
         updatedAt: new Date().toISOString()
       };
       
       console.log(`[DEBUG] About to replace with ID as partition key. Updated data:`, JSON.stringify({
         projectNumber: updated.projectNumber,
         projectId: updated.projectId,
-        location: updated.location
+        location: updated.location,
+        productionLineId: updated.productionLineId,
+        productionTeam: updated.productionTeam
       }, null, 2));
       
       const { resource } = await qualityInspectionContainer.item(id, id).replace(updated);
@@ -783,6 +794,149 @@ export async function updateQualityTemplate(id: string, updates: any) {
   } catch (error) {
     console.error("Failed to update quality template:", error);
     throw error;
+  }
+}
+
+// Get production lines data for dropdown selection
+export async function getProductionLines(): Promise<ProductionLine[]> {
+  try {
+    const querySpec = {
+      query: "SELECT * FROM c"
+    };
+
+    const { resources } = await productionContainer.items.query<ProductionLine>(querySpec).fetchAll();
+    
+    console.log(`Retrieved ${resources.length} production lines`);
+    
+    // If we don't have any production lines, create some default ones
+    if (resources.length === 0) {
+      console.log("No production lines found, creating default production teams");
+      
+      const defaultLines = [
+        {
+          id: `line-${Date.now()}-1`,
+          name: "Assembly Team",
+          description: "Main assembly team for product finalization",
+          type: "assembly",
+          status: "operational",
+          team: "Assembly",
+          capacity: {
+            planned: 8,
+            actual: 7,
+            unit: "hours"
+          },
+          metrics: [],
+          buildStages: [],
+          allocatedInventory: [],
+          performance: {
+            efficiency: 0.85,
+            quality: 0.92,
+            availability: 0.95,
+            oee: 0.74
+          },
+          lastMaintenance: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 16 * 24 * 60 * 60 * 1000).toISOString(),
+          notes: "Default assembly team",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: `line-${Date.now()}-2`,
+          name: "Electrical Team",
+          description: "Electrical wiring and installation team",
+          type: "assembly",
+          status: "operational",
+          team: "Electrical",
+          capacity: {
+            planned: 8,
+            actual: 8,
+            unit: "hours"
+          },
+          metrics: [],
+          buildStages: [],
+          allocatedInventory: [],
+          performance: {
+            efficiency: 0.82,
+            quality: 0.95,
+            availability: 0.92,
+            oee: 0.71
+          },
+          lastMaintenance: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+          notes: "Default electrical team",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: `line-${Date.now()}-3`,
+          name: "Paint Team",
+          description: "Paint and finish team",
+          type: "fabrication",
+          status: "operational",
+          team: "Paint",
+          capacity: {
+            planned: 8,
+            actual: 6,
+            unit: "hours"
+          },
+          metrics: [],
+          buildStages: [],
+          allocatedInventory: [],
+          performance: {
+            efficiency: 0.79,
+            quality: 0.90,
+            availability: 0.88,
+            oee: 0.62
+          },
+          lastMaintenance: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
+          notes: "Default paint team",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: `line-${Date.now()}-4`,
+          name: "IT Team",
+          description: "IT and networking team",
+          type: "testing",
+          status: "operational",
+          team: "IT",
+          capacity: {
+            planned: 8,
+            actual: 7,
+            unit: "hours"
+          },
+          metrics: [],
+          buildStages: [],
+          allocatedInventory: [],
+          performance: {
+            efficiency: 0.88,
+            quality: 0.96,
+            availability: 0.90,
+            oee: 0.76
+          },
+          lastMaintenance: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          nextMaintenance: new Date(Date.now() + 23 * 24 * 60 * 60 * 1000).toISOString(),
+          notes: "Default IT team",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+      
+      // Create all default production lines
+      for (const line of defaultLines) {
+        await productionContainer.items.create(line);
+      }
+      
+      // Fetch again after creating defaults
+      const { resources: updatedResources } = await productionContainer.items.query<ProductionLine>(querySpec).fetchAll();
+      return updatedResources;
+    }
+    
+    return resources;
+  } catch (error) {
+    console.error("Failed to get production lines:", error);
+    return [];
   }
 }
 

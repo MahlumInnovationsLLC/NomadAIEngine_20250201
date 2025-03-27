@@ -197,6 +197,38 @@ router.get('/projects', async (req, res) => {
   }
 });
 
+// Get production lines for inspection dropdown
+router.get('/production-lines', async (req, res) => {
+  try {
+    if (!container) {
+      container = await initializeContainer();
+    }
+    
+    // Import the facility service
+    const facilityService = await import('../../services/azure/facility_service');
+    
+    // Get production lines
+    const productionLines = await facilityService.getProductionLines();
+    
+    console.log("Retrieved production lines:", productionLines);
+    
+    // Format the lines for dropdown selection
+    const formattedLines = productionLines.map((line) => ({
+      id: line.id,
+      name: line.name || line.teamName || 'Unnamed Production Line',
+      type: line.type || 'fabrication',
+      team: line.teamName || line.team || "",  // Use teamName if available, otherwise use team or empty string
+      teamName: line.teamName || line.team || line.name || "" // Ensure we have a team name value
+    }));
+    
+    console.log("Formatted production lines for dropdown:", formattedLines);
+    res.json(formattedLines);
+  } catch (error) {
+    console.error("Error fetching production lines for dropdown:", error);
+    res.status(500).json({ error: "Failed to fetch production lines", details: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
 router.post('/ncrs', async (req, res) => {
   try {
     if (!container) {
