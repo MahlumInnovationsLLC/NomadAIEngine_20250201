@@ -83,6 +83,7 @@ export const productionLineSchema = z.object({
     actual: z.number(),
     unit: z.string(),
   }),
+  team: z.string().optional(),
   metrics: z.array(z.object({
     type: z.string(),
     value: z.number(),

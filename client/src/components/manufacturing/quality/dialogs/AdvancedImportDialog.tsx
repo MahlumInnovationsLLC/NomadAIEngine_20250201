@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@/components/ui/font-awesome-icon';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import {
   BarChart,
   Bar,
@@ -24,6 +24,14 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useWebSocket } from '@/hooks/use-websocket';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { format } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ProductionLine } from '@/types/manufacturing';
+import type { Project } from '@/types/manufacturing/project';
 
 interface AdvancedImportDialogProps {
   open: boolean;
@@ -63,6 +71,8 @@ interface ProcessingStage {
   error: boolean;
 }
 
+
+
 export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: AdvancedImportDialogProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -80,8 +90,24 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
   const [realTimeResults, setRealTimeResults] = useState<OCRResult[]>([]);
   const [showRealTimePreview, setShowRealTimePreview] = useState(false);
   const [creatingInspection, setCreatingInspection] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [inspectedBy, setInspectedBy] = useState<string>("");
+  const [selectedProductionTeam, setSelectedProductionTeam] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Fetch production teams
+  const { data: productionLines = [], isLoading: loadingProductionLines } = useQuery<ProductionLine[]>({
+    queryKey: ['/api/manufacturing/production-lines'],
+    queryFn: () => fetch('/api/manufacturing/production-lines').then(res => res.json())
+  });
+  
+  // Fetch projects
+  const { data: projects = [], isLoading: loadingProjects } = useQuery<Project[]>({
+    queryKey: ["/api/manufacturing/projects"],
+    queryFn: () => fetch('/api/manufacturing/projects').then(res => res.json())
+  });
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
   const SENTIMENT_COLORS = {
@@ -282,6 +308,33 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
       
       // Add a real-time result for the inspection type context
       addRealTimeResult(`Using ${inspectionType} inspection context for analysis`, 0.95);
+    }
+    
+    // Add form metadata
+    if (selectedProductionTeam) {
+      formData.append('productionTeamId', selectedProductionTeam);
+      const team = productionLines.find(line => line.id === selectedProductionTeam);
+      if (team) {
+        formData.append('productionTeamName', team.teamName || team.team || team.name || "");
+        addRealTimeResult(`Using production team: ${team.teamName || team.team || team.name}`, 0.95);
+      }
+    }
+    
+    if (selectedProject) {
+      formData.append('projectId', selectedProject);
+      const project = projects.find(p => p.id === selectedProject);
+      if (project) {
+        formData.append('projectName', project.name || "");
+        addRealTimeResult(`Linked to project: ${project.name}`, 0.95);
+      }
+    }
+    
+    if (selectedDate) {
+      formData.append('inspectionDate', selectedDate.toISOString());
+    }
+    
+    if (inspectedBy) {
+      formData.append('inspectedBy', inspectedBy);
     }
 
     try {
@@ -913,9 +966,109 @@ export function AdvancedImportDialog({ open, onOpenChange, inspectionType }: Adv
                 <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-lg bg-gray-50">
                   <FontAwesomeIcon icon="file-import" className="text-blue-500 text-4xl mb-3" />
                   <h3 className="text-xl font-medium mb-2">Upload QC Document</h3>
-                  <p className="text-gray-500 mb-6 text-center max-w-md">
+                  <p className="text-gray-500 mb-4 text-center max-w-md">
                     Upload a scanned inspection form, handwritten notes, or quality check document for AI-powered analysis
                   </p>
+                  
+                  {/* Metadata fields for the document */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-xl mb-6">
+                    {/* Production Team dropdown */}
+                    <div className="space-y-2">
+                      <Label htmlFor="production-team">Production Team</Label>
+                      {loadingProductionLines ? (
+                        <div className="h-10 flex items-center pl-3 border rounded-md">
+                          <FontAwesomeIcon icon="spinner" className="h-4 w-4 animate-spin mr-2" />
+                          <span className="text-muted-foreground">Loading teams...</span>
+                        </div>
+                      ) : (
+                        <Select
+                          value={selectedProductionTeam}
+                          onValueChange={setSelectedProductionTeam}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a production team" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {productionLines.length === 0 ? (
+                              <SelectItem value="no-teams" disabled>No production teams available</SelectItem>
+                            ) : (
+                              productionLines.map((line) => (
+                                <SelectItem key={line.id} value={line.id}>
+                                  {line.teamName || line.team || line.name || "Unnamed Team"}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+
+                    {/* Project dropdown */}
+                    <div className="space-y-2">
+                      <Label htmlFor="project">Project</Label>
+                      {loadingProjects ? (
+                        <div className="h-10 flex items-center pl-3 border rounded-md">
+                          <FontAwesomeIcon icon="spinner" className="h-4 w-4 animate-spin mr-2" />
+                          <span className="text-muted-foreground">Loading projects...</span>
+                        </div>
+                      ) : (
+                        <Select
+                          value={selectedProject}
+                          onValueChange={setSelectedProject}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a project" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {projects.length === 0 ? (
+                              <SelectItem value="no-projects" disabled>No projects available</SelectItem>
+                            ) : (
+                              projects.map((project) => (
+                                <SelectItem key={project.id} value={project.id}>
+                                  {project.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+
+                    {/* Date picker */}
+                    <div className="space-y-2">
+                      <Label htmlFor="inspection-date">Inspection Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <FontAwesomeIcon icon="calendar" className="mr-2 h-4 w-4" />
+                            {selectedDate ? format(selectedDate, 'PPP') : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={setSelectedDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Inspected by input */}
+                    <div className="space-y-2">
+                      <Label htmlFor="inspected-by">Inspected By</Label>
+                      <Input
+                        id="inspected-by"
+                        value={inspectedBy}
+                        onChange={(e) => setInspectedBy(e.target.value)}
+                        placeholder="Enter inspector name"
+                      />
+                    </div>
+                  </div>
                   
                   <input
                     type="file"
