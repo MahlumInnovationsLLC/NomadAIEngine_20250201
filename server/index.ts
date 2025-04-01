@@ -1,4 +1,4 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express from "express";
 import { createServer } from "http";
 import path from "path";
 import fs from "fs";
@@ -7,7 +7,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeManufacturingDatabase } from "./services/azure/facility_service";
 import { initializeOpenAI } from "./services/azure/openai_service";
 import { setupWebSocketServer } from "./services/websocket";
-import manufacturingRoutes, { setupManufacturingSocketIO } from "./routes/manufacturing";
+import manufacturingRoutes from "./routes/manufacturing/index";
 import { registerWebSocketManager } from "./routes/manufacturing/team-analytics";
 import inventoryRoutes from "./routes/inventory";
 import aiRoutes from "./routes/ai";
@@ -22,22 +22,17 @@ import { customDomainMiddleware, fallbackMiddleware } from "./custom-domain-midd
 
 const app = express();
 
-// Root route handler - defined before any middleware
-// This ensures it takes priority over all other routes
+// Root route handler
 app.get('/', (req, res, next) => {
-  // Only handle root route if it's the exact match
   if (req.path !== '/') {
     return next();
   }
-  
-  // Check if we're in production and have a built frontend to serve
+
   const indexPaths = [
     path.resolve(process.cwd(), 'dist/public/index.html'),
     path.resolve(process.cwd(), 'client/dist/index.html')
   ];
-  
-  // First, try to serve the built frontend if it exists
-  // We'll check for build files even in development mode
+
   for (const indexPath of indexPaths) {
     if (fs.existsSync(indexPath)) {
       console.log(`Found index.html at ${indexPath}, serving it`);
@@ -45,14 +40,10 @@ app.get('/', (req, res, next) => {
     }
   }
   console.log(`No build found at ${indexPaths.join(' or ')}`);
-  
-  // In production mode, we'll add a warning that the build is missing
+
   const isMissingProductionBuild = process.env.NODE_ENV === 'production';
-  
-  // If we're in development or no build found, use our fallback behavior
+
   if (req.headers.accept && req.headers.accept.includes('text/html')) {
-    // For HTML requests, serve a simple HTML page with links to API endpoints
-    // This ensures the domain works even if the frontend build isn't available
     const html = `
       <!DOCTYPE html>
       <html lang="en">
@@ -62,7 +53,7 @@ app.get('/', (req, res, next) => {
         <title>NOMAD AI Engine</title>
         <style>
           body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
@@ -108,7 +99,6 @@ app.get('/', (req, res, next) => {
     `;
     return res.type('html').send(html);
   } else {
-    // Respond directly for API clients or other non-HTML requests
     return res.json({
       app: 'NOMAD AI Engine',
       status: 'running',
@@ -123,11 +113,9 @@ app.get('/', (req, res, next) => {
   }
 });
 
-// Increase JSON and URL-encoded limits
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Trust proxy and enable CORS
 app.set('trust proxy', true);
 app.disable('x-powered-by');
 
@@ -139,14 +127,14 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Cache-Control', 'no-cache');
-  
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
   next();
 });
 
-// Request logging middleware
+// Request logging
 app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
@@ -158,14 +146,13 @@ app.use((req, res, next) => {
   next();
 });
 
-let server: ReturnType<typeof createServer> | null = null;
+let server = null;
 let isShuttingDown = false;
 
 const startServer = async (retryCount = 0) => {
   try {
     log("Initializing Azure services...");
 
-    // Initialize services
     await initializeManufacturingDatabase();
     log("Manufacturing database initialized successfully");
 
@@ -177,21 +164,17 @@ const startServer = async (retryCount = 0) => {
     }
 
     if (server) {
-      await new Promise<void>((resolve) => {
-        server!.close(() => resolve());
+      await new Promise((resolve) => {
+        server.close(() => resolve());
       });
     }
 
     server = createServer(app);
 
-    // Setup WebSocket server with Socket.IO
     const wsServer = setupWebSocketServer(server);
-    setupManufacturingSocketIO(wsServer.io); // Setup manufacturing namespace
-    registerWebSocketManager(wsServer); // Register with team-analytics module
     app.set('wsServer', wsServer);
 
-    // Register API routes
-    // Add a simple status endpoint to test API connectivity
+    // API routes
     app.get('/api/status', (req, res) => {
       res.json({
         status: 'ok',
@@ -204,23 +187,15 @@ const startServer = async (retryCount = 0) => {
       });
     });
 
-    // Serve test pages
     app.get('/test', (req, res) => {
       res.sendFile(path.join(process.cwd(), 'server', 'test.html'));
     });
 
-    // Serve static test files
     app.use('/connection-test', express.static(path.join(process.cwd(), 'public-test')));
-
-    // Register enhanced health check router
     app.use('/api/health', healthRouter);
-    
-    // Add direct health check endpoints for Replit and custom domains
     app.get('/healthz', (req, res) => res.status(200).send('OK'));
     app.get('/health', (req, res) => res.status(200).send('OK'));
     app.get('/ping', (req, res) => res.status(200).send('OK'));
-    
-    // Root route handler is already defined at the top of the file
 
     app.use('/api/manufacturing', manufacturingRoutes);
     app.use('/api/inventory', inventoryRoutes);
@@ -232,7 +207,6 @@ const startServer = async (retryCount = 0) => {
     app.use('/api/azure-ad', azureADRouter);
     app.use('/api/ocr', ocrRouter);
 
-    // Add a catch-all route for API endpoints that don't exist
     app.use('/api/*', (req, res) => {
       res.status(404).json({ 
         error: 'API endpoint not found',
@@ -241,8 +215,7 @@ const startServer = async (retryCount = 0) => {
       });
     });
 
-    // Error handling middleware
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    app.use((err, _req, res, _next) => {
       console.error('Server error:', err);
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
@@ -254,38 +227,28 @@ const startServer = async (retryCount = 0) => {
       });
     });
 
-    // Register custom domain middleware to handle requests from custom domains
-    // This should be placed before the Vite/static middleware to ensure proper handling
     app.use(customDomainMiddleware);
 
-    // The root handler should be processed before setting up Vite or static file serving
-    // Otherwise, Vite/static middleware might intercept the root route
-    
-    // Setup Vite or serve static files for remaining routes
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
-    
-    // Register the fallback middleware which will handle any routes not caught by previous middleware
-    // This is particularly important for SPA (Single Page Application) routing and custom domains
+
     app.use(fallbackMiddleware);
 
-    // Always use PORT environment variable when available (critical for Replit deployment)
     const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
-    
-    // Log the PORT we're using
+
     console.log(`Using PORT=${PORT} (from env: ${process.env.PORT || 'not set'})`);
 
-    return new Promise<void>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       if (isShuttingDown) {
         return resolve();
       }
 
-      const handleError = (error: any) => {
+      const handleError = (error) => {
         if (error.code === 'EADDRINUSE') {
           if (retryCount < MAX_RETRIES) {
             log(`Port ${PORT} is busy, retrying in ${RETRY_DELAY/1000} seconds... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
@@ -303,15 +266,14 @@ const startServer = async (retryCount = 0) => {
         }
       };
 
-      server!.once('error', handleError);
+      server.once('error', handleError);
 
-      // Log detailed connection info
       console.log(`Attempting to start server on port ${PORT} with host 0.0.0.0`);
       console.log(`Environment info: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}`);
-      
-      server!.listen(PORT, '0.0.0.0', () => {
-        server!.removeListener('error', handleError);
-        const address = server!.address();
+
+      server.listen(PORT, '0.0.0.0', () => {
+        server.removeListener('error', handleError);
+        const address = server.address();
         console.log(`Server address: ${JSON.stringify(address)}`);
         log(`Server running on port ${PORT} (0.0.0.0) with Socket.IO support`);
         log(`External URL should be: http://localhost:${PORT}/api/status`);
@@ -324,7 +286,6 @@ const startServer = async (retryCount = 0) => {
   }
 };
 
-// Cleanup handler
 const cleanup = async () => {
   if (isShuttingDown) return;
 
@@ -332,8 +293,8 @@ const cleanup = async () => {
   log('Starting graceful shutdown...');
 
   if (server) {
-    await new Promise<void>((resolve) => {
-      server!.close(() => {
+    await new Promise((resolve) => {
+      server.close(() => {
         log('Server shutdown complete');
         resolve();
       });
@@ -343,7 +304,6 @@ const cleanup = async () => {
   process.exit(0);
 };
 
-// Register cleanup handlers
 process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 process.on('uncaughtException', (error) => {
@@ -352,7 +312,6 @@ process.on('uncaughtException', (error) => {
   cleanup();
 });
 
-// Start the server
 startServer().catch((error) => {
   console.error("Failed to start server:", error);
   process.exit(1);
