@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import themePlugin from "@replit/vite-plugin-shadcn-theme-json";
@@ -8,6 +9,7 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
 export default defineConfig({
   base: './',
   plugins: [
@@ -46,7 +48,7 @@ export default defineConfig({
     alias: {
       "@db": path.resolve(__dirname, "db"),
       "@": path.resolve(__dirname, "client", "src"),
-    },
+    }
   },
   root: path.resolve(__dirname, "client"),
   build: {
@@ -54,6 +56,7 @@ export default defineConfig({
     emptyOutDir: true,
     assetsInlineLimit: 4096,
     rollupOptions: {
+      input: path.resolve(__dirname, "client/index.html"),
       output: {
         assetFileNames: (assetInfo) => {
           const extType = assetInfo.name.split('.').at(1);
@@ -61,8 +64,8 @@ export default defineConfig({
             return `assets/images/[name]-[hash][extname]`;
           }
           return `assets/[name]-[hash][extname]`;
-        },
+        }
       }
     }
-  },
+  }
 });
