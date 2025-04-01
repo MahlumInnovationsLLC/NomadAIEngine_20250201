@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import path from "path";
+import fs from "fs";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeManufacturingDatabase } from "./services/azure/facility_service";
@@ -18,6 +19,108 @@ import azureADRouter from "./routes/azure-ad";
 import ocrRouter from "./routes/ocr";
 
 const app = express();
+
+// Root route handler - defined before any middleware
+// This ensures it takes priority over all other routes
+app.get('/', (req, res, next) => {
+  // Only handle root route if it's the exact match
+  if (req.path !== '/') {
+    return next();
+  }
+  
+  // Check if we're in production and have a built frontend to serve
+  const indexPaths = [
+    path.resolve(process.cwd(), 'dist/public/index.html'),
+    path.resolve(process.cwd(), 'client/dist/index.html')
+  ];
+  
+  // First, try to serve the built frontend if it exists
+  // We'll check for build files even in development mode
+  for (const indexPath of indexPaths) {
+    if (fs.existsSync(indexPath)) {
+      console.log(`Found index.html at ${indexPath}, serving it`);
+      return res.sendFile(indexPath);
+    }
+  }
+  console.log(`No build found at ${indexPaths.join(' or ')}`);
+  
+  // In production mode, we'll add a warning that the build is missing
+  const isMissingProductionBuild = process.env.NODE_ENV === 'production';
+  
+  // If we're in development or no build found, use our fallback behavior
+  if (req.headers.accept && req.headers.accept.includes('text/html')) {
+    // For HTML requests, serve a simple HTML page with links to API endpoints
+    // This ensures the domain works even if the frontend build isn't available
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>NOMAD AI Engine</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+          }
+          h1 { color: #333; }
+          .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          .endpoint {
+            background: #f5f5f5;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>NOMAD AI Engine</h1>
+        <div class="card">
+          <h2>Server Status: Online</h2>
+          <p>Environment: ${process.env.NODE_ENV || 'development'}</p>
+          <p>Time: ${new Date().toISOString()}</p>
+        </div>
+        <div class="card">
+          <h2>Available API Endpoints</h2>
+          <div class="endpoint">/api/status</div>
+          <div class="endpoint">/api/health</div>
+        </div>
+        ${isMissingProductionBuild ? `
+        <div class="card" style="background-color: #fff3cd; border-color: #ffeeba;">
+          <h2>⚠️ Production Notice</h2>
+          <p>This is a fallback page. The production build was not found at:</p>
+          <div class="endpoint">${indexPaths.join('</div><div class="endpoint">')}</div>
+          <p>Please make sure the build process completed successfully.</p>
+        </div>` : ''}
+      </body>
+      </html>
+    `;
+    return res.type('html').send(html);
+  } else {
+    // Respond directly for API clients or other non-HTML requests
+    return res.json({
+      app: 'NOMAD AI Engine',
+      status: 'running',
+      environment: process.env.NODE_ENV || 'development',
+      time: new Date().toISOString(),
+      endpoints: {
+        api: '/api',
+        status: '/api/status',
+        health: '/api/health'
+      }
+    });
+  }
+});
+
 // Increase JSON and URL-encoded limits
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -111,6 +214,8 @@ const startServer = async (retryCount = 0) => {
     app.get('/api/health', (req, res) => {
       res.status(200).json({ status: 'ok', message: 'Server is running', time: new Date().toISOString() });
     });
+    
+    // Root route handler is already defined at the top of the file
 
     app.use('/api/manufacturing', manufacturingRoutes);
     app.use('/api/inventory', inventoryRoutes);
@@ -144,17 +249,23 @@ const startServer = async (retryCount = 0) => {
       });
     });
 
-    // Setup Vite or serve static files
+    // The root handler should be processed before setting up Vite or static file serving
+    // Otherwise, Vite/static middleware might intercept the root route
+    
+    // Setup Vite or serve static files for remaining routes
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
 
-    // Default to port 5000 if PORT environment variable is not set or invalid
-    const PORT = Number(process.env.PORT) || 5000;
+    // Always use PORT environment variable when available (critical for Replit deployment)
+    const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
+    
+    // Log the PORT we're using
+    console.log(`Using PORT=${PORT} (from env: ${process.env.PORT || 'not set'})`);
 
     return new Promise<void>((resolve, reject) => {
       if (isShuttingDown) {
