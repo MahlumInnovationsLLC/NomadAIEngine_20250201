@@ -11,19 +11,26 @@ This document summarizes the changes made to fix deployment issues and ensure th
 2. **Port Configuration Issues**
    - Problem: The server was using a hardcoded port instead of respecting the `process.env.PORT` environment variable
    - Solution: Updated server configuration to prioritize `process.env.PORT` which is essential for Replit deployments
+   
+3. **Azure AD Environment Variables**
+   - Problem: The Azure AD configuration was using incorrect environment variable names
+   - Solution: Updated configuration to use the correct variables:
+     - Changed `AZURE_AD_TENANT_ID` to `NOMAD_AZURE_TENANT_ID`
+     - Changed `AZURE_AD_CLIENT_ID` to `NOMAD_AZURE_CLIENT_ID`
+     - Changed `AZURE_AD_CLIENT_SECRET` to `NOMAD_AZURE_AD_SECRET`
 
-3. **Root Route Handling Issues**
+4. **Root Route Handling Issues**
    - Problem: The root route wasn't being properly handled, which could cause 502 errors with custom domains
    - Solution: Added a dedicated root route handler at the top of the middleware stack that:
      - First checks for a production frontend build to serve
      - If no build is found, responds with a formatted JSON response for API requests
      - Provides a fallback HTML page for browser requests if the frontend build isn't available
 
-4. **Static File Serving Issues**
+5. **Static File Serving Issues**
    - Problem: The frontend files weren't being correctly found in production mode
    - Solution: Updated the root route handler to check multiple possible build directories, making it more robust
    
-5. **Middleware Order Issues**
+6. **Middleware Order Issues**
    - Problem: Vite middleware was intercepting routes before our API handlers could process them
    - Solution: Rearranged middleware registration order to ensure API routes take precedence
 
@@ -84,6 +91,15 @@ server.listen(PORT, '0.0.0.0', () => {
 ### 3. Client Path Reference
 Fixed the path reference in `client/index.html` from `/src/main.tsx` to `./src/main.tsx` to use a relative path.
 
+### 4. Azure AD Configuration
+Updated the Azure AD environment variable names to match the expected naming convention:
+```javascript
+// Configuration for Azure AD from environment variables
+const tenantId = process.env.NOMAD_AZURE_TENANT_ID || '';
+const clientId = process.env.NOMAD_AZURE_CLIENT_ID || '';
+const clientSecret = process.env.NOMAD_AZURE_AD_SECRET || '';
+```
+
 ## Testing
 The changes were tested using:
 - Direct curl requests to the root endpoint with different Accept headers
@@ -94,5 +110,8 @@ The changes were tested using:
 For successful deployment:
 1. Use the included build script (`build.sh`) which properly sequences client and server builds
 2. Set NODE_ENV=production for the run command
-3. Ensure all environment variables (especially API keys) are properly configured
+3. Ensure all environment variables are properly configured, especially:
+   - Azure AD variables (NOMAD_AZURE_TENANT_ID, NOMAD_AZURE_CLIENT_ID, NOMAD_AZURE_AD_SECRET)
+   - Form Recognizer variables (AZURE_FORM_RECOGNIZER_KEY, AZURE_FORM_RECOGNIZER_ENDPOINT)
+   - Other API keys as needed
 4. Verify that PORT environment variable is correctly set by the hosting platform

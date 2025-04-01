@@ -52,6 +52,9 @@ This mapping is already configured in your .replit file, but verify it's preserv
 Make sure all required environment variables are set in the deployment environment:
 - AZURE_FORM_RECOGNIZER_KEY
 - AZURE_FORM_RECOGNIZER_ENDPOINT
+- NOMAD_AZURE_TENANT_ID (for Azure AD authentication)
+- NOMAD_AZURE_CLIENT_ID (for Azure AD authentication)
+- NOMAD_AZURE_AD_SECRET (for Azure AD authentication)
 - Other application-specific variables
 
 ### 5. Deploy

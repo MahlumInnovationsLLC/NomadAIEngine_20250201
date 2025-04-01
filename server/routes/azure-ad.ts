@@ -5,10 +5,10 @@ import { log } from "../vite";
 
 const router = Router();
 
-// Configuration for Azure AD (should be moved to environment variables in production)
-const tenantId = process.env.AZURE_AD_TENANT_ID || '';
-const clientId = process.env.AZURE_AD_CLIENT_ID || '';
-const clientSecret = process.env.AZURE_AD_CLIENT_SECRET || '';
+// Configuration for Azure AD from environment variables
+const tenantId = process.env.NOMAD_AZURE_TENANT_ID || '';
+const clientId = process.env.NOMAD_AZURE_CLIENT_ID || '';
+const clientSecret = process.env.NOMAD_AZURE_AD_SECRET || '';
 
 log(`Azure AD Configuration - Tenant ID: ${tenantId ? 'configured' : 'missing'}, Client ID: ${clientId ? 'configured' : 'missing'}, Client Secret: ${clientSecret ? 'configured' : 'missing'}`);
 
@@ -106,7 +106,17 @@ router.get('/users', async (req: Request, res: Response) => {
       
       // Check for specific permission issues
       if (errorData && typeof errorData === 'object') {
-        if (errorData.error && errorData.error.code === 'Authorization_RequestDenied') {
+        // Define a type for expected error responses from Azure AD
+        type AzureADErrorResponse = {
+          error?: {
+            code?: string;
+            message?: string;
+          }
+        };
+        
+        const errorResponse = errorData as AzureADErrorResponse;
+        
+        if (errorResponse.error?.code === 'Authorization_RequestDenied') {
           log('Azure AD permission error: Authorization_RequestDenied');
           return res.status(response.status).json({ 
             error: 'Failed to fetch users from Azure AD', 
@@ -114,7 +124,7 @@ router.get('/users', async (req: Request, res: Response) => {
             details: 'This service principal needs "User.Read.All" or "Directory.Read.All" permission in the Azure portal.',
             code: 'PERMISSION_DENIED'
           });
-        } else if (errorData.error && errorData.error.code === 'InvalidAuthenticationToken') {
+        } else if (errorResponse.error?.code === 'InvalidAuthenticationToken') {
           log('Azure AD error: InvalidAuthenticationToken');
           return res.status(response.status).json({ 
             error: 'Failed to fetch users from Azure AD', 
@@ -122,12 +132,12 @@ router.get('/users', async (req: Request, res: Response) => {
             details: 'Check your Azure AD client credentials and permissions.',
             code: 'INVALID_TOKEN'
           });
-        } else if (errorData.error) {
-          log(`Azure AD error: ${errorData.error.code || 'Unknown'}`);
+        } else if (errorResponse.error) {
+          log(`Azure AD error: ${errorResponse.error.code || 'Unknown'}`);
           return res.status(response.status).json({ 
             error: 'Failed to fetch users from Azure AD', 
-            message: errorData.error.message || 'An error occurred when connecting to Microsoft Graph API',
-            details: errorData.error.code || 'Unknown error code',
+            message: errorResponse.error.message || 'An error occurred when connecting to Microsoft Graph API',
+            details: errorResponse.error.code || 'Unknown error code',
             code: 'GRAPH_API_ERROR'
           });
         }
