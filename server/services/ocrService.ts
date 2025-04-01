@@ -42,13 +42,9 @@ export class OCRService {
 
   constructor() {
     // Get credentials from environment variables - specifically for Form Recognizer
-    const endpoint = process.env.AZURE_FORM_RECOGNIZER_ENDPOINT || 
-                     process.env.NOMAD_AZURE_FORM_RECOGNIZER_ENDPOINT || 
-                     process.env.NOMAD_AZURE_VISION_ENDPOINT || "";
+    const endpoint = process.env.AZURE_FORM_RECOGNIZER_ENDPOINT || "";
                      
-    const key = process.env.AZURE_FORM_RECOGNIZER_KEY || 
-                process.env.NOMAD_AZURE_FORM_RECOGNIZER_KEY || 
-                process.env.NOMAD_AZURE_VISION_KEY || "";
+    const key = process.env.AZURE_FORM_RECOGNIZER_KEY || "";
 
     // Log initialization (without revealing full credentials)
     console.log(`Initializing OCR Service with Azure Form Recognizer endpoint: ${endpoint ? endpoint.substring(0, 15) + '...' : 'MISSING ENDPOINT'}`);

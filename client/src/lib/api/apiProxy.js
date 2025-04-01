@@ -2,7 +2,9 @@
  * API Proxy - A simple wrapper for fetch that adds error handling and base URL configuration
  */
 
-const BASE_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
+// Use location.origin for API requests, which will use the same host and port as the client
+// This ensures we don't have hardcoded ports and works with any hosting configuration
+const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
 class ApiClient {
   constructor() {

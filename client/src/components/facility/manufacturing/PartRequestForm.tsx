@@ -160,7 +160,7 @@ export default function PartRequestForm({
           {buttonText}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="part-request-dialog">
         <DialogHeader>
           <DialogTitle>New Part Request - {fabricationType.toUpperCase()}</DialogTitle>
         </DialogHeader>
@@ -481,26 +481,28 @@ export default function PartRequestForm({
               )}
             />
 
-            <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={mutation.isPending}
-              >
-                {mutation.isPending ? (
-                  <>
-                    <FontAwesomeIcon icon="spinner" className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : "Submit Request"}
-              </Button>
-            </DialogFooter>
+            <div className="sticky bottom-0 pt-4 pb-2 bg-background">
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={mutation.isPending}
+                >
+                  {mutation.isPending ? (
+                    <>
+                      <FontAwesomeIcon icon="spinner" className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : "Submit Request"}
+                </Button>
+              </DialogFooter>
+            </div>
           </form>
         </Form>
       </DialogContent>

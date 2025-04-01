@@ -3,6 +3,31 @@ import multer from 'multer';
 import { ocrService } from '../services/ocrService';
 
 const router = express.Router();
+
+// Add a debug endpoint for OCR configuration
+router.get('/debug-config', (req, res) => {
+  const endpoint = process.env.AZURE_FORM_RECOGNIZER_ENDPOINT;
+  const key = process.env.AZURE_FORM_RECOGNIZER_KEY;
+  
+  // Only return first 5 characters of key to avoid exposing the full key
+  const maskedKey = key ? `${key.substring(0, 5)}...` : 'Missing';
+  
+  return res.status(200).json({
+    status: 'ok',
+    config: {
+      hasEndpoint: !!endpoint,
+      endpointMasked: endpoint ? `${endpoint.substring(0, 15)}...` : 'Missing',
+      hasKey: !!key,
+      keyMasked: maskedKey
+    },
+    message: 'OCR service configuration',
+    serverInfo: {
+      nodeEnv: process.env.NODE_ENV || 'development',
+      port: process.env.PORT || 'not set',
+      time: new Date().toISOString()
+    }
+  });
+});
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
@@ -44,13 +69,8 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
     let result;
     try {
       // Make sure Azure Form Recognizer credentials are available before proceeding
-      const endpoint = process.env.AZURE_FORM_RECOGNIZER_ENDPOINT || 
-                       process.env.NOMAD_AZURE_FORM_RECOGNIZER_ENDPOINT || 
-                       process.env.NOMAD_AZURE_VISION_ENDPOINT;
-                       
-      const key = process.env.AZURE_FORM_RECOGNIZER_KEY || 
-                  process.env.NOMAD_AZURE_FORM_RECOGNIZER_KEY || 
-                  process.env.NOMAD_AZURE_VISION_KEY;
+      const endpoint = process.env.AZURE_FORM_RECOGNIZER_ENDPOINT;
+      const key = process.env.AZURE_FORM_RECOGNIZER_KEY;
       
       if (!endpoint || !key) {
         console.error('Azure Form Recognizer API credentials missing:', { 

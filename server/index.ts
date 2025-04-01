@@ -107,6 +107,11 @@ const startServer = async (retryCount = 0) => {
     // Serve static test files
     app.use('/connection-test', express.static(path.join(process.cwd(), 'public-test')));
 
+    // Health check endpoint
+    app.get('/api/health', (req, res) => {
+      res.status(200).json({ status: 'ok', message: 'Server is running', time: new Date().toISOString() });
+    });
+
     app.use('/api/manufacturing', manufacturingRoutes);
     app.use('/api/inventory', inventoryRoutes);
     app.use('/api/ai', aiRoutes);
@@ -116,6 +121,15 @@ const startServer = async (retryCount = 0) => {
     app.use('/api/warehouse', warehouseRoutes);
     app.use('/api/azure-ad', azureADRouter);
     app.use('/api/ocr', ocrRouter);
+
+    // Add a catch-all route for API endpoints that don't exist
+    app.use('/api/*', (req, res) => {
+      res.status(404).json({ 
+        error: 'API endpoint not found',
+        path: req.originalUrl,
+        method: req.method
+      });
+    });
 
     // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -137,7 +151,8 @@ const startServer = async (retryCount = 0) => {
       serveStatic(app);
     }
 
-    const PORT = Number(process.env.PORT || 5000);
+    // Default to port 5000 if PORT environment variable is not set or invalid
+    const PORT = Number(process.env.PORT) || 5000;
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
 
@@ -166,9 +181,16 @@ const startServer = async (retryCount = 0) => {
 
       server!.once('error', handleError);
 
+      // Log detailed connection info
+      console.log(`Attempting to start server on port ${PORT} with host 0.0.0.0`);
+      console.log(`Environment info: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}`);
+      
       server!.listen(PORT, '0.0.0.0', () => {
         server!.removeListener('error', handleError);
+        const address = server!.address();
+        console.log(`Server address: ${JSON.stringify(address)}`);
         log(`Server running on port ${PORT} (0.0.0.0) with Socket.IO support`);
+        log(`External URL should be: http://localhost:${PORT}/api/status`);
         resolve();
       });
     });

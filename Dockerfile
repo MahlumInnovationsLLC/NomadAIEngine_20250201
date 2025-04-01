@@ -59,8 +59,9 @@ RUN rm -rf .npmrc package*.json \
     du -sh /app || true && \
     find /app -type f -ls  # List all files for size analysis
 
-# Expose port 5000
-EXPOSE 5000
+# Expose the port from environment variable
+# The PORT environment variable will be set by the hosting platform
+EXPOSE ${PORT:-5000}
 
 # Start the application
 CMD ["node", "dist/index.js"]

@@ -11,16 +11,8 @@ build = ["sh", "-c", "npm run build"]
 run = ["sh", "-c", "node dist/index.js"]
 
 [[ports]]
-localPort = 3000
-externalPort = 3000
-
-[[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 7000
-externalPort = 3001
 
 [workflows]
 runButton = "Start"
