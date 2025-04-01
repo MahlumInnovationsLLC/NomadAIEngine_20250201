@@ -113,6 +113,11 @@ app.get('/', (req, res, next) => {
   }
 });
 
+// Health check endpoints for custom domain verification
+app.get('/health', (req, res) => res.status(200).send('OK'));
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
+app.get('/ping', (req, res) => res.status(200).send('OK'));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
