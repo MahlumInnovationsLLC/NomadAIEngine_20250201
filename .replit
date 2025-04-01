@@ -53,4 +53,4 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd client && npm run build && cd .. && tsx server/index.ts"
+args = "cd client && npm run build && cd .. && NODE_ENV=production tsx server/index.ts"
