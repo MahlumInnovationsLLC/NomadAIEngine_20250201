@@ -17,6 +17,8 @@ import logisticsRoutes from "./routes/logistics";
 import warehouseRoutes from "./routes/warehouse";
 import azureADRouter from "./routes/azure-ad";
 import ocrRouter from "./routes/ocr";
+import healthRouter from "./routes/health";
+import { customDomainMiddleware, fallbackMiddleware } from "./custom-domain-middleware";
 
 const app = express();
 
@@ -210,10 +212,13 @@ const startServer = async (retryCount = 0) => {
     // Serve static test files
     app.use('/connection-test', express.static(path.join(process.cwd(), 'public-test')));
 
-    // Health check endpoint
-    app.get('/api/health', (req, res) => {
-      res.status(200).json({ status: 'ok', message: 'Server is running', time: new Date().toISOString() });
-    });
+    // Register enhanced health check router
+    app.use('/api/health', healthRouter);
+    
+    // Add direct health check endpoints for Replit and custom domains
+    app.get('/healthz', (req, res) => res.status(200).send('OK'));
+    app.get('/health', (req, res) => res.status(200).send('OK'));
+    app.get('/ping', (req, res) => res.status(200).send('OK'));
     
     // Root route handler is already defined at the top of the file
 
@@ -249,6 +254,10 @@ const startServer = async (retryCount = 0) => {
       });
     });
 
+    // Register custom domain middleware to handle requests from custom domains
+    // This should be placed before the Vite/static middleware to ensure proper handling
+    app.use(customDomainMiddleware);
+
     // The root handler should be processed before setting up Vite or static file serving
     // Otherwise, Vite/static middleware might intercept the root route
     
@@ -258,6 +267,10 @@ const startServer = async (retryCount = 0) => {
     } else {
       serveStatic(app);
     }
+    
+    // Register the fallback middleware which will handle any routes not caught by previous middleware
+    // This is particularly important for SPA (Single Page Application) routing and custom domains
+    app.use(fallbackMiddleware);
 
     // Always use PORT environment variable when available (critical for Replit deployment)
     const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
