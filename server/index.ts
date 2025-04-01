@@ -137,7 +137,7 @@ const startServer = async (retryCount = 0) => {
       serveStatic(app);
     }
 
-    const PORT = Number(process.env.PORT || 8080);
+    const PORT = Number(process.env.PORT || 7000);
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
 
