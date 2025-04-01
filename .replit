@@ -53,4 +53,4 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd client && npm run build && cd .. && node server/index.js"
+args = "cd client && npm run build && cd .. && tsx server/index.ts"
