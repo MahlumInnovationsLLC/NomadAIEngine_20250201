@@ -13,11 +13,11 @@ export default function EngineeringControlPage() {
   const [currentTab, setCurrentTab] = useState("electrical");
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 pt-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Engineering Control</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mt-1">
             Manage engineering activities, equipment, and resources across departments
           </p>
         </div>
