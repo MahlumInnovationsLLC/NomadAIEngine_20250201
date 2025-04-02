@@ -8,6 +8,7 @@ import ElectricalEngineeringPanel from "@/components/engineering/ElectricalEngin
 import MechanicalEngineeringPanel from "@/components/engineering/MechanicalEngineeringPanel";
 import ITEngineeringPanel from "@/components/engineering/ITEngineeringPanel";
 import NTCEngineeringPanel from "@/components/engineering/NTCEngineeringPanel";
+import RedlineModule from "@/components/engineering/RedlineModule";
 
 export default function EngineeringControlPage() {
   const [currentTab, setCurrentTab] = useState("electrical");
@@ -23,7 +24,7 @@ export default function EngineeringControlPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -72,6 +73,18 @@ export default function EngineeringControlPage() {
             </p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Redlines</CardTitle>
+            <FontAwesomeIcon icon="pencil-ruler" className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">12</div>
+            <p className="text-xs text-muted-foreground">
+              Drawing changes awaiting review
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs 
@@ -80,7 +93,7 @@ export default function EngineeringControlPage() {
         onValueChange={setCurrentTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="electrical">
             <FontAwesomeIcon icon="bolt" className="mr-2 h-4 w-4" />
             Electrical
@@ -96,6 +109,10 @@ export default function EngineeringControlPage() {
           <TabsTrigger value="ntc">
             <FontAwesomeIcon icon="flask" className="mr-2 h-4 w-4" />
             NTC
+          </TabsTrigger>
+          <TabsTrigger value="redline">
+            <FontAwesomeIcon icon="drafting-compass" className="mr-2 h-4 w-4" />
+            Redline & Team
           </TabsTrigger>
         </TabsList>
         
@@ -113,6 +130,10 @@ export default function EngineeringControlPage() {
         
         <TabsContent value="ntc" className="space-y-4">
           <NTCEngineeringPanel />
+        </TabsContent>
+
+        <TabsContent value="redline" className="space-y-4">
+          <RedlineModule />
         </TabsContent>
       </Tabs>
     </div>

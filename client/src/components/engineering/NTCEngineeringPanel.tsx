@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import NTCAARPanel from "./aar/NTCAARPanel";
+import RedlineSubmissionPanel from "./redline/RedlineSubmissionPanel";
 
 // Software development projects data
 const activeProjects = [
