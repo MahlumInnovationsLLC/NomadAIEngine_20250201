@@ -25,6 +25,7 @@ const msalInstance = new PublicClientApplication(msalConfig);
 const Home = lazy(() => import("./pages/Home"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const EngineeringControlPage = lazy(() => import("./pages/EngineeringControlPage"));
 const ManufacturingControlPage = lazy(() => import("./pages/ManufacturingControlPage"));
 const ManufacturingPage = lazy(() => import("./pages/manufacturing"));
 const ManufacturingQualityTemplatesPage = lazy(() => import("./pages/ManufacturingQualityTemplatesPage"));
@@ -134,6 +135,7 @@ function App() {
                   <Route path="/material-handling" component={() => <ProtectedRoute component={MaterialHandling} />} />
                   <Route path="/facility-control" component={() => <ProtectedRoute component={FacilityControlPage} />} />
                   <Route path="/field-service" component={() => <ProtectedRoute component={FieldServiceDashboard} />} />
+                  <Route path="/engineering-control" component={() => <ProtectedRoute component={EngineeringControlPage} />} />
                   <Route path="/docmanage" component={() => <ProtectedRoute component={DocumentManagementPage} />} />
                   <Route path="/manufacturing/quality-inspection/:templateId" component={() => <ProtectedRoute component={ManufacturingQualityInspectionPage} />} />
                   <Route path="/debug/connection-test" component={ConnectionTest} />

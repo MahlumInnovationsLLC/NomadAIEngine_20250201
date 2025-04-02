@@ -118,6 +118,13 @@ export default function Navbar() {
               </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
+              <Link href="/engineering-control">
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  Engineering
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
               <Link href="/sales-control">
                 <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                   Sales
