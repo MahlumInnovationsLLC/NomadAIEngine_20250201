@@ -73,7 +73,18 @@ import {
   faFilePdf,
   faMicroscope,
   faDownload,
-  faClipboardCheck
+  faClipboardCheck,
+  faComment,
+  faEllipsisVertical,
+  faTools,
+  faUserHardHat,
+  faGraduationCap,
+  faPencilRuler,
+  faBolt,
+  faCogs,
+  faNetworkWired,
+  faFlask,
+  faUsersGear
 } from '@fortawesome/pro-light-svg-icons';
 import { faWindows } from '@fortawesome/free-brands-svg-icons';
 
@@ -147,7 +158,18 @@ library.add(
   faFilePdf,
   faMicroscope, 
   faDownload,
-  faClipboardCheck
+  faClipboardCheck,
+  faComment,
+  faEllipsisVertical,
+  faTools,
+  faUserHardHat,
+  faGraduationCap,
+  faPencilRuler,
+  faBolt,
+  faCogs,
+  faNetworkWired,
+  faFlask,
+  faUsersGear
 );
 
 export interface FontAwesomeIconProps extends HTMLAttributes<SVGSVGElement> {
@@ -227,7 +249,18 @@ const iconMap: Record<string, IconDefinition> = {
   'file-pdf': faFilePdf,
   'microscope': faMicroscope,
   'download': faDownload,
-  'clipboard-check': faClipboardCheck
+  'clipboard-check': faClipboardCheck,
+  'comment': faComment,
+  'ellipsis-vertical': faEllipsisVertical,
+  'tools': faTools,
+  'user-hard-hat': faUserHardHat,
+  'graduation-cap': faGraduationCap,
+  'pencil-ruler': faPencilRuler,
+  'bolt': faBolt,
+  'cogs': faCogs,
+  'network-wired': faNetworkWired,
+  'flask': faFlask,
+  'users-gear': faUsersGear
 };
 
 export function FontAwesomeIcon({

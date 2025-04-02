@@ -33,6 +33,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Project } from "@/types/manufacturing";
 import ElectricalAARPanel from "./aar/ElectricalAARPanel";
+import { useLocation } from "wouter";
 
 // Interface for engineering projects, enhanced with electrical-specific fields
 interface EngineeringProject {
@@ -145,6 +146,7 @@ export default function ElectricalEngineeringPanel() {
   const [selectedProject, setSelectedProject] = useState<EngineeringProject | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [, setLocation] = useLocation();
 
   // Fetch manufacturing projects
   const { data: manufacturingProjects = [], isLoading: isLoadingProjects } = useQuery<Project[]>({
@@ -214,6 +216,26 @@ export default function ElectricalEngineeringPanel() {
   const handleLinkProject = (project: EngineeringProject) => {
     setSelectedProject(project);
     setShowLinkDialog(true);
+  };
+  
+  // Navigate to manufacturing module to view project
+  const handleViewInManufacturing = (projectId: string) => {
+    setShowDetailsDialog(false);
+    setLocation(`/manufacturing?projectId=${projectId}`);
+  };
+  
+  // Edit project handler
+  const handleEditProject = (project: EngineeringProject) => {
+    // For now, we'll just show the details dialog
+    // In a real implementation, this would open an edit form
+    setSelectedProject(project);
+    setShowDetailsDialog(true);
+  };
+  
+  // Manage team handler 
+  const handleManageTeam = (project: EngineeringProject) => {
+    // In a real implementation, this would open a team management dialog
+    console.log("Managing team for project:", project.id);
   };
 
   return (
@@ -350,11 +372,11 @@ export default function ElectricalEngineeringPanel() {
                               <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditProject(project)}>
                               <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
                               Edit Project
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleManageTeam(project)}>
                               <FontAwesomeIcon icon="users" className="mr-2 h-4 w-4" />
                               Manage Team
                             </DropdownMenuItem>
@@ -598,7 +620,12 @@ export default function ElectricalEngineeringPanel() {
                       <span className="text-sm font-medium">{selectedProject.eeAssigned}</span>
                     </div>
                   )}
-                  <Button size="sm" variant="outline" className="mt-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => handleViewInManufacturing(selectedProject.linkedManufacturingProject)}
+                  >
                     <FontAwesomeIcon icon="external-link" className="mr-2 h-4 w-4" />
                     View in Manufacturing Module
                   </Button>
@@ -608,7 +635,7 @@ export default function ElectricalEngineeringPanel() {
             
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>Close</Button>
-              <Button>
+              <Button onClick={() => handleEditProject(selectedProject)}>
                 <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
                 Edit Project
               </Button>

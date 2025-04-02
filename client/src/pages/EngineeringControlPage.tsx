@@ -111,8 +111,8 @@ export default function EngineeringControlPage() {
             NTC
           </TabsTrigger>
           <TabsTrigger value="redline">
-            <FontAwesomeIcon icon="drafting-compass" className="mr-2 h-4 w-4" />
-            Redline & Team
+            <FontAwesomeIcon icon="pencil-ruler" className="mr-2 h-4 w-4" />
+            Redlines
           </TabsTrigger>
         </TabsList>
         
