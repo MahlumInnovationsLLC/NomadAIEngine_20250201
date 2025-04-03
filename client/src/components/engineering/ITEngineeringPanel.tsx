@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/dialog";
 import { useLocation } from "wouter";
 import ITAARPanel from "./aar/ITAARPanel";
+import { RedlineProvider } from "./redline/RedlineContext";
+import DepartmentRedlinePanel from "./redline/DepartmentRedlinePanel";
 
 // Mock data - would be replaced with actual data from API
 const activeProjects: ITProject[] = [
@@ -176,7 +178,7 @@ export default function ITEngineeringPanel() {
       </div>
 
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="projects">
             <FontAwesomeIcon icon="project-diagram" className="mr-2 h-4 w-4" />
             Projects
@@ -188,6 +190,10 @@ export default function ITEngineeringPanel() {
           <TabsTrigger value="planning">
             <FontAwesomeIcon icon="calendar" className="mr-2 h-4 w-4" />
             Planning
+          </TabsTrigger>
+          <TabsTrigger value="redlines">
+            <FontAwesomeIcon icon="pencil-ruler" className="mr-2 h-4 w-4" />
+            Redlines
           </TabsTrigger>
           <TabsTrigger value="aar">
             <FontAwesomeIcon icon="clipboard-check" className="mr-2 h-4 w-4" />
@@ -485,6 +491,12 @@ export default function ITEngineeringPanel() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="redlines" className="space-y-4">
+          <RedlineProvider>
+            <DepartmentRedlinePanel department="IT" />
+          </RedlineProvider>
         </TabsContent>
 
         <TabsContent value="aar" className="space-y-4">
