@@ -350,7 +350,9 @@ export default function DepartmentRedlinePanel({ department }: DepartmentRedline
       </CardContent>
     </Card>
     
-    <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
+    <Dialog
+        open={isSubmitDialogOpen}
+        onOpenChange={setIsSubmitDialogOpen}>
       {/* Redline Submit/Edit Dialog */}
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
