@@ -251,307 +251,309 @@ export default function DepartmentRedlinePanel({ department }: DepartmentRedline
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>{department} Department Redlines</CardTitle>
-            <CardDescription>
-              Manage redline submissions for {department} engineering
-            </CardDescription>
-          </div>
-          <Button onClick={() => {
-            setSelectedSubmission(null);
-            setIsSubmitDialogOpen(true);
-          }}>
-            <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-            New Redline
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {departmentRedlines.length === 0 ? (
-          <div className="text-center py-6">
-            <FontAwesomeIcon icon="clipboard-list" className="h-10 w-10 text-muted-foreground mb-3" />
-            <h3 className="text-lg font-medium mb-1">No redline submissions</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              There are currently no redline submissions for the {department} department.
-            </p>
-            <Button onClick={() => setIsSubmitDialogOpen(true)}>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>{department} Department Redlines</CardTitle>
+              <CardDescription>
+                Manage redline submissions for {department} engineering
+              </CardDescription>
+            </div>
+            <Button onClick={() => {
+              setSelectedSubmission(null);
+              setIsSubmitDialogOpen(true);
+            }}>
               <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
-              Create Redline Submission
+              New Redline
             </Button>
           </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {departmentRedlines.map((submission) => (
-                <TableRow key={submission.id}>
-                  <TableCell className="font-medium">{submission.id}</TableCell>
-                  <TableCell>{submission.title}</TableCell>
-                  <TableCell>{submission.projectNumber}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(submission.status)}>
-                      {submission.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getPriorityVariant(submission.priority)}>
-                      {submission.priority}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{submission.submittedDate}</TableCell>
-                  <TableCell>{submission.assignedTo}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleViewRedline(submission)}>
-                          <FontAwesomeIcon icon="eye" className="h-4 w-4 mr-2" />
-                          <span>View</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEditRedline(submission)}>
-                          <FontAwesomeIcon icon="edit" className="h-4 w-4 mr-2" />
-                          <span>Edit</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleCommentRedline(submission)}>
-                          <FontAwesomeIcon icon="comment" className="h-4 w-4 mr-2" />
-                          <span>Comment</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
-                          <FontAwesomeIcon icon="trash" className="h-4 w-4 mr-2" />
-                          <span>Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+        </CardHeader>
+        <CardContent>
+          {departmentRedlines.length === 0 ? (
+            <div className="text-center py-6">
+              <FontAwesomeIcon icon="clipboard-list" className="h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-lg font-medium mb-1">No redline submissions</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                There are currently no redline submissions for the {department} department.
+              </p>
+              <Button onClick={() => setIsSubmitDialogOpen(true)}>
+                <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
+                Create Redline Submission
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Assigned To</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
-    
-    <Dialog
+              </TableHeader>
+              <TableBody>
+                {departmentRedlines.map((submission) => (
+                  <TableRow key={submission.id}>
+                    <TableCell className="font-medium">{submission.id}</TableCell>
+                    <TableCell>{submission.title}</TableCell>
+                    <TableCell>{submission.projectNumber}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(submission.status)}>
+                        {submission.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getPriorityVariant(submission.priority)}>
+                        {submission.priority}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{submission.submittedDate}</TableCell>
+                    <TableCell>{submission.assignedTo}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewRedline(submission)}>
+                            <FontAwesomeIcon icon="eye" className="h-4 w-4 mr-2" />
+                            <span>View</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditRedline(submission)}>
+                            <FontAwesomeIcon icon="edit" className="h-4 w-4 mr-2" />
+                            <span>Edit</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCommentRedline(submission)}>
+                            <FontAwesomeIcon icon="comment" className="h-4 w-4 mr-2" />
+                            <span>Comment</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600">
+                            <FontAwesomeIcon icon="trash" className="h-4 w-4 mr-2" />
+                            <span>Delete</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+      
+      <Dialog
         open={isSubmitDialogOpen}
         onOpenChange={setIsSubmitDialogOpen}>
-      {/* Redline Submit/Edit Dialog */}
-      <DialogContent className="sm:max-w-[550px]">
-        <DialogHeader>
-          <DialogTitle>{selectedSubmission ? "Edit Redline Submission" : "Submit Drawing Change Request"}</DialogTitle>
-          <DialogDescription>
-            {selectedSubmission 
-              ? "Edit the details of your redline submission" 
-              : "Upload marked drawings or CAD files with requested changes for engineering review."}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Brief description of the changes" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="grid grid-cols-2 gap-4">
+        {/* Redline Submit/Edit Dialog */}
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>{selectedSubmission ? "Edit Redline Submission" : "Submit Drawing Change Request"}</DialogTitle>
+            <DialogDescription>
+              {selectedSubmission 
+                ? "Edit the details of your redline submission" 
+                : "Upload marked drawings or CAD files with requested changes for engineering review."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="projectNumber"
+                name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Project Number</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select project" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="PRJ-2025-001">PRJ-2025-001</SelectItem>
-                        <SelectItem value="PRJ-2025-002">PRJ-2025-002</SelectItem>
-                        <SelectItem value="PRJ-2025-003">PRJ-2025-003</SelectItem>
-                        <SelectItem value="PRJ-2025-004">PRJ-2025-004</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="requestor"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Requestor</FormLabel>
+                    <FormLabel>Title</FormLabel>
                     <FormControl>
-                      <Input placeholder="Your name" {...field} />
+                      <Input placeholder="Brief description of the changes" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="projectNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Project Number</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select project" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="PRJ-2025-001">PRJ-2025-001</SelectItem>
+                          <SelectItem value="PRJ-2025-002">PRJ-2025-002</SelectItem>
+                          <SelectItem value="PRJ-2025-003">PRJ-2025-003</SelectItem>
+                          <SelectItem value="PRJ-2025-004">PRJ-2025-004</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="requestor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Requestor</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select department" />
-                        </SelectTrigger>
+                        <Input placeholder="Your name" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Electrical">Electrical</SelectItem>
-                        <SelectItem value="Mechanical">Mechanical</SelectItem>
-                        <SelectItem value="IT">IT</SelectItem>
-                        <SelectItem value="NTC">NTC</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Electrical">Electrical</SelectItem>
+                          <SelectItem value="Mechanical">Mechanical</SelectItem>
+                          <SelectItem value="IT">IT</SelectItem>
+                          <SelectItem value="NTC">NTC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priority</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               
               <FormField
                 control={form.control}
-                name="priority"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Priority</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select priority" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Low">Low</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="High">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Detailed description of the changes required" 
-                      className="h-24" 
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="attachmentName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Attachment</FormLabel>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="attachmentFile"
-                      type="file"
-                      accept=".pdf,.dwg,.dxf"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
+                    <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Upload a file"
-                        readOnly
-                        value={field.value || ""}
-                        onClick={() => document.getElementById('attachmentFile')?.click()}
+                      <Textarea 
+                        placeholder="Detailed description of the changes required" 
+                        className="h-24" 
+                        {...field} 
                       />
                     </FormControl>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => document.getElementById('attachmentFile')?.click()}
-                    >
-                      <FontAwesomeIcon icon="upload" className="mr-2 h-4 w-4" />
-                      Browse
-                    </Button>
-                  </div>
-                  <FormDescription>
-                    Upload marked drawings, CAD files, or PDFs for engineering review.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => {
-                setIsSubmitDialogOpen(false);
-                setSelectedSubmission(null);
-                form.reset();
-                setFileInput(null);
-              }}>
-                Cancel
-              </Button>
-              <Button type="submit">
-                {selectedSubmission ? "Save Changes" : "Submit Request"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="attachmentName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Attachment</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="attachmentFile"
+                        type="file"
+                        accept=".pdf,.dwg,.dxf"
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Upload a file"
+                          readOnly
+                          value={field.value || ""}
+                          onClick={() => document.getElementById('attachmentFile')?.click()}
+                        />
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => document.getElementById('attachmentFile')?.click()}
+                      >
+                        <FontAwesomeIcon icon="upload" className="mr-2 h-4 w-4" />
+                        Browse
+                      </Button>
+                    </div>
+                    <FormDescription>
+                      Upload marked drawings, CAD files, or PDFs for engineering review.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="outline" onClick={() => {
+                  setIsSubmitDialogOpen(false);
+                  setSelectedSubmission(null);
+                  form.reset();
+                  setFileInput(null);
+                }}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {selectedSubmission ? "Save Changes" : "Submit Request"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
