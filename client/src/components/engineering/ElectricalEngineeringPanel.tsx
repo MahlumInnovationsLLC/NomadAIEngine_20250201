@@ -34,6 +34,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Project } from "@/types/manufacturing";
 import ElectricalAARPanel from "./aar/ElectricalAARPanel";
 import { useLocation } from "wouter";
+import { RedlineProvider } from "./redline/RedlineContext";
+import DepartmentRedlinePanel from "./redline/DepartmentRedlinePanel";
 
 // Interface for engineering projects, enhanced with electrical-specific fields
 interface EngineeringProject {
@@ -219,9 +221,11 @@ export default function ElectricalEngineeringPanel() {
   };
   
   // Navigate to manufacturing module to view project
-  const handleViewInManufacturing = (projectId: string) => {
-    setShowDetailsDialog(false);
-    setLocation(`/manufacturing?projectId=${projectId}`);
+  const handleViewInManufacturing = (projectId: string | undefined) => {
+    if (projectId) {
+      setShowDetailsDialog(false);
+      setLocation(`/manufacturing?projectId=${projectId}`);
+    }
   };
   
   // Edit project handler
@@ -271,7 +275,7 @@ export default function ElectricalEngineeringPanel() {
       </div>
 
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="projects">
             <FontAwesomeIcon icon="tasks" className="mr-2 h-4 w-4" />
             Projects
@@ -283,6 +287,10 @@ export default function ElectricalEngineeringPanel() {
           <TabsTrigger value="equipment">
             <FontAwesomeIcon icon="tools" className="mr-2 h-4 w-4" />
             Equipment
+          </TabsTrigger>
+          <TabsTrigger value="redlines">
+            <FontAwesomeIcon icon="pencil-ruler" className="mr-2 h-4 w-4" />
+            Redlines
           </TabsTrigger>
           <TabsTrigger value="aar">
             <FontAwesomeIcon icon="clipboard-check" className="mr-2 h-4 w-4" />
@@ -516,6 +524,12 @@ export default function ElectricalEngineeringPanel() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="redlines" className="space-y-4">
+          <RedlineProvider>
+            <DepartmentRedlinePanel department="Electrical" />
+          </RedlineProvider>
+        </TabsContent>
+
         <TabsContent value="aar" className="space-y-4">
           <ElectricalAARPanel />
         </TabsContent>
@@ -620,15 +634,17 @@ export default function ElectricalEngineeringPanel() {
                       <span className="text-sm font-medium">{selectedProject.eeAssigned}</span>
                     </div>
                   )}
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="mt-2"
-                    onClick={() => handleViewInManufacturing(selectedProject.linkedManufacturingProject)}
-                  >
-                    <FontAwesomeIcon icon="external-link" className="mr-2 h-4 w-4" />
-                    View in Manufacturing Module
-                  </Button>
+                  {selectedProject.linkedManufacturingProject && (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={() => handleViewInManufacturing(selectedProject.linkedManufacturingProject)}
+                    >
+                      <FontAwesomeIcon icon="external-link" className="mr-2 h-4 w-4" />
+                      View in Manufacturing Module
+                    </Button>
+                  )}
                 </div>
               </div>
             )}

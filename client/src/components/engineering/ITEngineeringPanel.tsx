@@ -14,10 +14,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useLocation } from "wouter";
 import ITAARPanel from "./aar/ITAARPanel";
 
 // Mock data - would be replaced with actual data from API
-const activeProjects = [
+const activeProjects: ITProject[] = [
   { 
     id: "ITP-001", 
     name: "Manufacturing Execution System Integration", 
@@ -26,7 +43,9 @@ const activeProjects = [
     leadEngineer: "Alex Johnson",
     startDate: "2025-02-10",
     endDate: "2025-05-15",
-    status: "On Track"
+    status: "On Track",
+    description: "Integration of shop floor activities with enterprise systems for real-time manufacturing intelligence and control.",
+    linkedManufacturingProject: "MFG-2025-001"
   },
   { 
     id: "ITP-002", 
@@ -36,7 +55,8 @@ const activeProjects = [
     leadEngineer: "Samantha Lee",
     startDate: "2025-03-01",
     endDate: "2025-06-30",
-    status: "At Risk"
+    status: "At Risk",
+    description: "Implementation of facility-wide IoT sensor network for machine health monitoring and predictive maintenance."
   },
   { 
     id: "ITP-003", 
@@ -46,7 +66,8 @@ const activeProjects = [
     leadEngineer: "Marcus Chen",
     startDate: "2025-01-15",
     endDate: "2025-04-20",
-    status: "On Track"
+    status: "On Track",
+    description: "Expanding the existing data analytics platform with machine learning capabilities for production optimization."
   },
   { 
     id: "ITP-004", 
@@ -56,7 +77,8 @@ const activeProjects = [
     leadEngineer: "Rachel Kim",
     startDate: "2025-03-10",
     endDate: "2025-07-01",
-    status: "On Track"
+    status: "On Track",
+    description: "Upgrading facility network infrastructure to support increased bandwidth demands and improve security posture."
   },
 ];
 
@@ -68,8 +90,55 @@ const engineers = [
   { id: "IT-005", name: "Daniel Garcia", specialization: "Cybersecurity", availability: "Medium", activeProjects: 2 },
 ];
 
+interface ITProject {
+  id: string;
+  name: string;
+  progress: number;
+  priority: string;
+  leadEngineer: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  description?: string;
+  linkedManufacturingProject?: string;
+}
+
 export default function ITEngineeringPanel() {
   const [currentTab, setCurrentTab] = useState("projects");
+  const [selectedProject, setSelectedProject] = useState<ITProject | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [, setLocation] = useLocation();
+  
+  // Handler for viewing project details
+  const handleViewDetails = (project: ITProject) => {
+    setSelectedProject(project);
+    setShowDetailsDialog(true);
+  };
+  
+  // Handler for editing a project
+  const handleEditProject = (project: ITProject) => {
+    // Navigate to edit project page or open edit dialog
+    console.log("Edit project:", project);
+  };
+  
+  // Handler for managing project team
+  const handleManageTeam = (project: ITProject) => {
+    // Navigate to team management page or open team dialog
+    console.log("Manage team for project:", project);
+  };
+  
+  // Handler for exporting project details
+  const handleExportDetails = (project: ITProject) => {
+    // Logic to export project details to a file
+    console.log("Export details for project:", project);
+  };
+  
+  // Handler for navigating to the Manufacturing Module
+  const handleViewInManufacturing = (project: ITProject) => {
+    if (project.linkedManufacturingProject) {
+      setLocation(`/manufacturing?projectId=${project.linkedManufacturingProject}`);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -178,12 +247,38 @@ export default function ITEngineeringPanel() {
                       </TableCell>
                       <TableCell>{project.endDate}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon">
-                          <FontAwesomeIcon icon="edit" className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon">
-                          <FontAwesomeIcon icon="eye" className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <FontAwesomeIcon icon="ellipsis-vertical" className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleViewDetails(project)}>
+                              <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditProject(project)}>
+                              <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+                              Edit Project
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleManageTeam(project)}>
+                              <FontAwesomeIcon icon="users" className="mr-2 h-4 w-4" />
+                              Manage Team
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleExportDetails(project)}>
+                              <FontAwesomeIcon icon="file-export" className="mr-2 h-4 w-4" />
+                              Export Details
+                            </DropdownMenuItem>
+                            {project.linkedManufacturingProject && (
+                              <DropdownMenuItem onClick={() => handleViewInManufacturing(project)}>
+                                <FontAwesomeIcon icon="industry" className="mr-2 h-4 w-4" />
+                                View in Manufacturing
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -396,6 +491,122 @@ export default function ITEngineeringPanel() {
           <ITAARPanel />
         </TabsContent>
       </Tabs>
+      
+      {/* Project Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Project Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the IT engineering project
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedProject && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Project ID</h4>
+                  <p className="text-sm">{selectedProject.id}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Name</h4>
+                  <p className="text-sm">{selectedProject.name}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Lead Engineer</h4>
+                  <p className="text-sm">{selectedProject.leadEngineer}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Status</h4>
+                  <Badge variant={selectedProject.status === "On Track" ? "outline" : "destructive"}>
+                    {selectedProject.status}
+                  </Badge>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Priority</h4>
+                  <Badge variant={
+                    selectedProject.priority === "Critical" ? "destructive" :
+                    selectedProject.priority === "High" ? "default" : "secondary"
+                  }>
+                    {selectedProject.priority}
+                  </Badge>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Progress</h4>
+                  <div className="flex items-center gap-2">
+                    <Progress value={selectedProject.progress} className="h-2 w-[100px]" />
+                    <span className="text-xs">{selectedProject.progress}%</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Start Date</h4>
+                  <p className="text-sm">{selectedProject.startDate}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">End Date</h4>
+                  <p className="text-sm">{selectedProject.endDate}</p>
+                </div>
+              </div>
+              
+              {selectedProject.description && (
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Description</h4>
+                  <p className="text-sm text-muted-foreground">{selectedProject.description}</p>
+                </div>
+              )}
+              
+              {selectedProject.linkedManufacturingProject && (
+                <div className="flex flex-col space-y-2">
+                  <h4 className="text-sm font-medium mb-1">Linked Manufacturing Project</h4>
+                  <p className="text-sm">{selectedProject.linkedManufacturingProject}</p>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="self-start"
+                    onClick={() => handleViewInManufacturing(selectedProject)}
+                  >
+                    <FontAwesomeIcon icon="external-link" className="mr-2 h-4 w-4" />
+                    View in Manufacturing Module
+                  </Button>
+                </div>
+              )}
+              
+              <div className="mt-4 p-3 bg-muted rounded-md">
+                <h4 className="text-sm font-medium mb-2">Technical Details</h4>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-xs font-medium mb-1">System Type</h4>
+                      <p className="text-sm">Enterprise Integration</p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-medium mb-1">Technology Stack</h4>
+                      <p className="text-sm">Node.js, Azure Services, SQL</p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-medium mb-1">Deployment Method</h4>
+                      <p className="text-sm">CI/CD Pipeline</p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-medium mb-1">Estimated Resources</h4>
+                      <p className="text-sm">3 Engineers, 850 hours</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>Close</Button>
+            <Button onClick={() => handleEditProject(selectedProject!)}>
+              <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+              Edit Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

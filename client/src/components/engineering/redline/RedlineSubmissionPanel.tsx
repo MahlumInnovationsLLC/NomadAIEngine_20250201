@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -59,6 +59,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 
+import { useRedline, RedlineSubmission } from "./RedlineContext";
+
 // Define the schema for redline submission form
 const redlineFormSchema = z.object({
   title: z.string().min(2, {
@@ -82,99 +84,23 @@ const redlineFormSchema = z.object({
   attachmentName: z.string().optional(),
 });
 
-// Mock data for redline submissions (would be replaced with actual API data)
-const mockRedlineSubmissions = [
-  {
-    id: "RED-001",
-    title: "Update PCB Layout for Control Board",
-    projectNumber: "PRJ-2025-001",
-    requestor: "John Smith",
-    department: "Electrical",
-    submittedBy: "John Smith",
-    submittedDate: "2025-03-15",
-    status: "Pending",
-    priority: "High",
-    assignedTo: "Elizabeth Parker",
-    description: "The current PCB layout needs modification to accommodate the new sensor array and improve signal integrity. Additional ground planes are required around the sensitive analog components.",
-    attachments: [
-      {
-        fileName: "Drawing_Rev2_with_redlines.pdf",
-        fileType: "application/pdf",
-        fileSize: "2.4 MB",
-        filePath: "/path/to/Drawing_Rev2_with_redlines.pdf" // This would be a server path in production
-      }
-    ]
-  },
-  {
-    id: "RED-002",
-    title: "Adjust Clearance in Mounting Bracket",
-    projectNumber: "PRJ-2025-002",
-    requestor: "Sarah Johnson",
-    department: "Mechanical",
-    submittedBy: "Sarah Johnson",
-    submittedDate: "2025-03-18",
-    status: "In Review",
-    priority: "Medium",
-    assignedTo: "Robert Chen",
-    description: "The current mounting bracket has insufficient clearance for the new cooler assembly. Need to adjust dimensions according to the marked drawings.",
-    attachments: [
-      {
-        fileName: "Bracket_Design_Rev3.pdf",
-        fileType: "application/pdf",
-        fileSize: "1.8 MB",
-        filePath: "/path/to/Bracket_Design_Rev3.pdf"
-      }
-    ]
-  },
-  {
-    id: "RED-003",
-    title: "Update Network Topology Diagram",
-    projectNumber: "PRJ-2025-003",
-    requestor: "Michael Brown",
-    department: "IT",
-    submittedBy: "Michael Brown",
-    submittedDate: "2025-03-20",
-    status: "Approved",
-    priority: "Low",
-    assignedTo: "David Garcia",
-    description: "Network topology diagram needs to be updated to reflect the new redundant switches and security zones implementation.",
-    attachments: [
-      {
-        fileName: "Network_Topology_Rev2.pdf",
-        fileType: "application/pdf",
-        fileSize: "1.2 MB",
-        filePath: "/path/to/Network_Topology_Rev2.pdf"
-      }
-    ]
-  },
-  {
-    id: "RED-004",
-    title: "Modify API Interface Documentation",
-    projectNumber: "PRJ-2025-004",
-    requestor: "Jessica Lee",
-    department: "NTC",
-    submittedBy: "Jessica Lee",
-    submittedDate: "2025-03-22",
-    status: "Pending",
-    priority: "High",
-    assignedTo: "Alex Chen",
-    description: "The API interface documentation needs to be updated to include the new endpoints and authentication requirements.",
-    attachments: [
-      {
-        fileName: "API_Interface_Spec_Rev5.pdf",
-        fileType: "application/pdf",
-        fileSize: "3.1 MB",
-        filePath: "/path/to/API_Interface_Spec_Rev5.pdf"
-      }
-    ]
-  },
-];
-
 export default function RedlineSubmissionPanel() {
-  const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isCommentDialogOpen, setIsCommentDialogOpen] = useState(false);
-  const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+  // Use the redline context
+  const {
+    redlineSubmissions,
+    addRedlineSubmission,
+    updateRedlineSubmission,
+    deleteRedlineSubmission,
+    selectedSubmission,
+    setSelectedSubmission,
+    isSubmitDialogOpen,
+    setIsSubmitDialogOpen,
+    isViewDialogOpen,
+    setIsViewDialogOpen,
+    isCommentDialogOpen,
+    setIsCommentDialogOpen
+  } = useRedline();
+
   const [fileInput, setFileInput] = useState<File | null>(null);
   const [activeAttachment, setActiveAttachment] = useState<number>(0);
   const [commentText, setCommentText] = useState("");
@@ -288,6 +214,10 @@ export default function RedlineSubmissionPanel() {
         description: "Please enter a comment before submitting.",
         variant: "destructive"
       });
+      return;
+    }
+    
+    if (!selectedSubmission) {
       return;
     }
     
@@ -555,7 +485,7 @@ export default function RedlineSubmissionPanel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockRedlineSubmissions.map((submission) => (
+              {redlineSubmissions.map((submission) => (
                 <TableRow key={submission.id}>
                   <TableCell className="font-medium">{submission.id}</TableCell>
                   <TableCell>{submission.title}</TableCell>

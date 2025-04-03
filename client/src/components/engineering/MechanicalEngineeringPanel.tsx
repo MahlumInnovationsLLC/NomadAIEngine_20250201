@@ -22,7 +22,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useLocation } from "wouter";
 import MechanicalAARPanel from "./aar/MechanicalAARPanel";
+import { RedlineProvider } from "./redline/RedlineContext";
+import DepartmentRedlinePanel from "./redline/DepartmentRedlinePanel";
 
 // Mock data for Mechanical engineering projects
 const projects = [
@@ -35,7 +46,10 @@ const projects = [
     status: "On Track",
     startDate: "2025-01-10",
     endDate: "2025-05-15",
-    description: "Installing new automated material handling system for the assembly line"
+    description: "Installing new automated material handling system for the assembly line",
+    engineeringType: "Mechanical",
+    linkedManufacturingProject: "MFG-2025-003",
+    projectNumber: "MECH-2025-001"
   },
   { 
     id: "M-002", 
@@ -46,7 +60,9 @@ const projects = [
     status: "On Track",
     startDate: "2024-12-05",
     endDate: "2025-03-30",
-    description: "Optimizing HVAC systems for energy efficiency and improved climate control"
+    description: "Optimizing HVAC systems for energy efficiency and improved climate control",
+    engineeringType: "Mechanical",
+    projectNumber: "MECH-2025-002"
   },
   { 
     id: "M-003", 
@@ -57,7 +73,10 @@ const projects = [
     status: "At Risk",
     startDate: "2025-02-01",
     endDate: "2025-07-15",
-    description: "Retrofitting legacy CNC machines with modern control systems"
+    description: "Retrofitting legacy CNC machines with modern control systems",
+    engineeringType: "Mechanical",
+    linkedManufacturingProject: "MFG-2025-015",
+    projectNumber: "MECH-2025-003"
   },
   { 
     id: "M-004", 
@@ -68,7 +87,9 @@ const projects = [
     status: "On Track",
     startDate: "2025-01-20",
     endDate: "2025-04-10",
-    description: "Designing custom precision alignment jigs for the new product line"
+    description: "Designing custom precision alignment jigs for the new product line",
+    engineeringType: "Mechanical",
+    projectNumber: "MECH-2025-004"
   },
   { 
     id: "M-005", 
@@ -79,7 +100,9 @@ const projects = [
     status: "On Track",
     startDate: "2025-02-15",
     endDate: "2025-06-30",
-    description: "Upgrading plant-wide pneumatic systems for improved reliability and efficiency"
+    description: "Upgrading plant-wide pneumatic systems for improved reliability and efficiency",
+    engineeringType: "Mechanical",
+    projectNumber: "MECH-2025-005"
   }
 ];
 
@@ -101,8 +124,58 @@ const equipment = [
   { id: "ME-EQ-005", name: "Thermal Imaging Camera", status: "Available", lastCalibration: "2025-01-25", nextCalibration: "2025-07-25" },
 ];
 
+// Define an interface for mechanical engineering projects
+interface MechanicalProject {
+  id: string;
+  name: string;
+  description?: string;
+  projectNumber?: string;
+  progress: number;
+  priority: string;
+  leadEngineer: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  engineeringType?: string;
+  linkedManufacturingProject?: string;
+}
+
 export default function MechanicalEngineeringPanel() {
   const [currentTab, setCurrentTab] = useState("projects");
+  const [selectedProject, setSelectedProject] = useState<MechanicalProject | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [, setLocation] = useLocation();
+  
+  // Handler for viewing project details
+  const handleViewDetails = (project: MechanicalProject) => {
+    setSelectedProject(project);
+    setShowDetailsDialog(true);
+  };
+  
+  // Handler for editing a project
+  const handleEditProject = (project: MechanicalProject) => {
+    // Navigate to edit project page or open edit dialog
+    console.log("Edit project:", project);
+  };
+  
+  // Handler for managing project team
+  const handleManageTeam = (project: MechanicalProject) => {
+    // Navigate to team management page or open team dialog
+    console.log("Manage team for project:", project);
+  };
+  
+  // Handler for exporting project details
+  const handleExportDetails = (project: MechanicalProject) => {
+    // Logic to export project details to a file
+    console.log("Export details for project:", project);
+  };
+  
+  // Handler for navigating to the Manufacturing Module
+  const handleViewInManufacturing = (project: MechanicalProject) => {
+    if (project.linkedManufacturingProject) {
+      setLocation(`/manufacturing?projectId=${project.linkedManufacturingProject}`);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -137,7 +210,7 @@ export default function MechanicalEngineeringPanel() {
       </div>
 
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="projects">
             <FontAwesomeIcon icon="tasks" className="mr-2 h-4 w-4" />
             Projects
@@ -149,6 +222,10 @@ export default function MechanicalEngineeringPanel() {
           <TabsTrigger value="equipment">
             <FontAwesomeIcon icon="tools" className="mr-2 h-4 w-4" />
             Equipment
+          </TabsTrigger>
+          <TabsTrigger value="redlines">
+            <FontAwesomeIcon icon="pencil-ruler" className="mr-2 h-4 w-4" />
+            Redlines
           </TabsTrigger>
           <TabsTrigger value="aar">
             <FontAwesomeIcon icon="clipboard-check" className="mr-2 h-4 w-4" />
@@ -218,23 +295,29 @@ export default function MechanicalEngineeringPanel() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewDetails(project)}>
                               <FontAwesomeIcon icon="eye" className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditProject(project)}>
                               <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
                               Edit Project
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleManageTeam(project)}>
                               <FontAwesomeIcon icon="users" className="mr-2 h-4 w-4" />
                               Manage Team
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExportDetails(project)}>
                               <FontAwesomeIcon icon="file-export" className="mr-2 h-4 w-4" />
                               Export Details
                             </DropdownMenuItem>
+                            {project.linkedManufacturingProject && (
+                              <DropdownMenuItem onClick={() => handleViewInManufacturing(project)}>
+                                <FontAwesomeIcon icon="industry" className="mr-2 h-4 w-4" />
+                                View in Manufacturing
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -360,10 +443,105 @@ export default function MechanicalEngineeringPanel() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="redlines" className="space-y-4">
+          <RedlineProvider>
+            <DepartmentRedlinePanel department="Mechanical" />
+          </RedlineProvider>
+        </TabsContent>
+
         <TabsContent value="aar" className="space-y-4">
           <MechanicalAARPanel />
         </TabsContent>
       </Tabs>
+      
+      {/* Project Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Project Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the mechanical engineering project
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedProject && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Project ID</h4>
+                  <p className="text-sm">{selectedProject.id}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Name</h4>
+                  <p className="text-sm">{selectedProject.name}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Lead Engineer</h4>
+                  <p className="text-sm">{selectedProject.leadEngineer}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Status</h4>
+                  <Badge variant={selectedProject.status === "On Track" ? "outline" : "destructive"}>
+                    {selectedProject.status}
+                  </Badge>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Priority</h4>
+                  <Badge variant={
+                    selectedProject.priority === "Critical" ? "destructive" :
+                    selectedProject.priority === "High" ? "default" : "secondary"
+                  }>
+                    {selectedProject.priority}
+                  </Badge>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Progress</h4>
+                  <div className="flex items-center gap-2">
+                    <Progress value={selectedProject.progress} className="h-2 w-[100px]" />
+                    <span className="text-xs">{selectedProject.progress}%</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Start Date</h4>
+                  <p className="text-sm">{selectedProject.startDate}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium mb-1">End Date</h4>
+                  <p className="text-sm">{selectedProject.endDate}</p>
+                </div>
+              </div>
+              
+              {selectedProject.description && (
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Description</h4>
+                  <p className="text-sm">{selectedProject.description}</p>
+                </div>
+              )}
+              
+              {selectedProject.linkedManufacturingProject && (
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Linked Manufacturing Project</h4>
+                  <p className="text-sm">{selectedProject.linkedManufacturingProject}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            {selectedProject?.linkedManufacturingProject && (
+              <Button variant="outline" onClick={() => handleViewInManufacturing(selectedProject)}>
+                <FontAwesomeIcon icon="industry" className="mr-2 h-4 w-4" />
+                View in Manufacturing
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => selectedProject && handleEditProject(selectedProject)}>
+              <FontAwesomeIcon icon="edit" className="mr-2 h-4 w-4" />
+              Edit Project
+            </Button>
+            <Button onClick={() => setShowDetailsDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
