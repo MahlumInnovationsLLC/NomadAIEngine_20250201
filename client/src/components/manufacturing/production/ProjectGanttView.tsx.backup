@@ -1,3 +1,41 @@
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
+import { Scheduler } from "@aldabil/react-scheduler";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { Project } from "@/types/manufacturing";
+import { format, addWeeks, addDays, differenceInCalendarDays, parse, isSameDay } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { faPlus, faEdit, faTrash, faSave, faTimes, faLink, faChevronRight, faChevronDown } from "@fortawesome/pro-light-svg-icons";
+
+// Define the types we need from @aldabil/react-scheduler
+interface ProcessedEvent {
+  event_id: string | number;
+  title: string;
+  start: Date;
+  end: Date;
+  resource: string | number;
+  color?: string;
+  editable?: boolean;
+  deletable?: boolean;
+  project_id?: string;
+  [key: string]: any;
+}
+
+interface Resource {
+  id: string | number;
+  title: string;
+  subtitle?: string;
+  color?: string;
+  avatarSrc?: string | null;
+}
+
 // Gantt milestone interface
 interface GanttMilestone {
   id: string;
