@@ -17,6 +17,76 @@
   max-height: 70vh !important;
 }
 
+/* Gantt Chart Styling */
+.gantt-chart-container {
+  --day-column-width: 40px;
+  --row-height: 40px;
+  --timeline-height: 60px;
+}
+
+.gantt-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.gantt-timeline-header {
+  height: var(--timeline-height);
+  border-bottom: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  z-index: 10;
+}
+
+.day-column {
+  min-width: var(--day-column-width);
+  width: var(--day-column-width);
+  border-right: 1px solid hsl(var(--border) / 0.2);
+}
+
+.day-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: 0.25rem;
+}
+
+.day-header .month {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: hsl(var(--primary));
+  margin-bottom: 0.25rem;
+}
+
+.day-header .day {
+  font-size: 0.75rem;
+}
+
+.gantt-row {
+  height: var(--row-height);
+  border-bottom: 1px solid hsl(var(--border) / 0.2);
+  display: flex;
+}
+
+.gantt-milestone-name {
+  height: 100%;
+  border-right: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  display: flex;
+  align-items: center;
+  padding-left: 0.5rem;
+  font-size: 0.875rem;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+}
+
+.gantt-timeline-grid {
+  height: 100%;
+  position: relative;
+}
+
 .ocr-findings-list {
   max-height: 50vh !important;
   overflow-y: auto !important;
