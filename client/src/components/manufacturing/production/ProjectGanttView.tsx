@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -525,6 +525,13 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     }
   }
 
+  // States for milestone editing
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectMilestones, setProjectMilestones] = useState<GanttMilestone[]>([]);
+  const [showMilestoneDialog, setShowMilestoneDialog] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<GanttMilestone | null>(null);
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -546,40 +553,67 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       </Card>
     );
   }
-
-  // States for milestone editing
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [projectMilestones, setProjectMilestones] = useState<GanttMilestone[]>([]);
-  const [showMilestoneDialog, setShowMilestoneDialog] = useState(false);
-  const [editingMilestone, setEditingMilestone] = useState<GanttMilestone | null>(null);
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
   
-  // Function to toggle milestone tree nodes (expand/collapse)
-  const toggleMilestoneExpansion = (milestoneId: string) => {
+  // Define all functions after all hooks
+  const toggleMilestoneExpansion = useCallback((milestoneId: string) => {
     setProjectMilestones(prev => 
       prev.map(m => m.id === milestoneId ? {...m, isExpanded: !m.isExpanded} : m)
     );
-  };
+  }, [setProjectMilestones]);
   
-  // Function to handle milestone selection
-  const handleSelectMilestone = (milestone: GanttMilestone) => {
+  const handleSelectMilestone = useCallback((milestone: GanttMilestone) => {
     setSelectedMilestoneId(milestone.id);
-  };
+  }, [setSelectedMilestoneId]);
   
-  // Function to open milestone edit dialog
-  const handleEditMilestone = (milestone: GanttMilestone) => {
+  const handleEditMilestone = useCallback((milestone: GanttMilestone) => {
     setEditingMilestone(milestone);
     setShowMilestoneDialog(true);
-  };
+  }, [setEditingMilestone, setShowMilestoneDialog]);
   
   // Function to select a project and load its milestones
-  const handleSelectProject = (project: Project) => {
-    setSelectedProject(project);
+  const handleSelectProject = useCallback((project: Project) => {
+    if (!project || !project.id) {
+      console.error("Invalid project selected");
+      toast({
+        title: "Error",
+        description: "Could not load project details",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    // Generate or load milestones for the selected project
-    const milestones = generateStandardMilestones(project);
-    setProjectMilestones(milestones);
-  };
+    try {
+      setSelectedProject(project);
+      
+      // Generate or load milestones for the selected project
+      const milestones = generateStandardMilestones(project);
+      
+      // Validate the generated milestones before setting state
+      if (!Array.isArray(milestones)) {
+        console.error("Generated milestones is not an array");
+        setProjectMilestones([]);
+        return;
+      }
+      
+      // Filter out any invalid milestones
+      const validMilestones = milestones.filter(m => 
+        m && m.id && m.title && 
+        m.start instanceof Date && !isNaN(m.start.getTime()) &&
+        m.end instanceof Date && !isNaN(m.end.getTime())
+      );
+      
+      console.log(`Generated ${validMilestones.length} valid milestones for project ${project.projectNumber || project.id}`);
+      setProjectMilestones(validMilestones);
+    } catch (error) {
+      console.error("Error selecting project:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load project milestones",
+        variant: "destructive"
+      });
+      setProjectMilestones([]);
+    }
+  }, [toast, generateStandardMilestones, setSelectedProject, setProjectMilestones]);
   
   // Calculate number of days for the Gantt chart timeline
   const calculateTotalDays = (): number => {
@@ -605,101 +639,224 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   
   // Generate the timeline header with dates
   const generateTimelineHeader = () => {
-    if (!selectedProject || projectMilestones.length === 0) return [];
+    // Return empty array if no project or milestones
+    if (!selectedProject || !projectMilestones || projectMilestones.length === 0) {
+      console.log("No project or milestones selected for timeline header");
+      return [];
+    }
     
     try {
-      // Get the earliest start date
-      const startDates = projectMilestones
-        .filter(m => m.start instanceof Date || (typeof m.start === 'string' && !isNaN(new Date(m.start).getTime())))
-        .map(m => m.start instanceof Date ? m.start.getTime() : new Date(m.start).getTime());
+      // Get valid milestones with proper start dates
+      const validMilestones = projectMilestones.filter(m => 
+        m && m.start && 
+        ((m.start instanceof Date && !isNaN(m.start.getTime())) || 
+         (typeof m.start === 'string' && !isNaN(new Date(m.start).getTime())))
+      );
       
-      if (startDates.length === 0) return [];
+      if (validMilestones.length === 0) {
+        console.warn("No valid milestone dates found for timeline header");
+        
+        // If no valid milestones, generate a default timeline (today + 60 days)
+        const defaultStartDate = new Date();
+        const dayElements = [];
+        
+        for (let i = 0; i < 60; i++) {
+          const currentDate = new Date(defaultStartDate);
+          currentDate.setDate(currentDate.getDate() + i);
+          
+          const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+          const isFirstOfMonth = currentDate.getDate() === 1;
+          const isMonday = currentDate.getDay() === 1;
+          
+          dayElements.push(
+            <div 
+              key={`default-day-${i}`} 
+              className="gantt-timeline-day" 
+              style={{ 
+                backgroundColor: isWeekend ? '#f8f8f8' : 'white',
+                borderRight: isFirstOfMonth ? '2px solid #d0d0d0' : '1px solid #e0e0e0'
+              }}
+            >
+              <div className="gantt-timeline-day-number">
+                {currentDate.getDate()}
+              </div>
+              {(isFirstOfMonth || isMonday) && (
+                <div className="gantt-timeline-day-month">
+                  {format(currentDate, 'MMM')}
+                </div>
+              )}
+            </div>
+          );
+        }
+        
+        return dayElements;
+      }
       
+      // Get the earliest milestone start date
+      const startDates = validMilestones.map(m => 
+        m.start instanceof Date ? m.start.getTime() : new Date(m.start).getTime()
+      );
+      
+      // Find the minimum valid date
       const earliestDate = new Date(Math.min(...startDates));
+      if (isNaN(earliestDate.getTime())) {
+        console.error("Failed to calculate earliest date from milestone start dates");
+        return []; // Return empty array if calculation fails
+      }
       
       // Create a start date 5 days before the earliest milestone
       const startDate = new Date(earliestDate);
       startDate.setDate(startDate.getDate() - 5);
       
+      // Calculate total days for the timeline
       const totalDays = calculateTotalDays();
+      if (totalDays <= 0 || totalDays > 365) {
+        console.warn(`Invalid total days calculated: ${totalDays}, defaulting to 60`);
+        return []; // Return empty array if calculation gives unreasonable value
+      }
+      
+      // Generate day elements
       const dayElements = [];
       
-      // Generate a cell for each day
       for (let i = 0; i < totalDays; i++) {
-        const currentDate = new Date(startDate);
-        currentDate.setDate(currentDate.getDate() + i);
-        
-        const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
-        const isFirstOfMonth = currentDate.getDate() === 1;
-        const isMonday = currentDate.getDay() === 1;
-        
-        dayElements.push(
-          <div 
-            key={`day-${i}`} 
-            className="gantt-timeline-day" 
-            style={{ 
-              backgroundColor: isWeekend ? '#f8f8f8' : 'white',
-              borderRight: isFirstOfMonth ? '2px solid #d0d0d0' : '1px solid #e0e0e0'
-            }}
-          >
-            <div className="gantt-timeline-day-number">
-              {currentDate.getDate()}
-            </div>
-            {(isFirstOfMonth || isMonday) && (
-              <div className="gantt-timeline-day-month">
-                {format(currentDate, 'MMM')}
+        try {
+          const currentDate = new Date(startDate);
+          currentDate.setDate(currentDate.getDate() + i);
+          
+          // Skip this iteration if the date is invalid
+          if (isNaN(currentDate.getTime())) {
+            console.warn(`Invalid date created at index ${i}, skipping`);
+            continue;
+          }
+          
+          const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+          const isFirstOfMonth = currentDate.getDate() === 1;
+          const isMonday = currentDate.getDay() === 1;
+          
+          dayElements.push(
+            <div 
+              key={`day-${i}`} 
+              className="gantt-timeline-day" 
+              style={{ 
+                backgroundColor: isWeekend ? '#f8f8f8' : 'white',
+                borderRight: isFirstOfMonth ? '2px solid #d0d0d0' : '1px solid #e0e0e0'
+              }}
+            >
+              <div className="gantt-timeline-day-number">
+                {currentDate.getDate()}
               </div>
-            )}
-          </div>
-        );
+              {(isFirstOfMonth || isMonday) && (
+                <div className="gantt-timeline-day-month">
+                  {format(currentDate, 'MMM')}
+                </div>
+              )}
+            </div>
+          );
+        } catch (dayError) {
+          console.error(`Error generating day element at index ${i}:`, dayError);
+          // Continue with the next day
+        }
       }
       
       return dayElements;
     } catch (error) {
       console.error("Error generating timeline header:", error);
-      return [];
+      return []; // Return empty array on error
     }
   };
   
   // Calculate the pixel position of a milestone based on its start date
   const calculateStartPosition = (milestone: GanttMilestone): number => {
-    if (!selectedProject || !milestone) return 0;
+    if (!selectedProject || !milestone) {
+      return 0;
+    }
+    
+    // Safety check: ensure milestone has valid properties
+    if (!milestone.id || !milestone.start) {
+      console.warn("Missing required properties in milestone:", milestone.id);
+      return 0;
+    }
     
     try {
-      // Get the earliest start date
-      const startDates = projectMilestones
-        .filter(m => m.start instanceof Date || (typeof m.start === 'string' && !isNaN(new Date(m.start).getTime())))
-        .map(m => m.start instanceof Date ? m.start.getTime() : new Date(m.start).getTime());
+      // Check if we have valid projectMilestones array
+      if (!Array.isArray(projectMilestones) || projectMilestones.length === 0) {
+        console.warn("No project milestones available for position calculation");
+        return 0;
+      }
       
-      if (startDates.length === 0) return 0;
+      // Get only valid milestone dates
+      const validMilestones = projectMilestones.filter(m => 
+        m && m.start && 
+        ((m.start instanceof Date && !isNaN(m.start.getTime())) || 
+         (typeof m.start === 'string' && !isNaN(new Date(m.start).getTime())))
+      );
       
-      const earliestDate = new Date(Math.min(...startDates));
+      // If no valid milestones with dates, return default position
+      if (validMilestones.length === 0) {
+        console.warn("No valid milestone dates found for position calculation");
+        return 0;
+      }
       
-      // Create a start date 5 days before the earliest milestone
+      // Extract valid timestamps
+      const startDates = validMilestones.map(m => {
+        try {
+          return m.start instanceof Date ? 
+            m.start.getTime() : 
+            new Date(m.start).getTime();
+        } catch (dateErr) {
+          console.error("Error converting milestone date to timestamp:", dateErr);
+          return new Date().getTime(); // Fallback to current date
+        }
+      });
+      
+      // Find earliest valid date
+      const earliestTimestamp = Math.min(...startDates);
+      if (isNaN(earliestTimestamp)) {
+        console.error("Failed to calculate valid earliest timestamp");
+        return 0;
+      }
+      
+      // Create chart start date
+      const earliestDate = new Date(earliestTimestamp);
       const chartStartDate = new Date(earliestDate);
       chartStartDate.setDate(chartStartDate.getDate() - 5);
       
-      // Make sure milestone.start is a valid date
+      // Ensure valid milestone start date
       let milestoneStart: Date;
-      if (milestone.start instanceof Date) {
-        milestoneStart = milestone.start;
-      } else if (typeof milestone.start === 'string') {
-        milestoneStart = new Date(milestone.start);
-        if (isNaN(milestoneStart.getTime())) {
-          milestoneStart = new Date(); // Fallback to current date if invalid
+      try {
+        if (milestone.start instanceof Date) {
+          if (isNaN(milestone.start.getTime())) {
+            milestoneStart = new Date(); // Use current date if invalid
+          } else {
+            milestoneStart = milestone.start;
+          }
+        } else if (typeof milestone.start === 'string') {
+          const parsedDate = new Date(milestone.start);
+          if (isNaN(parsedDate.getTime())) {
+            milestoneStart = new Date(); // Use current date if invalid
+          } else {
+            milestoneStart = parsedDate;
+          }
+        } else {
+          milestoneStart = new Date(); // Default to current date
         }
-      } else {
-        milestoneStart = new Date(); // Fallback to current date
+      } catch (parseError) {
+        console.error("Error parsing milestone start date:", parseError);
+        milestoneStart = new Date(); // Default to current date
       }
       
-      // Calculate the number of days from the chart start to this milestone's start
-      const daysDiff = differenceInCalendarDays(milestoneStart, chartStartDate);
-      
-      // Each day is 20px wide
-      return Math.max(daysDiff * 20, 0); // Ensure non-negative position
+      // Calculate position based on days difference
+      try {
+        // Safely calculate days difference
+        const daysDiff = differenceInCalendarDays(milestoneStart, chartStartDate);
+        return Math.max(daysDiff * 20, 0); // Ensure non-negative position
+      } catch (diffError) {
+        console.error("Error calculating days difference:", diffError);
+        return 0; // Default position
+      }
     } catch (error) {
-      console.error("Error calculating start position:", error);
-      return 0;
+      console.error("Error calculating start position for milestone:", milestone.id, error);
+      return 0; // Default position on error
     }
   };
   
