@@ -1332,9 +1332,8 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         </Card>
       )}
       
-      {showMilestoneDialog && editingMilestone && (
-        <MilestoneEditDialog />
-      )}
+      {/* Always render the dialog component, but control visibility with the dialog's open prop */}
+      <MilestoneEditDialog />
     </div>
   );
 }
