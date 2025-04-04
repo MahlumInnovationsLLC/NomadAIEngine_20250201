@@ -5,6 +5,7 @@ import analyticsRouter from './analytics';
 import resourcesRouter from './resources';
 import productionLinesRouter from './production-lines';
 import teamAnalyticsRouter, { registerWebSocketManager } from './team-analytics';
+import milestonesRouter from './milestones';
 // Commenting out dailyRequirementsRouter since it may not exist
 // import dailyRequirementsRouter from './daily-requirements';
 import { registerQualityRoutes } from './quality';
@@ -17,6 +18,8 @@ router.use('/analytics', analyticsRouter);
 router.use('/resources', resourcesRouter);
 router.use('/production-lines', productionLinesRouter);
 router.use('/team-analytics', teamAnalyticsRouter);
+// Project milestones routes
+router.use('/', milestonesRouter);
 // Commenting out this route registration since it may not exist
 // router.use('/daily-requirements', dailyRequirementsRouter);
 

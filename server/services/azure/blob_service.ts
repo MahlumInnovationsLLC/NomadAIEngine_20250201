@@ -12,7 +12,8 @@ export const containerNames = {
   MEMBER_DATA: "member-data",
   QUALITY_TEMPLATES: "quality-templates",
   INSPECTION_ATTACHMENTS: "inspection-attachments",
-  NCR_ATTACHMENTS: "ncr-attachments"
+  NCR_ATTACHMENTS: "ncr-attachments",
+  MILESTONES: "project-milestones"
 };
 
 /**

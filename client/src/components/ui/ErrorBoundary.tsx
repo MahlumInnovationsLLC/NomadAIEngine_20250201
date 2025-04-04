@@ -11,7 +11,7 @@ interface State {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -59,4 +59,5 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
+// Also include default export for backward compatibility
 export default ErrorBoundary;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { type Project } from "@/types/manufacturing";
-import { format, addDays } from "date-fns";
+import { format, addDays, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -247,14 +247,14 @@ const MilestoneEditDialog = ({
                 <SelectValue placeholder="Select parent milestone" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No Parent</SelectItem>
+                <SelectItem value="none">No Parent</SelectItem>
                 {projectMilestones
                   .filter(m => editingMilestone && m.id !== editingMilestone.id && m.indent === 0)
                   .map(m => {
                     // Extract a key from the milestone ID if no key is present
                     const valueKey = m.key || (m.id.includes('_') ? m.id.split('_').pop() : m.id);
                     return (
-                      <SelectItem key={m.id} value={valueKey || ''}>
+                      <SelectItem key={m.id} value={valueKey || m.id}>
                         {m.title}
                       </SelectItem>
                     );
@@ -661,15 +661,55 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         return;
       }
       
-      // Generate milestones if none exist yet
-      let validMilestones = generateStandardMilestones(project);
-      
-      if (!Array.isArray(validMilestones)) {
-        console.warn("Generated milestones is not an array, using empty array");
-        validMilestones = [];
-      }
-      
-      setProjectMilestones(validMilestones);
+      // First try to fetch existing milestones from the API
+      fetch(`/api/manufacturing/projects/${project.id}/milestones`)
+        .then(response => {
+          if (!response.ok) {
+            if (response.status === 404) {
+              console.log(`No milestones found for project ${project.id}, generating standard ones`);
+              return null;
+            }
+            throw new Error(`Failed to fetch milestones: ${response.status} ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data && Array.isArray(data) && data.length > 0) {
+            console.log(`Found ${data.length} existing milestones for project ${project.id}`);
+            
+            // Convert API milestones to GanttMilestone format
+            const existingMilestones: GanttMilestone[] = data.map(m => ({
+              id: m.id,
+              key: m.key || m.id,
+              title: m.title,
+              start: new Date(m.start),
+              end: new Date(m.end),
+              color: m.color || getStatusColor(project.status),
+              projectId: project.id,
+              projectName: project.projectNumber || project.name || `Project ${project.id.slice(0, 8)}`,
+              editable: true,
+              deletable: true,
+              dependencies: m.dependencies || [],
+              duration: m.duration || differenceInDays(new Date(m.end), new Date(m.start)),
+              indent: m.indent || 0,
+              parent: m.parent,
+              completed: m.completed || 0,
+              isExpanded: m.isExpanded !== false, // Default to expanded
+            }));
+            
+            setProjectMilestones(existingMilestones);
+          } else {
+            // No milestones found, generate standard ones
+            const generatedMilestones = generateStandardMilestones(project);
+            setProjectMilestones(generatedMilestones);
+          }
+        })
+        .catch(error => {
+          console.error("Error fetching project milestones:", error);
+          console.log("Falling back to generated milestones");
+          const generatedMilestones = generateStandardMilestones(project);
+          setProjectMilestones(generatedMilestones);
+        });
       
     } catch (error) {
       console.error("Error selecting project:", error);
@@ -785,40 +825,175 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   const handleSaveMilestone = (milestone: GanttMilestone) => {
     if (!selectedProject) return;
     
-    // Check if this is a new milestone or an update
-    if (milestone.id.startsWith('new_')) {
-      // Generate a proper ID for the new milestone
-      milestone.id = `${selectedProject.id}_milestone_${Date.now()}`;
-      // Add to milestones
-      setProjectMilestones(prev => [...prev, milestone]);
-    } else {
-      // Update existing milestone
-      setProjectMilestones(prev => 
-        prev.map(m => m.id === milestone.id ? milestone : m)
-      );
-    }
+    // Show loading toast
+    toast({
+      title: "Saving...",
+      description: "Updating project milestone",
+    });
     
-    // Close dialog and reset selection
-    setShowMilestoneDialog(false);
-    setSelectedMilestoneId(null);
+    // Format the milestone data for API
+    const milestoneData = {
+      id: milestone.id.startsWith('new_') ? undefined : milestone.id,
+      title: milestone.title,
+      start: milestone.start.toISOString(),
+      end: milestone.end.toISOString(),
+      color: milestone.color,
+      projectId: selectedProject.id,
+      duration: milestone.duration,
+      dependencies: milestone.dependencies || [],
+      indent: milestone.indent,
+      parent: milestone.parent === "none" ? null : milestone.parent,
+      completed: milestone.completed,
+      key: milestone.key,
+      isExpanded: milestone.isExpanded,
+    };
     
-    // Notify parent if callback is provided
-    if (onUpdate && selectedProject) {
-      onUpdate(selectedProject, [...projectMilestones.filter(m => m.id !== milestone.id), milestone]);
-    }
+    // Determine if this is a create or update operation
+    const isNew = milestone.id.startsWith('new_');
+    const method = isNew ? 'POST' : 'PUT';
+    const endpoint = isNew 
+      ? `/api/manufacturing/projects/${selectedProject.id}/milestones`
+      : `/api/manufacturing/projects/${selectedProject.id}/milestones/${milestone.id}`;
+    
+    // Call API to save the milestone
+    fetch(endpoint, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(milestoneData),
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to save milestone: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then(savedMilestone => {
+        // Success! Update local state with the saved milestone
+        console.log("Milestone saved successfully:", savedMilestone);
+        
+        // Generate a proper ID for new milestones if needed
+        let updatedMilestone = milestone;
+        if (isNew) {
+          // Use the ID returned from the API if available, otherwise generate one
+          const newId = savedMilestone?.id || `${selectedProject.id}_milestone_${Date.now()}`;
+          updatedMilestone = { ...milestone, id: newId };
+        }
+        
+        // Update milestone list state based on operation type
+        if (isNew) {
+          setProjectMilestones(prev => [...prev, updatedMilestone]);
+        } else {
+          setProjectMilestones(prev => 
+            prev.map(m => m.id === milestone.id ? updatedMilestone : m)
+          );
+        }
+        
+        // Show success toast
+        toast({
+          title: "Success",
+          description: `Milestone ${isNew ? 'created' : 'updated'} successfully`,
+        });
+        
+        // Close dialog and reset selection
+        setShowMilestoneDialog(false);
+        setSelectedMilestoneId(null);
+        
+        // Notify parent if callback is provided
+        if (onUpdate && selectedProject) {
+          const updatedMilestones = isNew
+            ? [...projectMilestones, updatedMilestone]
+            : projectMilestones.map(m => m.id === milestone.id ? updatedMilestone : m);
+          onUpdate(selectedProject, updatedMilestones);
+        }
+      })
+      .catch(error => {
+        console.error("Error saving milestone:", error);
+        
+        // Show error toast
+        toast({
+          title: "Error",
+          description: `Failed to save milestone: ${error.message}`,
+          variant: "destructive",
+        });
+        
+        // Fall back to local state update if API fails
+        // This ensures UI consistency even if the backend storage fails
+        if (isNew) {
+          const newId = `${selectedProject.id}_milestone_${Date.now()}`;
+          const localMilestone = { ...milestone, id: newId };
+          setProjectMilestones(prev => [...prev, localMilestone]);
+        } else {
+          setProjectMilestones(prev => 
+            prev.map(m => m.id === milestone.id ? milestone : m)
+          );
+        }
+        
+        // Close dialog but don't reset selection in case user wants to retry
+        setShowMilestoneDialog(false);
+      });
   };
 
   // Delete a milestone
   const handleDeleteMilestone = (milestoneId: string) => {
-    if (!selectedProject) return;
+    if (!selectedProject || !milestoneId) return;
     
-    // Remove from state
-    setProjectMilestones(prev => prev.filter(m => m.id !== milestoneId));
+    // Show a loading toast
+    toast({
+      title: "Deleting...",
+      description: "Removing milestone",
+    });
     
-    // Notify parent if callback is provided
-    if (onUpdate && selectedProject) {
-      onUpdate(selectedProject, projectMilestones.filter(m => m.id !== milestoneId));
-    }
+    // Call the API to delete the milestone
+    fetch(`/api/manufacturing/projects/${selectedProject.id}/milestones/${milestoneId}`, {
+      method: 'DELETE',
+    })
+      .then(response => {
+        if (!response.ok) {
+          // Handle specific errors like 404 (not found)
+          if (response.status === 404) {
+            console.warn(`Milestone ${milestoneId} not found on server, removing from UI only`);
+            return { success: true, message: "Milestone not found on server but removed from UI" };
+          }
+          throw new Error(`Failed to delete milestone: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log("Milestone deleted successfully:", data);
+        
+        // Update milestone list in state by filtering out the deleted one
+        setProjectMilestones(prev => prev.filter(m => m.id !== milestoneId));
+        
+        // Show success toast
+        toast({
+          title: "Success",
+          description: "Milestone deleted successfully",
+        });
+        
+        // Clear selected milestone since it no longer exists
+        setSelectedMilestoneId(null);
+        
+        // Notify parent if callback is provided
+        if (onUpdate && selectedProject) {
+          onUpdate(selectedProject, projectMilestones.filter(m => m.id !== milestoneId));
+        }
+      })
+      .catch(error => {
+        console.error("Error deleting milestone:", error);
+        
+        // Show error toast
+        toast({
+          title: "Error",
+          description: `Failed to delete milestone: ${error.message}`,
+          variant: "destructive",
+        });
+        
+        // We could choose to still remove it from the UI for consistency
+        // but in this case we'll only remove it if the API call succeeds
+        // to maintain data integrity
+      });
   };
 
   // Generate timeline headers (days)

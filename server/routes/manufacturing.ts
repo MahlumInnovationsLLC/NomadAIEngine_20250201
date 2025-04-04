@@ -21,6 +21,7 @@ import dailyRequirementRoutes from './manufacturing/daily-requirements';
 import auditRoutes from './manufacturing/quality/audits';
 import analyticsRoutes from './manufacturing/analytics';
 import productionLinesRoutes from './manufacturing/production-lines';
+import milestoneRoutes from './manufacturing/milestones';
 import { ProjectStatus } from "@/types/manufacturing";
 
 const router = Router();
@@ -235,5 +236,6 @@ router.use('/resources', resourceRoutes);
 router.use('/daily-requirements', dailyRequirementRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/production-lines', productionLinesRoutes);
+router.use('/', milestoneRoutes); // Milestone routes are added at the root for /projects/:projectId/milestones pattern
 
 export default router;
