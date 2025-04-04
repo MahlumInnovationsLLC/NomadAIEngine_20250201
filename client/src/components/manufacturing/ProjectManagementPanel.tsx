@@ -44,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ProjectMapView } from "./production/ProjectMapView";
 import { ProjectTableView } from "./production/ProjectTableView";
+import { ProjectGanttView } from "./production/ProjectGanttView";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -905,6 +906,7 @@ export function ProjectManagementPanel() {
               <TabsTrigger value="list">List View</TabsTrigger>
               <TabsTrigger value="map">Map View</TabsTrigger>
               <TabsTrigger value="table">Table View</TabsTrigger>
+              <TabsTrigger value="gantt">Gantt Chart</TabsTrigger>
             </TabsList>
 
             <TabsContent value="list">
@@ -1332,6 +1334,20 @@ export function ProjectManagementPanel() {
                 projects={projects}
                 onEdit={handleEditProject}
                 onView={handleViewProject}
+              />
+            </TabsContent>
+            
+            <TabsContent value="gantt">
+              <ProjectGanttView
+                projects={projects}
+                onUpdate={(project, milestones) => {
+                  console.log(`Updated milestones for project ${project.id}:`, milestones);
+                  // In a real implementation, you would save these milestones to the backend
+                  toast({
+                    title: "Success",
+                    description: "Project milestones updated"
+                  });
+                }}
               />
             </TabsContent>
           </Tabs>

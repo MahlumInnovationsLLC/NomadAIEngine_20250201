@@ -126,6 +126,206 @@
   @apply theme-transition border-border;
 }
 
+/* Gantt Chart styles */
+.gantt-container {
+  width: 100%;
+  height: calc(100vh - 280px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+}
+
+.gantt-container .rs__outer {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.gantt-container .rs__cell {
+  border-color: hsl(var(--border));
+}
+
+.gantt-container .rs__event {
+  border-radius: var(--radius);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.gantt-container .rs__event:hover {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.gantt-container .rs__tooltip {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 8px 12px;
+}
+
+.gantt-container .rs__time {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+}
+
+.gantt-container .rs__header {
+  background-color: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.gantt-container .rs__header-text {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+
+/* Microsoft Project-like Gantt Chart styles */
+.gantt-view {
+  display: flex;
+  width: 100%;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+  height: calc(100vh - 280px);
+}
+
+.gantt-table {
+  width: 40%;
+  min-width: 400px;
+  border-right: 1px solid hsl(var(--border));
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.gantt-chart {
+  width: 60%;
+  min-width: 400px;
+  overflow-x: auto;
+  overflow-y: auto;
+  background-color: white;
+  background-image: 
+    linear-gradient(90deg, rgba(240, 240, 240, 0.5) 1px, transparent 1px),
+    linear-gradient(rgba(240, 240, 240, 0.5) 1px, transparent 1px);
+  background-size: 20px 40px;
+  position: relative;
+}
+
+.gantt-timeline {
+  border-top: 1px solid hsl(var(--border));
+  position: relative;
+  min-height: 100%;
+}
+
+.gantt-timeline-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 40px;
+  background-color: #f0f0f0;
+  border-bottom: 1px solid #d0d0d0;
+  z-index: 10;
+}
+
+.gantt-timeline-day {
+  flex: 0 0 20px;
+  text-align: center;
+  font-size: 10px;
+  border-right: 1px solid #e0e0e0;
+  padding: 2px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.gantt-timeline-day-number {
+  font-weight: bold;
+}
+
+.gantt-timeline-day-month {
+  color: #666;
+}
+
+.gantt-row {
+  height: 40px;
+  border-bottom: 1px solid rgba(200, 200, 200, 0.5);
+  position: relative;
+}
+
+.gantt-bar {
+  height: 22px;
+  border-radius: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  margin-top: 9px;
+}
+
+.gantt-bar:hover {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  outline: 1px solid #000;
+}
+
+/* Milestone with zero duration styling */
+.gantt-milestone {
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 16px solid #000;
+  position: absolute;
+  top: 12px;
+  margin-left: -10px;
+  z-index: 5;
+}
+
+.gantt-milestone.completed {
+  border-bottom-color: #22C55E;
+}
+
+/* Hover card for milestone details */
+.gantt-milestone-details {
+  position: absolute;
+  z-index: 100;
+  background-color: hsl(var(--popover));
+  border-radius: var(--radius);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  padding: 0.75rem;
+  min-width: 200px;
+}
+
+/* Dependencies arrow styles */
+.gantt-dependency {
+  position: absolute;
+  border-top: 2px solid #9CA3AF;
+  z-index: 5;
+}
+
+.gantt-dependency::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -4px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid #9CA3AF;
+}
+
+/* Progress indicator inside bars */
+.gantt-progress {
+  position: absolute;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px 0 0 3px;
+}
+
 /* React Day Picker styles */
 .rdp {
   --rdp-cell-size: 40px;
