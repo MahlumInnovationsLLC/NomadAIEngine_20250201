@@ -11,6 +11,10 @@ build = ["sh", "-c", "cd client && npm run build && cd .. && esbuild server/inde
 run = ["sh", "-c", "NODE_ENV=production node dist/index.js"]
 
 [[ports]]
+localPort = 3333
+externalPort = 3001
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 

@@ -56,8 +56,18 @@ interface GanttMilestone {
   key?: string; // Key identifier for the milestone type
 }
 
+// Define the interface for milestone templates
+interface MilestoneTemplate {
+  key: string;
+  title: string;
+  duration: number;
+  color: string;
+  indent: number;
+  parent?: string;
+}
+
 // Standard milestone definitions based on the provided screenshot
-const STANDARD_MILESTONES = [
+const STANDARD_MILESTONES: MilestoneTemplate[] = [
   { key: "notice", title: "Notice to Proceed", duration: 0, color: "#4f46e5", indent: 0 },
   { key: "projectStart", title: "Project Start", duration: 0, color: "#3B82F6", indent: 0 },
   { key: "mobilization", title: "Mobilization", duration: 10, color: "#EF4444", indent: 0 },
@@ -169,26 +179,61 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       // Create date mapping based on milestone sequence and durations
       // First pass: create all milestones with their initial dates
       let currentDate = new Date(startDate);
-      STANDARD_MILESTONES.forEach((milestoneTemplate) => {
+      
+      // Use traditional for loop instead of forEach for better error handling
+      for (let i = 0; i < STANDARD_MILESTONES.length; i++) {
         try {
+          const milestoneTemplate = STANDARD_MILESTONES[i];
+          
           // Validate milestone template data
-          if (!milestoneTemplate || !milestoneTemplate.key) {
-            console.warn("Invalid milestone template, skipping");
-            return; // Skip this iteration
+          if (!milestoneTemplate || typeof milestoneTemplate !== 'object') {
+            console.warn(`Invalid milestone template at index ${i}, skipping`);
+            continue; // Skip this iteration
           }
           
-          const start = new Date(currentDate);
-          const duration = typeof milestoneTemplate.duration === 'number' ? Math.max(0, milestoneTemplate.duration) : 0;
-          const end = duration > 0 
-            ? addDays(start, duration) 
-            : new Date(start); // For zero-duration milestones, end = start
+          // Safety check for required properties
+          if (!milestoneTemplate.key || typeof milestoneTemplate.key !== 'string') {
+            console.warn(`Milestone template at index ${i} missing valid key, skipping`);
+            continue;
+          }
+          
+          if (!milestoneTemplate.title || typeof milestoneTemplate.title !== 'string') {
+            console.warn(`Milestone template with key ${milestoneTemplate.key} missing valid title, using default`);
+            milestoneTemplate.title = `Milestone ${i + 1}`;
+          }
+          
+          // Create dates
+          let start = new Date(currentDate);
+          if (isNaN(start.getTime())) {
+            console.warn(`Invalid start date created for milestone ${milestoneTemplate.key}, using current date`);
+            start = new Date();
+          }
+          
+          // Ensure duration is valid
+          const duration = typeof milestoneTemplate.duration === 'number' ? 
+            Math.max(0, milestoneTemplate.duration) : 0;
+          
+          // Calculate end date
+          let end: Date;
+          try {
+            end = duration > 0 ? addDays(start, duration) : new Date(start);
+            if (isNaN(end.getTime())) {
+              console.warn(`Invalid end date calculated for milestone ${milestoneTemplate.key}, using start date`);
+              end = new Date(start);
+            }
+          } catch (dateError) {
+            console.error(`Error calculating end date for milestone ${milestoneTemplate.key}:`, dateError);
+            end = new Date(start); // Fallback to start date
+          }
             
           // Safe ID generation, ensure project.id and milestoneTemplate.key are valid strings
-          const id = `${String(project.id || '')}_${String(milestoneTemplate.key || '')}`;
+          const safeProjectId = String(project.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+          const safeMilestoneKey = String(milestoneTemplate.key || '').replace(/[^a-zA-Z0-9_-]/g, '');
+          const id = `${safeProjectId}_${safeMilestoneKey}`;
           
           const milestone: GanttMilestone = {
             id,
-            title: milestoneTemplate.title || "Unnamed Milestone",
+            title: milestoneTemplate.title,
             start,
             end,
             color: milestoneTemplate.color || "#3B82F6",
@@ -212,29 +257,60 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
             currentDate = end;
           }
         } catch (milestoneError) {
-          console.error("Error creating milestone:", milestoneError);
+          console.error(`Error creating milestone at index ${i}:`, milestoneError);
           // Continue with the next milestone
         }
-      });
+      }
       
       // Second pass: adjust child milestone dates based on parent start dates
-      milestones.forEach(milestone => {
+      for (let i = 0; i < milestones.length; i++) {
         try {
-          if (milestone.parent) {
-            const parentKey = milestone.parent;
-            const parent = milestoneMap[parentKey];
+          const milestone = milestones[i];
+          
+          if (!milestone || !milestone.parent) {
+            continue; // Skip non-child milestones
+          }
+          
+          const parentKey = milestone.parent;
+          if (!parentKey || typeof parentKey !== 'string') {
+            console.warn(`Milestone ${milestone.id} has invalid parent reference, skipping parent adjustment`);
+            continue;
+          }
+          
+          const parent = milestoneMap[parentKey];
+          if (!parent) {
+            console.warn(`Parent milestone with key "${parentKey}" not found for child ${milestone.id}`);
+            continue;
+          }
+          
+          // Ensure parent has valid start date
+          if (!parent.start || !(parent.start instanceof Date) || isNaN(parent.start.getTime())) {
+            console.warn(`Parent milestone "${parentKey}" has invalid start date, skipping child adjustment`);
+            continue;
+          }
+          
+          // Child starts when parent starts
+          milestone.start = new Date(parent.start);
+          
+          // Calculate end date based on duration
+          try {
+            const duration = milestone.duration || 0;
+            milestone.end = addDays(milestone.start, duration);
             
-            if (parent) {
-              // Child starts when parent starts
-              milestone.start = new Date(parent.start);
-              milestone.end = addDays(milestone.start, milestone.duration || 0);
+            // Validate the calculated end date
+            if (!(milestone.end instanceof Date) || isNaN(milestone.end.getTime())) {
+              console.warn(`Invalid end date calculated for child milestone ${milestone.id}, using start date + 1 day`);
+              milestone.end = addDays(milestone.start, 1);
             }
+          } catch (endDateError) {
+            console.error(`Error calculating end date for child milestone ${milestone.id}:`, endDateError);
+            milestone.end = addDays(milestone.start, 1); // Fallback to 1 day duration
           }
         } catch (childError) {
-          console.error(`Error adjusting child milestone ${milestone.id}:`, childError);
-          // Leave the milestone dates as they are
+          console.error(`Error adjusting child milestone at index ${i}:`, childError);
+          // Continue with the next milestone
         }
-      });
+      }
       
       return milestones;
     } catch (error) {
