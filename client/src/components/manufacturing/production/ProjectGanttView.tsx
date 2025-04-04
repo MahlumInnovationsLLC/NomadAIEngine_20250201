@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
@@ -65,6 +65,221 @@ interface MilestoneTemplate {
   indent: number;
   parent?: string;
 }
+
+// Milestone Edit Dialog props interface
+interface MilestoneEditDialogProps {
+  showDialog: boolean;
+  setShowDialog: (show: boolean) => void;
+  editingMilestone: GanttMilestone | null;
+  projectMilestones: GanttMilestone[];
+  onSave: (milestone: GanttMilestone) => void;
+}
+
+// Extracted MilestoneEditDialog component to prevent React Rules of Hooks errors
+const MilestoneEditDialog = ({ 
+  showDialog,
+  setShowDialog,
+  editingMilestone,
+  projectMilestones,
+  onSave
+}: MilestoneEditDialogProps) => {
+  // Initialize with default values first, then update conditionally
+  const [title, setTitle] = useState('');
+  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [duration, setDuration] = useState('0');
+  const [completion, setCompletion] = useState('0');
+  const [parentId, setParentId] = useState('');
+  const [indent, setIndent] = useState('0');
+  
+  // Use useEffect to update state when editingMilestone changes
+  useEffect(() => {
+    if (!editingMilestone) return;
+    
+    // Parse the start date safely
+    const parseStartDate = () => {
+      try {
+        if (editingMilestone.start instanceof Date) {
+          return format(editingMilestone.start, 'yyyy-MM-dd');
+        } else if (typeof editingMilestone.start === 'string') {
+          const date = new Date(editingMilestone.start);
+          if (!isNaN(date.getTime())) {
+            return format(date, 'yyyy-MM-dd');
+          }
+        }
+        // Default to today if date is invalid
+        return format(new Date(), 'yyyy-MM-dd');
+      } catch (error) {
+        console.error("Error parsing start date:", error);
+        return format(new Date(), 'yyyy-MM-dd'); // Default to today
+      }
+    };
+    
+    setTitle(editingMilestone.title);
+    setStartDate(parseStartDate());
+    setDuration(editingMilestone.duration?.toString() || '0');
+    setCompletion(editingMilestone.completed?.toString() || '0');
+    setParentId(editingMilestone.parent || '');
+    setIndent(editingMilestone.indent?.toString() || '0');
+  }, [editingMilestone]);
+  
+  const handleSave = () => {
+    try {
+      // Validate the date input before creating the Date object
+      let start: Date;
+      try {
+        start = new Date(startDate);
+        if (isNaN(start.getTime())) {
+          // If date is invalid, default to today
+          console.error("Invalid start date input:", startDate);
+          start = new Date();
+        }
+      } catch (error) {
+        console.error("Error parsing start date:", error);
+        start = new Date(); // Default to today
+      }
+      
+      // Safely parse numeric inputs
+      const durationValue = parseInt(duration);
+      const completionValue = parseInt(completion);
+      const indentValue = parseInt(indent);
+      
+      if (!editingMilestone) return;
+      
+      const updatedMilestone: GanttMilestone = {
+        ...editingMilestone,
+        id: editingMilestone.id,
+        title: title || "Untitled Milestone",
+        start,
+        end: addDays(start, !isNaN(durationValue) ? durationValue : 0),
+        duration: !isNaN(durationValue) ? durationValue : 0,
+        completed: !isNaN(completionValue) ? Math.min(Math.max(completionValue, 0), 100) : 0, // Ensure 0-100 range
+        parent: parentId || undefined,
+        indent: !isNaN(indentValue) ? Math.max(indentValue, 0) : 0, // Ensure non-negative
+        projectId: editingMilestone.projectId,
+        projectName: editingMilestone.projectName
+      };
+      
+      onSave(updatedMilestone);
+    } catch (error) {
+      console.error("Error saving milestone:", error);
+      // Create a basic milestone to prevent app from crashing
+      if (!editingMilestone) return;
+      
+      const fallbackMilestone: GanttMilestone = {
+        ...editingMilestone,
+        title: title || "Untitled Milestone",
+        start: new Date(),
+        end: addDays(new Date(), 7),
+        duration: 7,
+        completed: 0,
+        parent: parentId || undefined,
+        indent: parseInt(indent) || 0,
+      };
+      onSave(fallbackMilestone);
+    }
+  };
+  
+  return (
+    <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>{editingMilestone?.id?.includes('new_') ? 'Add Milestone' : 'Edit Milestone'}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="title" className="text-right">Title</Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="startDate" className="text-right">Start Date</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="duration" className="text-right">Duration (days)</Label>
+            <Input
+              id="duration"
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="completion" className="text-right">Completion %</Label>
+            <Input
+              id="completion"
+              type="number"
+              min="0"
+              max="100"
+              value={completion}
+              onChange={(e) => setCompletion(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="parent" className="text-right">Parent</Label>
+            <Select 
+              value={parentId} 
+              onValueChange={setParentId}
+            >
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select parent milestone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No Parent</SelectItem>
+                {projectMilestones
+                  .filter(m => editingMilestone && m.id !== editingMilestone.id && m.indent === 0)
+                  .map(m => {
+                    // Extract a key from the milestone ID if no key is present
+                    const valueKey = m.key || (m.id.includes('_') ? m.id.split('_').pop() : m.id);
+                    return (
+                      <SelectItem key={m.id} value={valueKey || ''}>
+                        {m.title}
+                      </SelectItem>
+                    );
+                  })
+                }
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="indent" className="text-right">Indent Level</Label>
+            <Select 
+              value={indent} 
+              onValueChange={setIndent}
+            >
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select indent level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">0 - Top Level</SelectItem>
+                <SelectItem value="1">1 - Child</SelectItem>
+                <SelectItem value="2">2 - Grandchild</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowDialog(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 // Standard milestone definitions based on the provided screenshot
 const STANDARD_MILESTONES: MilestoneTemplate[] = [
@@ -940,209 +1155,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     if (onUpdate && selectedProject) {
       onUpdate(selectedProject, projectMilestones.filter(m => m.id !== milestoneId));
     }
-  };
-  
-  // Milestone Edit Dialog Component
-  const MilestoneEditDialog = () => {
-    // Initialize with default values first, then update conditionally
-    const [title, setTitle] = useState('');
-    const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-    const [duration, setDuration] = useState('0');
-    const [completion, setCompletion] = useState('0');
-    const [parentId, setParentId] = useState('');
-    const [indent, setIndent] = useState('0');
-    
-    // Use useEffect to update state when editingMilestone changes
-    useEffect(() => {
-      if (!editingMilestone) return;
-      
-      // Parse the start date safely
-      const parseStartDate = () => {
-        try {
-          if (editingMilestone.start instanceof Date) {
-            return format(editingMilestone.start, 'yyyy-MM-dd');
-          } else if (typeof editingMilestone.start === 'string') {
-            const date = new Date(editingMilestone.start);
-            if (!isNaN(date.getTime())) {
-              return format(date, 'yyyy-MM-dd');
-            }
-          }
-          // Default to today if date is invalid
-          return format(new Date(), 'yyyy-MM-dd');
-        } catch (error) {
-          console.error("Error parsing start date:", error);
-          return format(new Date(), 'yyyy-MM-dd'); // Default to today
-        }
-      };
-      
-      setTitle(editingMilestone.title);
-      setStartDate(parseStartDate());
-      setDuration(editingMilestone.duration?.toString() || '0');
-      setCompletion(editingMilestone.completed?.toString() || '0');
-      setParentId(editingMilestone.parent || '');
-      setIndent(editingMilestone.indent?.toString() || '0');
-    }, [editingMilestone]);
-    
-    const handleSave = () => {
-      try {
-        // Validate the date input before creating the Date object
-        let start: Date;
-        try {
-          start = new Date(startDate);
-          if (isNaN(start.getTime())) {
-            // If date is invalid, default to today
-            console.error("Invalid start date input:", startDate);
-            start = new Date();
-          }
-        } catch (error) {
-          console.error("Error parsing start date:", error);
-          start = new Date(); // Default to today
-        }
-        
-        // Safely parse numeric inputs
-        const durationValue = parseInt(duration);
-        const completionValue = parseInt(completion);
-        const indentValue = parseInt(indent);
-        
-        if (!editingMilestone) return;
-        
-        const updatedMilestone: GanttMilestone = {
-          ...editingMilestone,
-          id: editingMilestone.id,
-          title: title || "Untitled Milestone",
-          start,
-          end: addDays(start, !isNaN(durationValue) ? durationValue : 0),
-          duration: !isNaN(durationValue) ? durationValue : 0,
-          completed: !isNaN(completionValue) ? Math.min(Math.max(completionValue, 0), 100) : 0, // Ensure 0-100 range
-          parent: parentId || undefined,
-          indent: !isNaN(indentValue) ? Math.max(indentValue, 0) : 0, // Ensure non-negative
-          projectId: editingMilestone.projectId,
-          projectName: editingMilestone.projectName
-        };
-        
-        handleSaveMilestone(updatedMilestone);
-      } catch (error) {
-        console.error("Error saving milestone:", error);
-        // Create a basic milestone to prevent app from crashing
-        if (!editingMilestone) return;
-        
-        const fallbackMilestone: GanttMilestone = {
-          ...editingMilestone,
-          id: editingMilestone.id,
-          title: title || "Untitled Milestone",
-          start: new Date(),
-          end: addDays(new Date(), 7),
-          duration: 7,
-          completed: 0,
-          indent: 0,
-          projectId: editingMilestone.projectId,
-          projectName: editingMilestone.projectName
-        };
-        handleSaveMilestone(fallbackMilestone);
-      }
-    };
-    
-    return (
-      <Dialog open={showMilestoneDialog} onOpenChange={setShowMilestoneDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>{editingMilestone?.id?.includes('new_') ? 'Add Milestone' : 'Edit Milestone'}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">Title</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="startDate" className="text-right">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="duration" className="text-right">Duration (days)</Label>
-              <Input
-                id="duration"
-                type="number"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="completion" className="text-right">% Complete</Label>
-              <Input
-                id="completion"
-                type="number"
-                min="0"
-                max="100"
-                value={completion}
-                onChange={(e) => setCompletion(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="parent" className="text-right">Parent</Label>
-              <Select 
-                value={parentId} 
-                onValueChange={setParentId}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select parent milestone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No Parent</SelectItem>
-                  {projectMilestones
-                    .filter(m => editingMilestone && m.id !== editingMilestone.id && m.indent === 0)
-                    .map(m => {
-                      // Extract a key from the milestone ID if no key is present
-                      const valueKey = m.key || (m.id.includes('_') ? m.id.split('_').pop() : m.id);
-                      return (
-                        <SelectItem key={m.id} value={valueKey || ''}>
-                          {m.title}
-                        </SelectItem>
-                      );
-                    })
-                  }
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="indent" className="text-right">Indent Level</Label>
-              <Select 
-                value={indent} 
-                onValueChange={setIndent}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select indent level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">0 - Top Level</SelectItem>
-                  <SelectItem value="1">1 - Child</SelectItem>
-                  <SelectItem value="2">2 - Grandchild</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMilestoneDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  };
+  // No internal dialog component - using the extracted component instead
   
   return (
     <div className="space-y-4">
@@ -1333,7 +1346,13 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       )}
       
       {/* Always render the dialog component, but control visibility with the dialog's open prop */}
-      <MilestoneEditDialog />
+      <MilestoneEditDialog 
+        showDialog={showMilestoneDialog}
+        setShowDialog={setShowMilestoneDialog}
+        editingMilestone={editingMilestone}
+        projectMilestones={projectMilestones}
+        onSave={handleSaveMilestone}
+      />
     </div>
   );
 }
