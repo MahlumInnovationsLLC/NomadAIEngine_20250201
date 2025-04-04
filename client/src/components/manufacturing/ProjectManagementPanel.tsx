@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
@@ -273,6 +274,7 @@ export function ProjectManagementPanel() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed">("all");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [ganttError, setGanttError] = useState<Error | null>(null);
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/manufacturing/projects'],
@@ -700,6 +702,16 @@ export function ProjectManagementPanel() {
     }
   });
 
+
+  const handleGanttError = (error: Error) => {
+    console.error("Error in Gantt component:", error);
+    setGanttError(error);
+    toast({
+      title: "Gantt Chart Error",
+      description: "There was a problem displaying the Gantt chart. Technical details in console.",
+      variant: "destructive"
+    });
+  };
 
   const handleEditProject = async (project: Project) => {
     try {
@@ -1338,17 +1350,30 @@ export function ProjectManagementPanel() {
             </TabsContent>
             
             <TabsContent value="gantt">
-              <ProjectGanttView
-                projects={projects}
-                onUpdate={(project, milestones) => {
-                  console.log(`Updated milestones for project ${project.id}:`, milestones);
-                  // In a real implementation, you would save these milestones to the backend
-                  toast({
-                    title: "Success",
-                    description: "Project milestones updated"
-                  });
-                }}
-              />
+              <ErrorBoundary
+                onError={handleGanttError}
+                fallback={
+                  <div className="p-4 border border-destructive/50 rounded-md bg-destructive/10 text-destructive">
+                    <h3 className="font-medium">Error in Gantt Chart</h3>
+                    <p className="mt-2 text-sm">There was a problem displaying the Gantt chart. Technical details:</p>
+                    <pre className="mt-2 p-2 text-xs bg-card/50 rounded overflow-auto max-h-[200px]">
+                      {ganttError?.toString() || 'Unknown error'}
+                    </pre>
+                  </div>
+                }
+              >
+                <ProjectGanttView
+                  projects={projects}
+                  onUpdate={(project, milestones) => {
+                    console.log(`Updated milestones for project ${project.id}:`, milestones);
+                    // In a real implementation, you would save these milestones to the backend
+                    toast({
+                      title: "Success",
+                      description: "Project milestones updated"
+                    });
+                  }}
+                />
+              </ErrorBoundary>
             </TabsContent>
           </Tabs>
         </TabsContent>

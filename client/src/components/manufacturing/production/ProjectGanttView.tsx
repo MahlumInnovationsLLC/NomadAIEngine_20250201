@@ -48,10 +48,10 @@ interface GanttMilestone {
   editable?: boolean;
   deletable?: boolean;
   dependencies?: string[];
-  duration?: number; // Duration in days
-  indent?: number; // Indentation level for hierarchical display
+  duration: number; // Duration in days
+  indent: number; // Indentation level for hierarchical display
   parent?: string; // Parent milestone ID for hierarchical relationships
-  completed?: number; // Percentage completed (0-100)
+  completed: number; // Percentage completed (0-100)
   isExpanded?: boolean; // Whether children are expanded or collapsed
   key?: string; // Key identifier for the milestone type
 }
@@ -346,7 +346,10 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           color: milestone.color,
           editable: true,
           deletable: true,
-          project_id: project.id
+          project_id: project.id,
+          duration: milestone.duration,
+          indent: milestone.indent,
+          completed: milestone.completed
         }));
         
         allEvents = [...allEvents, ...projectEvents];
@@ -431,6 +434,10 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         projectName: project.projectNumber || project.name || '',
         editable: true,
         deletable: true,
+        duration: typeof e.duration === 'number' ? e.duration : 
+          differenceInCalendarDays(new Date(e.end), new Date(e.start)) || 1,
+        indent: typeof e.indent === 'number' ? e.indent : 0,
+        completed: typeof e.completed === 'number' ? e.completed : 0
       }));
       
       // Call the onUpdate callback if provided
@@ -937,33 +944,44 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   
   // Milestone Edit Dialog Component
   const MilestoneEditDialog = () => {
-    if (!editingMilestone) return null;
+    // Initialize with default values first, then update conditionally
+    const [title, setTitle] = useState('');
+    const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [duration, setDuration] = useState('0');
+    const [completion, setCompletion] = useState('0');
+    const [parentId, setParentId] = useState('');
+    const [indent, setIndent] = useState('0');
     
-    // Parse the start date safely
-    const parseStartDate = () => {
-      try {
-        if (editingMilestone.start instanceof Date) {
-          return format(editingMilestone.start, 'yyyy-MM-dd');
-        } else if (typeof editingMilestone.start === 'string') {
-          const date = new Date(editingMilestone.start);
-          if (!isNaN(date.getTime())) {
-            return format(date, 'yyyy-MM-dd');
+    // Use useEffect to update state when editingMilestone changes
+    useEffect(() => {
+      if (!editingMilestone) return;
+      
+      // Parse the start date safely
+      const parseStartDate = () => {
+        try {
+          if (editingMilestone.start instanceof Date) {
+            return format(editingMilestone.start, 'yyyy-MM-dd');
+          } else if (typeof editingMilestone.start === 'string') {
+            const date = new Date(editingMilestone.start);
+            if (!isNaN(date.getTime())) {
+              return format(date, 'yyyy-MM-dd');
+            }
           }
+          // Default to today if date is invalid
+          return format(new Date(), 'yyyy-MM-dd');
+        } catch (error) {
+          console.error("Error parsing start date:", error);
+          return format(new Date(), 'yyyy-MM-dd'); // Default to today
         }
-        // Default to today if date is invalid
-        return format(new Date(), 'yyyy-MM-dd');
-      } catch (error) {
-        console.error("Error parsing start date:", error);
-        return format(new Date(), 'yyyy-MM-dd'); // Default to today
-      }
-    };
-    
-    const [title, setTitle] = useState(editingMilestone.title);
-    const [startDate, setStartDate] = useState(parseStartDate());
-    const [duration, setDuration] = useState(editingMilestone.duration?.toString() || '0');
-    const [completion, setCompletion] = useState(editingMilestone.completed?.toString() || '0');
-    const [parentId, setParentId] = useState(editingMilestone.parent || '');
-    const [indent, setIndent] = useState(editingMilestone.indent?.toString() || '0');
+      };
+      
+      setTitle(editingMilestone.title);
+      setStartDate(parseStartDate());
+      setDuration(editingMilestone.duration?.toString() || '0');
+      setCompletion(editingMilestone.completed?.toString() || '0');
+      setParentId(editingMilestone.parent || '');
+      setIndent(editingMilestone.indent?.toString() || '0');
+    }, [editingMilestone]);
     
     const handleSave = () => {
       try {
@@ -986,29 +1004,39 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         const completionValue = parseInt(completion);
         const indentValue = parseInt(indent);
         
-        const updatedMilestone = {
+        if (!editingMilestone) return;
+        
+        const updatedMilestone: GanttMilestone = {
           ...editingMilestone,
+          id: editingMilestone.id,
           title: title || "Untitled Milestone",
           start,
           end: addDays(start, !isNaN(durationValue) ? durationValue : 0),
           duration: !isNaN(durationValue) ? durationValue : 0,
           completed: !isNaN(completionValue) ? Math.min(Math.max(completionValue, 0), 100) : 0, // Ensure 0-100 range
           parent: parentId || undefined,
-          indent: !isNaN(indentValue) ? Math.max(indentValue, 0) : 0 // Ensure non-negative
+          indent: !isNaN(indentValue) ? Math.max(indentValue, 0) : 0, // Ensure non-negative
+          projectId: editingMilestone.projectId,
+          projectName: editingMilestone.projectName
         };
         
         handleSaveMilestone(updatedMilestone);
       } catch (error) {
         console.error("Error saving milestone:", error);
         // Create a basic milestone to prevent app from crashing
-        const fallbackMilestone = {
+        if (!editingMilestone) return;
+        
+        const fallbackMilestone: GanttMilestone = {
           ...editingMilestone,
+          id: editingMilestone.id,
           title: title || "Untitled Milestone",
           start: new Date(),
           end: addDays(new Date(), 7),
           duration: 7,
           completed: 0,
-          indent: 0
+          indent: 0,
+          projectId: editingMilestone.projectId,
+          projectName: editingMilestone.projectName
         };
         handleSaveMilestone(fallbackMilestone);
       }
@@ -1018,7 +1046,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       <Dialog open={showMilestoneDialog} onOpenChange={setShowMilestoneDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{editingMilestone.id.includes('new_') ? 'Add Milestone' : 'Edit Milestone'}</DialogTitle>
+            <DialogTitle>{editingMilestone?.id?.includes('new_') ? 'Add Milestone' : 'Edit Milestone'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
@@ -1074,7 +1102,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                 <SelectContent>
                   <SelectItem value="">No Parent</SelectItem>
                   {projectMilestones
-                    .filter(m => m.id !== editingMilestone.id && m.indent === 0)
+                    .filter(m => editingMilestone && m.id !== editingMilestone.id && m.indent === 0)
                     .map(m => {
                       // Extract a key from the milestone ID if no key is present
                       const valueKey = m.key || (m.id.includes('_') ? m.id.split('_').pop() : m.id);
@@ -1304,7 +1332,9 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         </Card>
       )}
       
-      <MilestoneEditDialog />
+      {showMilestoneDialog && editingMilestone && (
+        <MilestoneEditDialog />
+      )}
     </div>
   );
 }

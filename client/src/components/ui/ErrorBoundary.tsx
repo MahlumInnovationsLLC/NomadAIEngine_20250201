@@ -1,63 +1,62 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
   hasError: boolean;
-  error?: Error;
-  errorInfo?: ErrorInfo;
+  error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false
-  };
-
-  public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error);
+  static getDerivedStateFromError(error: Error): State {
+    return {
+      hasError: true,
+      error
+    };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.error('Error caught by ErrorBoundary:', error);
     console.error('Component stack:', errorInfo.componentStack);
-
-    this.setState({
-      error,
-      errorInfo,
-    });
+    
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
   }
 
-  public render() {
+  render(): ReactNode {
     if (this.state.hasError) {
-      return this.props.fallback || (
-        <Card className="w-full max-w-md mx-auto mt-4">
-          <CardContent className="pt-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2 text-destructive">
-                <FontAwesomeIcon icon="circle-exclamation" className="h-5 w-5" />
-                <h3 className="font-semibold">Something went wrong</h3>
-              </div>
-              {this.state.error && (
-                <div className="text-sm text-muted-foreground">
-                  <p>{this.state.error.message}</p>
-                </div>
-              )}
-              {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
-                <pre className="mt-2 text-xs bg-muted p-4 rounded-md overflow-auto">
-                  <code>{this.state.errorInfo.componentStack}</code>
-                </pre>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+      
+      return (
+        <div className="p-4 border rounded shadow-sm bg-destructive/10 text-destructive">
+          <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+          <details className="text-sm">
+            <summary>View error details</summary>
+            <pre className="mt-2 p-2 bg-muted/50 rounded overflow-auto max-h-[300px]">
+              {this.state.error?.toString() || 'Unknown error'}
+            </pre>
+          </details>
+        </div>
       );
     }
 
     return this.props.children;
   }
 }
+
+export default ErrorBoundary;
