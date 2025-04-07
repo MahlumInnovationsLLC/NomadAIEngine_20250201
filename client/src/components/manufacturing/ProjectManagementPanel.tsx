@@ -38,7 +38,8 @@ import {
   faCloud,
   faCloudCheck,
   faCloudArrowUp,
-  faTrash
+  faTrash,
+  faProjectDiagram
 } from '@fortawesome/pro-light-svg-icons';
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Button } from "@/components/ui/button";

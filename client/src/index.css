@@ -2,6 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Gantt Chart Custom Styling */
+.gantt-chart-container {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.gantt-view {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.gantt-timeline-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.day-column {
+  width: 24px;
+  min-width: 24px;
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.day-header {
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.day-header .month {
+  font-size: 10px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.day-header .day {
+  font-size: 10px;
+}
+
+.gantt-timeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 24px);
+  background-size: 24px 100%;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  min-height: 100%;
+}
+
+.gantt-milestone-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: hsl(var(--background));
+}
+
+.milestone-title {
+  max-width: 180px;
+}
+
+.gantt-row {
+  min-height: 40px;
+  position: relative;
+}
+
+.gantt-row:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Microsoft Project-like connector styling */
+.connector-line {
+  stroke-dasharray: 4 2;
+  pointer-events: none;
+}
+
 /* Custom styles for OCR Dialog scrolling */
 .ocr-dialog-content {
   max-height: 90vh !important;

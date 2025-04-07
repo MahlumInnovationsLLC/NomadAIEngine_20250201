@@ -401,7 +401,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         return m;
       });
     });
-  }, []);
+  }, [setProjectMilestones]);
 
   // Generate standard milestones for new projects
   const generateStandardMilestones = useCallback((project: Project): GanttMilestone[] => {
@@ -517,13 +517,13 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   // Handle milestone selection
   const handleSelectMilestone = useCallback((milestone: GanttMilestone) => {
     setSelectedMilestoneId(milestone.id);
-  }, []);
+  }, [setSelectedMilestoneId]);
 
   // Open edit dialog for a milestone
   const handleEditMilestone = useCallback((milestone: GanttMilestone) => {
     setEditingMilestone(milestone);
     setShowMilestoneDialog(true);
-  }, []);
+  }, [setEditingMilestone, setShowMilestoneDialog]);
 
   // Handle project selection
   const handleSelectProject = useCallback((project: Project) => {
@@ -597,7 +597,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       });
       setProjectMilestones([]);
     }
-  }, [toast, generateStandardMilestones]);
+  }, [toast, generateStandardMilestones, setSelectedProject, setProjectMilestones]);
 
   // Calculate the total timespan in days for the visualization
   const calculateTotalTimespan = useCallback(() => {
@@ -1047,6 +1047,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
               </div>
             ) : (
               <div style={{ minWidth: "850px" }}>
+                {/* Render milestones in hierarchical view */}
                 {projectMilestones.map(milestone => {
                   // Check if milestone should be visible based on parent's expanded state
                   if (milestone.parent) {
@@ -1170,8 +1171,8 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
             Please select a project from the dropdown to view its Gantt chart.
           </p>
           {projects.length === 0 && (
-            <div className="mt-4">
-              <p className="text-sm text-muted-foreground">No projects available. Create a project first.</p>
+            <div className="text-sm">
+              No projects available. Please create a project first.
             </div>
           )}
         </div>
