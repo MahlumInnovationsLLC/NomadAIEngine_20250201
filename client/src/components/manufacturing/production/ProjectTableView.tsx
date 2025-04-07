@@ -30,7 +30,7 @@ type SortConfig = {
 export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ 
-    key: 'projectNumber', 
+    key: 'ship', // Default sort by ship date
     direction: 'asc' 
   });
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
@@ -145,10 +145,19 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
         }
       });
 
-      // Safely sort projects
+      // Safely sort projects - COMPLETED projects always go to the bottom
       return [...filtered].sort((a, b) => {
         try {
-          // Custom columns first
+          // First, always move COMPLETED projects to the bottom
+          const aCompleted = a.status === "COMPLETED";
+          const bCompleted = b.status === "COMPLETED";
+          
+          if (aCompleted && !bCompleted) return 1; // a is completed, b is not, so a goes after b
+          if (!aCompleted && bCompleted) return -1; // a is not completed, b is, so a goes before b
+          
+          // If both are completed or both are not completed, continue with regular sorting
+          
+          // Custom columns
           if (sortConfig.key.startsWith('custom_')) {
             const aValue = customValues[a.id]?.[sortConfig.key] || '';
             const bValue = customValues[b.id]?.[sortConfig.key] || '';
@@ -191,8 +200,9 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
               };
               
               if (isDateValue(aValue) && isDateValue(bValue)) {
-                const aDate = aValue instanceof Date ? aValue : new Date(aValue as string | number);
-                const bDate = bValue instanceof Date ? bValue : new Date(bValue as string | number);
+                // Create new Date objects regardless - we've already verified they're valid date values
+                const aDate = new Date(aValue as string | number);
+                const bDate = new Date(bValue as string | number);
                 
                 if (!isNaN(aDate.getTime()) && !isNaN(bDate.getTime())) {
                   return sortConfig.direction === 'asc'
@@ -263,7 +273,7 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
     }
   };
 
-  const formatPercentage = (value: number | undefined | null) => {
+  const formatPercentage = (value: string | number | undefined | null) => {
     if (value === undefined || value === null) return '-';
     return `${value}%`;
   };
@@ -392,24 +402,6 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
               </TableHead>
               <TableHead 
                 className="cursor-pointer whitespace-nowrap"
-                onClick={() => handleSort('dpasRating')}
-              >
-                DPAS Rating {renderSortIcon('dpasRating')}
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer whitespace-nowrap"
-                onClick={() => handleSort('chassisEta')}
-              >
-                Chassis ETA {renderSortIcon('chassisEta')}
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer whitespace-nowrap"
-                onClick={() => handleSort('contractDate')}
-              >
-                Contract Date {renderSortIcon('contractDate')}
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer whitespace-nowrap"
                 onClick={() => handleSort('fabricationStart')}
               >
                 Fabrication Start {renderSortIcon('fabricationStart')}
@@ -490,6 +482,25 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
                   {column.title} {renderSortIcon(column.id)}
                 </TableHead>
               ))}
+              
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('dpasRating')}
+              >
+                DPAS Rating {renderSortIcon('dpasRating')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('chassisEta')}
+              >
+                Chassis ETA {renderSortIcon('chassisEta')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer whitespace-nowrap"
+                onClick={() => handleSort('contractDate')}
+              >
+                Contract Date {renderSortIcon('contractDate')}
+              </TableHead>
 
               <TableHead className="whitespace-nowrap sticky right-0 bg-background">
                 Actions
@@ -510,9 +521,6 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
                 </TableCell>
                 <TableCell className="whitespace-nowrap">{project.location || '-'}</TableCell>
                 <TableCell className="whitespace-nowrap">{project.team || '-'}</TableCell>
-                <TableCell className="whitespace-nowrap">{project.dpasRating || '-'}</TableCell>
-                <TableCell className="whitespace-nowrap">{formatDate(project.chassisEta)}</TableCell>
-                <TableCell className="whitespace-nowrap">{formatDate(project.contractDate)}</TableCell>
                 <TableCell className="whitespace-nowrap">{formatDate(project.fabricationStart)}</TableCell>
                 <TableCell className="whitespace-nowrap">{formatDate(project.assemblyStart)}</TableCell>
                 <TableCell className="whitespace-nowrap">{formatDate(project.wrapGraphics)}</TableCell>
@@ -536,6 +544,11 @@ export function ProjectTableView({ projects, onEdit, onView }: ProjectTableViewP
                     />
                   </TableCell>
                 ))}
+                
+                <TableCell className="whitespace-nowrap">{project.dpasRating || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.chassisEta)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDate(project.contractDate)}</TableCell>
+                
                 <TableCell className="whitespace-nowrap sticky right-0 bg-background">
                   <div className="flex items-center gap-2">
                     <Button 

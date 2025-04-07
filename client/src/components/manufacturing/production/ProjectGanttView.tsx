@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { type Project } from "@/types/manufacturing";
 import { format, addDays, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +41,10 @@ interface GanttMilestone {
   completed: number; // Percentage completed (0-100)
   isExpanded?: boolean; // Whether children are expanded or collapsed
   key?: string; // Key identifier for the milestone type
+  isResizing?: boolean; // Whether the milestone is currently being resized
+  resizeEdge?: 'start' | 'end'; // Which edge is being resized
+  hasOverlap?: boolean; // Whether this milestone overlaps with another
+  overlappingWith?: string[]; // IDs of milestones this one overlaps with
 }
 
 // Define the interface for milestone templates
@@ -291,34 +295,126 @@ const MilestoneEditDialog = ({
   );
 };
 
-// Standard milestone definitions based on the provided screenshot
-const STANDARD_MILESTONES: MilestoneTemplate[] = [
-  { key: "notice", title: "Notice to Proceed", duration: 0, color: "#4f46e5", indent: 0 },
-  { key: "projectStart", title: "Project Start", duration: 0, color: "#3B82F6", indent: 0 },
-  { key: "mobilization", title: "Mobilization", duration: 10, color: "#EF4444", indent: 0 },
-  { key: "mobilize", title: "Mobilize", duration: 16, color: "#EF4444", indent: 1, parent: "mobilization" },
-  { key: "construction", title: "Construction", duration: 34, color: "#EC4899", indent: 0 },
-  { key: "belowGrade", title: "Below Grade", duration: 13, color: "#8B5CF6", indent: 1, parent: "construction" },
-  { key: "gradeSite", title: "Grade Site", duration: 8, color: "#3B82F6", indent: 2, parent: "belowGrade" },
-  { key: "setFoundations", title: "Set Foundations", duration: 9, color: "#EF4444", indent: 2, parent: "belowGrade" },
-  { key: "installConduit", title: "Install Conduit", duration: 3, color: "#10B981", indent: 2, parent: "belowGrade" },
-  { key: "digCableTrench", title: "Dig Cable Trench", duration: 4, color: "#6366F1", indent: 2, parent: "belowGrade" },
-  { key: "aboveGrade", title: "Above Grade", duration: 23, color: "#8B5CF6", indent: 1, parent: "construction" },
-  { key: "erectSteelStructures", title: "Erect Steel Structures", duration: 8, color: "#3B82F6", indent: 2, parent: "aboveGrade" },
-  { key: "installEquipment", title: "Install Equipment", duration: 6, color: "#EF4444", indent: 2, parent: "aboveGrade" },
-  { key: "installGrounding", title: "Install Grounding", duration: 2, color: "#10B981", indent: 2, parent: "aboveGrade" },
-  { key: "installBusAndJumpers", title: "Install Bus and Jumpers", duration: 8, color: "#6366F1", indent: 2, parent: "aboveGrade" },
-  { key: "layControlCable", title: "Lay Control Cable", duration: 12, color: "#EC4899", indent: 2, parent: "aboveGrade" },
-  { key: "fence", title: "Fence", duration: 7, color: "#8B5CF6", indent: 1, parent: "construction" },
-  { key: "installFence", title: "Install Fence", duration: 7, color: "#3B82F6", indent: 2, parent: "fence" },
-  { key: "siteRestoration", title: "Site Restoration", duration: 26, color: "#EF4444", indent: 1, parent: "construction" },
-  { key: "removeEquipment", title: "Remove Equipment", duration: 5, color: "#10B981", indent: 2, parent: "siteRestoration" },
-  { key: "layStoning", title: "Lay Stoning", duration: 2, color: "#6366F1", indent: 2, parent: "siteRestoration" },
-  { key: "layRoadway", title: "Lay Roadway", duration: 4, color: "#EC4899", indent: 2, parent: "siteRestoration" },
-  { key: "projectCloseout", title: "Project Closeout", duration: 10, color: "#8B5CF6", indent: 0 },
-  { key: "substantialCompletion", title: "Substantial Completion", duration: 18, color: "#EF4444", indent: 1, parent: "projectCloseout" },
-  { key: "projectComplete", title: "Project Complete", duration: 0, color: "#10B981", indent: 0 }
-];
+// Function to generate milestone templates based on the Project properties
+const getProjectMilestones = (project: Project): MilestoneTemplate[] => {
+  // Default milestone definitions that match manufacturing project stages
+  const milestones: MilestoneTemplate[] = [];
+  
+  // Contract Date - Starting milestone
+  if (project.contractDate) {
+    milestones.push({ 
+      key: "contractDate", 
+      title: "Contract Date", 
+      duration: 0, 
+      color: "#3B82F6", 
+      indent: 0 
+    });
+  }
+  
+  // Fabrication Start
+  if (project.fabricationStart) {
+    milestones.push({ 
+      key: "fabricationStart", 
+      title: "Fabrication Start", 
+      duration: project.assemblyStart ? 
+        Math.max(1, differenceInDays(new Date(project.assemblyStart), new Date(project.fabricationStart))) : 
+        14, // Default duration if no end date
+      color: "#8B5CF6", 
+      indent: 0 
+    });
+  }
+  
+  // Assembly Start
+  if (project.assemblyStart) {
+    milestones.push({ 
+      key: "assemblyStart", 
+      title: "Assembly Start", 
+      duration: project.wrapGraphics ? 
+        Math.max(1, differenceInDays(new Date(project.wrapGraphics), new Date(project.assemblyStart))) : 
+        10, // Default duration
+      color: "#EC4899", 
+      indent: 0 
+    });
+  }
+  
+  // Wrap Graphics
+  if (project.wrapGraphics) {
+    milestones.push({ 
+      key: "wrapGraphics", 
+      title: "Wrap Graphics", 
+      duration: project.ntcTesting ? 
+        Math.max(1, differenceInDays(new Date(project.ntcTesting), new Date(project.wrapGraphics))) : 
+        5, // Default duration
+      color: "#EF4444", 
+      indent: 0 
+    });
+  }
+  
+  // NTC Testing
+  if (project.ntcTesting) {
+    milestones.push({ 
+      key: "ntcTesting", 
+      title: "NTC Testing", 
+      duration: project.qcStart ? 
+        Math.max(1, differenceInDays(new Date(project.qcStart), new Date(project.ntcTesting))) : 
+        4, // Default duration
+      color: "#F97316", 
+      indent: 0 
+    });
+  }
+  
+  // QC Start
+  if (project.qcStart) {
+    milestones.push({ 
+      key: "qcStart", 
+      title: "QC Start", 
+      duration: project.executiveReview ? 
+        Math.max(1, differenceInDays(new Date(project.executiveReview), new Date(project.qcStart))) : 
+        7, // Default duration
+      color: "#EAB308", 
+      indent: 0 
+    });
+  }
+  
+  // Executive Review
+  if (project.executiveReview) {
+    milestones.push({ 
+      key: "executiveReview", 
+      title: "Executive Review", 
+      duration: project.ship ? 
+        Math.max(1, differenceInDays(new Date(project.ship), new Date(project.executiveReview))) : 
+        3, // Default duration
+      color: "#10B981", 
+      indent: 0 
+    });
+  }
+  
+  // Ship Date
+  if (project.ship) {
+    milestones.push({ 
+      key: "ship", 
+      title: "Ship Date", 
+      duration: project.delivery ? 
+        Math.max(1, differenceInDays(new Date(project.delivery), new Date(project.ship))) : 
+        4, // Default duration
+      color: "#6366F1", 
+      indent: 0 
+    });
+  }
+  
+  // Delivery Date
+  if (project.delivery) {
+    milestones.push({ 
+      key: "delivery", 
+      title: "Delivery Date", 
+      duration: 0, // End milestone, no duration
+      color: "#22C55E", 
+      indent: 0 
+    });
+  }
+  
+  return milestones;
+};
 
 interface ProjectGanttViewProps {
   projects: Project[];
@@ -338,6 +434,16 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
   const [showMilestoneDialog, setShowMilestoneDialog] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<GanttMilestone | null>(null);
+  
+  // Additional state for resizing and drag functionality
+  const [resizingMilestoneId, setResizingMilestoneId] = useState<string | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<'start' | 'end' | null>(null);
+  const [startX, setStartX] = useState<number>(0);
+  const [originalDuration, setOriginalDuration] = useState<number>(0);
+  const [originalStartDate, setOriginalStartDate] = useState<Date | null>(null);
+  
+  // Ref for tracking mouse events
+  const ganttContainerRef = useRef<HTMLDivElement>(null);
 
   // Get color for project status
   const getStatusColor = (status?: string): string => {
@@ -403,58 +509,63 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     });
   }, []);
 
-  // Generate standard milestones for new projects
+  // Generate project-specific milestones based on actual project dates
   const generateStandardMilestones = useCallback((project: Project): GanttMilestone[] => {
     if (!project || !project.id) {
       console.error("Invalid project data provided to generateStandardMilestones");
       return [];
     }
     
-    console.log(`Generating standard milestones for project: ${project.projectNumber || project.id}`);
+    console.log(`Generating project milestones for project: ${project.projectNumber || project.id}`);
     
     try {
-      // Validate the contract date before using it
-      let startDate: Date;
-      try {
-        if (project.contractDate) {
-          startDate = new Date(project.contractDate);
-          if (isNaN(startDate.getTime())) {
-            console.warn(`Invalid contract date for project ${project.id}, using current date instead`);
-            startDate = new Date();
-          }
-        } else {
-          startDate = new Date();
-        }
-      } catch (dateError) {
-        console.error(`Error parsing contract date for project ${project.id}:`, dateError);
-        startDate = new Date();
-      }
-        
-      // Create a mapping of milestones by key for dependency references
-      const milestoneMap: Record<string, GanttMilestone> = {};
-      const milestones: GanttMilestone[] = [];
+      // Get project milestone templates based on actual project dates
+      const projectMilestoneTemplates = getProjectMilestones(project);
       
-      // Make sure STANDARD_MILESTONES exists and is an array
-      if (!Array.isArray(STANDARD_MILESTONES) || STANDARD_MILESTONES.length === 0) {
-        console.warn("No standard milestones defined, returning empty array");
+      // If no milestone templates were created, return empty array
+      if (projectMilestoneTemplates.length === 0) {
+        console.warn(`No milestones found for project ${project.id}, returning empty array`);
         return [];
       }
       
-      // Create date mapping based on milestone sequence and durations
-      // First pass: create all milestones with their initial dates
-      let currentDate = new Date(startDate);
-      let milestoneStartOffsets: Record<string, number> = {};
-      let totalDuration = 0;
+      // Create a mapping of milestones by key for dependency references
+      const milestoneMap: Record<string, GanttMilestone> = {};
+      const milestones: GanttMilestone[] = [];
+            
+      // Create date mapping based on actual project dates
+      const projectDates: Record<string, Date | null> = {
+        contractDate: project.contractDate ? new Date(project.contractDate) : new Date(),
+        fabricationStart: project.fabricationStart ? new Date(project.fabricationStart) : null,
+        assemblyStart: project.assemblyStart ? new Date(project.assemblyStart) : null,
+        wrapGraphics: project.wrapGraphics ? new Date(project.wrapGraphics) : null,
+        ntcTesting: project.ntcTesting ? new Date(project.ntcTesting) : null,
+        qcStart: project.qcStart ? new Date(project.qcStart) : null,
+        executiveReview: project.executiveReview ? new Date(project.executiveReview) : null,
+        ship: project.ship ? new Date(project.ship) : null,
+        delivery: project.delivery ? new Date(project.delivery) : null
+      };
       
-      // Let's create all milestones first, then establish dependencies
-      STANDARD_MILESTONES.forEach((template, index) => {
+      // Create milestones using the actual dates from the project
+      projectMilestoneTemplates.forEach((template) => {
         const milestoneId = `${project.id}_${template.key}`;
+        const actualDate = projectDates[template.key as keyof typeof projectDates];
+        
+        if (!actualDate && template.key !== "contractDate") {
+          // Skip milestones that don't have corresponding dates in the project
+          // Except for contractDate which is required as a starting point
+          return;
+        }
+        
+        // Calculate milestone start and end dates based on actual project dates
+        const start = actualDate || new Date();
+        const end = addDays(start, template.duration);
+        
         const milestone: GanttMilestone = {
           id: milestoneId,
           key: template.key,
           title: template.title,
-          start: new Date(currentDate),
-          end: addDays(currentDate, template.duration),
+          start: start,
+          end: end,
           color: template.color,
           projectId: project.id,
           projectName: project.projectNumber || project.name || `Project ${project.id.slice(0, 8)}`,
@@ -470,42 +581,29 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         
         milestoneMap[template.key] = milestone;
         milestones.push(milestone);
-        
-        // Record the offset for this milestone
-        milestoneStartOffsets[template.key] = totalDuration;
-        
-        // Only advance the date for top-level milestones or if this is a child that advances time
-        if (template.indent === 0) {
-          currentDate = addDays(currentDate, template.duration);
-          totalDuration += template.duration;
-        }
       });
       
-      // Second pass: set up parent-child relationships and properly position in timeline
-      milestones.forEach(milestone => {
-        if (milestone.parent) {
-          const parentMilestone = milestoneMap[milestone.parent];
-          if (parentMilestone) {
-            // Adjust the child milestone's start date to be properly positioned
-            // relative to parent's start date
-            milestone.start = new Date(parentMilestone.start);
-            if (milestone.indent === 2) {
-              // If it's a grandchild, find its parent and position after any siblings
-              const siblingIndex = milestones.findIndex(m => 
-                m.parent === milestone.parent && m.id !== milestone.id && m.indent === milestone.indent
-              );
-              if (siblingIndex >= 0) {
-                const sibling = milestones[siblingIndex];
-                milestone.start = new Date(sibling.end);
-              }
-            }
-            milestone.end = addDays(milestone.start, milestone.duration);
-            
-            // Also add as dependency
-            milestone.dependencies = [parentMilestone.id];
+      // Add dependencies between sequential milestones if they exist
+      // This creates a connected timeline of events
+      if (milestones.length > 1) {
+        // Sort milestones by start date
+        const sortedMilestones = [...milestones].sort((a, b) => 
+          a.start.getTime() - b.start.getTime()
+        );
+        
+        // Add dependencies from earlier to later milestones
+        for (let i = 1; i < sortedMilestones.length; i++) {
+          const previousMilestone = sortedMilestones[i-1];
+          const currentMilestone = sortedMilestones[i];
+          
+          // Add dependency if not already present
+          if (currentMilestone.dependencies && !currentMilestone.dependencies.includes(previousMilestone.id)) {
+            currentMilestone.dependencies.push(previousMilestone.id);
+          } else if (!currentMilestone.dependencies) {
+            currentMilestone.dependencies = [previousMilestone.id];
           }
         }
-      });
+      }
       
       return milestones;
     } catch (error) {
@@ -655,6 +753,174 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       return 2; // Default minimum width
     }
   };
+
+  // Detect overlapping milestones and mark them
+  const detectOverlappingMilestones = useCallback(() => {
+    if (!projectMilestones || projectMilestones.length <= 1) return;
+
+    // Create a deep copy to avoid direct state mutation
+    const updatedMilestones = [...projectMilestones];
+    
+    // Reset all overlap flags
+    updatedMilestones.forEach(milestone => {
+      milestone.hasOverlap = false;
+      milestone.overlappingWith = [];
+    });
+    
+    // Check each milestone against others
+    for (let i = 0; i < updatedMilestones.length; i++) {
+      const milestoneA = updatedMilestones[i];
+      const startA = new Date(milestoneA.start).getTime();
+      const endA = new Date(milestoneA.end).getTime();
+      
+      for (let j = i + 1; j < updatedMilestones.length; j++) {
+        const milestoneB = updatedMilestones[j];
+        const startB = new Date(milestoneB.start).getTime();
+        const endB = new Date(milestoneB.end).getTime();
+        
+        // Check for overlap - if milestone A overlaps with milestone B
+        if ((startA <= endB && endA >= startB) && 
+            milestoneA.projectId === milestoneB.projectId && 
+            milestoneA.key !== milestoneB.key) { // Only mark as overlapping if different types
+          
+          // Mark both milestones as overlapping
+          milestoneA.hasOverlap = true;
+          if (!milestoneA.overlappingWith) milestoneA.overlappingWith = [];
+          milestoneA.overlappingWith.push(milestoneB.id);
+          
+          milestoneB.hasOverlap = true;
+          if (!milestoneB.overlappingWith) milestoneB.overlappingWith = [];
+          milestoneB.overlappingWith.push(milestoneA.id);
+        }
+      }
+    }
+    
+    // Update state with the new overlap information
+    setProjectMilestones(updatedMilestones);
+  }, [projectMilestones]);
+  
+  // Run overlap detection when milestones change
+  useEffect(() => {
+    detectOverlappingMilestones();
+  }, [detectOverlappingMilestones]);
+  
+  // Handle start of resize operation
+  const handleStartResize = (milestone: GanttMilestone, edge: 'start' | 'end', e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Set the milestone being resized
+    setResizingMilestoneId(milestone.id);
+    setResizeEdge(edge);
+    setStartX(e.clientX);
+    setOriginalDuration(milestone.duration);
+    setOriginalStartDate(new Date(milestone.start));
+    
+    // Add event listeners for mouse move and mouse up
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleEndResize);
+    
+    // Update the milestone's isResizing flag
+    setProjectMilestones(prevMilestones => 
+      prevMilestones.map(m => m.id === milestone.id 
+        ? { ...m, isResizing: true, resizeEdge: edge } 
+        : m
+      )
+    );
+  };
+  
+  // Handle mouse move during resize
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!resizingMilestoneId || !resizeEdge || !ganttContainerRef.current || !originalStartDate) return;
+    
+    // Get the container bounds
+    const containerRect = ganttContainerRef.current.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    
+    // Calculate the delta movement as a percentage of container width
+    const deltaX = e.clientX - startX;
+    const deltaPercentage = (deltaX / containerWidth) * 100;
+    
+    // Get total days for the timeline
+    const totalDays = calculateTotalTimespan();
+    
+    // Convert percentage to days
+    const daysDelta = Math.round((deltaPercentage / 100) * totalDays);
+    
+    // Update the milestone based on which edge is being resized
+    setProjectMilestones(prevMilestones => 
+      prevMilestones.map(m => {
+        if (m.id !== resizingMilestoneId) return m;
+        
+        let newStartDate = new Date(originalStartDate);
+        let newDuration = originalDuration;
+        
+        if (resizeEdge === 'start') {
+          // Resize from start (move start date, adjust duration)
+          // Limit start date to not go beyond end date
+          newStartDate = addDays(originalStartDate, Math.min(daysDelta, originalDuration - 1));
+          newDuration = originalDuration - Math.min(daysDelta, originalDuration - 1);
+        } else if (resizeEdge === 'end') {
+          // Resize from end (adjust duration only)
+          // Make sure duration doesn't go below 1 day
+          newDuration = Math.max(1, originalDuration + daysDelta);
+        }
+        
+        // Calculate new end date
+        const newEndDate = addDays(newStartDate, newDuration);
+        
+        return {
+          ...m,
+          start: newStartDate,
+          end: newEndDate,
+          duration: newDuration,
+          isResizing: true,
+          resizeEdge
+        };
+      })
+    );
+  }, [resizingMilestoneId, resizeEdge, startX, originalDuration, originalStartDate, calculateTotalTimespan]);
+  
+  // Handle end of resize operation
+  const handleEndResize = useCallback(() => {
+    // Remove event listeners
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleEndResize);
+    
+    // If no milestone was being resized, just return
+    if (!resizingMilestoneId) return;
+    
+    // Update the milestone to no longer be in resizing state
+    setProjectMilestones(prevMilestones => 
+      prevMilestones.map(m => m.id === resizingMilestoneId 
+        ? { ...m, isResizing: false, resizeEdge: undefined } 
+        : m
+      )
+    );
+    
+    // Reset resizing state
+    setResizingMilestoneId(null);
+    setResizeEdge(null);
+    setOriginalStartDate(null);
+    
+    // Run overlap detection after resize
+    detectOverlappingMilestones();
+    
+    // Get the updated milestone to save
+    const updatedMilestone = projectMilestones.find(m => m.id === resizingMilestoneId);
+    if (updatedMilestone && selectedProject) {
+      // Save the changes to the API
+      handleSaveMilestone(updatedMilestone);
+    }
+  }, [resizingMilestoneId, handleMouseMove, projectMilestones, selectedProject, detectOverlappingMilestones]);
+  
+  // Clean up event listeners on component unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleEndResize);
+    };
+  }, [handleMouseMove, handleEndResize]);
 
   // Function to draw connector lines between related milestones
   const renderConnectorLines = (milestone: GanttMilestone) => {
@@ -1028,7 +1294,11 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       </div>
 
       {selectedProject ? (
-        <div className="gantt-view border rounded-md" style={{ height: "calc(100vh - 240px)", overflow: "hidden" }}>
+        <div 
+          className="gantt-view border rounded-md" 
+          style={{ height: "calc(100vh - 240px)", overflow: "hidden" }}
+          ref={ganttContainerRef}
+        >
           {/* Fixed header with horizontal scrolling */}
           <div className="gantt-timeline-header sticky top-0 z-10 bg-background border-b" style={{ overflow: "hidden" }}>
             <div className="flex">
@@ -1109,17 +1379,35 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                         <div className="gantt-timeline-grid relative h-full">
                           {/* Milestone bar */}
                           <div
-                            className="absolute h-6 rounded-sm cursor-pointer border border-gray-400 shadow-sm hover:brightness-95 transition-all"
+                            className={cn(
+                              "absolute h-6 rounded-sm cursor-move border border-gray-400 shadow-sm hover:brightness-95 transition-all",
+                              milestone.isResizing ? "brightness-90" : "",
+                              milestone.hasOverlap ? "animate-pulse border-red-500 border-2" : ""
+                            )}
                             style={{
                               left: `${calculateStartPosition(milestone)}%`,
                               width: `${calculateBarWidth(milestone)}%`,
                               backgroundColor: milestone.color || "#3B82F6",
                               top: "50%",
                               transform: "translateY(-50%)",
-                              zIndex: 20
+                              zIndex: 20,
+                              /* Add visual pulsing for overlapping milestones */
+                              boxShadow: milestone.hasOverlap ? "0 0 8px rgba(239, 68, 68, 0.7)" : ""
                             }}
                             onClick={() => handleEditMilestone(milestone)}
                           >
+                            {/* Left resize handle */}
+                            <div 
+                              className="absolute left-0 w-2 h-full cursor-w-resize bg-gray-700 opacity-30 hover:opacity-60 active:opacity-80 rounded-l-sm"
+                              onMouseDown={(e) => handleStartResize(milestone, 'start', e)}
+                            ></div>
+                            
+                            {/* Right resize handle */}
+                            <div 
+                              className="absolute right-0 w-2 h-full cursor-e-resize bg-gray-700 opacity-30 hover:opacity-60 active:opacity-80 rounded-r-sm"
+                              onMouseDown={(e) => handleStartResize(milestone, 'end', e)}
+                            ></div>
+                            
                             {/* Completion indicator */}
                             {milestone.completed > 0 && (
                               <div
@@ -1134,6 +1422,13 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                             {milestone.duration >= 3 && (
                               <div className="px-2 text-white text-xs truncate whitespace-nowrap">
                                 {milestone.title} ({milestone.completed}%)
+                              </div>
+                            )}
+                            
+                            {/* Overlap warning */}
+                            {milestone.hasOverlap && (
+                              <div className="absolute -top-4 left-0 text-xs font-semibold text-red-500">
+                                <span title="This milestone overlaps with others">⚠️ Overlap</span>
                               </div>
                             )}
                           </div>

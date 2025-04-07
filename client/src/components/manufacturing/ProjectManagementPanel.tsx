@@ -535,6 +535,10 @@ export function ProjectManagementPanel() {
       return matchesSearch && matchesLocation && matchesStatus;
     })
     .sort((a, b) => {
+      // Always move COMPLETED projects to the bottom regardless of other sort criteria
+      if (a.status === "COMPLETED" && b.status !== "COMPLETED") return 1;
+      if (a.status !== "COMPLETED" && b.status === "COMPLETED") return -1;
+      
       const direction = sortConfig.direction === "asc" ? 1 : -1;
 
       if (sortConfig.primary === "location") {

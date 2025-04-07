@@ -29,6 +29,7 @@ export interface Project {
   manualStatus?: boolean;
   contractDate?: string;
   chassisEta?: string;
+  dpasRating?: string;
   paymentMilestones?: string;
   lltsOrdered?: string;
   meAssigned?: string;
