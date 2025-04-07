@@ -858,9 +858,15 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         
         if (resizeEdge === 'start') {
           // Resize from start (move start date, adjust duration)
-          // Limit start date to not go beyond end date
-          newStartDate = addDays(originalStartDate, Math.min(daysDelta, originalDuration - 1));
-          newDuration = originalDuration - Math.min(daysDelta, originalDuration - 1);
+          // Ensure we don't make the milestone too small
+          const maxAllowedDelta = originalDuration - 1;
+          const adjustedDelta = Math.min(daysDelta, maxAllowedDelta);
+          
+          // Apply the delta to the start date
+          newStartDate = addDays(originalStartDate, adjustedDelta);
+          
+          // Recalculate duration based on the new start date
+          newDuration = originalDuration - adjustedDelta;
         } else if (resizeEdge === 'end') {
           // Resize from end (adjust duration only)
           // Make sure duration doesn't go below 1 day
@@ -873,13 +879,34 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         // Calculate new end date
         const newEndDate = addDays(newStartDate, newDuration);
         
+        // Add visual indicator for resize/move mode
+        const indicatorClass = 
+          resizeEdge === 'start' ? 'resize-start' : 
+          resizeEdge === 'end' ? 'resize-end' : 'moving';
+        
+        // Check if this milestone would overlap with any others
+        const wouldOverlap = prevMilestones.some(otherM => 
+          otherM.id !== m.id && 
+          ((newStartDate <= otherM.end && newEndDate >= otherM.start) ||
+           (otherM.start <= newEndDate && otherM.end >= newStartDate))
+        );
+        
         return {
           ...m,
           start: newStartDate,
           end: newEndDate,
           duration: newDuration,
           isResizing: true,
-          resizeEdge: resizeEdge as 'start' | 'end' | 'move'
+          resizeEdge: resizeEdge as 'start' | 'end' | 'move',
+          hasOverlap: wouldOverlap,
+          // Store overlapping milestone IDs if needed for visualization
+          overlappingWith: wouldOverlap 
+            ? prevMilestones
+                .filter(otherM => otherM.id !== m.id && 
+                  ((newStartDate <= otherM.end && newEndDate >= otherM.start) ||
+                   (otherM.start <= newEndDate && otherM.end >= newStartDate)))
+                .map(om => om.id)
+            : []
         };
       })
     );
@@ -1384,7 +1411,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                           {/* Milestone bar */}
                           <div
                             className={cn(
-                              "absolute h-6 rounded-sm cursor-move border border-gray-400 shadow-sm hover:brightness-95 transition-all",
+                              "absolute h-10 rounded-md cursor-move border border-gray-400 shadow-md hover:brightness-95 transition-all",
                               milestone.isResizing ? "brightness-90" : "",
                               milestone.hasOverlap ? "animate-pulse border-red-500 border-2" : ""
                             )}
@@ -1396,14 +1423,15 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                               transform: "translateY(-50%)",
                               zIndex: 20,
                               /* Add visual pulsing for overlapping milestones */
-                              boxShadow: milestone.hasOverlap ? "0 0 8px rgba(239, 68, 68, 0.7)" : ""
+                              boxShadow: milestone.hasOverlap ? "0 0 8px rgba(239, 68, 68, 0.7)" : "0 2px 4px rgba(0, 0, 0, 0.2)"
                             }}
                             onClick={() => handleEditMilestone(milestone)}
                             onMouseDown={(e) => {
                               // Only start drag if click is in the middle section (not on resize handles)
+                              // Use larger edge detection area (15px) to make it easier to grab the edges
                               const rect = e.currentTarget.getBoundingClientRect();
-                              const isLeftEdge = e.clientX - rect.left <= 6;
-                              const isRightEdge = rect.right - e.clientX <= 6;
+                              const isLeftEdge = e.clientX - rect.left <= 15;
+                              const isRightEdge = rect.right - e.clientX <= 15;
                               
                               if (!isLeftEdge && !isRightEdge) {
                                 handleStartResize(milestone, 'move', e);
@@ -1412,14 +1440,20 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                           >
                             {/* Left resize handle */}
                             <div 
-                              className="absolute left-0 w-2 h-full cursor-w-resize bg-gray-700 opacity-30 hover:opacity-60 active:opacity-80 rounded-l-sm"
-                              onMouseDown={(e) => handleStartResize(milestone, 'start', e)}
+                              className="absolute left-0 w-4 h-full cursor-w-resize bg-gray-700 opacity-40 hover:opacity-80 active:opacity-100 rounded-l-md"
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                handleStartResize(milestone, 'start', e);
+                              }}
                             ></div>
                             
                             {/* Right resize handle */}
                             <div 
-                              className="absolute right-0 w-2 h-full cursor-e-resize bg-gray-700 opacity-30 hover:opacity-60 active:opacity-80 rounded-r-sm"
-                              onMouseDown={(e) => handleStartResize(milestone, 'end', e)}
+                              className="absolute right-0 w-4 h-full cursor-e-resize bg-gray-700 opacity-40 hover:opacity-80 active:opacity-100 rounded-r-md"
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                handleStartResize(milestone, 'end', e);
+                              }}
                             ></div>
                             
                             {/* Completion indicator */}
