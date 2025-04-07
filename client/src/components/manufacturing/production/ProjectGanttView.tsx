@@ -42,7 +42,7 @@ interface GanttMilestone {
   isExpanded?: boolean; // Whether children are expanded or collapsed
   key?: string; // Key identifier for the milestone type
   isResizing?: boolean; // Whether the milestone is currently being resized
-  resizeEdge?: 'start' | 'end'; // Which edge is being resized
+  resizeEdge?: 'start' | 'end' | 'move'; // Which edge is being resized or if entire milestone is moving
   hasOverlap?: boolean; // Whether this milestone overlaps with another
   overlappingWith?: string[]; // IDs of milestones this one overlaps with
 }
@@ -437,10 +437,11 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   
   // Additional state for resizing and drag functionality
   const [resizingMilestoneId, setResizingMilestoneId] = useState<string | null>(null);
-  const [resizeEdge, setResizeEdge] = useState<'start' | 'end' | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<'start' | 'end' | 'move' | null>(null);
   const [startX, setStartX] = useState<number>(0);
   const [originalDuration, setOriginalDuration] = useState<number>(0);
   const [originalStartDate, setOriginalStartDate] = useState<Date | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   
   // Ref for tracking mouse events
   const ganttContainerRef = useRef<HTMLDivElement>(null);
@@ -804,12 +805,12 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     detectOverlappingMilestones();
   }, [detectOverlappingMilestones]);
   
-  // Handle start of resize operation
-  const handleStartResize = (milestone: GanttMilestone, edge: 'start' | 'end', e: React.MouseEvent) => {
+  // Handle start of resize or drag operation
+  const handleStartResize = (milestone: GanttMilestone, edge: 'start' | 'end' | 'move', e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Set the milestone being resized
+    // Set the milestone being resized or moved
     setResizingMilestoneId(milestone.id);
     setResizeEdge(edge);
     setStartX(e.clientX);
@@ -829,9 +830,9 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     );
   };
   
-  // Handle mouse move during resize
+  // Handle mouse move during resize or drag
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!resizingMilestoneId || !resizeEdge || !ganttContainerRef.current || !originalStartDate) return;
+    if (!resizingMilestoneId || !ganttContainerRef.current || !originalStartDate) return;
     
     // Get the container bounds
     const containerRect = ganttContainerRef.current.getBoundingClientRect();
@@ -847,7 +848,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     // Convert percentage to days
     const daysDelta = Math.round((deltaPercentage / 100) * totalDays);
     
-    // Update the milestone based on which edge is being resized
+    // Update the milestone based on which edge is being resized or if it's being moved
     setProjectMilestones(prevMilestones => 
       prevMilestones.map(m => {
         if (m.id !== resizingMilestoneId) return m;
@@ -864,6 +865,9 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           // Resize from end (adjust duration only)
           // Make sure duration doesn't go below 1 day
           newDuration = Math.max(1, originalDuration + daysDelta);
+        } else if (resizeEdge === 'move') {
+          // Move the entire milestone (adjust start date, keep duration)
+          newStartDate = addDays(originalStartDate, daysDelta);
         }
         
         // Calculate new end date
@@ -875,7 +879,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           end: newEndDate,
           duration: newDuration,
           isResizing: true,
-          resizeEdge
+          resizeEdge: resizeEdge as 'start' | 'end' | 'move'
         };
       })
     );
@@ -1395,6 +1399,16 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                               boxShadow: milestone.hasOverlap ? "0 0 8px rgba(239, 68, 68, 0.7)" : ""
                             }}
                             onClick={() => handleEditMilestone(milestone)}
+                            onMouseDown={(e) => {
+                              // Only start drag if click is in the middle section (not on resize handles)
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const isLeftEdge = e.clientX - rect.left <= 6;
+                              const isRightEdge = rect.right - e.clientX <= 6;
+                              
+                              if (!isLeftEdge && !isRightEdge) {
+                                handleStartResize(milestone, 'move', e);
+                              }
+                            }}
                           >
                             {/* Left resize handle */}
                             <div 
