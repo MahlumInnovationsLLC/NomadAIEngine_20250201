@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { type Project } from "@/types/manufacturing";
-import { format, addDays, differenceInDays } from "date-fns";
+import { format, addDays, differenceInDays, addWeeks, getWeek, addMonths, addYears } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -461,6 +461,10 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
   const [allProjectsMilestones, setAllProjectsMilestones] = useState<Record<string, GanttMilestone[]>>({});
+  
+  // Time scale options for Gantt chart
+  type TimeScaleOption = 'days' | 'weeks' | 'months' | 'quarters' | 'sixMonths' | 'year';
+  const [timeScale, setTimeScale] = useState<TimeScaleOption>('weeks');
   
   // Additional state for resizing and drag functionality
   const [resizingMilestoneId, setResizingMilestoneId] = useState<string | null>(null);
@@ -1519,24 +1523,96 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       });
   };
 
-  // Generate timeline headers (days)
+  // Generate timeline headers based on selected time scale
   const renderTimelineHeaders = useMemo(() => {
+    // Helper function to get unit increment and format for different time scales
+    const getTimeScaleConfig = () => {
+      switch (timeScale) {
+        case 'days':
+          return { 
+            getDate: (date: Date, i: number) => addDays(date, i),
+            format: (date: Date) => format(date, 'd'),
+            isLabelBreakpoint: (date: Date, i: number) => i === 0 || date.getDate() === 1,
+            labelFormat: (date: Date) => format(date, 'MMM'),
+            unitCount: calculateTotalTimespan(),
+            cssClass: "day-column"
+          };
+        case 'weeks':
+          return { 
+            getDate: (date: Date, i: number) => safeAddWeeks(date, i),
+            format: (date: Date) => `W${safeGetWeek(date)}`,
+            isLabelBreakpoint: (date: Date, i: number) => i === 0 || date.getDate() <= 7,
+            labelFormat: (date: Date) => format(date, 'MMM yyyy'),
+            unitCount: Math.ceil(calculateTotalTimespan() / 7),
+            cssClass: "week-column"
+          };
+        case 'months':
+          return { 
+            getDate: (date: Date, i: number) => safeAddMonths(date, i),
+            format: (date: Date) => format(date, 'MMM'),
+            isLabelBreakpoint: (date: Date, i: number) => i === 0 || date.getMonth() === 0,
+            labelFormat: (date: Date) => format(date, 'yyyy'),
+            unitCount: Math.ceil(calculateTotalTimespan() / 30),
+            cssClass: "month-column"
+          };
+        case 'quarters':
+          return { 
+            getDate: (date: Date, i: number) => safeAddMonths(date, i * 3),
+            format: (date: Date) => `Q${Math.floor(date.getMonth() / 3) + 1}`,
+            isLabelBreakpoint: (date: Date, i: number) => i === 0 || date.getMonth() === 0,
+            labelFormat: (date: Date) => format(date, 'yyyy'),
+            unitCount: Math.ceil(calculateTotalTimespan() / 90),
+            cssClass: "quarter-column"
+          };
+        case 'sixMonths':
+          return { 
+            getDate: (date: Date, i: number) => safeAddMonths(date, i * 6),
+            format: (date: Date) => date.getMonth() < 6 ? 'H1' : 'H2',
+            isLabelBreakpoint: (date: Date, i: number) => i === 0 || date.getMonth() === 0,
+            labelFormat: (date: Date) => format(date, 'yyyy'),
+            unitCount: Math.ceil(calculateTotalTimespan() / 180),
+            cssClass: "half-year-column"
+          };
+        case 'year':
+          return { 
+            getDate: (date: Date, i: number) => safeAddYears(date, i),
+            format: (date: Date) => format(date, 'yyyy'),
+            isLabelBreakpoint: () => false,
+            labelFormat: () => '',
+            unitCount: Math.ceil(calculateTotalTimespan() / 365),
+            cssClass: "year-column"
+          };
+        default:
+          return { 
+            getDate: (date: Date, i: number) => addDays(date, i),
+            format: (date: Date) => format(date, 'd'),
+            isLabelBreakpoint: (date: Date, i: number) => i === 0 || date.getDate() === 1,
+            labelFormat: (date: Date) => format(date, 'MMM'),
+            unitCount: calculateTotalTimespan(),
+            cssClass: "day-column"
+          };
+      }
+    };
+    
     // If no project is selected, show empty state
-    if (!selectedProject || projectMilestones.length === 0) {
+    if (!selectedProject && !showAllProjects) {
+      const config = getTimeScaleConfig();
+      const startDate = new Date();
+      // Default empty state
       return (
         <div className="flex">
-          {Array.from({ length: 30 }).map((_, i) => {
-            const currentDate = addDays(new Date(), i);
+          {Array.from({ length: Math.min(config.unitCount, 30) }).map((_, i) => {
+            const currentDate = config.getDate(startDate, i);
             return (
-              <div key={`day-${i}`} className="day-column">
+              <div key={`unit-${i}`} className={config.cssClass}>
                 <div className="day-header text-center text-xs font-semibold">
-                  {i === 0 || currentDate.getDate() === 1 ? (
+                  {config.isLabelBreakpoint(currentDate, i) ? (
                     <span className="month">
-                      {format(currentDate, 'MMM')}
+                      {config.labelFormat(currentDate)}
                     </span>
                   ) : null}
                   <span className="day">
-                    {format(currentDate, 'd')}
+                    {config.format(currentDate)}
                   </span>
                 </div>
               </div>
@@ -1548,25 +1624,41 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     
     // Find earliest start date to anchor the timeline
     try {
-      const startDates = projectMilestones.map(m => new Date(m.start).getTime());
+      let allMilestones: GanttMilestone[] = [];
+      
+      // Collect all relevant milestones depending on view mode
+      if (showAllProjects) {
+        Object.values(allProjectsMilestones).forEach(milestones => {
+          allMilestones = [...allMilestones, ...milestones];
+        });
+      } else {
+        allMilestones = projectMilestones;
+      }
+      
+      if (allMilestones.length === 0) {
+        throw new Error("No milestones available");
+      }
+      
+      const startDates = allMilestones.map(m => new Date(m.start).getTime());
       const earliestDate = new Date(Math.min(...startDates));
-      const totalDays = calculateTotalTimespan();
+      
+      const config = getTimeScaleConfig();
       
       // Return timeline for actual project dates
       return (
         <div className="flex">
-          {Array.from({ length: totalDays }).map((_, i) => {
-            const currentDate = addDays(earliestDate, i);
+          {Array.from({ length: config.unitCount }).map((_, i) => {
+            const currentDate = config.getDate(earliestDate, i);
             return (
-              <div key={`day-${i}`} className="day-column">
+              <div key={`unit-${i}`} className={config.cssClass}>
                 <div className="day-header text-center text-xs font-semibold">
-                  {i === 0 || currentDate.getDate() === 1 ? (
+                  {config.isLabelBreakpoint(currentDate, i) ? (
                     <span className="month">
-                      {format(currentDate, 'MMM')}
+                      {config.labelFormat(currentDate)}
                     </span>
                   ) : null}
                   <span className="day">
-                    {format(currentDate, 'd')}
+                    {config.format(currentDate)}
                   </span>
                 </div>
               </div>
@@ -1579,8 +1671,82 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       // Fallback to empty timeline
       return <div className="flex"></div>;
     }
-  }, [selectedProject, projectMilestones, calculateTotalTimespan]);
+  }, [selectedProject, projectMilestones, calculateTotalTimespan, timeScale, showAllProjects, allProjectsMilestones]);
 
+  // Helper functions for date manipulation if date-fns functions are not available
+  const customAddWeeks = (date: Date, weeks: number): Date => {
+    const result = new Date(date);
+    result.setDate(result.getDate() + weeks * 7);
+    return result;
+  };
+  
+  const customGetWeek = (date: Date): number => {
+    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  };
+  
+  const customAddMonths = (date: Date, months: number): Date => {
+    const result = new Date(date);
+    result.setMonth(result.getMonth() + months);
+    return result;
+  };
+  
+  const customAddYears = (date: Date, years: number): Date => {
+    const result = new Date(date);
+    result.setFullYear(result.getFullYear() + years);
+    return result;
+  };
+  
+  // Use our custom functions or the imported ones if available
+  const safeAddWeeks = typeof addWeeks !== 'undefined' ? addWeeks : customAddWeeks;
+  const safeGetWeek = typeof getWeek !== 'undefined' ? getWeek : customGetWeek;
+  const safeAddMonths = typeof addMonths !== 'undefined' ? addMonths : customAddMonths;
+  const safeAddYears = typeof addYears !== 'undefined' ? addYears : customAddYears;
+  
+  // Add CSS for time scale columns
+  useEffect(() => {
+    // Add CSS styles for timeline columns
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+      .day-column {
+        min-width: 32px;
+        border-right: 1px solid rgba(0,0,0,0.1);
+        position: relative;
+      }
+      .week-column {
+        min-width: 60px;
+        border-right: 1px solid rgba(0,0,0,0.1);
+        position: relative;
+      }
+      .month-column {
+        min-width: 100px;
+        border-right: 1px solid rgba(0,0,0,0.1);
+        position: relative;
+      }
+      .quarter-column {
+        min-width: 120px;
+        border-right: 1px solid rgba(0,0,0,0.1);
+        position: relative;
+      }
+      .half-year-column {
+        min-width: 150px;
+        border-right: 1px solid rgba(0,0,0,0.1);
+        position: relative;
+      }
+      .year-column {
+        min-width: 180px;
+        border-right: 1px solid rgba(0,0,0,0.1);
+        position: relative;
+      }
+    `;
+    document.head.appendChild(styleEl);
+    
+    return () => {
+      document.head.removeChild(styleEl);
+    };
+  }, []);
+  
   return (
     <div className="gantt-chart-container space-y-4">
       <div className="flex justify-between items-center mb-4">
@@ -1668,6 +1834,26 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
               </SelectContent>
             </Select>
           )}
+          
+          {/* Time Scale Options */}
+          <div className="ml-4 border-l pl-4">
+            <Select
+              value={timeScale}
+              onValueChange={(value: TimeScaleOption) => setTimeScale(value)}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Time Scale" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="days">Days</SelectItem>
+                <SelectItem value="weeks">Weeks</SelectItem>
+                <SelectItem value="months">Months</SelectItem>
+                <SelectItem value="quarters">Quarters</SelectItem>
+                <SelectItem value="sixMonths">Six Months</SelectItem>
+                <SelectItem value="year">Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
