@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -45,6 +46,8 @@ interface GanttMilestone {
   resizeEdge?: 'start' | 'end' | 'move'; // Which edge is being resized or if entire milestone is moving
   hasOverlap?: boolean; // Whether this milestone overlaps with another
   overlappingWith?: string[]; // IDs of milestones this one overlaps with
+  isSubMilestone?: boolean; // Flag to indicate if this is a sub-milestone (not part of project data)
+  subMilestones?: GanttMilestone[]; // Array of sub-milestones attached to this milestone
 }
 
 // Define the interface for milestone templates
@@ -104,6 +107,7 @@ const MilestoneEditDialog = ({
   const [completion, setCompletion] = useState('0');
   const [parentId, setParentId] = useState('');
   const [indent, setIndent] = useState('0');
+  const [isSubMilestone, setIsSubMilestone] = useState(false);
   
   // Use useEffect to update state when editingMilestone changes
   useEffect(() => {
@@ -134,6 +138,7 @@ const MilestoneEditDialog = ({
     setCompletion(editingMilestone.completed?.toString() || '0');
     setParentId(editingMilestone.parent || '');
     setIndent(editingMilestone.indent?.toString() || '0');
+    setIsSubMilestone(editingMilestone.isSubMilestone || false);
   }, [editingMilestone]);
   
   const handleSave = () => {
@@ -170,7 +175,8 @@ const MilestoneEditDialog = ({
         parent: parentId || undefined,
         indent: !isNaN(indentValue) ? Math.max(indentValue, 0) : 0, // Ensure non-negative
         projectId: editingMilestone.projectId,
-        projectName: editingMilestone.projectName
+        projectName: editingMilestone.projectName,
+        isSubMilestone: isSubMilestone // Include sub-milestone flag
       };
       
       onSave(updatedMilestone);
@@ -188,6 +194,7 @@ const MilestoneEditDialog = ({
         completed: 0,
         parent: parentId || undefined,
         indent: parseInt(indent) || 0,
+        isSubMilestone: isSubMilestone,
       };
       onSave(fallbackMilestone);
     }
@@ -282,6 +289,23 @@ const MilestoneEditDialog = ({
                 <SelectItem value="2">2 - Grandchild</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="isSubMilestone" className="text-right">Sub-milestone</Label>
+            <div className="flex items-center space-x-2 col-span-3">
+              <Checkbox 
+                id="isSubMilestone" 
+                checked={isSubMilestone}
+                onCheckedChange={(checked) => setIsSubMilestone(checked === true)}
+              />
+              <Label 
+                htmlFor="isSubMilestone" 
+                className="text-sm font-normal leading-none"
+              >
+                This is a sub-milestone (only visible in Gantt chart)
+              </Label>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -434,6 +458,9 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
   const [showMilestoneDialog, setShowMilestoneDialog] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<GanttMilestone | null>(null);
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+  const [allProjectsMilestones, setAllProjectsMilestones] = useState<Record<string, GanttMilestone[]>>({});
   
   // Additional state for resizing and drag functionality
   const [resizingMilestoneId, setResizingMilestoneId] = useState<string | null>(null);
@@ -509,6 +536,107 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       });
     });
   }, []);
+  
+  // Toggle project expansion in All Projects view
+  const toggleProjectExpansion = useCallback((projectId: string) => {
+    setExpandedProjects(prev => {
+      if (prev.includes(projectId)) {
+        return prev.filter(id => id !== projectId);
+      } else {
+        return [...prev, projectId];
+      }
+    });
+  }, []);
+  
+  // Function to load milestones for all projects
+  const loadAllProjectsMilestones = useCallback(async () => {
+    if (!Array.isArray(projects) || projects.length === 0) {
+      toast({
+        title: "No projects",
+        description: "There are no projects available to display",
+      });
+      return;
+    }
+    
+    console.log("Loading milestones for all projects...");
+    setSelectedProject(null);
+    setShowAllProjects(true);
+    setProjectMilestones([]);
+    
+    // Create a map to store milestones by project
+    const milestonesMap: Record<string, GanttMilestone[]> = {};
+    
+    // Load milestones for each project in batches
+    const batchSize = 5; // Process 5 projects at a time to avoid overwhelming the server
+    
+    try {
+      for (let i = 0; i < projects.length; i += batchSize) {
+        const batch = projects.slice(i, i + batchSize);
+        
+        // Process each project in the batch
+        await Promise.all(batch.map(async (project) => {
+          if (!project.id) return;
+          
+          try {
+            // Fetch milestones for this project
+            const response = await fetch(`/api/manufacturing/projects/${project.id}/milestones`);
+            
+            if (!response.ok) {
+              if (response.status === 404) {
+                console.log(`No milestones found for project ${project.id}`);
+                return;
+              }
+              throw new Error(`Failed to fetch milestones: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data && Array.isArray(data) && data.length > 0) {
+              // Convert API milestones to GanttMilestone format
+              const projectMilestones: GanttMilestone[] = data.map(m => ({
+                id: m.id,
+                key: m.key || m.id,
+                title: m.title,
+                start: new Date(m.start),
+                end: new Date(m.end),
+                color: m.color || getStatusColor(project.status),
+                projectId: project.id,
+                projectName: project.projectNumber || project.name || `Project ${project.id.slice(0, 8)}`,
+                editable: true,
+                deletable: true,
+                dependencies: m.dependencies || [],
+                duration: m.duration || differenceInDays(new Date(m.end), new Date(m.start)),
+                indent: m.indent || 0,
+                parent: m.parent,
+                completed: m.completed || 0,
+                isExpanded: false, // Default to collapsed in all projects view
+              }));
+              
+              // Store these milestones in our map
+              milestonesMap[project.id] = projectMilestones;
+            }
+          } catch (error) {
+            console.error(`Error loading milestones for project ${project.id}:`, error);
+          }
+        }));
+      }
+      
+      // Store all the milestone data
+      setAllProjectsMilestones(milestonesMap);
+      
+      toast({
+        title: "All Projects View",
+        description: `Loaded milestones for ${Object.keys(milestonesMap).length} projects`,
+      });
+    } catch (error) {
+      console.error("Error loading all projects milestones:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load all project milestones",
+        variant: "destructive",
+      });
+    }
+  }, [projects, toast, getStatusColor]);
 
   // Generate project-specific milestones based on actual project dates
   const generateStandardMilestones = useCallback((project: Project): GanttMilestone[] => {
@@ -838,59 +966,67 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     const containerRect = ganttContainerRef.current.getBoundingClientRect();
     const containerWidth = containerRect.width;
     
-    // Calculate the delta movement as a percentage of container width
+    // Calculate the delta movement in pixels
     const deltaX = e.clientX - startX;
-    const deltaPercentage = (deltaX / containerWidth) * 100;
     
-    // Get total days for the timeline
+    // Get timeline range information
     const totalDays = calculateTotalTimespan();
+    const daysPerPixel = totalDays / containerWidth;
     
-    // Convert percentage to days
-    const daysDelta = Math.round((deltaPercentage / 100) * totalDays);
+    // Convert pixel movement to days - use a more precise calculation
+    const daysDelta = Math.round(deltaX * daysPerPixel);
     
     // Update the milestone based on which edge is being resized or if it's being moved
     setProjectMilestones(prevMilestones => 
       prevMilestones.map(m => {
         if (m.id !== resizingMilestoneId) return m;
         
+        // Make copies to avoid mutating original dates
         let newStartDate = new Date(originalStartDate);
         let newDuration = originalDuration;
+        let newEndDate = new Date(addDays(originalStartDate, originalDuration));
         
         if (resizeEdge === 'start') {
-          // Resize from start (move start date, adjust duration)
-          // Ensure we don't make the milestone too small
-          const maxAllowedDelta = originalDuration - 1;
-          const adjustedDelta = Math.min(daysDelta, maxAllowedDelta);
+          // Resize from start edge (move start date, adjust duration)
+          // Calculate new start date with constraints
+          const maxMoveDays = originalDuration - 1; // Ensure at least 1 day duration
+          const limitedDaysDelta = daysDelta > maxMoveDays ? maxMoveDays : daysDelta;
           
-          // Apply the delta to the start date
-          newStartDate = addDays(originalStartDate, adjustedDelta);
+          // Apply delta to start date
+          newStartDate = addDays(originalStartDate, limitedDaysDelta);
           
-          // Recalculate duration based on the new start date
-          newDuration = originalDuration - adjustedDelta;
-        } else if (resizeEdge === 'end') {
-          // Resize from end (adjust duration only)
-          // Make sure duration doesn't go below 1 day
+          // Calculate new duration and end date
+          newDuration = differenceInDays(newEndDate, newStartDate);
+          if (newDuration < 1) {
+            newDuration = 1;
+            newStartDate = addDays(newEndDate, -1);
+          }
+        } 
+        else if (resizeEdge === 'end') {
+          // Resize from end edge (keep start date, adjust duration and end date)
+          // Calculate new duration with minimum of 1 day
           newDuration = Math.max(1, originalDuration + daysDelta);
-        } else if (resizeEdge === 'move') {
-          // Move the entire milestone (adjust start date, keep duration)
+          
+          // Calculate new end date based on start + duration
+          newEndDate = addDays(newStartDate, newDuration);
+        } 
+        else if (resizeEdge === 'move') {
+          // Move entire milestone (adjust both start and end dates, keep duration)
           newStartDate = addDays(originalStartDate, daysDelta);
+          newEndDate = addDays(newStartDate, originalDuration);
+          // Duration stays the same
         }
         
-        // Calculate new end date
-        const newEndDate = addDays(newStartDate, newDuration);
-        
-        // Add visual indicator for resize/move mode
-        const indicatorClass = 
-          resizeEdge === 'start' ? 'resize-start' : 
-          resizeEdge === 'end' ? 'resize-end' : 'moving';
-        
-        // Check if this milestone would overlap with any others
+        // Check if this milestone would overlap with any others (excluding child milestones)
         const wouldOverlap = prevMilestones.some(otherM => 
           otherM.id !== m.id && 
-          ((newStartDate <= otherM.end && newEndDate >= otherM.start) ||
-           (otherM.start <= newEndDate && otherM.end >= newStartDate))
+          otherM.parent !== m.id && // Don't count children as overlaps
+          m.parent !== otherM.id && // Don't count parents as overlaps
+          ((newStartDate <= new Date(otherM.end) && newEndDate >= new Date(otherM.start)) ||
+           (new Date(otherM.start) <= newEndDate && new Date(otherM.end) >= newStartDate))
         );
         
+        // Updated milestone with new position and state
         return {
           ...m,
           start: newStartDate,
@@ -903,14 +1039,22 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           overlappingWith: wouldOverlap 
             ? prevMilestones
                 .filter(otherM => otherM.id !== m.id && 
-                  ((newStartDate <= otherM.end && newEndDate >= otherM.start) ||
-                   (otherM.start <= newEndDate && otherM.end >= newStartDate)))
+                  otherM.parent !== m.id && 
+                  m.parent !== otherM.id &&
+                  ((newStartDate <= new Date(otherM.end) && newEndDate >= new Date(otherM.start)) ||
+                   (new Date(otherM.start) <= newEndDate && new Date(otherM.end) >= newStartDate)))
                 .map(om => om.id)
             : []
         };
       })
     );
-  }, [resizingMilestoneId, resizeEdge, startX, originalDuration, originalStartDate, calculateTotalTimespan]);
+    
+    // Force a re-render for smoother dragging
+    if (resizingMilestoneId) {
+      // Call detectOverlappingMilestones to update visual indicators
+      detectOverlappingMilestones();
+    }
+  }, [resizingMilestoneId, resizeEdge, startX, originalDuration, originalStartDate, calculateTotalTimespan, detectOverlappingMilestones]);
   
   // Handle end of resize operation
   const handleEndResize = useCallback(() => {
@@ -1022,16 +1166,131 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       indent: 0,
       completed: 0,
       isExpanded: true,
+      isSubMilestone: false, // Regular milestone that will be saved to project data
     };
     
     setEditingMilestone(newMilestone);
     setShowMilestoneDialog(true);
+  };
+  
+  // Create a new sub-milestone (exists only in Gantt chart)
+  const handleAddSubMilestone = (parentMilestoneId: string) => {
+    if (!selectedProject) return;
+    
+    // Find the parent milestone
+    const parentMilestone = projectMilestones.find(m => m.id === parentMilestoneId);
+    if (!parentMilestone) return;
+    
+    // Create a new sub-milestone with defaults based on parent
+    const newId = `sub_${Date.now()}`;
+    const newSubMilestone: GanttMilestone = {
+      id: newId,
+      title: `Sub-task for ${parentMilestone.title}`,
+      start: new Date(parentMilestone.start),
+      end: addDays(new Date(parentMilestone.start), 3), // Default 3-day duration for sub-milestones
+      duration: 3,
+      projectId: selectedProject.id,
+      projectName: selectedProject.projectNumber || "",
+      color: adjustColor(parentMilestone.color || "#3B82F6"), // Slightly different color than parent
+      editable: true,
+      deletable: true,
+      dependencies: [parentMilestone.id], // Depends on parent by default
+      indent: parentMilestone.indent + 1, // One level deeper than parent
+      parent: parentMilestone.id, // Reference to parent
+      completed: 0,
+      isExpanded: true,
+      isSubMilestone: true, // Flag that this is a sub-milestone (not saved to project data)
+    };
+    
+    // Create a temporary editing milestone
+    setEditingMilestone(newSubMilestone);
+    setShowMilestoneDialog(true);
+  };
+  
+  // Helper function to adjust color for sub-milestones
+  const adjustColor = (color: string): string => {
+    // If color is hex (e.g. #3B82F6), lighten it slightly
+    if (color.startsWith('#')) {
+      // Convert hex to RGB
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      
+      // Lighten by 15%
+      const lightenFactor = 0.15;
+      const newR = Math.min(255, Math.floor(r + (255 - r) * lightenFactor));
+      const newG = Math.min(255, Math.floor(g + (255 - g) * lightenFactor));
+      const newB = Math.min(255, Math.floor(b + (255 - b) * lightenFactor));
+      
+      // Convert back to hex
+      return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+    }
+    
+    // For non-hex colors, just return the original
+    return color;
   };
 
   // Save milestone changes
   const handleSaveMilestone = (milestone: GanttMilestone) => {
     if (!selectedProject) return;
     
+    // Check if this is a sub-milestone (which only exists in the Gantt chart)
+    if (milestone.isSubMilestone) {
+      // For sub-milestones, we only update the UI state without sending to server
+      console.log("Saving sub-milestone (local only):", milestone);
+      
+      const isNew = milestone.id.startsWith('sub_');
+      
+      // Generate a clean ID for new sub-milestones
+      let updatedMilestone = milestone;
+      if (isNew) {
+        const newId = `sub_${selectedProject.id}_${Date.now()}`;
+        updatedMilestone = { ...milestone, id: newId };
+      }
+      
+      // Update local state
+      if (isNew) {
+        // Add the new sub-milestone
+        setProjectMilestones(prev => [...prev, updatedMilestone]);
+        
+        // If this sub-milestone has a parent, we should also update the parent's subMilestones array
+        if (updatedMilestone.parent) {
+          setProjectMilestones(prev => 
+            prev.map(m => {
+              if (m.id === updatedMilestone.parent) {
+                // Add this sub-milestone to parent's subMilestones array
+                const currentSubMilestones = m.subMilestones || [];
+                return {
+                  ...m,
+                  subMilestones: [...currentSubMilestones, updatedMilestone],
+                  isExpanded: true, // Auto-expand the parent
+                };
+              }
+              return m;
+            })
+          );
+        }
+      } else {
+        // Update existing sub-milestone
+        setProjectMilestones(prev => 
+          prev.map(m => m.id === milestone.id ? updatedMilestone : m)
+        );
+      }
+      
+      // Show success toast
+      toast({
+        title: "Success",
+        description: `Sub-milestone ${isNew ? 'created' : 'updated'} successfully`,
+      });
+      
+      // Close dialog and reset selection
+      setShowMilestoneDialog(false);
+      setSelectedMilestoneId(null);
+      
+      return; // Exit early for sub-milestones
+    }
+    
+    // For regular milestones, proceed with API call
     // Show loading toast
     toast({
       title: "Saving...",
@@ -1146,6 +1405,55 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   const handleDeleteMilestone = (milestoneId: string) => {
     if (!selectedProject || !milestoneId) return;
     
+    // Find the milestone to check if it's a sub-milestone
+    const milestoneToDelete = projectMilestones.find(m => m.id === milestoneId);
+    if (!milestoneToDelete) return;
+    
+    // For all milestones, show a confirmation dialog
+    const confirmMessage = milestoneToDelete.isSubMilestone
+      ? `Are you sure you want to delete the sub-milestone "${milestoneToDelete.title}"? This action cannot be undone.`
+      : `Are you sure you want to delete the milestone "${milestoneToDelete.title}"? This will permanently remove it from the project.`;
+      
+    if (!window.confirm(confirmMessage)) {
+      return; // User cancelled the deletion
+    }
+    
+    // If it's a sub-milestone, handle it locally (don't send to server)
+    if (milestoneToDelete.isSubMilestone) {
+      console.log("Deleting sub-milestone (local only):", milestoneToDelete);
+      
+      // Remove from parent's subMilestones array if applicable
+      if (milestoneToDelete.parent) {
+        setProjectMilestones(prev => 
+          prev.map(m => {
+            if (m.id === milestoneToDelete.parent) {
+              // Filter out this sub-milestone from parent's subMilestones array
+              const updatedSubMilestones = (m.subMilestones || []).filter(
+                subM => subM.id !== milestoneId
+              );
+              return { ...m, subMilestones: updatedSubMilestones };
+            }
+            return m;
+          })
+        );
+      }
+      
+      // Remove the sub-milestone from the main list
+      setProjectMilestones(prev => prev.filter(m => m.id !== milestoneId));
+      
+      // Show success toast
+      toast({
+        title: "Success",
+        description: "Sub-milestone deleted",
+      });
+      
+      // Clear selected milestone since it no longer exists
+      setSelectedMilestoneId(null);
+      
+      return; // Exit early for sub-milestones
+    }
+    
+    // For regular milestones, continue with API call
     // Show a loading toast
     toast({
       title: "Deleting...",
@@ -1170,8 +1478,16 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       .then(data => {
         console.log("Milestone deleted successfully:", data);
         
-        // Update milestone list in state by filtering out the deleted one
-        setProjectMilestones(prev => prev.filter(m => m.id !== milestoneId));
+        // Update milestone list in state by filtering out the deleted one and any child milestones
+        setProjectMilestones(prev => {
+          // Get IDs of any child milestones that depend on this one
+          const childrenIds = prev
+            .filter(m => m.parent === milestoneId)
+            .map(m => m.id);
+          
+          // Filter out both the milestone and its children
+          return prev.filter(m => m.id !== milestoneId && !childrenIds.includes(m.id));
+        });
         
         // Show success toast
         toast({
@@ -1273,7 +1589,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
             variant="outline" 
             size="sm" 
             onClick={handleAddMilestone}
-            disabled={!selectedProject}
+            disabled={!selectedProject || showAllProjects}
           >
             <FontAwesomeIcon icon="plus" className="mr-2 h-4 w-4" />
             Add Milestone
@@ -1287,7 +1603,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                 if (milestone) handleEditMilestone(milestone);
               }
             }}
-            disabled={!selectedMilestoneId}
+            disabled={!selectedMilestoneId || showAllProjects}
           >
             <FontAwesomeIcon icon="pencil-alt" className="mr-2 h-4 w-4" />
             Edit Selected
@@ -1298,33 +1614,64 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
             onClick={() => {
               if (selectedMilestoneId) handleDeleteMilestone(selectedMilestoneId);
             }}
-            disabled={!selectedMilestoneId}
+            disabled={!selectedMilestoneId || showAllProjects}
           >
             <FontAwesomeIcon icon="trash" className="mr-2 h-4 w-4" />
             Delete Selected
           </Button>
+          
+          {showAllProjects && (
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => {
+                setShowAllProjects(false);
+                setSelectedProject(null);
+                setProjectMilestones([]);
+              }}
+            >
+              <FontAwesomeIcon icon="th-list" className="mr-2 h-4 w-4" />
+              Single Project View
+            </Button>
+          )}
         </div>
-        <Select 
-          value={selectedProject?.id || ''} 
-          onValueChange={(id) => {
-            const project = projects.find(p => p.id === id);
-            if (project) handleSelectProject(project);
-          }}
-        >
-          <SelectTrigger className="w-[300px]">
-            <SelectValue placeholder="Select a project" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map(project => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.projectNumber || project.name || `Project ${project.id.slice(0, 8)}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant={showAllProjects ? "default" : "outline"} 
+            size="sm" 
+            onClick={loadAllProjectsMilestones}
+            disabled={!projects || projects.length === 0}
+            className="flex items-center"
+          >
+            <FontAwesomeIcon icon="project-diagram" className="mr-2 h-4 w-4" />
+            All Projects
+          </Button>
+          
+          {!showAllProjects && (
+            <Select 
+              value={selectedProject?.id || ''} 
+              onValueChange={(id) => {
+                const project = projects.find(p => p.id === id);
+                if (project) handleSelectProject(project);
+              }}
+            >
+              <SelectTrigger className="w-[300px]">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map(project => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.projectNumber || project.name || `Project ${project.id.slice(0, 8)}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
-      {selectedProject ? (
+      {selectedProject || showAllProjects ? (
         <div 
           className="gantt-view border rounded-md" 
           style={{ height: "calc(100vh - 240px)", overflow: "hidden" }}
@@ -1333,7 +1680,9 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           {/* Fixed header with horizontal scrolling */}
           <div className="gantt-timeline-header sticky top-0 z-10 bg-background border-b" style={{ overflow: "hidden" }}>
             <div className="flex">
-              <div className="w-64 min-w-64 p-2 font-medium border-r sticky left-0 bg-background">Milestone</div>
+              <div className="w-64 min-w-64 p-2 font-medium border-r sticky left-0 bg-background">
+                {showAllProjects ? "Project / Milestone" : "Milestone"}
+              </div>
               <div className="flex-1 overflow-x-auto" style={{ minWidth: "750px" }}>
                 {renderTimelineHeaders}
               </div>
@@ -1342,164 +1691,394 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           
           {/* Gantt body with both horizontal and vertical scrolling */}
           <div className="gantt-body" style={{ height: "calc(100% - 70px)", overflowY: "auto", overflowX: "auto" }}>
-            {projectMilestones.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-muted-foreground">
-                No milestones for this project. Use "Add Milestone" to create some.
+            {/* Show All Projects View */}
+            {showAllProjects ? (
+              <div style={{ minWidth: "850px" }}>
+                {Object.keys(allProjectsMilestones).length === 0 ? (
+                  <div className="flex items-center justify-center h-40 text-muted-foreground">
+                    Loading project data... Please wait.
+                  </div>
+                ) : (
+                  projects.map(project => {
+                    // Get milestones for this project
+                    const projectMilestones = allProjectsMilestones[project.id] || [];
+                    const isProjectExpanded = expandedProjects.includes(project.id);
+                    
+                    // Get earliest start and latest end date for all milestones of this project
+                    let projectStartDate = new Date();
+                    let projectEndDate = new Date();
+                    
+                    if (projectMilestones.length > 0) {
+                      const startDates = projectMilestones.map(m => new Date(m.start).getTime());
+                      const endDates = projectMilestones.map(m => new Date(m.end).getTime());
+                      projectStartDate = new Date(Math.min(...startDates));
+                      projectEndDate = new Date(Math.max(...endDates));
+                    } else if (project.contractDate) {
+                      projectStartDate = new Date(project.contractDate);
+                      projectEndDate = project.delivery ? new Date(project.delivery) : addDays(projectStartDate, 60);
+                    } else {
+                      // Default to some sensible dates if we can't determine project dates
+                      projectEndDate = addDays(projectStartDate, 60);
+                    }
+                    
+                    return (
+                      <div key={project.id}>
+                        {/* Project Row */}
+                        <div 
+                          className={cn(
+                            "gantt-row flex border-b hover:bg-muted/10 transition-colors cursor-pointer",
+                            isProjectExpanded ? "bg-muted/5" : ""
+                          )}
+                          onClick={() => toggleProjectExpansion(project.id)}
+                        >
+                          <div className="w-64 min-w-64 p-2 gantt-project-name flex items-center sticky left-0 bg-background z-10 font-medium">
+                            <div className="flex items-center">
+                              {/* Project expand/collapse chevron */}
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5 mr-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleProjectExpansion(project.id);
+                                }}
+                              >
+                                <FontAwesomeIcon 
+                                  icon={isProjectExpanded ? "chevron-down" : "chevron-right"} 
+                                  className="h-3 w-3" 
+                                />
+                              </Button>
+                              
+                              <div
+                                className="h-3 w-3 rounded-full mr-2"
+                                style={{ backgroundColor: getStatusColor(project.status) }}
+                              ></div>
+                              
+                              <div className="project-title truncate flex items-center">
+                                {project.projectNumber || project.name || `Project ${project.id.slice(0, 8)}`}
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  ({projectMilestones.length} milestones)
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex-1 relative p-2" style={{ minHeight: "40px" }}>
+                            <div className="gantt-timeline-grid relative h-full">
+                              {/* Project timeline bar (shows overall project timeline) */}
+                              <div
+                                className="absolute h-10 rounded-md border border-gray-400 shadow-md hover:brightness-95 transition-all"
+                                style={{
+                                  left: '0%', // This needs proper calculation in the full implementation
+                                  width: '100%', // This needs proper calculation in the full implementation
+                                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  zIndex: 10,
+                                }}
+                              >
+                                {/* Create colored segments for each milestone type */}
+                                {projectMilestones.map((milestone, idx) => (
+                                  <div
+                                    key={`${project.id}_segment_${idx}`}
+                                    className="absolute h-full"
+                                    style={{
+                                      left: `${calculateStartPosition(milestone)}%`,
+                                      width: `${calculateBarWidth(milestone)}%`,
+                                      backgroundColor: milestone.color || "#3B82F6",
+                                      opacity: 0.6,
+                                    }}
+                                  ></div>
+                                ))}
+                                
+                                {/* Project title inside the bar */}
+                                <div className="px-2 text-xs truncate flex items-center h-full">
+                                  <span className="font-medium" title={project.projectNumber || project.name}>
+                                    {project.team || "No Team"} - {projectMilestones.length} milestones
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Project Milestones (show when expanded) */}
+                        {isProjectExpanded && projectMilestones.map(milestone => (
+                          <div 
+                            key={`${project.id}_${milestone.id}`} 
+                            className="gantt-row flex border-b hover:bg-muted/30 transition-colors"
+                          >
+                            <div 
+                              className="w-64 min-w-64 p-2 gantt-milestone-name flex items-center sticky left-0 bg-background z-10 pl-8"
+                            >
+                              <div 
+                                className="flex items-center" 
+                                style={{ 
+                                  marginLeft: `${milestone.indent * 16}px` 
+                                }}
+                              >
+                                <div
+                                  className="h-3 w-3 rounded-full mr-2"
+                                  style={{ backgroundColor: milestone.color || "#3B82F6" }}
+                                ></div>
+                                <div className="milestone-title truncate">
+                                  {milestone.title}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex-1 relative p-2" style={{ minHeight: "40px" }}>
+                              <div className="gantt-timeline-grid relative h-full">
+                                {/* Milestone bar */}
+                                <div
+                                  className="absolute h-8 rounded-md border border-gray-400 shadow-md transition-all"
+                                  style={{
+                                    left: `${calculateStartPosition(milestone)}%`,
+                                    width: `${calculateBarWidth(milestone)}%`,
+                                    backgroundColor: milestone.color || "#3B82F6",
+                                    top: "50%",
+                                    transform: "translateY(-50%)",
+                                    zIndex: 20,
+                                  }}
+                                >
+                                  {/* Completion indicator */}
+                                  {milestone.completed > 0 && (
+                                    <div
+                                      className="absolute h-full opacity-60 bg-white"
+                                      style={{
+                                        width: `${milestone.completed}%`,
+                                      }}
+                                    ></div>
+                                  )}
+                                  
+                                  {/* Duration large enough to show text inside */}
+                                  {milestone.duration >= 3 && (
+                                    <div className="px-2 text-white text-xs truncate whitespace-nowrap flex justify-between items-center w-full h-full">
+                                      <span>{milestone.title} ({milestone.completed}%)</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             ) : (
+              /* Show Single Project View */
               <div style={{ minWidth: "850px" }}>
-                {projectMilestones.map(milestone => {
-                  // Check if milestone should be visible based on parent's expanded state
-                  if (milestone.parent) {
-                    const parent = projectMilestones.find(m => m.id === milestone.parent);
-                    if (parent && !parent.isExpanded) {
-                      return null; // Skip this milestone if parent is collapsed
+                {projectMilestones.length === 0 ? (
+                  <div className="flex items-center justify-center h-40 text-muted-foreground">
+                    No milestones for this project. Use "Add Milestone" to create some.
+                  </div>
+                ) : (
+                  projectMilestones.map(milestone => {
+                    // Check if milestone should be visible based on parent's expanded state
+                    if (milestone.parent) {
+                      const parent = projectMilestones.find(m => m.id === milestone.parent);
+                      if (parent && !parent.isExpanded) {
+                        return null; // Skip this milestone if parent is collapsed
+                      }
                     }
-                  }
-                  
-                  return (
-                    <div 
-                      key={milestone.id} 
-                      className={cn(
-                        "gantt-row flex border-b hover:bg-muted/30 transition-colors",
-                        selectedMilestoneId === milestone.id ? "bg-muted" : ""
-                      )}
-                    >
+                    
+                    return (
                       <div 
-                        className="w-64 min-w-64 p-2 gantt-milestone-name flex items-center cursor-pointer sticky left-0 bg-background z-10"
-                        onClick={() => handleSelectMilestone(milestone)}
+                        key={milestone.id} 
+                        className={cn(
+                          "gantt-row flex border-b hover:bg-muted/30 transition-colors",
+                          selectedMilestoneId === milestone.id ? "bg-muted" : ""
+                        )}
                       >
                         <div 
-                          className="flex items-center" 
-                          style={{ 
-                            marginLeft: `${milestone.indent * 16}px` 
-                          }}
+                          className="w-64 min-w-64 p-2 gantt-milestone-name flex items-center cursor-pointer sticky left-0 bg-background z-10 group"
+                          onClick={() => handleSelectMilestone(milestone)}
                         >
-                          {/* Expand/collapse toggle for parent milestones */}
-                          {projectMilestones.some(m => m.parent === milestone.id) && (
+                          <div 
+                            className="flex items-center" 
+                            style={{ 
+                              marginLeft: `${milestone.indent * 16}px` 
+                            }}
+                          >
+                            {/* Chevron for all milestones to add/manage sub-milestones */}
                             <div className="mr-2">
-                              {milestone.isExpanded ? (
-                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleMilestoneExpansion(milestone.id);
-                                }}>
-                                  <FontAwesomeIcon icon="chevron-down" className="h-3 w-3" />
-                                </Button>
+                              {projectMilestones.some(m => m.parent === milestone.id) ? (
+                                /* Show expand/collapse toggle if milestone has children */
+                                milestone.isExpanded ? (
+                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleMilestoneExpansion(milestone.id);
+                                  }}>
+                                    <FontAwesomeIcon icon="chevron-down" className="h-3 w-3" />
+                                  </Button>
+                                ) : (
+                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleMilestoneExpansion(milestone.id);
+                                  }}>
+                                    <FontAwesomeIcon icon="chevron-right" className="h-3 w-3" />
+                                  </Button>
+                                )
                               ) : (
-                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleMilestoneExpansion(milestone.id);
-                                }}>
-                                  <FontAwesomeIcon icon="chevron-right" className="h-3 w-3" />
+                                /* Show add sub-milestone button for milestones without children */
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddSubMilestone(milestone.id);
+                                  }}
+                                  title="Add sub-milestone"
+                                >
+                                  <FontAwesomeIcon icon="plus" className="h-3 w-3" />
                                 </Button>
                               )}
                             </div>
-                          )}
-                          <div
-                            className="h-3 w-3 rounded-full mr-2"
-                            style={{ backgroundColor: milestone.color || "#3B82F6" }}
-                          ></div>
-                          <div 
-                            className="milestone-title truncate"
-                          >
-                            {milestone.title}
+                            <div
+                              className={cn(
+                                "h-3 w-3 rounded-full mr-2",
+                                milestone.isSubMilestone ? "border-2 border-dashed" : ""
+                              )}
+                              style={{ backgroundColor: milestone.color || "#3B82F6" }}
+                            ></div>
+                            <div 
+                              className="milestone-title truncate flex items-center"
+                            >
+                              {milestone.title}
+                              {milestone.isSubMilestone && (
+                                <span className="ml-1 text-xs text-muted-foreground" title="Sub-milestone (only visible in Gantt chart)">
+                                  (sub)
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex-1 relative p-2" style={{ minHeight: "40px" }}>
-                        <div className="gantt-timeline-grid relative h-full">
-                          {/* Milestone bar */}
-                          <div
-                            className={cn(
-                              "absolute h-10 rounded-md cursor-move border border-gray-400 shadow-md hover:brightness-95 transition-all",
-                              milestone.isResizing ? "brightness-90" : "",
-                              milestone.hasOverlap ? "animate-pulse border-red-500 border-2" : ""
-                            )}
-                            style={{
-                              left: `${calculateStartPosition(milestone)}%`,
-                              width: `${calculateBarWidth(milestone)}%`,
-                              backgroundColor: milestone.color || "#3B82F6",
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              zIndex: 20,
-                              /* Add visual pulsing for overlapping milestones */
-                              boxShadow: milestone.hasOverlap ? "0 0 8px rgba(239, 68, 68, 0.7)" : "0 2px 4px rgba(0, 0, 0, 0.2)"
-                            }}
-                            onClick={() => handleEditMilestone(milestone)}
-                            onMouseDown={(e) => {
-                              // Only start drag if click is in the middle section (not on resize handles)
-                              // Use larger edge detection area (15px) to make it easier to grab the edges
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const isLeftEdge = e.clientX - rect.left <= 15;
-                              const isRightEdge = rect.right - e.clientX <= 15;
-                              
-                              if (!isLeftEdge && !isRightEdge) {
-                                handleStartResize(milestone, 'move', e);
-                              }
-                            }}
-                          >
-                            {/* Left resize handle */}
-                            <div 
-                              className="absolute left-0 w-4 h-full cursor-w-resize bg-gray-700 opacity-40 hover:opacity-80 active:opacity-100 rounded-l-md"
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                handleStartResize(milestone, 'start', e);
+                        <div className="flex-1 relative p-2" style={{ minHeight: "40px" }}>
+                          <div className="gantt-timeline-grid relative h-full">
+                            {/* Milestone bar */}
+                            <div
+                              className={cn(
+                                "absolute h-10 rounded-md cursor-move border border-gray-400 shadow-md hover:brightness-95 transition-all",
+                                milestone.isResizing ? "brightness-90" : "",
+                                milestone.hasOverlap ? "animate-pulse border-red-500 border-2" : "",
+                                milestone.isSubMilestone ? "border-dashed border-2" : ""
+                              )}
+                              style={{
+                                left: `${calculateStartPosition(milestone)}%`,
+                                width: `${calculateBarWidth(milestone)}%`,
+                                backgroundColor: milestone.color || "#3B82F6",
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                zIndex: 20,
+                                /* Add visual pulsing for overlapping milestones */
+                                boxShadow: milestone.hasOverlap ? "0 0 8px rgba(239, 68, 68, 0.7)" : "0 2px 4px rgba(0, 0, 0, 0.2)"
                               }}
-                            ></div>
-                            
-                            {/* Right resize handle */}
-                            <div 
-                              className="absolute right-0 w-4 h-full cursor-e-resize bg-gray-700 opacity-40 hover:opacity-80 active:opacity-100 rounded-r-md"
+                              onClick={() => handleEditMilestone(milestone)}
                               onMouseDown={(e) => {
-                                e.stopPropagation();
-                                handleStartResize(milestone, 'end', e);
+                                // Only start drag if click is in the middle section (not on resize handles)
+                                // Use larger edge detection area (15px) to make it easier to grab the edges
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const isLeftEdge = e.clientX - rect.left <= 15;
+                                const isRightEdge = rect.right - e.clientX <= 15;
+                                
+                                if (!isLeftEdge && !isRightEdge) {
+                                  handleStartResize(milestone, 'move', e);
+                                }
                               }}
-                            ></div>
-                            
-                            {/* Completion indicator */}
-                            {milestone.completed > 0 && (
-                              <div
-                                className="absolute h-full opacity-60 bg-white"
-                                style={{
-                                  width: `${milestone.completed}%`,
+                            >
+                              {/* Left resize handle */}
+                              <div 
+                                className="absolute left-0 w-4 h-full cursor-w-resize bg-gray-700 opacity-40 hover:opacity-80 active:opacity-100 rounded-l-md"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  handleStartResize(milestone, 'start', e);
                                 }}
                               ></div>
-                            )}
+                              
+                              {/* Right resize handle */}
+                              <div 
+                                className="absolute right-0 w-4 h-full cursor-e-resize bg-gray-700 opacity-40 hover:opacity-80 active:opacity-100 rounded-r-md"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  handleStartResize(milestone, 'end', e);
+                                }}
+                              ></div>
+                              
+                              {/* Completion indicator */}
+                              {milestone.completed > 0 && (
+                                <div
+                                  className="absolute h-full opacity-60 bg-white"
+                                  style={{
+                                    width: `${milestone.completed}%`,
+                                  }}
+                                ></div>
+                              )}
+                              
+                              {/* Duration large enough to show text inside */}
+                              {milestone.duration >= 3 && (
+                                <div className="px-2 text-white text-xs truncate whitespace-nowrap flex justify-between items-center w-full">
+                                  <span>{milestone.title} ({milestone.completed}%)</span>
+                                  
+                                  {/* Only show add sub-milestone button if not a sub-milestone already */}
+                                  {!milestone.isSubMilestone && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-5 w-5 ml-auto text-white hover:text-white hover:bg-black/20"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddSubMilestone(milestone.id);
+                                      }}
+                                      title="Add sub-milestone"
+                                    >
+                                      <FontAwesomeIcon icon="plus-circle" className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Overlap warning */}
+                              {milestone.hasOverlap && (
+                                <div className="absolute -top-4 left-0 text-xs font-semibold text-red-500">
+                                  <span title="This milestone overlaps with others">⚠️ Overlap</span>
+                                </div>
+                              )}
+                            </div>
                             
-                            {/* Duration large enough to show text inside */}
-                            {milestone.duration >= 3 && (
-                              <div className="px-2 text-white text-xs truncate whitespace-nowrap">
-                                {milestone.title} ({milestone.completed}%)
-                              </div>
-                            )}
-                            
-                            {/* Overlap warning */}
-                            {milestone.hasOverlap && (
-                              <div className="absolute -top-4 left-0 text-xs font-semibold text-red-500">
-                                <span title="This milestone overlaps with others">⚠️ Overlap</span>
-                              </div>
-                            )}
+                            {/* Connector lines for dependencies */}
+                            {renderConnectorLines(milestone)}
                           </div>
-                          
-                          {/* Connector lines for dependencies */}
-                          {renderConnectorLines(milestone)}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             )}
           </div>
           
           <div className="gantt-footer p-2 border-t flex justify-between items-center text-xs text-muted-foreground sticky bottom-0 bg-background">
             <div>
-              Project: {selectedProject.projectNumber || selectedProject.name}
+              {showAllProjects ? (
+                <>All Projects View</>
+              ) : (
+                <>Project: {selectedProject?.projectNumber || selectedProject?.name || 'Unknown Project'}</>
+              )}
             </div>
             <div className="flex items-center space-x-4">
-              <div>Start: {selectedProject.contractDate ? format(new Date(selectedProject.contractDate), 'MM/dd/yyyy') : 'Not set'}</div>
-              <div>Duration: {calculateTotalTimespan()} days</div>
-              <div>Milestones: {projectMilestones.length}</div>
+              {showAllProjects ? (
+                <>
+                  <div>Total Projects: {projects.length}</div>
+                  <div>With Milestones: {Object.keys(allProjectsMilestones).length}</div>
+                </>
+              ) : (
+                <>
+                  <div>Start: {selectedProject?.contractDate ? format(new Date(selectedProject?.contractDate), 'MM/dd/yyyy') : 'Not set'}</div>
+                  <div>Duration: {calculateTotalTimespan()} days</div>
+                  <div>Milestones: {projectMilestones.length}</div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1508,13 +2087,44 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           <div className="mb-4">
             <FontAwesomeIcon icon="project-diagram" className="h-12 w-12 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-medium mb-2">Select a Project</h3>
+          <h3 className="text-xl font-medium mb-2">Project Gantt Chart</h3>
           <p className="text-muted-foreground mb-4">
-            Please select a project from the dropdown to view its Gantt chart.
+            Select a project from the dropdown or click "All Projects" to view multiple projects at once.
           </p>
           {projects.length === 0 && (
             <div className="mt-4">
               <p className="text-sm text-muted-foreground">No projects available. Create a project first.</p>
+            </div>
+          )}
+          {projects.length > 0 && (
+            <div className="mt-6 flex justify-center space-x-4">
+              <Button 
+                variant="default" 
+                onClick={loadAllProjectsMilestones}
+                className="flex items-center"
+              >
+                <FontAwesomeIcon icon="project-diagram" className="mr-2 h-4 w-4" />
+                View All Projects
+              </Button>
+              
+              <Select 
+                value=""
+                onValueChange={(id) => {
+                  const project = projects.find(p => p.id === id);
+                  if (project) handleSelectProject(project);
+                }}
+              >
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder="Or select a single project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.projectNumber || project.name || `Project ${project.id.slice(0, 8)}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
