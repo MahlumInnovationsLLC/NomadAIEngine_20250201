@@ -715,6 +715,13 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     }
   };
 
+  // States for milestone editing
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectMilestones, setProjectMilestones] = useState<GanttMilestone[]>([]);
+  const [showMilestoneDialog, setShowMilestoneDialog] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<GanttMilestone | null>(null);
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
+
   // Helper function to get color based on project status
   function getStatusColor(status: string): string {
     switch (status) {
@@ -736,14 +743,8 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         return "#6B7280"; // gray-500
     }
   }
-
-  // States for milestone editing
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [projectMilestones, setProjectMilestones] = useState<GanttMilestone[]>([]);
-  const [showMilestoneDialog, setShowMilestoneDialog] = useState(false);
-  const [editingMilestone, setEditingMilestone] = useState<GanttMilestone | null>(null);
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
   
+  // Loading state rendering - moved after all hook declarations
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
