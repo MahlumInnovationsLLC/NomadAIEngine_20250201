@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import ErrorBoundary from "@/components/ui/ErrorBoundary";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
