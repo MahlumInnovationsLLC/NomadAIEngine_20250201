@@ -604,3 +604,28 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
+/* Gantt chart - drag and resize styles */
+.gantt-bar.dragging {
+  opacity: 0.8;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+}
+
+.resize-handle:hover {
+  background: rgba(0,0,0,0.2) !important;
+}
+
+/* Overlapping milestone warning indicator */
+@keyframes warningFlash {
+  0%, 100% { 
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  }
+  50% { 
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.8);
+  }
+}
+
+.milestone-overlap-warning {
+  animation: warningFlash 1s infinite;
+  outline: 1px solid #EF4444;
+}

@@ -19,6 +19,16 @@ import {
   parse, 
   isSameDay 
 } from "date-fns";
+
+// Milestone drag and resize interfaces
+interface DragState {
+  isActive: boolean;
+  milestoneId: string | null;
+  startX: number;
+  originalStartPos: number;
+  originalWidth: number;
+  type: 'move' | 'resize-start' | 'resize-end';
+}
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -894,7 +904,7 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     return differenceInCalendarDays(paddedEnd, paddedStart) + 1;
   };
   
-  // Generate the timeline header with dates
+  // Generate the timeline header with dates based on selected time scale
   const generateTimelineHeader = () => {
     // Return empty array if no project or milestones
     if (!selectedProject || !projectMilestones || projectMilestones.length === 0) {
@@ -913,33 +923,139 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       if (validMilestones.length === 0) {
         console.warn("No valid milestone dates found for timeline header");
         
-        // If no valid milestones, generate a default timeline (today + 60 days)
+        // If no valid milestones, generate a default timeline based on the selected time scale
         const defaultStartDate = new Date();
         const dayElements = [];
         
-        for (let i = 0; i < 60; i++) {
+        // Determine units based on time scale
+        let units = 60; // Default: 60 days
+        let unitLabel = 'day';
+        let unitType: 'day' | 'week' | 'month' | 'halfYear' | 'year' = 'day';
+        
+        switch (timeScale) {
+          case 'days':
+            units = 60; // 60 days
+            unitLabel = 'day';
+            unitType = 'day';
+            break;
+          case 'weeks':
+            units = 12; // 12 weeks
+            unitLabel = 'week';
+            unitType = 'week';
+            break;
+          case 'months':
+            units = 6; // 6 months
+            unitLabel = 'month';
+            unitType = 'month';
+            break;
+          case '6-months':
+            units = 2; // 2 half-years
+            unitLabel = 'half-year';
+            unitType = 'halfYear';
+            break;
+          case 'year':
+            units = 1; // 1 year
+            unitLabel = 'year';
+            unitType = 'year';
+            break;
+        }
+        
+        for (let i = 0; i < units; i++) {
           const currentDate = new Date(defaultStartDate);
-          currentDate.setDate(currentDate.getDate() + i);
+          
+          // Adjust date based on time scale
+          switch (unitType) {
+            case 'day':
+              currentDate.setDate(currentDate.getDate() + i);
+              break;
+            case 'week':
+              currentDate.setDate(currentDate.getDate() + (i * 7));
+              break;
+            case 'month':
+              currentDate.setMonth(currentDate.getMonth() + i);
+              break;
+            case 'halfYear':
+              currentDate.setMonth(currentDate.getMonth() + (i * 6));
+              break;
+            case 'year':
+              currentDate.setFullYear(currentDate.getFullYear() + i);
+              break;
+          }
           
           const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
           const isFirstOfMonth = currentDate.getDate() === 1;
           const isMonday = currentDate.getDay() === 1;
           
+          let headerWidth = 20; // Default: 20px per day
+          
+          // Calculate header width based on time scale
+          switch (timeScale) {
+            case 'days':
+              headerWidth = 20; // 20px per day
+              break;
+            case 'weeks':
+              headerWidth = 100; // 100px per week
+              break;
+            case 'months':
+              headerWidth = 300; // 300px per month
+              break;
+            case '6-months':
+              headerWidth = 600; // 600px per half-year
+              break;
+            case 'year':
+              headerWidth = 1200; // 1200px per year
+              break;
+          }
+          
+          let formatString = 'd';
+          
+          // Use appropriate date format based on time scale
+          switch (timeScale) {
+            case 'days':
+              formatString = 'd';
+              break;
+            case 'weeks':
+              formatString = 'MMM d';
+              break;
+            case 'months':
+              formatString = 'MMM yyyy';
+              break;
+            case '6-months':
+              formatString = timeScale === '6-months' ? 
+                `${currentDate.getMonth() < 6 ? 'H1' : 'H2'} yyyy` : 
+                'yyyy';
+              break;
+            case 'year':
+              formatString = 'yyyy';
+              break;
+          }
+          
           dayElements.push(
             <div 
-              key={`default-day-${i}`} 
+              key={`default-${unitLabel}-${i}`} 
               className="gantt-timeline-day" 
               style={{ 
-                backgroundColor: isWeekend ? '#f8f8f8' : 'white',
+                flex: `0 0 ${headerWidth}px`,
+                width: `${headerWidth}px`,
+                backgroundColor: isWeekend && unitType === 'day' ? '#f8f8f8' : 'white',
                 borderRight: isFirstOfMonth ? '2px solid #d0d0d0' : '1px solid #e0e0e0'
               }}
             >
               <div className="gantt-timeline-day-number">
-                {currentDate.getDate()}
+                {unitType === 'day' ? currentDate.getDate() : 
+                 unitType === 'week' ? `W${Math.ceil((currentDate.getDate() + 
+                   new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay()) / 7)}` :
+                 unitType === 'month' ? format(currentDate, 'MMM') :
+                 unitType === 'halfYear' ? (currentDate.getMonth() < 6 ? 'H1' : 'H2') :
+                 format(currentDate, 'yyyy')}
               </div>
-              {(isFirstOfMonth || isMonday) && (
+              {(isFirstOfMonth || isMonday || unitType !== 'day') && (
                 <div className="gantt-timeline-day-month">
-                  {format(currentDate, 'MMM')}
+                  {unitType === 'day' ? format(currentDate, 'MMM') :
+                   unitType === 'week' ? format(currentDate, 'MMM yyyy') :
+                   unitType === 'month' ? format(currentDate, 'yyyy') :
+                   unitType === 'halfYear' ? format(currentDate, 'yyyy') :
+                   ''}
                 </div>
               )}
             </div>
@@ -961,24 +1077,87 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         return []; // Return empty array if calculation fails
       }
       
-      // Create a start date 5 days before the earliest milestone
+      // Create a start date before the earliest milestone, adjusted based on time scale
       const startDate = new Date(earliestDate);
-      startDate.setDate(startDate.getDate() - 5);
       
-      // Calculate total days for the timeline
-      const totalDays = calculateTotalDays();
-      if (totalDays <= 0 || totalDays > 365) {
-        console.warn(`Invalid total days calculated: ${totalDays}, defaulting to 60`);
-        return []; // Return empty array if calculation gives unreasonable value
+      // Adjust padding based on time scale
+      switch (timeScale) {
+        case 'days':
+          startDate.setDate(startDate.getDate() - 5); // 5 days padding
+          break;
+        case 'weeks':
+          startDate.setDate(startDate.getDate() - 7); // 1 week padding
+          break;
+        case 'months':
+          startDate.setMonth(startDate.getMonth() - 1); // 1 month padding
+          break;
+        case '6-months':
+          startDate.setMonth(startDate.getMonth() - 3); // 3 months padding
+          break;
+        case 'year':
+          startDate.setMonth(startDate.getMonth() - 6); // 6 months padding
+          break;
       }
       
-      // Generate day elements
-      const dayElements = [];
+      // Calculate total units for the timeline based on time scale
+      let totalUnits = calculateTotalDays();
       
-      for (let i = 0; i < totalDays; i++) {
+      // Adjust total units based on time scale
+      switch (timeScale) {
+        case 'days':
+          totalUnits = Math.min(totalUnits, 365); // Cap at 365 days
+          break;
+        case 'weeks':
+          totalUnits = Math.ceil(totalUnits / 7); // Convert days to weeks
+          totalUnits = Math.min(totalUnits, 52); // Cap at 52 weeks
+          break;
+        case 'months':
+          totalUnits = Math.ceil(totalUnits / 30); // Approximate days to months
+          totalUnits = Math.min(totalUnits, 24); // Cap at 24 months
+          break;
+        case '6-months':
+          totalUnits = Math.ceil(totalUnits / 180); // Approximate days to half-years
+          totalUnits = Math.min(totalUnits, 4); // Cap at 4 half-years
+          break;
+        case 'year':
+          totalUnits = Math.ceil(totalUnits / 365); // Convert days to years
+          totalUnits = Math.min(totalUnits, 5); // Cap at 5 years
+          break;
+      }
+      
+      if (totalUnits <= 0) {
+        console.warn(`Invalid total units calculated: ${totalUnits}, defaulting to minimum`);
+        totalUnits = timeScale === 'days' ? 60 : 
+                    timeScale === 'weeks' ? 12 : 
+                    timeScale === 'months' ? 6 : 
+                    timeScale === '6-months' ? 2 : 1;
+      }
+      
+      // Generate time header elements
+      const headerElements = [];
+      
+      for (let i = 0; i < totalUnits; i++) {
         try {
           const currentDate = new Date(startDate);
-          currentDate.setDate(currentDate.getDate() + i);
+          
+          // Adjust date based on time scale and index
+          switch (timeScale) {
+            case 'days':
+              currentDate.setDate(currentDate.getDate() + i);
+              break;
+            case 'weeks':
+              currentDate.setDate(currentDate.getDate() + (i * 7));
+              break;
+            case 'months':
+              currentDate.setMonth(currentDate.getMonth() + i);
+              break;
+            case '6-months':
+              currentDate.setMonth(currentDate.getMonth() + (i * 6));
+              break;
+            case 'year':
+              currentDate.setFullYear(currentDate.getFullYear() + i);
+              break;
+          }
           
           // Skip this iteration if the date is invalid
           if (isNaN(currentDate.getTime())) {
@@ -990,32 +1169,63 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           const isFirstOfMonth = currentDate.getDate() === 1;
           const isMonday = currentDate.getDay() === 1;
           
-          dayElements.push(
+          let headerWidth = 20; // Default: 20px per day
+          
+          // Calculate header width based on time scale
+          switch (timeScale) {
+            case 'days':
+              headerWidth = 20; // 20px per day
+              break;
+            case 'weeks':
+              headerWidth = 100; // 100px per week
+              break;
+            case 'months':
+              headerWidth = 300; // 300px per month
+              break;
+            case '6-months':
+              headerWidth = 600; // 600px per half-year
+              break;
+            case 'year':
+              headerWidth = 1200; // 1200px per year
+              break;
+          }
+          
+          headerElements.push(
             <div 
-              key={`day-${i}`} 
+              key={`${timeScale}-${i}`} 
               className="gantt-timeline-day" 
               style={{ 
-                backgroundColor: isWeekend ? '#f8f8f8' : 'white',
-                borderRight: isFirstOfMonth ? '2px solid #d0d0d0' : '1px solid #e0e0e0'
+                flex: `0 0 ${headerWidth}px`,
+                width: `${headerWidth}px`,
+                backgroundColor: isWeekend && timeScale === 'days' ? '#f8f8f8' : 'white',
+                borderRight: isFirstOfMonth || timeScale !== 'days' ? '2px solid #d0d0d0' : '1px solid #e0e0e0'
               }}
             >
               <div className="gantt-timeline-day-number">
-                {currentDate.getDate()}
+                {timeScale === 'days' ? currentDate.getDate() : 
+                 timeScale === 'weeks' ? `W${Math.ceil((currentDate.getDate() + 
+                   new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay()) / 7)}` :
+                 timeScale === 'months' ? format(currentDate, 'MMM') :
+                 timeScale === '6-months' ? (currentDate.getMonth() < 6 ? 'H1' : 'H2') :
+                 format(currentDate, 'yyyy')}
               </div>
-              {(isFirstOfMonth || isMonday) && (
+              {(isFirstOfMonth || isMonday || timeScale !== 'days') && (
                 <div className="gantt-timeline-day-month">
-                  {format(currentDate, 'MMM')}
+                  {timeScale === 'days' ? format(currentDate, 'MMM') :
+                   timeScale === 'weeks' ? format(currentDate, 'yyyy') :
+                   timeScale === 'months' ? format(currentDate, 'yyyy') :
+                   timeScale === '6-months' || timeScale === 'year' ? format(currentDate, 'yyyy') : ''}
                 </div>
               )}
             </div>
           );
-        } catch (dayError) {
-          console.error(`Error generating day element at index ${i}:`, dayError);
-          // Continue with the next day
+        } catch (headerError) {
+          console.error(`Error generating header element at index ${i}:`, headerError);
+          // Continue with the next element
         }
       }
       
-      return dayElements;
+      return headerElements;
     } catch (error) {
       console.error("Error generating timeline header:", error);
       return []; // Return empty array on error
@@ -1213,6 +1423,304 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     }
   };
   
+  // Drag and resize functionality
+  const [dragState, setDragState] = useState<DragState>({
+    isActive: false,
+    milestoneId: null,
+    startX: 0,
+    originalStartPos: 0,
+    originalWidth: 0,
+    type: 'move'
+  });
+  
+  // Function to detect overlapping milestones
+  const detectOverlappingMilestones = useCallback((milestones: GanttMilestone[]): Record<string, boolean> => {
+    const overlapMap: Record<string, boolean> = {};
+    
+    // Group milestones by indent level
+    const groupedByIndent: Record<number, GanttMilestone[]> = {};
+    
+    milestones.forEach(milestone => {
+      const indent = milestone.indent || 0;
+      if (!groupedByIndent[indent]) {
+        groupedByIndent[indent] = [];
+      }
+      groupedByIndent[indent].push(milestone);
+    });
+    
+    // Check for overlaps within each indent group
+    Object.values(groupedByIndent).forEach(indentGroup => {
+      // Skip if there's only one or no milestone in the group
+      if (indentGroup.length <= 1) return;
+      
+      // Sort by start date
+      const sortedMilestones = [...indentGroup].sort((a, b) => {
+        const dateA = a.start instanceof Date ? a.start : new Date(a.start);
+        const dateB = b.start instanceof Date ? b.start : new Date(b.start);
+        return dateA.getTime() - dateB.getTime();
+      });
+      
+      // Check each milestone against others that start after it
+      for (let i = 0; i < sortedMilestones.length - 1; i++) {
+        const current = sortedMilestones[i];
+        const currentEnd = current.end instanceof Date ? current.end : new Date(current.end);
+        
+        for (let j = i + 1; j < sortedMilestones.length; j++) {
+          const next = sortedMilestones[j];
+          const nextStart = next.start instanceof Date ? next.start : new Date(next.start);
+          
+          // If the next milestone starts before current ends, they overlap
+          if (nextStart.getTime() < currentEnd.getTime()) {
+            overlapMap[current.id] = true;
+            overlapMap[next.id] = true;
+          }
+        }
+      }
+    });
+    
+    return overlapMap;
+  }, []);
+  
+  // Detect overlaps whenever milestones change
+  const [overlappingMilestones, setOverlappingMilestones] = useState<Record<string, boolean>>({});
+  
+  useEffect(() => {
+    if (projectMilestones.length > 1) {
+      setOverlappingMilestones(detectOverlappingMilestones(projectMilestones));
+    } else {
+      setOverlappingMilestones({});
+    }
+  }, [projectMilestones, detectOverlappingMilestones]);
+  
+  // Get date from position
+  const getDateFromPosition = (position: number): Date => {
+    try {
+      // Find the earliest valid date from milestones
+      const validMilestones = projectMilestones.filter(m => 
+        m && m.start && 
+        ((m.start instanceof Date && !isNaN(m.start.getTime())) || 
+         (typeof m.start === 'string' && !isNaN(new Date(m.start).getTime())))
+      );
+      
+      if (validMilestones.length === 0) return new Date();
+      
+      const startDates = validMilestones.map(m => {
+        return m.start instanceof Date ? 
+          m.start.getTime() : 
+          new Date(m.start).getTime();
+      });
+      
+      const earliestTimestamp = Math.min(...startDates);
+      if (isNaN(earliestTimestamp)) return new Date();
+      
+      const earliestDate = new Date(earliestTimestamp);
+      const chartStartDate = new Date(earliestDate);
+      chartStartDate.setDate(chartStartDate.getDate() - 5);
+      
+      // Calculate date based on position and time scale
+      let pixelsPerUnit = 20; // Default: 20px per day
+      let timeUnits = position / pixelsPerUnit;
+      
+      switch (timeScale) {
+        case 'days':
+          pixelsPerUnit = 20;
+          return addDays(chartStartDate, timeUnits);
+          
+        case 'weeks':
+          pixelsPerUnit = 100;
+          return addWeeks(chartStartDate, timeUnits);
+          
+        case 'months':
+          pixelsPerUnit = 300;
+          return addMonths(chartStartDate, timeUnits);
+          
+        case '6-months':
+          pixelsPerUnit = 600;
+          return addMonths(chartStartDate, timeUnits * 6);
+          
+        case 'year':
+          pixelsPerUnit = 1200;
+          return addYears(chartStartDate, timeUnits);
+          
+        default:
+          return addDays(chartStartDate, timeUnits);
+      }
+    } catch (error) {
+      console.error("Error calculating date from position:", error);
+      return new Date(); // Default to current date on error
+    }
+  };
+  
+  // Handler for starting a drag operation
+  const handleDragStart = (milestoneId: string, clientX: number, type: 'move' | 'resize-start' | 'resize-end') => {
+    const milestone = projectMilestones.find(m => m.id === milestoneId);
+    if (!milestone) return;
+    
+    const startPos = calculateStartPosition(milestone);
+    const width = calculateBarWidth(milestone);
+    
+    setDragState({
+      isActive: true,
+      milestoneId,
+      startX: clientX,
+      originalStartPos: startPos,
+      originalWidth: width,
+      type
+    });
+    
+    // Add event listeners
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+  };
+  
+  // Handler for dragging movement
+  const handleDragMove = useCallback((e: MouseEvent) => {
+    if (!dragState.isActive || !dragState.milestoneId) return;
+    
+    const currentMilestone = projectMilestones.find(m => m.id === dragState.milestoneId);
+    if (!currentMilestone) return;
+    
+    const deltaX = e.clientX - dragState.startX;
+    
+    // Get pixelsPerUnit for the current time scale
+    let pixelsPerUnit = 20; // Default: 20px per day
+    
+    switch (timeScale) {
+      case 'days': pixelsPerUnit = 20; break;
+      case 'weeks': pixelsPerUnit = 100; break;
+      case 'months': pixelsPerUnit = 300; break;
+      case '6-months': pixelsPerUnit = 600; break;
+      case 'year': pixelsPerUnit = 1200; break;
+    }
+    
+    // Create a working copy of the milestone to modify
+    const updatedMilestone = { ...currentMilestone };
+    
+    // Calculate new positions based on drag type
+    if (dragState.type === 'move') {
+      // Move the entire milestone
+      const newStartPos = Math.max(0, dragState.originalStartPos + deltaX);
+      const newStartDate = getDateFromPosition(newStartPos);
+      
+      // Update the milestone dates while keeping the duration the same
+      updatedMilestone.start = newStartDate;
+      
+      // Recalculate end date based on duration
+      if (updatedMilestone.duration !== undefined) {
+        switch (timeScale) {
+          case 'days':
+            updatedMilestone.end = addDays(newStartDate, updatedMilestone.duration);
+            break;
+          case 'weeks':
+            updatedMilestone.end = addDays(newStartDate, updatedMilestone.duration);
+            break;
+          case 'months':
+            updatedMilestone.end = addDays(newStartDate, updatedMilestone.duration);
+            break;
+          case '6-months':
+            updatedMilestone.end = addDays(newStartDate, updatedMilestone.duration);
+            break;
+          case 'year':
+            updatedMilestone.end = addDays(newStartDate, updatedMilestone.duration);
+            break;
+          default:
+            updatedMilestone.end = addDays(newStartDate, updatedMilestone.duration);
+        }
+      }
+    } 
+    else if (dragState.type === 'resize-start') {
+      // Resize the start edge (changes start date and duration)
+      const newStartPos = Math.max(0, dragState.originalStartPos + deltaX);
+      const newStartDate = getDateFromPosition(newStartPos);
+      
+      // Calculate new end position to keep end date fixed
+      const originalEndPos = dragState.originalStartPos + dragState.originalWidth;
+      const newDuration = Math.max(1, differenceInCalendarDays(new Date(currentMilestone.end), newStartDate));
+      
+      updatedMilestone.start = newStartDate;
+      updatedMilestone.duration = newDuration;
+    } 
+    else if (dragState.type === 'resize-end') {
+      // Resize the end edge (changes end date and duration)
+      const newWidth = Math.max(20, dragState.originalWidth + deltaX);
+      const endPos = dragState.originalStartPos + newWidth;
+      const newEndDate = getDateFromPosition(endPos);
+      
+      // Calculate new duration
+      const newDuration = Math.max(1, differenceInCalendarDays(newEndDate, new Date(currentMilestone.start)));
+      
+      updatedMilestone.end = newEndDate;
+      updatedMilestone.duration = newDuration;
+    }
+    
+    // Update the milestone in state
+    setProjectMilestones(prev => 
+      prev.map(m => m.id === dragState.milestoneId ? updatedMilestone : m)
+    );
+    
+  }, [dragState, projectMilestones, timeScale]);
+  
+  // Handler for ending a drag operation
+  const handleDragEnd = useCallback(() => {
+    if (!dragState.isActive || !dragState.milestoneId) {
+      // Reset state and remove handlers
+      setDragState({
+        isActive: false,
+        milestoneId: null,
+        startX: 0,
+        originalStartPos: 0,
+        originalWidth: 0,
+        type: 'move'
+      });
+      
+      document.removeEventListener('mousemove', handleDragMove);
+      document.removeEventListener('mouseup', handleDragEnd);
+      return;
+    }
+    
+    // Get the updated milestone
+    const updatedMilestone = projectMilestones.find(m => m.id === dragState.milestoneId);
+    if (!updatedMilestone || !selectedProject) {
+      // Reset state and remove handlers
+      setDragState({
+        isActive: false,
+        milestoneId: null,
+        startX: 0,
+        originalStartPos: 0,
+        originalWidth: 0,
+        type: 'move'
+      });
+      
+      document.removeEventListener('mousemove', handleDragMove);
+      document.removeEventListener('mouseup', handleDragEnd);
+      return;
+    }
+    
+    // If this is connected to a parent project, update the project data
+    if (onUpdate && selectedProject) {
+      onUpdate(selectedProject, projectMilestones);
+    }
+    
+    // Reset state and remove handlers
+    setDragState({
+      isActive: false,
+      milestoneId: null,
+      startX: 0,
+      originalStartPos: 0,
+      originalWidth: 0,
+      type: 'move'
+    });
+    
+    document.removeEventListener('mousemove', handleDragMove);
+    document.removeEventListener('mouseup', handleDragEnd);
+    
+    toast({
+      title: "Milestone Updated",
+      description: `${updatedMilestone.title} has been updated`,
+    });
+    
+  }, [dragState, onUpdate, projectMilestones, selectedProject, toast, handleDragMove]);
+  
   // Function to add a new milestone
   const handleAddMilestone = () => {
     if (!selectedProject) return;
@@ -1260,16 +1768,70 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   };
   
   // Function to delete a milestone
+  // State for delete confirmation dialog
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [milestoneToDelete, setMilestoneToDelete] = useState<string | null>(null);
+  
   const handleDeleteMilestone = (milestoneId: string) => {
     if (!selectedProject) return;
     
-    setProjectMilestones(prev => prev.filter(m => m.id !== milestoneId));
-    setSelectedMilestoneId(null);
+    // Show confirmation dialog instead of deleting immediately
+    setMilestoneToDelete(milestoneId);
+    setShowDeleteDialog(true);
+  };
+  
+  const confirmDeleteMilestone = () => {
+    if (!selectedProject || !milestoneToDelete) return;
     
-    // If this is connected to a parent project, update the project data
-    if (onUpdate && selectedProject) {
-      onUpdate(selectedProject, projectMilestones.filter(m => m.id !== milestoneId));
+    // Find the milestone to delete to check if it has child milestones
+    const milestone = projectMilestones.find(m => m.id === milestoneToDelete);
+    if (!milestone) {
+      setShowDeleteDialog(false);
+      setMilestoneToDelete(null);
+      return;
     }
+    
+    // Check if this milestone has children (other milestones with this as parent)
+    const hasChildren = projectMilestones.some(m => m.parent === milestone.id);
+    
+    // If it has children, also delete them
+    if (hasChildren) {
+      const childIds = projectMilestones
+        .filter(m => m.parent === milestone.id)
+        .map(m => m.id);
+      
+      // Remove the milestone and all its children
+      const updatedMilestones = projectMilestones.filter(
+        m => m.id !== milestoneToDelete && !childIds.includes(m.id)
+      );
+      
+      setProjectMilestones(updatedMilestones);
+      
+      // If this is connected to a parent project, update the project data
+      if (onUpdate && selectedProject) {
+        onUpdate(selectedProject, updatedMilestones);
+      }
+    } else {
+      // Just remove the single milestone
+      setProjectMilestones(prev => prev.filter(m => m.id !== milestoneToDelete));
+      
+      // If this is connected to a parent project, update the project data
+      if (onUpdate && selectedProject) {
+        onUpdate(selectedProject, projectMilestones.filter(m => m.id !== milestoneToDelete));
+      }
+    }
+    
+    // Clear selection and close dialog
+    setSelectedMilestoneId(null);
+    setShowDeleteDialog(false);
+    setMilestoneToDelete(null);
+    
+    toast({
+      title: "Milestone Deleted",
+      description: hasChildren 
+        ? "The milestone and its sub-milestones have been deleted" 
+        : "The milestone has been deleted",
+    });
   };
   
   // No internal dialog component - using the extracted component instead
@@ -1452,14 +2014,67 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
                             />
                           ) : (
                             <div 
-                              className="gantt-bar"
+                              className={`gantt-bar ${dragState.isActive && dragState.milestoneId === milestone.id ? 'dragging' : ''} ${overlappingMilestones[milestone.id] ? 'milestone-overlap-warning' : ''}`}
                               style={{ 
                                 width: `${width}px`, 
                                 backgroundColor: milestone.color || '#3B82F6',
                                 marginLeft: `${startPosition}px`,
+                                cursor: 'move',
+                                position: 'relative',
                               }}
                               onClick={() => handleSelectMilestone(milestone)}
+                              onMouseDown={(e) => {
+                                // Middle of bar is for moving
+                                if (e.button === 0) { // Left click only
+                                  handleDragStart(milestone.id, e.clientX, 'move');
+                                  e.stopPropagation();
+                                }
+                              }}
                             >
+                              {/* Left resize handle */}
+                              <div 
+                                className="resize-handle resize-handle-left"
+                                style={{
+                                  position: 'absolute',
+                                  left: 0,
+                                  top: 0,
+                                  width: '6px',
+                                  height: '100%',
+                                  cursor: 'w-resize',
+                                  background: 'rgba(0,0,0,0.1)',
+                                  borderTopLeftRadius: '4px',
+                                  borderBottomLeftRadius: '4px',
+                                }}
+                                onMouseDown={(e) => {
+                                  if (e.button === 0) { // Left click only
+                                    handleDragStart(milestone.id, e.clientX, 'resize-start');
+                                    e.stopPropagation();
+                                  }
+                                }}
+                              />
+                              
+                              {/* Right resize handle */}
+                              <div 
+                                className="resize-handle resize-handle-right"
+                                style={{
+                                  position: 'absolute',
+                                  right: 0,
+                                  top: 0,
+                                  width: '6px',
+                                  height: '100%',
+                                  cursor: 'e-resize',
+                                  background: 'rgba(0,0,0,0.1)',
+                                  borderTopRightRadius: '4px',
+                                  borderBottomRightRadius: '4px',
+                                }}
+                                onMouseDown={(e) => {
+                                  if (e.button === 0) { // Left click only
+                                    handleDragStart(milestone.id, e.clientX, 'resize-end');
+                                    e.stopPropagation();
+                                  }
+                                }}
+                              />
+                              
                               {width > 50 && (
                                 <div className="h-full flex items-center px-2 text-white text-xs overflow-hidden whitespace-nowrap">
                                   {milestone.title}
@@ -1499,6 +2114,118 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         projectMilestones={projectMilestones}
         onSave={handleSaveMilestone}
       />
+      
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {milestoneToDelete && (
+              <>
+                <p>Are you sure you want to delete this milestone?</p>
+                {projectMilestones.some(m => m.parent === milestoneToDelete) && (
+                  <p className="mt-2 text-yellow-600 dark:text-yellow-400">
+                    <FontAwesomeIcon icon={faTrash} className="mr-2" />
+                    Warning: This will also delete all sub-milestones.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setMilestoneToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={confirmDeleteMilestone}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Styling for Gantt chart is in index.css */}
+      
+      {/* Render dependency arrows between milestones */}
+      {selectedProject && projectMilestones.length > 0 && (
+        <div className="gantt-dependencies">
+          {projectMilestones.filter(m => m.dependencies && m.dependencies.length > 0).map(milestone => {
+            if (!milestone.dependencies) return null;
+            
+            return milestone.dependencies.map(depId => {
+              const dependsOn = projectMilestones.find(m => m.id === depId);
+              if (!dependsOn) return null;
+              
+              // Calculate positions
+              const sourcePos = calculateStartPosition(dependsOn) + calculateBarWidth(dependsOn);
+              const targetPos = calculateStartPosition(milestone);
+              
+              // Only render if we have valid positions
+              if (sourcePos <= 0 || targetPos <= 0) return null;
+              
+              // Calculate row positions
+              const sourceIndex = projectMilestones.findIndex(m => m.id === dependsOn.id);
+              const targetIndex = projectMilestones.findIndex(m => m.id === milestone.id);
+              
+              if (sourceIndex < 0 || targetIndex < 0) return null;
+              
+              const sourceY = (sourceIndex * 40) + 20; // Center of row
+              const targetY = (targetIndex * 40) + 20;
+              
+              // Calculate arrow path
+              return (
+                <svg 
+                  key={`dep-${milestone.id}-${depId}`}
+                  className="dependency-arrow absolute top-0 left-0 pointer-events-none"
+                  style={{ 
+                    zIndex: 1,
+                    width: '100%',
+                    height: '100%',
+                    overflow: 'visible'
+                  }}
+                >
+                  <path
+                    d={`M ${sourcePos},${sourceY} 
+                        C ${sourcePos + 30},${sourceY} 
+                          ${targetPos - 30},${targetY} 
+                          ${targetPos},${targetY}`}
+                    stroke="#9CA3AF"
+                    strokeWidth="1.5"
+                    fill="none"
+                    strokeDasharray="4 2"
+                    markerEnd="url(#arrowhead)"
+                  />
+                  <defs>
+                    <marker
+                      id="arrowhead"
+                      markerWidth="10"
+                      markerHeight="7"
+                      refX="9"
+                      refY="3.5"
+                      orient="auto"
+                    >
+                      <polygon
+                        points="0 0, 10 3.5, 0 7"
+                        fill="#9CA3AF"
+                      />
+                    </marker>
+                  </defs>
+                </svg>
+              );
+            });
+          })}
+        </div>
+      )}
     </div>
   );
 }
