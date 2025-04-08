@@ -6,13 +6,35 @@ import { Scheduler } from "@aldabil/react-scheduler";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Project } from "@/types/manufacturing";
-import { format, addWeeks, addDays, differenceInCalendarDays, parse, isSameDay } from "date-fns";
+import { 
+  format, 
+  addWeeks, 
+  addDays,
+  addMonths,
+  addYears,
+  differenceInCalendarDays,
+  differenceInWeeks,
+  differenceInMonths,
+  differenceInYears,
+  parse, 
+  isSameDay 
+} from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { faPlus, faEdit, faTrash, faSave, faTimes, faLink, faChevronRight, faChevronDown } from "@fortawesome/pro-light-svg-icons";
+import { 
+  faPlus, 
+  faEdit, 
+  faTrash, 
+  faSave, 
+  faTimes, 
+  faLink, 
+  faChevronRight, 
+  faChevronDown, 
+  faProjectDiagram 
+} from "@fortawesome/pro-light-svg-icons";
 
 // Define the types we need from @aldabil/react-scheduler
 interface ProcessedEvent {
@@ -54,11 +76,7 @@ interface GanttMilestone {
   completed: number; // Percentage completed (0-100)
   isExpanded?: boolean; // Whether children are expanded or collapsed
   key?: string; // Key identifier for the milestone type
-  overlapping?: boolean; // Flag to indicate if this milestone overlaps with others
 }
-
-// Time scale type for Gantt chart view
-type TimeScaleOption = 'days' | 'weeks' | 'months' | '6months' | 'year';
 
 // Define the interface for milestone templates
 interface MilestoneTemplate {
@@ -325,10 +343,19 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
   const [ganttEvents, setGanttEvents] = useState<ProcessedEvent[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeScale, setTimeScale] = useState<TimeScaleOption>('weeks');
-  const [showAllProjects, setShowAllProjects] = useState(false);
-  const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
-  const [detectOverlaps, setDetectOverlaps] = useState(true);
+  
+  // Time scale options
+  const timeScaleOptions = [
+    { value: 'days', label: 'Days' },
+    { value: 'weeks', label: 'Weeks' },
+    { value: 'months', label: 'Months' },
+    { value: '6-months', label: '6 Months' },
+    { value: 'year', label: 'Year' }
+  ];
+  const [timeScale, setTimeScale] = useState<string>('days');
+  
+  // All Projects view
+  const [showAllProjects, setShowAllProjects] = useState<boolean>(false);
 
   // Create project resources
   useEffect(() => {
@@ -1075,13 +1102,52 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
         milestoneStart = new Date(); // Default to current date
       }
       
-      // Calculate position based on days difference
+      // Calculate position based on time difference according to current time scale
       try {
-        // Safely calculate days difference
-        const daysDiff = differenceInCalendarDays(milestoneStart, chartStartDate);
-        return Math.max(daysDiff * 20, 0); // Ensure non-negative position
+        // Get pixels per unit based on time scale
+        let pixelsPerUnit = 20; // Default: 20px per day
+        let timeDiff = 0;
+        
+        switch (timeScale) {
+          case 'days':
+            // Safely calculate days difference
+            timeDiff = differenceInCalendarDays(milestoneStart, chartStartDate);
+            pixelsPerUnit = 20; // 20px per day
+            break;
+            
+          case 'weeks':
+            // Calculate weeks difference and multiply by 7 to get days
+            timeDiff = differenceInWeeks(milestoneStart, chartStartDate);
+            pixelsPerUnit = 100; // 100px per week
+            break;
+            
+          case 'months':
+            // Calculate months difference
+            timeDiff = differenceInMonths(milestoneStart, chartStartDate);
+            pixelsPerUnit = 300; // 300px per month
+            break;
+            
+          case '6-months':
+            // Calculate half-year difference (6 months)
+            timeDiff = Math.floor(differenceInMonths(milestoneStart, chartStartDate) / 6);
+            pixelsPerUnit = 600; // 600px per 6 months
+            break;
+            
+          case 'year':
+            // Calculate years difference
+            timeDiff = differenceInYears(milestoneStart, chartStartDate);
+            pixelsPerUnit = 1200; // 1200px per year
+            break;
+            
+          default:
+            // Default to days scale
+            timeDiff = differenceInCalendarDays(milestoneStart, chartStartDate);
+            pixelsPerUnit = 20; // 20px per day
+        }
+        
+        return Math.max(timeDiff * pixelsPerUnit, 0); // Ensure non-negative position
       } catch (diffError) {
-        console.error("Error calculating days difference:", diffError);
+        console.error("Error calculating time difference:", diffError);
         return 0; // Default position
       }
     } catch (error) {
@@ -1098,8 +1164,49 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
       // Ensure duration is a positive number
       const duration = Math.max(0, milestone.duration);
       
-      // Each day is 20px wide
-      return duration * 20;
+      // Calculate width based on time scale
+      let pixelsPerUnit = 20; // Default: 20px per day
+      let scaledDuration = duration;
+      
+      switch (timeScale) {
+        case 'days':
+          // Each day is 20px wide
+          pixelsPerUnit = 20;
+          scaledDuration = duration;
+          break;
+          
+        case 'weeks':
+          // Convert days to weeks and use 100px per week
+          pixelsPerUnit = 100;
+          scaledDuration = duration / 7;
+          break;
+          
+        case 'months':
+          // Convert days to months (approximate) and use 300px per month
+          pixelsPerUnit = 300;
+          scaledDuration = duration / 30;
+          break;
+          
+        case '6-months':
+          // Convert days to half-years and use 600px per half-year
+          pixelsPerUnit = 600;
+          scaledDuration = duration / 180;
+          break;
+          
+        case 'year':
+          // Convert days to years and use 1200px per year
+          pixelsPerUnit = 1200;
+          scaledDuration = duration / 365;
+          break;
+          
+        default:
+          // Default to days scale
+          pixelsPerUnit = 20;
+          scaledDuration = duration;
+      }
+      
+      // Ensure a minimum width for visibility
+      return Math.max(scaledDuration * pixelsPerUnit, 20);
     } catch (error) {
       console.error("Error calculating bar width:", error);
       return 20; // Default width
@@ -1163,6 +1270,8 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
     if (onUpdate && selectedProject) {
       onUpdate(selectedProject, projectMilestones.filter(m => m.id !== milestoneId));
     }
+  };
+  
   // No internal dialog component - using the extracted component instead
   
   return (
@@ -1206,24 +1315,53 @@ export function ProjectGanttView({ projects, onUpdate }: ProjectGanttViewProps) 
           </Button>
         </div>
         
-        <Select 
-          value={selectedProject?.id || ''} 
-          onValueChange={(value) => {
-            const project = projects.find(p => p.id === value);
-            if (project) handleSelectProject(project);
-          }}
-        >
-          <SelectTrigger className="w-[300px]">
-            <SelectValue placeholder="Select a project" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map(project => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.projectNumber || project.name || project.id}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={showAllProjects ? "default" : "outline"}
+            onClick={() => setShowAllProjects(!showAllProjects)}
+          >
+            <FontAwesomeIcon icon={faProjectDiagram} className="mr-2" />
+            All Projects
+          </Button>
+        
+          <Select 
+            value={selectedProject?.id || ''} 
+            onValueChange={(value) => {
+              if (showAllProjects) setShowAllProjects(false);
+              const project = projects.find(p => p.id === value);
+              if (project) handleSelectProject(project);
+            }}
+            disabled={showAllProjects}
+          >
+            <SelectTrigger className="w-[300px]">
+              <SelectValue placeholder="Select a project" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map(project => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.projectNumber || project.name || project.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select
+            value={timeScale}
+            onValueChange={setTimeScale}
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Time Scale" />
+            </SelectTrigger>
+            <SelectContent>
+              {timeScaleOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       
       {selectedProject ? (
